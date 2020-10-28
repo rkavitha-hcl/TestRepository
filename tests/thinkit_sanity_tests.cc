@@ -22,7 +22,7 @@
 #include "absl/status/statusor.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "gutil/status.h"
+#include "gutil/status_matchers.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4_pdpi/connection_management.h"
 #include "thinkit/mirror_testbed.h"

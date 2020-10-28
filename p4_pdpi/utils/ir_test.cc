@@ -396,7 +396,7 @@ TEST(Ipv6ToNormalizedByteStringTest, InvalidIpv6) {
 TEST(GetFormatTest, MacAnnotationPass) {
   std::vector<std::string> annotations = {"@format(MAC_ADDRESS)"};
   ASSERT_OK_AND_ASSIGN(auto format, GetFormat(annotations, kNumBitsInMac,
-                                              /*is_sdn_string=*/false))
+                                              /*is_sdn_string=*/false));
   EXPECT_EQ(format, Format::MAC);
 }
 
@@ -411,7 +411,7 @@ TEST(GetFormatTest, MacAnnotationInvalidBitwidth) {
 TEST(GetFormatTest, Ipv4AnnotationPass) {
   std::vector<std::string> annotations = {"@format(IPV4_ADDRESS)"};
   ASSERT_OK_AND_ASSIGN(auto format, GetFormat(annotations, kNumBitsInIpv4,
-                                              /*is_sdn_string=*/false))
+                                              /*is_sdn_string=*/false));
   EXPECT_EQ(format, Format::IPV4);
 }
 
@@ -426,7 +426,7 @@ TEST(GetFormatTest, Ipv4AnnotationInvalidBitwidth) {
 TEST(GetFormatTest, Ipv6AnnotationPass) {
   std::vector<std::string> annotations = {"@format(IPV6_ADDRESS)"};
   ASSERT_OK_AND_ASSIGN(auto format, GetFormat(annotations, kNumBitsInIpv6,
-                                              /*is_sdn_string=*/false))
+                                              /*is_sdn_string=*/false));
   EXPECT_EQ(format, Format::IPV6);
 }
 

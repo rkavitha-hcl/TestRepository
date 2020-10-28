@@ -15,6 +15,7 @@
 #ifndef GUTIL_PROTO_MATCHERS_H
 #define GUTIL_PROTO_MATCHERS_H
 
+#include <memory>
 #include <ostream>
 #include <string>
 
@@ -73,6 +74,14 @@ class ProtobufEqMatcher {
   ProtobufEqMatcher(const std::string& expected_text)
       : expected_text_(expected_text) {}
 
+  ProtobufEqMatcher(const ProtobufEqMatcher& other)
+      : expected_text_(other.expected_text_) {
+    if (other.expected_ != nullptr) {
+      expected_.reset(other.expected_->New());
+      expected_->CopyFrom(*other.expected_);
+    }
+  }
+
   void DescribeTo(std::ostream* os) const {
     if (expected_ == nullptr) {
       *os << "\n" << expected_text_;
@@ -116,7 +125,7 @@ class ProtobufEqMatcher {
   }
 
  private:
-  google::protobuf::Message* const expected_ = nullptr;
+  std::unique_ptr<google::protobuf::Message> expected_ = nullptr;
   const std::string expected_text_ = "";
 };
 

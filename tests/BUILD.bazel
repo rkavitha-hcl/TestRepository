@@ -23,4 +23,18 @@ package(
     licenses = ["notice"],
 )
 
-# TODO: Remove strip command and make this build.
+cc_library(
+    name = "thinkit_sanity_tests",
+    testonly = 1,
+    srcs = ["thinkit_sanity_tests.cc"],
+    hdrs = ["thinkit_sanity_tests.h"],
+    deps = [
+        "//gutil:status_matchers",
+        "//p4_pdpi:connection_management",
+        "//thinkit:mirror_testbed",
+        "//thinkit:switch",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_googletest//:gtest",
+    ],
+)
