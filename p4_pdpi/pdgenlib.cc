@@ -272,6 +272,8 @@ StatusOr<std::string> GetTableMessage(const IrTableDefinition& table) {
     }
   }
 
+  absl::StrAppend(&result, "  bytes controller_metadata = 8;\n");
+
   absl::StrAppend(&result, "}");
   return result;
 }

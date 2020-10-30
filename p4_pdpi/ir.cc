@@ -1000,6 +1000,7 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
                                             "priority. Got "
                                          << pi.priority() << " instead";
   }
+  ir.set_controller_metadata(pi.metadata());
 
   // Validate and translate the action.
   if (!pi.has_action()) {
@@ -1097,6 +1098,7 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
                                             "priority. Got "
                                          << ir.priority() << " instead";
   }
+  pi.set_metadata(ir.controller_metadata());
 
   // Validate and translate the action.
   switch (ir.type_case()) {

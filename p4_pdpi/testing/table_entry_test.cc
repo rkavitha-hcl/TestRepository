@@ -1222,6 +1222,17 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                       )PB"),
                       INPUT_IS_VALID);
 
+  RunPdTableEntryTest(info, "metadata",
+                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+                        ternary_table_entry {
+                          match { normal { value: "0x52" mask: "0x273" } }
+                          priority: 32
+                          controller_metadata: "abc"
+                          action { do_thing_3 { arg1: "0x23" arg2: "0x251" } }
+                        }
+                      )PB"),
+                      INPUT_IS_VALID);
+
   RunPdTableEntryTest(
       info, "ternary table for all formats",
       gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(

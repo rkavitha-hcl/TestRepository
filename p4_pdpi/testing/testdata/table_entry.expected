@@ -2396,6 +2396,85 @@ priority: 32
 
 
 =========================================================================
+metadata
+=========================================================================
+
+--- PD (Input):
+ternary_table_entry {
+  match {
+    normal {
+      value: "0x52"
+      mask: "0x273"
+    }
+  }
+  action {
+    do_thing_3 {
+      arg1: "0x23"
+      arg2: "0x251"
+    }
+  }
+  priority: 32
+  controller_metadata: "abc"
+}
+
+--- IR:
+table_name: "ternary_table"
+matches {
+  name: "normal"
+  ternary {
+    value {
+      hex_str: "0x52"
+    }
+    mask {
+      hex_str: "0x273"
+    }
+  }
+}
+priority: 32
+action {
+  name: "do_thing_3"
+  params {
+    name: "arg1"
+    value {
+      hex_str: "0x23"
+    }
+  }
+  params {
+    name: "arg2"
+    value {
+      hex_str: "0x251"
+    }
+  }
+}
+controller_metadata: "abc"
+
+--- PI:
+table_id: 33554435
+match {
+  field_id: 1
+  ternary {
+    value: "R"
+    mask: "\002s"
+  }
+}
+action {
+  action {
+    action_id: 16777219
+    params {
+      param_id: 1
+      value: "#"
+    }
+    params {
+      param_id: 2
+      value: "\002Q"
+    }
+  }
+}
+priority: 32
+metadata: "abc"
+
+
+=========================================================================
 ternary table for all formats
 =========================================================================
 

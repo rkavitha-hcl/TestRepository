@@ -186,6 +186,15 @@ absl::StatusOr<std::string> GetStringField(
   return message.GetReflection()->GetString(message, field_descriptor);
 }
 
+absl::StatusOr<std::string> GetBytesField(
+    const google::protobuf::Message &message, const std::string &fieldname) {
+  ASSIGN_OR_RETURN(auto *field_descriptor,
+                   GetFieldDescriptor(message, fieldname));
+  RETURN_IF_ERROR(ValidateFieldDescriptorType(field_descriptor,
+                                              FieldDescriptor::TYPE_BYTES));
+  return message.GetReflection()->GetString(message, field_descriptor);
+}
+
 absl::Status SetBoolField(google::protobuf::Message *message,
                           const std::string &fieldname, bool value) {
   ASSIGN_OR_RETURN(auto *field_descriptor,
@@ -232,6 +241,16 @@ absl::Status SetStringField(google::protobuf::Message *message,
                    GetFieldDescriptor(*message, fieldname));
   RETURN_IF_ERROR(ValidateFieldDescriptorType(field_descriptor,
                                               FieldDescriptor::TYPE_STRING));
+  message->GetReflection()->SetString(message, field_descriptor, value);
+  return absl::OkStatus();
+}
+
+absl::Status SetBytesField(google::protobuf::Message *message,
+                           const std::string &fieldname, std::string value) {
+  ASSIGN_OR_RETURN(auto *field_descriptor,
+                   GetFieldDescriptor(*message, fieldname));
+  RETURN_IF_ERROR(ValidateFieldDescriptorType(field_descriptor,
+                                              FieldDescriptor::TYPE_BYTES));
   message->GetReflection()->SetString(message, field_descriptor, value);
   return absl::OkStatus();
 }
@@ -768,6 +787,8 @@ absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
   if (ir.priority() != 0) {
     RETURN_IF_ERROR(SetInt32Field(pd_table, "priority", ir.priority()));
   }
+  RETURN_IF_ERROR(
+      SetBytesField(pd_table, "controller_metadata", ir.controller_metadata()));
 
   if (ir_table_info.uses_oneshot()) {
     RETURN_IF_ERROR(IrActionSetToPd(ir_p4info, ir, pd_table));
@@ -862,6 +883,11 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
   const auto &status_or_priority = GetInt32Field(*pd_table, "priority");
   if (status_or_priority.ok()) {
     ir.set_priority(status_or_priority.value());
+  }
+  const auto &status_or_metadata =
+      GetBytesField(*pd_table, "controller_metadata");
+  if (status_or_metadata.ok()) {
+    ir.set_controller_metadata(status_or_metadata.value());
   }
 
   if (ir_table_info.uses_oneshot()) {

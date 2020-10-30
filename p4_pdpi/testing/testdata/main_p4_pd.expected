@@ -55,6 +55,7 @@ message IdTestTableEntry {
   }
   }
   Action action = 2;
+  bytes controller_metadata = 8;
 }
 
 message ExactTableEntry {
@@ -70,6 +71,7 @@ message ExactTableEntry {
     NoAction NoAction = 1;
   }
   Action action = 2;
+  bytes controller_metadata = 8;
 }
 
 message TernaryTableEntry {
@@ -85,6 +87,7 @@ message TernaryTableEntry {
   }
   Action action = 2;
   int32 priority = 3;
+  bytes controller_metadata = 8;
 }
 
 message Lpm1TableEntry {
@@ -96,6 +99,7 @@ message Lpm1TableEntry {
     NoAction NoAction = 1;
   }
   Action action = 2;
+  bytes controller_metadata = 8;
 }
 
 message Lpm2TableEntry {
@@ -107,6 +111,7 @@ message Lpm2TableEntry {
     NoAction NoAction = 1;
   }
   Action action = 2;
+  bytes controller_metadata = 8;
 }
 
 message WcmpTableEntry {
@@ -119,6 +124,7 @@ message WcmpTableEntry {
     int32 weight = 1;
   }
   repeated Action actions = 2;
+  bytes controller_metadata = 8;
 }
 
 message CountAndMeterTableEntry {
@@ -133,6 +139,7 @@ message CountAndMeterTableEntry {
   BytesMeterConfig meter_config = 4;
   int64 byte_counter = 6;
   int64 packet_counter = 7;
+  bytes controller_metadata = 8;
 }
 
 message Wcmp2TableEntry {
@@ -148,6 +155,7 @@ message Wcmp2TableEntry {
     int32 weight = 1;
   }
   repeated Action actions = 2;
+  bytes controller_metadata = 8;
 }
 
 message OptionalTableEntry {
@@ -161,6 +169,7 @@ message OptionalTableEntry {
   }
   Action action = 2;
   int32 priority = 3;
+  bytes controller_metadata = 8;
 }
 
 message ReferredTableEntry {
@@ -172,6 +181,7 @@ message ReferredTableEntry {
     DoThing4Action do_thing_4 = 1;
   }
   Action action = 2;
+  bytes controller_metadata = 8;
 }
 
 message ReferringTableEntry {
@@ -183,6 +193,7 @@ message ReferringTableEntry {
     ReferringAction referring_action = 1;
   }
   Action action = 2;
+  bytes controller_metadata = 8;
 }
 
 
