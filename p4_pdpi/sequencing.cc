@@ -17,6 +17,7 @@
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/types/optional.h"
 #include "boost/graph/adjacency_list.hpp"
 #include "gutil/collections.h"
@@ -170,6 +171,28 @@ absl::StatusOr<std::vector<p4::v1::WriteRequest>> SequenceP4Updates(
     }
   }
   return requests;
+}
+
+// The implementation can be reduced to sorting INSERTS using SequenceP4Updates.
+absl::Status SortTableEntries(const IrP4Info& info,
+                              std::vector<p4::v1::TableEntry>& entries) {
+  std::vector<Update> updates;
+  for (const auto& entry : entries) {
+    Update update;
+    update.set_type(Update::INSERT);
+    *update.mutable_entity()->mutable_table_entry() = entry;
+    updates.push_back(update);
+  }
+
+  ASSIGN_OR_RETURN(std::vector<p4::v1::WriteRequest> requests,
+                   SequenceP4Updates(info, updates));
+  entries.clear();
+  for (const auto& write_request : requests) {
+    for (const auto& update : write_request.updates()) {
+      entries.push_back(update.entity().table_entry());
+    }
+  }
+  return absl::OkStatus();
 }
 
 }  // namespace pdpi

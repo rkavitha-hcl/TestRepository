@@ -24,10 +24,17 @@
 
 namespace pdpi {
 
+// Sequencing functionality, see go/p4-sequencing for details.
+
 // Returns a list of write requests, such that updates are sequenced correctly
-// when the write requests are sent in order. See go/p4-sequencing for details.
+// when the write requests are sent in order.
 absl::StatusOr<std::vector<p4::v1::WriteRequest>> SequenceP4Updates(
     const IrP4Info& info, const std::vector<p4::v1::Update>& updates);
+
+// Sorts the table entries such that entries that are depended on come first.
+// That is, two entries x and y where x refers to y will be sorted as [y, x].
+absl::Status SortTableEntries(const IrP4Info& info,
+                              std::vector<p4::v1::TableEntry>& entries);
 
 }  // namespace pdpi
 

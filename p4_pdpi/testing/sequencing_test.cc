@@ -18,10 +18,12 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "glog/logging.h"
 #include "gutil/status.h"
 #include "gutil/testing.h"
 #include "p4/config/v1/p4info.pb.h"
+#include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/pd.h"
@@ -49,7 +51,9 @@ void SequenceTest(const pdpi::IrP4Info& info, const std::string& test_name,
   }
 
   // Output input.
-  std::cout << TestHeader(test_name) << std::endl << std::endl;
+  std::cout << TestHeader(absl::StrCat("SequenceTest: ", test_name))
+            << std::endl
+            << std::endl;
   std::cout << "--- PD updates (input):" << std::endl;
   if (pd_updates.empty()) std::cout << "<empty>" << std::endl << std::endl;
 
@@ -78,6 +82,49 @@ void SequenceTest(const pdpi::IrP4Info& info, const std::string& test_name,
     std::cout << "WriteRequest #" << i << std::endl;
     i += 1;
     std::cout << pd_write_request.DebugString() << std::endl;
+  }
+}
+
+// Takes a set of PD table entries and sorts them
+void SortTest(const pdpi::IrP4Info& info, const std::string& test_name,
+              const std::vector<std::string> pd_table_entries_strings) {
+  // Convert input to PI.
+  std::vector<p4::v1::TableEntry> pi_entries;
+  std::vector<pdpi::TableEntry> pd_entries;
+  for (const auto& pd_entry_string : pd_table_entries_strings) {
+    const auto pd_entry =
+        gutil::ParseProtoOrDie<pdpi::TableEntry>(pd_entry_string);
+    pd_entries.push_back(pd_entry);
+    const auto pi_entry_or_status = pdpi::PdTableEntryToPi(info, pd_entry);
+    CHECK_OK(pi_entry_or_status.status());
+    const auto& pi_entry = pi_entry_or_status.value();
+    pi_entries.push_back(pi_entry);
+  }
+
+  // Output input.
+  std::cout << TestHeader(absl::StrCat("SortTest: ", test_name)) << std::endl
+            << std::endl;
+  std::cout << "--- PD entries (input):" << std::endl;
+  if (pd_entries.empty()) std::cout << "<empty>" << std::endl << std::endl;
+  for (const auto& entry : pd_entries) {
+    std::cout << entry.DebugString() << std::endl;
+  }
+
+  // Run sorting.
+  absl::Status status = pdpi::SortTableEntries(info, pi_entries);
+  if (!status.ok()) {
+    std::cout << "--- Sorting failed (output):" << std::endl;
+    std::cout << status << std::endl;
+    return;
+  }
+
+  // Output results.
+  std::cout << "--- Sorted entries (output):" << std::endl;
+  if (pi_entries.empty()) std::cout << "<empty>" << std::endl << std::endl;
+  for (const auto& entry : pi_entries) {
+    pdpi::TableEntry pd_entry;
+    CHECK_OK(pdpi::PiTableEntryToPd(info, entry, &pd_entry));
+    std::cout << pd_entry.DebugString() << std::endl;
   }
 }
 
@@ -246,6 +293,20 @@ int main(int argc, char** argv) {
                     }
                   }
                 )PB"});
+
+  SortTest(info, "A referring to B",
+           {R"PB(
+              referring_table_entry {
+                match { val: "0x01" }
+                action { referring_action { referring_id: "key-a" } }
+              }
+            )PB",
+            R"PB(
+              referred_table_entry {
+                match { id: "key-a" }
+                action { do_thing_4 {} }
+              }
+            )PB"});
 
   // TODO: Add negative test (where updates and P4Info are out of sync).
 
