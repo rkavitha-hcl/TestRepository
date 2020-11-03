@@ -19,6 +19,7 @@
 #include <memory>
 
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
 
@@ -30,12 +31,17 @@ class Switch {
  public:
   virtual ~Switch() {}
 
+  // Returns the chassis name of the switch. This should be a reachable
+  // hostname to the switch.
+  virtual absl::string_view ChassisName() = 0;
+
   // Returns the P4Runtime device ID of the switch.
   virtual uint32_t DeviceId() = 0;
 
   // Creates and returns a stub to the P4Runtime service.
   virtual absl::StatusOr<std::unique_ptr<p4::v1::P4Runtime::Stub>>
   CreateP4RuntimeStub() = 0;
+
   // Creates and returns a stub to the gNMI service.
   virtual absl::StatusOr<std::unique_ptr<gnmi::gNMI::Stub>>
   CreateGnmiStub() = 0;

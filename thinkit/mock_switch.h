@@ -18,6 +18,7 @@
 #include <memory>
 
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "gmock/gmock.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
@@ -27,6 +28,7 @@ namespace thinkit {
 
 class MockSwitch : public Switch {
  public:
+  MOCK_METHOD(absl::string_view, ChassisName, (), (override));
   MOCK_METHOD(uint32_t, DeviceId, (), (override));
   MOCK_METHOD(absl::StatusOr<std::unique_ptr<p4::v1::P4Runtime::Stub>>,
               CreateP4RuntimeStub, (), (override));
