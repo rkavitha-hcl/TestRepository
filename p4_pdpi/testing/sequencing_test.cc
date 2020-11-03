@@ -145,7 +145,7 @@ int main(int argc, char** argv) {
                   type: INSERT
                   table_entry {
                     referring_table_entry {
-                      match { val: "0x01" }
+                      match { val: "0x001" }
                       action { referring_action { referring_id: "key-a" } }
                     }
                   }
@@ -164,7 +164,7 @@ int main(int argc, char** argv) {
                   type: DELETE
                   table_entry {
                     referring_table_entry {
-                      match { val: "0x01" }
+                      match { val: "0x001" }
                       action { referring_action { referring_id: "key-a" } }
                     }
                   }
@@ -183,7 +183,7 @@ int main(int argc, char** argv) {
                   type: INSERT
                   table_entry {
                     referring_table_entry {
-                      match { val: "0x01" }
+                      match { val: "0x001" }
                       action { referring_action { referring_id: "key-a" } }
                     }
                   }
@@ -203,7 +203,7 @@ int main(int argc, char** argv) {
          type: INSERT
          table_entry {
            referring_table_entry {
-             match { val: "0x01" }
+             match { val: "0x001" }
              action { referring_action { referring_id: "key-a" } }
            }
          }
@@ -231,7 +231,7 @@ int main(int argc, char** argv) {
                   type: INSERT
                   table_entry {
                     referring_table_entry {
-                      match { val: "0x01" }
+                      match { val: "0x001" }
                       action { referring_action { referring_id: "key-a" } }
                     }
                   }
@@ -249,7 +249,7 @@ int main(int argc, char** argv) {
                   type: INSERT
                   table_entry {
                     referring_table_entry {
-                      match { val: "0x02" }
+                      match { val: "0x002" }
                       action { referring_action { referring_id: "key-b" } }
                     }
                   }
@@ -270,7 +270,7 @@ int main(int argc, char** argv) {
                   type: INSERT
                   table_entry {
                     referring_table_entry {
-                      match { val: "0x01" }
+                      match { val: "0x001" }
                       action { referring_action { referring_id: "key-a" } }
                     }
                   }
@@ -288,7 +288,7 @@ int main(int argc, char** argv) {
                   type: INSERT
                   table_entry {
                     referring_table_entry {
-                      match { val: "0x02" }
+                      match { val: "0x002" }
                       action { referring_action { referring_id: "key-a" } }
                     }
                   }
@@ -297,7 +297,7 @@ int main(int argc, char** argv) {
   SortTest(info, "A referring to B",
            {R"PB(
               referring_table_entry {
-                match { val: "0x01" }
+                match { val: "0x001" }
                 action { referring_action { referring_id: "key-a" } }
               }
             )PB",

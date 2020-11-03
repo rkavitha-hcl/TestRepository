@@ -678,7 +678,7 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           name: "do_thing_1"
                           params {
                             name: "arg2"
-                            value { hex_str: "0x54" }
+                            value { hex_str: "0x01234567" }
                           }
                         }
                       )PB"));
@@ -698,11 +698,11 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           name: "do_thing_1"
                           params {
                             name: "arg2"
-                            value { hex_str: "0x54" }
+                            value { hex_str: "0x01234567" }
                           }
                           params {
                             name: "arg2"
-                            value { hex_str: "0x65" }
+                            value { hex_str: "0x01234568" }
                           }
                         }
                       )PB"));
@@ -722,11 +722,11 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           name: "do_thing_1"
                           params {
                             name: "arg"
-                            value { hex_str: "0x54" }
+                            value { hex_str: "0x01234567" }
                           }
                           params {
                             name: "arg1"
-                            value { hex_str: "0x23" }
+                            value { hex_str: "0x01234568" }
                           }
                         }
                       )PB"));
@@ -748,11 +748,11 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                               name: "do_thing_1"
                               params {
                                 name: "arg2"
-                                value { hex_str: "0x10" }
+                                value { hex_str: "0x01234567" }
                               }
                               params {
                                 name: "arg1"
-                                value { hex_str: "0x11" }
+                                value { hex_str: "0x01234568" }
                               }
                             }
                             weight: 1
@@ -774,11 +774,11 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           name: "do_thing_1"
                           params {
                             name: "arg2"
-                            value { hex_str: "0x10" }
+                            value { hex_str: "0x01234567" }
                           }
                           params {
                             name: "arg1"
-                            value { hex_str: "0x11" }
+                            value { hex_str: "0x01234568" }
                           }
                         }
                       )PB"));
@@ -802,8 +802,8 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                         matches {
                           name: "normal"
                           ternary {
-                            value { hex_str: "0x0100" }
-                            mask { hex_str: "0x00" }
+                            value { hex_str: "0x100" }
+                            mask { hex_str: "0x000" }
                           }
                         }
                         priority: 32
@@ -811,11 +811,11 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           name: "do_thing_1"
                           params {
                             name: "arg2"
-                            value { hex_str: "0x54" }
+                            value { hex_str: "0x01234567" }
                           }
                           params {
                             name: "arg1"
-                            value { hex_str: "0x23" }
+                            value { hex_str: "0x01234568" }
                           }
                         }
                       )PB"));
@@ -826,8 +826,8 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                         matches {
                           name: "normal"
                           ternary {
-                            value { hex_str: "0x0100" }
-                            mask { hex_str: "0x01ff" }
+                            value { hex_str: "0x100" }
+                            mask { hex_str: "0x1ff" }
                           }
                         }
                         priority: 0
@@ -835,11 +835,11 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           name: "do_thing_1"
                           params {
                             name: "arg2"
-                            value { hex_str: "0x54" }
+                            value { hex_str: "0x01234567" }
                           }
                           params {
                             name: "arg1"
-                            value { hex_str: "0x23" }
+                            value { hex_str: "0x01234568" }
                           }
                         }
                       )PB"));
@@ -850,8 +850,8 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                         matches {
                           name: "normal"
                           ternary {
-                            value { hex_str: "0x0100" }
-                            mask { hex_str: "0x01ff" }
+                            value { hex_str: "0x100" }
+                            mask { hex_str: "0x1ff" }
                           }
                         }
                         priority: -32
@@ -859,11 +859,11 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           name: "do_thing_1"
                           params {
                             name: "arg2"
-                            value { hex_str: "0x54" }
+                            value { hex_str: "0x01234567" }
                           }
                           params {
                             name: "arg1"
-                            value { hex_str: "0x23" }
+                            value { hex_str: "0x01234568" }
                           }
                         }
                       )PB"));
@@ -874,19 +874,19 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                         matches {
                           name: "normal"
                           ternary {
-                            value { hex_str: "0x0100" }
-                            mask { hex_str: "0x01ff" }
+                            value { hex_str: "0x100" }
+                            mask { hex_str: "0x1ff" }
                           }
                         }
                         action {
                           name: "do_thing_1"
                           params {
                             name: "arg2"
-                            value { hex_str: "0x54" }
+                            value { hex_str: "0x01234567" }
                           }
                           params {
                             name: "arg1"
-                            value { hex_str: "0x23" }
+                            value { hex_str: "0x01234568" }
                           }
                         }
                       )PB"));
@@ -983,7 +983,7 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                           match { ipv6: "::ff22" }
                           action {
                             do_thing_2 {
-                              normal: "0x54"
+                              normal: "0x054"
                               ipv4: "10.43.12.5"
                               ipv6: "3242::fee2"
                               mac: "00:11:22:33:44:55"
@@ -1028,7 +1028,7 @@ static void RunPdTests(const pdpi::IrP4Info info) {
       gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
         ternary_table_entry {
           match {
-            normal { value: "0x52" mask: "0x00" }
+            normal { value: "0x052" mask: "0x000" }
             ipv4 { value: "10.43.12.4" mask: "10.43.12.5" }
             ipv6 { value: "::ee66" mask: "::ff77" }
             mac { value: "11:22:33:44:55:66" mask: "33:66:77:66:77:77" }
@@ -1054,7 +1054,7 @@ static void RunPdTests(const pdpi::IrP4Info info) {
       gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
         ternary_table_entry {
           match {
-            normal { value: "0x52" mask: "0x01" }
+            normal { value: "0x052" mask: "0x001" }
             ipv4 { value: "10.43.12.4" mask: "10.43.12.5" }
             ipv6 { value: "::ee66" mask: "::ff77" }
             mac { value: "11:22:33:44:55:66" mask: "33:66:77:66:77:77" }
@@ -1071,7 +1071,7 @@ static void RunPdTests(const pdpi::IrP4Info info) {
         id_test_table_entry {
           match { ipv6: "::ff22" ipv4: "16.36.50.82" }
           action {
-            do_thing_2 { normal: "0x54" mac: "00:11:22:33:44:55" str: "hello" }
+            do_thing_2 { normal: "0x054" mac: "00:11:22:33:44:55" str: "hello" }
           }
         }
       )PB"),
@@ -1099,7 +1099,7 @@ static void RunPdTests(const pdpi::IrP4Info info) {
       gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
         ternary_table_entry {
           match {
-            normal { value: "0x52" mask: "0x0273" }
+            normal { value: "0x052" mask: "0x273" }
             ipv4 { value: "10.43.12.4" mask: "10.43.12.5" }
             ipv6 { value: "::ee66" mask: "::ff77" }
             mac { value: "11:22:33:44:55:66" mask: "33:66:77:66:77:77" }
@@ -1115,13 +1115,13 @@ static void RunPdTests(const pdpi::IrP4Info info) {
       gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
         ternary_table_entry {
           match {
-            normal { value: "0x52" mask: "0x0273" }
+            normal { value: "0x052" mask: "0x273" }
             ipv4 { value: "10.43.12.4" mask: "10.43.12.5" }
             ipv6 { value: "::ee66" mask: "::ff77" }
             mac { value: "11:22:33:44:55:66" mask: "33:66:77:66:77:77" }
           }
           priority: -43
-          action { do_thing_3 { arg1: "0x23" arg2: "0x0251" } }
+          action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
         }
       )PB"),
       INPUT_IS_INVALID);
@@ -1131,12 +1131,12 @@ static void RunPdTests(const pdpi::IrP4Info info) {
       gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
         ternary_table_entry {
           match {
-            normal { value: "0x52" mask: "0x0273" }
+            normal { value: "0x052" mask: "0x273" }
             ipv4 { value: "10.43.12.4" mask: "10.43.12.5" }
             ipv6 { value: "::ee66" mask: "::ff77" }
             mac { value: "11:22:33:44:55:66" mask: "33:66:77:66:77:77" }
           }
-          action { do_thing_3 { arg1: "0x23" arg2: "0x0251" } }
+          action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
         }
       )PB"),
       INPUT_IS_INVALID);
@@ -1147,7 +1147,7 @@ static void RunPdTests(const pdpi::IrP4Info info) {
         wcmp_table_entry {
           match { ipv4 { value: "0.0.255.0" prefix_length: 24 } }
           actions {
-            do_thing_1 { arg2: "0x8" arg1: "0x9" }
+            do_thing_1 { arg2: "0x01234567" arg1: "0x01234568" }
             weight: -1
           }
         }
@@ -1160,11 +1160,11 @@ static void RunPdTests(const pdpi::IrP4Info info) {
         wcmp2_table_entry {
           match { ipv4 { value: "0.0.255.0" prefix_length: 24 } }
           actions {
-            do_thing_1 { arg2: "0x8" arg1: "0x9" }
+            do_thing_1 { arg2: "0x01234567" arg1: "0x01234568" }
             weight: 1
           }
           actions {
-            do_thing_1 { arg2: "0x10" arg1: "0x11" }
+            do_thing_1 { arg2: "0x01234569" arg1: "0x01234560" }
             weight: 2
           }
         }
@@ -1176,11 +1176,11 @@ static void RunPdTests(const pdpi::IrP4Info info) {
         wcmp_table_entry {
           match { ipv4 { value: "0.0.255.0" prefix_length: 24 } }
           actions {
-            do_thing_1 { arg2: "0x8" arg1: "0x9" }
+            do_thing_1 { arg2: "0x01234567" arg1: "0x01234568" }
             weight: 1
           }
           actions {
-            do_thing_1 { arg2: "0x10" arg1: "0x11" }
+            do_thing_1 { arg2: "0x01234569" arg1: "0x01234560" }
             weight: 2
           }
         }
@@ -1191,7 +1191,7 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                       gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
                         exact_table_entry {
                           match {
-                            normal: "0x54"
+                            normal: "0x054"
                             ipv4: "10.43.12.5"
                             ipv6: "3242::fee2"
                             mac: "00:11:22:33:44:55"
@@ -1202,49 +1202,51 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                       )PB"),
                       INPUT_IS_VALID);
 
-  RunPdTableEntryTest(info, "valid optional table missing a match",
-                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
-                        optional_table_entry {
-                          match { ipv6 { value: "3242::fee2" } }
-                          action { do_thing_1 { arg2: "0x10" arg1: "0x11" } }
-                          priority: 32
-                        }
-                      )PB"),
-                      INPUT_IS_VALID);
+  RunPdTableEntryTest(
+      info, "valid optional table missing a match",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+        optional_table_entry {
+          match { ipv6 { value: "3242::fee2" } }
+          action { do_thing_1 { arg2: "0x01234567" arg1: "0x01234568" } }
+          priority: 32
+        }
+      )PB"),
+      INPUT_IS_VALID);
 
-  RunPdTableEntryTest(info, "ternary with wildcard",
-                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
-                        ternary_table_entry {
-                          match { normal { value: "0x52" mask: "0x273" } }
-                          priority: 32
-                          action { do_thing_3 { arg1: "0x23" arg2: "0x251" } }
-                        }
-                      )PB"),
-                      INPUT_IS_VALID);
+  RunPdTableEntryTest(
+      info, "ternary with wildcard",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+        ternary_table_entry {
+          match { normal { value: "0x052" mask: "0x273" } }
+          priority: 32
+          action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
+        }
+      )PB"),
+      INPUT_IS_VALID);
 
-  RunPdTableEntryTest(info, "metadata",
-                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
-                        ternary_table_entry {
-                          match { normal { value: "0x52" mask: "0x273" } }
-                          priority: 32
-                          controller_metadata: "abc"
-                          action { do_thing_3 { arg1: "0x23" arg2: "0x251" } }
-                        }
-                      )PB"),
-                      INPUT_IS_VALID);
+  RunPdTableEntryTest(
+      info, "metadata", gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+        ternary_table_entry {
+          match { normal { value: "0x052" mask: "0x273" } }
+          priority: 32
+          controller_metadata: "abc"
+          action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
+        }
+      )PB"),
+      INPUT_IS_VALID);
 
   RunPdTableEntryTest(
       info, "ternary table for all formats",
       gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
         ternary_table_entry {
           match {
-            normal { value: "0x52" mask: "0x273" }
+            normal { value: "0x052" mask: "0x273" }
             ipv4 { value: "10.43.12.4" mask: "10.43.12.5" }
             ipv6 { value: "::ee66" mask: "::ff77" }
             mac { value: "11:22:33:44:55:66" mask: "33:66:77:66:77:77" }
           }
           priority: 32
-          action { do_thing_3 { arg1: "0x23" arg2: "0x251" } }
+          action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
         }
       )PB"),
       INPUT_IS_VALID);
@@ -1273,7 +1275,7 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                           match { ipv6: "::ff22" ipv4: "16.36.50.82" }
                           action {
                             do_thing_2 {
-                              normal: "0x54"
+                              normal: "0x054"
                               ipv4: "10.43.12.5"
                               ipv6: "3242::fee2"
                               mac: "00:11:22:33:44:55"

@@ -339,9 +339,9 @@ static void RunReadResponseTests(pdpi::IrP4Info info) {
       gutil::ParseProtoOrDie<pdpi::ReadResponse>(R"PB(
         table_entries {
           ternary_table_entry {
-            match { normal { value: "0x52" mask: "0x273" } }
+            match { normal { value: "0x052" mask: "0x273" } }
             priority: 32
-            action { do_thing_3 { arg1: "0x23" arg2: "0x251" } }
+            action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
           }
         }
       )PB"),
@@ -351,16 +351,16 @@ static void RunReadResponseTests(pdpi::IrP4Info info) {
       info, "multiple tables", gutil::ParseProtoOrDie<pdpi::ReadResponse>(R"PB(
         table_entries {
           ternary_table_entry {
-            match { normal { value: "0x52" mask: "0x273" } }
+            match { normal { value: "0x052" mask: "0x273" } }
             priority: 32
-            action { do_thing_3 { arg1: "0x23" arg2: "0x251" } }
+            action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
           }
         }
         table_entries {
           ternary_table_entry {
-            match { normal { value: "0x52" mask: "0x273" } }
+            match { normal { value: "0x052" mask: "0x273" } }
             priority: 32
-            action { do_thing_3 { arg1: "0x23" arg2: "0x251" } }
+            action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
           }
         }
       )PB"),
@@ -385,30 +385,30 @@ static void RunUpdateTests(pdpi::IrP4Info info) {
   // Invalid IR update table_entries are tested in table_entry_test.cc and
   // invalid type is tested in PD tests. No RunIrUpdateTest is needed.
 
-  RunPdUpdateTest(info, "missing type",
-                  gutil::ParseProtoOrDie<pdpi::Update>(R"PB(
-                    table_entry {
-                      ternary_table_entry {
-                        match { normal { value: "0x52" mask: "0x273" } }
-                        priority: 32
-                        action { do_thing_3 { arg1: "0x23" arg2: "0x251" } }
-                      }
-                    }
-                  )PB"),
-                  INPUT_IS_INVALID);
+  RunPdUpdateTest(
+      info, "missing type", gutil::ParseProtoOrDie<pdpi::Update>(R"PB(
+        table_entry {
+          ternary_table_entry {
+            match { normal { value: "0x052" mask: "0x273" } }
+            priority: 32
+            action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
+          }
+        }
+      )PB"),
+      INPUT_IS_INVALID);
 
-  RunPdUpdateTest(info, "valid ternary table",
-                  gutil::ParseProtoOrDie<pdpi::Update>(R"PB(
-                    type: MODIFY
-                    table_entry {
-                      ternary_table_entry {
-                        match { normal { value: "0x52" mask: "0x273" } }
-                        priority: 32
-                        action { do_thing_3 { arg1: "0x23" arg2: "0x251" } }
-                      }
-                    }
-                  )PB"),
-                  INPUT_IS_VALID);
+  RunPdUpdateTest(
+      info, "valid ternary table", gutil::ParseProtoOrDie<pdpi::Update>(R"PB(
+        type: MODIFY
+        table_entry {
+          ternary_table_entry {
+            match { normal { value: "0x052" mask: "0x273" } }
+            priority: 32
+            action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
+          }
+        }
+      )PB"),
+      INPUT_IS_VALID);
 }
 
 static void RunWriteRequestTests(pdpi::IrP4Info info) {
@@ -448,9 +448,9 @@ static void RunWriteRequestTests(pdpi::IrP4Info info) {
           type: MODIFY
           table_entry {
             ternary_table_entry {
-              match { normal { value: "0x52" mask: "0x273" } }
+              match { normal { value: "0x052" mask: "0x273" } }
               priority: 32
-              action { do_thing_3 { arg1: "0x23" arg2: "0x251" } }
+              action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
             }
           }
         }
@@ -464,9 +464,9 @@ static void RunWriteRequestTests(pdpi::IrP4Info info) {
           type: MODIFY
           table_entry {
             ternary_table_entry {
-              match { normal { value: "0x52" mask: "0x273" } }
+              match { normal { value: "0x052" mask: "0x273" } }
               priority: 32
-              action { do_thing_3 { arg1: "0x23" arg2: "0x251" } }
+              action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
             }
           }
         }
@@ -474,9 +474,9 @@ static void RunWriteRequestTests(pdpi::IrP4Info info) {
           type: DELETE
           table_entry {
             ternary_table_entry {
-              match { normal { value: "0x52" mask: "0x273" } }
+              match { normal { value: "0x052" mask: "0x273" } }
               priority: 32
-              action { do_thing_3 { arg1: "0x23" arg2: "0x251" } }
+              action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
             }
           }
         }

@@ -133,14 +133,14 @@ table_entries {
   ternary_table_entry {
     match {
       normal {
-        value: "0x52"
+        value: "0x052"
         mask: "0x273"
       }
     }
     action {
       do_thing_3 {
-        arg1: "0x23"
-        arg2: "0x251"
+        arg1: "0x01234567"
+        arg2: "0x01234568"
       }
     }
     priority: 32
@@ -154,7 +154,7 @@ table_entries {
     name: "normal"
     ternary {
       value {
-        hex_str: "0x52"
+        hex_str: "0x052"
       }
       mask {
         hex_str: "0x273"
@@ -167,13 +167,13 @@ table_entries {
     params {
       name: "arg1"
       value {
-        hex_str: "0x23"
+        hex_str: "0x01234567"
       }
     }
     params {
       name: "arg2"
       value {
-        hex_str: "0x251"
+        hex_str: "0x01234568"
       }
     }
   }
@@ -195,11 +195,11 @@ entities {
         action_id: 16777219
         params {
           param_id: 1
-          value: "#"
+          value: "\001#Eg"
         }
         params {
           param_id: 2
-          value: "\002Q"
+          value: "\001#Eh"
         }
       }
     }
@@ -217,14 +217,14 @@ table_entries {
   ternary_table_entry {
     match {
       normal {
-        value: "0x52"
+        value: "0x052"
         mask: "0x273"
       }
     }
     action {
       do_thing_3 {
-        arg1: "0x23"
-        arg2: "0x251"
+        arg1: "0x01234567"
+        arg2: "0x01234568"
       }
     }
     priority: 32
@@ -234,14 +234,14 @@ table_entries {
   ternary_table_entry {
     match {
       normal {
-        value: "0x52"
+        value: "0x052"
         mask: "0x273"
       }
     }
     action {
       do_thing_3 {
-        arg1: "0x23"
-        arg2: "0x251"
+        arg1: "0x01234567"
+        arg2: "0x01234568"
       }
     }
     priority: 32
@@ -255,7 +255,7 @@ table_entries {
     name: "normal"
     ternary {
       value {
-        hex_str: "0x52"
+        hex_str: "0x052"
       }
       mask {
         hex_str: "0x273"
@@ -268,13 +268,13 @@ table_entries {
     params {
       name: "arg1"
       value {
-        hex_str: "0x23"
+        hex_str: "0x01234567"
       }
     }
     params {
       name: "arg2"
       value {
-        hex_str: "0x251"
+        hex_str: "0x01234568"
       }
     }
   }
@@ -285,7 +285,7 @@ table_entries {
     name: "normal"
     ternary {
       value {
-        hex_str: "0x52"
+        hex_str: "0x052"
       }
       mask {
         hex_str: "0x273"
@@ -298,13 +298,13 @@ table_entries {
     params {
       name: "arg1"
       value {
-        hex_str: "0x23"
+        hex_str: "0x01234567"
       }
     }
     params {
       name: "arg2"
       value {
-        hex_str: "0x251"
+        hex_str: "0x01234568"
       }
     }
   }
@@ -326,11 +326,11 @@ entities {
         action_id: 16777219
         params {
           param_id: 1
-          value: "#"
+          value: "\001#Eg"
         }
         params {
           param_id: 2
-          value: "\002Q"
+          value: "\001#Eh"
         }
       }
     }
@@ -352,11 +352,11 @@ entities {
         action_id: 16777219
         params {
           param_id: 1
-          value: "#"
+          value: "\001#Eg"
         }
         params {
           param_id: 2
-          value: "\002Q"
+          value: "\001#Eh"
         }
       }
     }
@@ -410,14 +410,14 @@ table_entry {
   ternary_table_entry {
     match {
       normal {
-        value: "0x52"
+        value: "0x052"
         mask: "0x273"
       }
     }
     action {
       do_thing_3 {
-        arg1: "0x23"
-        arg2: "0x251"
+        arg1: "0x01234567"
+        arg2: "0x01234568"
       }
     }
     priority: 32
@@ -436,14 +436,14 @@ table_entry {
   ternary_table_entry {
     match {
       normal {
-        value: "0x52"
+        value: "0x052"
         mask: "0x273"
       }
     }
     action {
       do_thing_3 {
-        arg1: "0x23"
-        arg2: "0x251"
+        arg1: "0x01234567"
+        arg2: "0x01234568"
       }
     }
     priority: 32
@@ -458,7 +458,7 @@ table_entry {
     name: "normal"
     ternary {
       value {
-        hex_str: "0x52"
+        hex_str: "0x052"
       }
       mask {
         hex_str: "0x273"
@@ -471,13 +471,13 @@ table_entry {
     params {
       name: "arg1"
       value {
-        hex_str: "0x23"
+        hex_str: "0x01234567"
       }
     }
     params {
       name: "arg2"
       value {
-        hex_str: "0x251"
+        hex_str: "0x01234568"
       }
     }
   }
@@ -500,11 +500,11 @@ entity {
         action_id: 16777219
         params {
           param_id: 1
-          value: "#"
+          value: "\001#Eg"
         }
         params {
           param_id: 2
-          value: "\002Q"
+          value: "\001#Eh"
         }
       }
     }
@@ -586,14 +586,14 @@ updates {
     ternary_table_entry {
       match {
         normal {
-          value: "0x52"
+          value: "0x052"
           mask: "0x273"
         }
       }
       action {
         do_thing_3 {
-          arg1: "0x23"
-          arg2: "0x251"
+          arg1: "0x01234567"
+          arg2: "0x01234568"
         }
       }
       priority: 32
@@ -615,7 +615,7 @@ updates {
       name: "normal"
       ternary {
         value {
-          hex_str: "0x52"
+          hex_str: "0x052"
         }
         mask {
           hex_str: "0x273"
@@ -628,13 +628,13 @@ updates {
       params {
         name: "arg1"
         value {
-          hex_str: "0x23"
+          hex_str: "0x01234567"
         }
       }
       params {
         name: "arg2"
         value {
-          hex_str: "0x251"
+          hex_str: "0x01234568"
         }
       }
     }
@@ -664,11 +664,11 @@ updates {
           action_id: 16777219
           params {
             param_id: 1
-            value: "#"
+            value: "\001#Eg"
           }
           params {
             param_id: 2
-            value: "\002Q"
+            value: "\001#Eh"
           }
         }
       }
@@ -694,14 +694,14 @@ updates {
     ternary_table_entry {
       match {
         normal {
-          value: "0x52"
+          value: "0x052"
           mask: "0x273"
         }
       }
       action {
         do_thing_3 {
-          arg1: "0x23"
-          arg2: "0x251"
+          arg1: "0x01234567"
+          arg2: "0x01234568"
         }
       }
       priority: 32
@@ -714,14 +714,14 @@ updates {
     ternary_table_entry {
       match {
         normal {
-          value: "0x52"
+          value: "0x052"
           mask: "0x273"
         }
       }
       action {
         do_thing_3 {
-          arg1: "0x23"
-          arg2: "0x251"
+          arg1: "0x01234567"
+          arg2: "0x01234568"
         }
       }
       priority: 32
@@ -743,7 +743,7 @@ updates {
       name: "normal"
       ternary {
         value {
-          hex_str: "0x52"
+          hex_str: "0x052"
         }
         mask {
           hex_str: "0x273"
@@ -756,13 +756,13 @@ updates {
       params {
         name: "arg1"
         value {
-          hex_str: "0x23"
+          hex_str: "0x01234567"
         }
       }
       params {
         name: "arg2"
         value {
-          hex_str: "0x251"
+          hex_str: "0x01234568"
         }
       }
     }
@@ -776,7 +776,7 @@ updates {
       name: "normal"
       ternary {
         value {
-          hex_str: "0x52"
+          hex_str: "0x052"
         }
         mask {
           hex_str: "0x273"
@@ -789,13 +789,13 @@ updates {
       params {
         name: "arg1"
         value {
-          hex_str: "0x23"
+          hex_str: "0x01234567"
         }
       }
       params {
         name: "arg2"
         value {
-          hex_str: "0x251"
+          hex_str: "0x01234568"
         }
       }
     }
@@ -825,11 +825,11 @@ updates {
           action_id: 16777219
           params {
             param_id: 1
-            value: "#"
+            value: "\001#Eg"
           }
           params {
             param_id: 2
-            value: "\002Q"
+            value: "\001#Eh"
           }
         }
       }
@@ -854,11 +854,11 @@ updates {
           action_id: 16777219
           params {
             param_id: 1
-            value: "#"
+            value: "\001#Eg"
           }
           params {
             param_id: 2
-            value: "\002Q"
+            value: "\001#Eh"
           }
         }
       }

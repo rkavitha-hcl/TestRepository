@@ -59,7 +59,7 @@ PacketIn test: ok
 --- PD (Input):
 payload: "1"
 metadata {
-  ingress_port: "0x34"
+  ingress_port: "0x034"
   target_egress_port: "eth-1/2/3"
 }
 
@@ -68,7 +68,7 @@ payload: "1"
 metadata {
   name: "ingress_port"
   value {
-    hex_str: "0x34"
+    hex_str: "0x034"
   }
 }
 metadata {

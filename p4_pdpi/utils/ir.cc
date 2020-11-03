@@ -356,10 +356,14 @@ absl::StatusOr<IrValue> ArbitraryByteStringToIrValue(const Format &format,
       break;
     }
     case Format::HEX_STRING: {
-      auto hex_string = absl::BytesToHexString(
-          NormalizedToCanonicalByteString(normalized_bytes));
-      hex_string.erase(0, std::min(hex_string.find_first_not_of('0'),
-                                   hex_string.size() - 1));
+      auto hex_string = absl::BytesToHexString(normalized_bytes);
+      const int expected_num_hex_chars =
+          bitwidth / 4 + (bitwidth % 4 != 0 ? 1 : 0);
+      if (expected_num_hex_chars != hex_string.size()) {
+        // absl::BytesToHexString operates on bytes (= 8 bits), but we want to
+        // operate on nibbles (= 4 bits). This fixes the length as necessary.
+        hex_string = hex_string.substr(1);
+      }
       result.set_hex_str(absl::StrCat("0x", hex_string));
       break;
     }
@@ -455,12 +459,21 @@ absl::StatusOr<std::string> IrValueToNormalizedByteString(
     }
     case IrValue::kHexStr: {
       const std::string &hex_str = ir_value.hex_str();
+      const int expected_num_hex_chars =
+          bitwidth / 4 + (bitwidth % 4 != 0 ? 1 : 0);
       if (!absl::StartsWith(hex_str, "0x")) {
         return gutil::InvalidArgumentErrorBuilder()
                << "IR Value \"" << hex_str
                << "\" with hex string format does not start with 0x";
       }
       absl::string_view stripped_hex = absl::StripPrefix(hex_str, "0x");
+      if (expected_num_hex_chars != stripped_hex.size()) {
+        return gutil::InvalidArgumentErrorBuilder()
+               << "IR Value \"" << hex_str
+               << "\" has the wrong number of characters. Has "
+               << hex_str.size() << " characters, but expected "
+               << (expected_num_hex_chars + 2) << " instead.";
+      }
       if (!std::all_of(stripped_hex.begin(), stripped_hex.end(),
                        [](const char c) {
                          return std::isxdigit(c) != 0 && c == std::tolower(c);

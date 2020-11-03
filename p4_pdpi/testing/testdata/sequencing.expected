@@ -17,7 +17,7 @@ type: INSERT
 table_entry {
   referring_table_entry {
     match {
-      val: "0x01"
+      val: "0x001"
     }
     action {
       referring_action {
@@ -63,7 +63,7 @@ updates {
   table_entry {
     referring_table_entry {
       match {
-        val: "0x1"
+        val: "0x001"
       }
       action {
         referring_action {
@@ -83,7 +83,7 @@ type: DELETE
 table_entry {
   referring_table_entry {
     match {
-      val: "0x01"
+      val: "0x001"
     }
     action {
       referring_action {
@@ -113,7 +113,7 @@ updates {
   table_entry {
     referring_table_entry {
       match {
-        val: "0x1"
+        val: "0x001"
       }
       action {
         referring_action {
@@ -149,7 +149,7 @@ type: INSERT
 table_entry {
   referring_table_entry {
     match {
-      val: "0x01"
+      val: "0x001"
     }
     action {
       referring_action {
@@ -179,7 +179,7 @@ updates {
   table_entry {
     referring_table_entry {
       match {
-        val: "0x1"
+        val: "0x001"
       }
       action {
         referring_action {
@@ -213,7 +213,7 @@ type: INSERT
 table_entry {
   referring_table_entry {
     match {
-      val: "0x01"
+      val: "0x001"
     }
     action {
       referring_action {
@@ -292,7 +292,7 @@ updates {
   table_entry {
     referring_table_entry {
       match {
-        val: "0x1"
+        val: "0x001"
       }
       action {
         referring_action {
@@ -312,7 +312,7 @@ type: INSERT
 table_entry {
   referring_table_entry {
     match {
-      val: "0x01"
+      val: "0x001"
     }
     action {
       referring_action {
@@ -339,7 +339,7 @@ type: INSERT
 table_entry {
   referring_table_entry {
     match {
-      val: "0x02"
+      val: "0x002"
     }
     action {
       referring_action {
@@ -399,7 +399,7 @@ updates {
   table_entry {
     referring_table_entry {
       match {
-        val: "0x1"
+        val: "0x001"
       }
       action {
         referring_action {
@@ -414,7 +414,7 @@ updates {
   table_entry {
     referring_table_entry {
       match {
-        val: "0x2"
+        val: "0x002"
       }
       action {
         referring_action {
@@ -434,7 +434,7 @@ type: INSERT
 table_entry {
   referring_table_entry {
     match {
-      val: "0x01"
+      val: "0x001"
     }
     action {
       referring_action {
@@ -461,7 +461,7 @@ type: INSERT
 table_entry {
   referring_table_entry {
     match {
-      val: "0x02"
+      val: "0x002"
     }
     action {
       referring_action {
@@ -494,7 +494,7 @@ updates {
   table_entry {
     referring_table_entry {
       match {
-        val: "0x1"
+        val: "0x001"
       }
       action {
         referring_action {
@@ -509,7 +509,7 @@ updates {
   table_entry {
     referring_table_entry {
       match {
-        val: "0x2"
+        val: "0x002"
       }
       action {
         referring_action {
@@ -527,7 +527,7 @@ SortTest: A referring to B
 --- PD entries (input):
 referring_table_entry {
   match {
-    val: "0x01"
+    val: "0x001"
   }
   action {
     referring_action {
@@ -559,7 +559,7 @@ referred_table_entry {
 
 referring_table_entry {
   match {
-    val: "0x1"
+    val: "0x001"
   }
   action {
     referring_action {
