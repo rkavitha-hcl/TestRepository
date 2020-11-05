@@ -59,7 +59,7 @@ void SequenceTest(const pdpi::IrP4Info& info, const std::string& test_name,
 
   // Run sequencing.
   absl::StatusOr<std::vector<WriteRequest>> result_or_status =
-      pdpi::SequenceP4Updates(info, pi_updates);
+      pdpi::SequencePiUpdatesIntoWriteRequests(info, pi_updates);
   if (!result_or_status.status().ok()) {
     std::cout << "--- Sequencing failed (output):" << std::endl;
     std::cout << result_or_status.status() << std::endl;

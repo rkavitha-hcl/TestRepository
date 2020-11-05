@@ -35,7 +35,7 @@ using ::p4::v1::WriteRequest;
 using Graph =
     boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS>;
 // Boost uses integers to identify vertices.
-using Vertex = int64_t;
+using Vertex = int;
 
 // Describing a foreign key (table + match field) as well as the value of that
 // match field (in this order).
@@ -134,7 +134,19 @@ absl::StatusOr<Graph> BuildDependencyGraph(const IrP4Info& info,
 
 }  // namespace
 
-absl::StatusOr<std::vector<p4::v1::WriteRequest>> SequenceP4Updates(
+absl::StatusOr<std::vector<p4::v1::WriteRequest>>
+SequencePiUpdatesIntoWriteRequests(const IrP4Info& info,
+                                   const std::vector<Update>& updates) {
+  std::vector<WriteRequest> requests;
+  ASSIGN_OR_RETURN(const auto batches, SequencePiUpdatesInPlace(info, updates));
+  for (const std::vector<int>& batch : batches) {
+    WriteRequest& request = requests.emplace_back();
+    for (int i : batch) *request.add_updates() = updates[i];
+  }
+  return requests;
+}
+
+absl::StatusOr<std::vector<std::vector<int>>> SequencePiUpdatesInPlace(
     const IrP4Info& info, const std::vector<Update>& updates) {
   ASSIGN_OR_RETURN(Graph graph, BuildDependencyGraph(info, updates));
 
@@ -145,35 +157,28 @@ absl::StatusOr<std::vector<p4::v1::WriteRequest>> SequenceP4Updates(
     }
   }
 
-  std::vector<WriteRequest> requests;
+  std::vector<std::vector<int>> batches;
   while (!roots.empty()) {
-    // New write request for the current roots.
-    WriteRequest request;
-    for (Vertex root : roots) {
-      *request.add_updates() = updates[root];
-    }
-    requests.push_back(request);
+    // The roots have no incoming dependency edges, hence can be batched.
+    batches.push_back(roots);
 
     // Remove edges for old roots and add new roots.
-    // Using btree_set to get deterministic order when iterating.
-    absl::btree_set<Vertex> new_roots;
+    std::vector<Vertex> new_roots;
     for (Vertex root : roots) {
       for (const auto& edge : graph.out_edge_list(root)) {
-        if (boost::in_degree(edge.get_target(), graph) == 1) {
-          new_roots.insert(edge.get_target());
-        }
+        Vertex target = edge.get_target();
+        // Is this the final `edge` into `target`?
+        if (boost::in_degree(target, graph) == 1) new_roots.push_back(target);
       }
       boost::clear_vertex(root, graph);
     }
-    roots.clear();
-    for (Vertex new_root : new_roots) {
-      roots.push_back(new_root);
-    }
+    roots.swap(new_roots);
   }
-  return requests;
+  return batches;
 }
 
-// The implementation can be reduced to sorting INSERTS using SequenceP4Updates.
+// The implementation can be reduced to sorting INSERTS using
+// SequencePiUpdatesIntoWriteRequests.
 absl::Status SortTableEntries(const IrP4Info& info,
                               std::vector<p4::v1::TableEntry>& entries) {
   std::vector<Update> updates;
@@ -185,7 +190,7 @@ absl::Status SortTableEntries(const IrP4Info& info,
   }
 
   ASSIGN_OR_RETURN(std::vector<p4::v1::WriteRequest> requests,
-                   SequenceP4Updates(info, updates));
+                   SequencePiUpdatesIntoWriteRequests(info, updates));
   entries.clear();
   for (const auto& write_request : requests) {
     for (const auto& update : write_request.updates()) {

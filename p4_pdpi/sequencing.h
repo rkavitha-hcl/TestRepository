@@ -28,7 +28,14 @@ namespace pdpi {
 
 // Returns a list of write requests, such that updates are sequenced correctly
 // when the write requests are sent in order.
-absl::StatusOr<std::vector<p4::v1::WriteRequest>> SequenceP4Updates(
+absl::StatusOr<std::vector<p4::v1::WriteRequest>>
+SequencePiUpdatesIntoWriteRequests(const IrP4Info& info,
+                                   const std::vector<p4::v1::Update>& updates);
+
+// Returns a vector of batches, where each batch is given by a vector of indices
+// into the input vector, such that updates are sequenced correctly when sent
+// batched in the order indicated.
+absl::StatusOr<std::vector<std::vector<int>>> SequencePiUpdatesInPlace(
     const IrP4Info& info, const std::vector<p4::v1::Update>& updates);
 
 // Sorts the table entries such that entries that are depended on come first.
