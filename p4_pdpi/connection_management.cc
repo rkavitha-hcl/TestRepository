@@ -51,7 +51,11 @@ absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
   auto arbitration = request.mutable_arbitration();
   arbitration->set_device_id(device_id);
   *arbitration->mutable_election_id() = session->election_id_;
-  session->stream_channel_->Write(request);
+  if (!session->stream_channel_->Write(request)) {
+    return gutil::UnavailableErrorBuilder()
+           << "Unable to initiate P4RT connection to device ID " << device_id
+           << "; gRPC stream channel closed.";
+  }
 
   // Wait for arbitration response.
   p4::v1::StreamMessageResponse response;
