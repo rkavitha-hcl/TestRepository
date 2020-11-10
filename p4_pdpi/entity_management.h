@@ -34,24 +34,31 @@ absl::StatusOr<p4::v1::ReadResponse> SendPiReadRequest(
 absl::Status SendPiWriteRequest(P4RuntimeSession* session,
                                 const p4::v1::WriteRequest& write_request);
 
+// Sends a PI (program independent) write request.
+absl::Status SendPiWriteRequest(P4RuntimeSession* session,
+                                p4::v1::WriteRequest* write_request);
+
 // Reads PI (program independent) table entries.
 absl::StatusOr<std::vector<p4::v1::TableEntry>> ReadPiTableEntries(
     P4RuntimeSession* session);
 
 // Removes PI (program independent) table entries on the switch.
 absl::Status RemovePiTableEntries(
-    P4RuntimeSession* session, absl::Span<const p4::v1::TableEntry> pi_entries);
+    P4RuntimeSession* session, const IrP4Info& info,
+    absl::Span<const p4::v1::TableEntry> pi_entries);
 
 // Clears the table entries
 absl::Status ClearTableEntries(P4RuntimeSession* session, const IrP4Info& info);
 
 // Installs the given PI (program independent) table entry on the switch.
 absl::Status InstallPiTableEntry(P4RuntimeSession* session,
+                                 const IrP4Info& info,
                                  const p4::v1::TableEntry& pi_entry);
 
 // Installs the given PI (program independent) table entries on the switch.
 absl::Status InstallPiTableEntries(
-    P4RuntimeSession* session, absl::Span<const p4::v1::TableEntry> pi_entries);
+    P4RuntimeSession* session, const IrP4Info& info,
+    absl::Span<const p4::v1::TableEntry> pi_entries);
 
 // Sets the forwarding pipeline from the given p4 info.
 absl::Status SetForwardingPipelineConfig(P4RuntimeSession* session,

@@ -204,6 +204,7 @@ cc_library(
         ":ir",
         ":ir_cc_proto",
         "//gutil:status",
+        "//p4_pdpi:sequencing",
         "//p4_pdpi/utils:ir",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",

@@ -27,6 +27,7 @@
 #include "p4_pdpi/connection_management.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
+#include "p4_pdpi/sequencing.h"
 #include "p4_pdpi/utils/ir.h"
 
 namespace pdpi {
@@ -40,6 +41,25 @@ using ::p4::v1::TableEntry;
 using ::p4::v1::Update;
 using ::p4::v1::WriteRequest;
 using ::p4::v1::WriteResponse;
+
+namespace {
+
+absl::Status SendPiWriteRequests(
+    P4RuntimeSession* session, absl::Span<const WriteRequest> write_requests) {
+  for (const auto& request : write_requests) {
+    RETURN_IF_ERROR(SendPiWriteRequest(session, request));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status SendPiWriteRequests(P4RuntimeSession* session,
+                                 std::vector<WriteRequest> write_requests) {
+  for (auto& request : write_requests) {
+    RETURN_IF_ERROR(SendPiWriteRequest(session, &request));
+  }
+  return absl::OkStatus();
+}
+}  // namespace
 
 absl::StatusOr<ReadResponse> SendPiReadRequest(
     P4RuntimeSession* session, const ReadRequest& read_request) {
@@ -69,6 +89,19 @@ absl::Status SendPiWriteRequest(P4RuntimeSession* session,
       write_request.updates_size());
 }
 
+absl::Status SendPiWriteRequest(P4RuntimeSession* session,
+                                WriteRequest* write_request) {
+  write_request->set_device_id(session->DeviceId());
+  *write_request->mutable_election_id() = session->ElectionId();
+
+  grpc::ClientContext context;
+  // Empty message; intentionally discarded.
+  WriteResponse pi_response;
+  return WriteRpcGrpcStatusToAbslStatus(
+      session->Stub().Write(&context, *write_request, &pi_response),
+      write_request->updates_size());
+}
+
 absl::StatusOr<std::vector<TableEntry>> ReadPiTableEntries(
     P4RuntimeSession* session) {
   ReadRequest read_request;
@@ -94,10 +127,11 @@ absl::Status ClearTableEntries(P4RuntimeSession* session,
   ASSIGN_OR_RETURN(auto table_entries, ReadPiTableEntries(session));
   // Early return if there is nothing to clear.
   if (table_entries.empty()) return absl::OkStatus();
-  return RemovePiTableEntries(session, table_entries);
+  return RemovePiTableEntries(session, info, table_entries);
 }
 
 absl::Status RemovePiTableEntries(P4RuntimeSession* session,
+                                  const IrP4Info& info,
                                   absl::Span<const TableEntry> pi_entries) {
   WriteRequest clear_request;
   clear_request.set_device_id(session->DeviceId());
@@ -108,26 +142,35 @@ absl::Status RemovePiTableEntries(P4RuntimeSession* session,
     update->set_type(Update::DELETE);
     *update->mutable_entity()->mutable_table_entry() = table_entry;
   }
-  return SendPiWriteRequest(session, clear_request);
+
+  ASSIGN_OR_RETURN(
+      std::vector<WriteRequest> sequenced_clear_requests,
+      pdpi::SequencePiUpdatesIntoWriteRequests(
+          info, std::vector<Update>(clear_request.updates().begin(),
+                                    clear_request.updates().end())));
+  return SendPiWriteRequests(session, sequenced_clear_requests);
 }
 
 absl::Status InstallPiTableEntry(P4RuntimeSession* session,
+                                 const IrP4Info& info,
                                  const TableEntry& pi_entry) {
-  return InstallPiTableEntries(session, absl::MakeConstSpan(&pi_entry, 1));
+  return InstallPiTableEntries(session, info,
+                               absl::MakeConstSpan(&pi_entry, 1));
 }
 
 absl::Status InstallPiTableEntries(P4RuntimeSession* session,
+                                   const IrP4Info& info,
                                    absl::Span<const TableEntry> pi_entries) {
-  WriteRequest batch_write_request;
-  batch_write_request.set_device_id(session->DeviceId());
-  *batch_write_request.mutable_election_id() = session->ElectionId();
-
+  std::vector<Update> pi_updates;
   for (const auto& pi_entry : pi_entries) {
-    Update* update = batch_write_request.add_updates();
-    update->set_type(Update::INSERT);
-    *update->mutable_entity()->mutable_table_entry() = pi_entry;
+    Update& update = pi_updates.emplace_back();
+    update.set_type(Update::INSERT);
+    *update.mutable_entity()->mutable_table_entry() = pi_entry;
   }
-  return SendPiWriteRequest(session, batch_write_request);
+
+  ASSIGN_OR_RETURN(std::vector<WriteRequest> sequenced_write_requests,
+                   pdpi::SequencePiUpdatesIntoWriteRequests(info, pi_updates));
+  return SendPiWriteRequests(session, std::move(sequenced_write_requests));
 }
 
 absl::Status SetForwardingPipelineConfig(P4RuntimeSession* session,
