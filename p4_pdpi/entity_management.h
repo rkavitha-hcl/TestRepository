@@ -26,17 +26,21 @@
 
 namespace pdpi {
 
-// Sends a PI (program independent) read request.
-absl::StatusOr<p4::v1::ReadResponse> SendPiReadRequest(
-    P4RuntimeSession* session, const p4::v1::ReadRequest& read_request);
+// Sets the request's session parameters(e.g. device id). And sends a PI
+// (program independent) read request.
+absl::StatusOr<p4::v1::ReadResponse> SetIdAndSendPiReadRequest(
+    P4RuntimeSession* session, p4::v1::ReadRequest& read_request);
 
-// Sends a PI (program independent) write request.
-absl::Status SendPiWriteRequest(P4RuntimeSession* session,
-                                const p4::v1::WriteRequest& write_request);
+// Sets the request's session parameters(e.g. device id and election id). And
+// sends a PI (program independent) write request.
+absl::Status SetIdsAndSendPiWriteRequest(P4RuntimeSession* session,
+                                         p4::v1::WriteRequest& write_request);
 
-// Sends a PI (program independent) write request.
-absl::Status SendPiWriteRequest(P4RuntimeSession* session,
-                                p4::v1::WriteRequest* write_request);
+// Sets the requests' session parameters(e.g. device id; election id). And sends
+// PI (program independent) write requests.
+absl::Status SetIdsAndSendPiWriteRequests(
+    P4RuntimeSession* session,
+    std::vector<p4::v1::WriteRequest>& write_requests);
 
 // Reads PI (program independent) table entries.
 absl::StatusOr<std::vector<p4::v1::TableEntry>> ReadPiTableEntries(
