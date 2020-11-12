@@ -50,9 +50,10 @@ std::vector<Update> CreatePiUpdates(absl::Span<const TableEntry> pi_entries,
   std::vector<Update> pi_updates;
   pi_updates.reserve(pi_entries.size());
   for (const auto& pi_entry : pi_entries) {
-    Update& update = pi_updates.emplace_back();
+    Update update;
     update.set_type(update_type);
     *update.mutable_entity()->mutable_table_entry() = pi_entry;
+    pi_updates.push_back(std::move(update));
   }
   return pi_updates;
 }

@@ -140,8 +140,9 @@ SequencePiUpdatesIntoWriteRequests(const IrP4Info& info,
   std::vector<WriteRequest> requests;
   ASSIGN_OR_RETURN(const auto batches, SequencePiUpdatesInPlace(info, updates));
   for (const std::vector<int>& batch : batches) {
-    WriteRequest& request = requests.emplace_back();
+    WriteRequest request;
     for (int i : batch) *request.add_updates() = updates[i];
+    requests.push_back(std::move(request));
   }
   return requests;
 }
