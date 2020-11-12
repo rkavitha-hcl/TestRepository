@@ -103,6 +103,7 @@ absl::Status SetIdsAndSendPiWriteRequests(
 absl::StatusOr<std::vector<TableEntry>> ReadPiTableEntries(
     P4RuntimeSession* session) {
   ReadRequest read_request;
+  read_request.add_entities()->mutable_table_entry();
   ASSIGN_OR_RETURN(ReadResponse read_response,
                    SetIdAndSendPiReadRequest(session, read_request));
 
