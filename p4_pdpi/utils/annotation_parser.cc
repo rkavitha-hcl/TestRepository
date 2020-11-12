@@ -14,11 +14,11 @@
 
 #include "p4_pdpi/utils/annotation_parser.h"
 
+#include <stack>
 #include <string>
 #include <utility>
 #include <vector>
 
-#include "absl/status/statusor.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "gutil/status.h"
@@ -50,25 +50,54 @@ absl::StatusOr<AnnotationComponents> ParseAnnotation(
 }  // namespace internal
 
 // Parses an annotation value and returns the component arguments in order.
-// Arguments are comma-delimited. Returned arguments are stripped of whitespace.
 absl::StatusOr<std::vector<std::string>> ParseAsArgList(std::string value) {
-  // Limit arg characters to alphanumeric, underscore, whitespace, and forward
-  // slash.
-  static constexpr LazyRE2 kSanitizer = {R"([a-zA-Z0-9_/, \t]*)"};
-
-  if (!RE2::FullMatch(value, *kSanitizer)) {
+  std::vector<std::string> tokens;
+  std::stack<char> scope;
+  std::string token;
+  for (const char c : value) {
+    if (scope.empty() && c == ',') {
+      tokens.push_back(token);
+      token.clear();
+      continue;
+    } else if (!scope.empty() && c == scope.top()) {
+      scope.pop();
+    } else if (scope.empty() || scope.top() != '"') {
+      switch (c) {
+        case '(':
+          scope.push(')');
+          break;
+        case '[':
+          scope.push(']');
+          break;
+        case '{':
+          scope.push('}');
+          break;
+        case '"':
+          scope.push('"');
+          break;
+        case '\t':
+        case ' ':
+          continue;
+        case ')':
+        case ']':
+        case '}':
+          return gutil::InvalidArgumentErrorBuilder()
+                 << "Malformed input. No matching character found for '" << c
+                 << "'";
+        default:
+          break;
+      }
+    }
+    token.push_back(c);
+  }
+  if (!scope.empty()) {
     return gutil::InvalidArgumentErrorBuilder()
-           << "Argument string contains invalid characters for argument list "
-           << "parsing. Valid characters: [a-zA-Z0-9_, \t]";
+           << "Malformed input. Expected '" << scope.top()
+           << "' before end of string";
   }
-
-  std::string no_space_arg =
-      absl::StrReplaceAll(value, {{" ", ""}, {"\t", ""}});
-  if (no_space_arg.empty()) {
-    return std::vector<std::string>();
-  }
-  std::vector<std::string> arg_list = absl::StrSplit(no_space_arg, ',');
-  return arg_list;
+  if (tokens.empty() && token.empty()) return tokens;
+  tokens.push_back(token);
+  return tokens;
 }
 
 }  // namespace annotation

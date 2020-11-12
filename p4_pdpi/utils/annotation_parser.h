@@ -48,9 +48,10 @@ template <typename T>
 using BodyParser = std::function<absl::StatusOr<T>(std::string)>;
 
 // Parses a string of the format: "arg [, arg2] [, arg3] [, ...]" into separate,
-// ordered arguments. Returned arguments are stripped of whitespace.
-// Returns an error if the string contains any character that is neither
-// alphanumeric, comma, space, tab, nor underscore.
+// ordered arguments. Returned arguments are stripped of whitespace except for
+// whitespace within a string boundary (" ").
+// Results are tokenized to ensure that any nested (*) {*} [*] or "*" are kept
+// together. No escaping is supported.
 absl::StatusOr<std::vector<std::string>> ParseAsArgList(std::string value);
 
 // Returns the raw input string.

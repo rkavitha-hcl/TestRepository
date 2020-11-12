@@ -303,14 +303,6 @@ INSTANTIATE_TEST_SUITE_P(
     [](const testing::TestParamInfo<std::string>& info) { return info.param; });
 
 // === ParseAsArgList tests ===
-TEST(ParseAsArgList, EmptyValueReturnsEmptyList) {
-  EXPECT_THAT(ParseAsArgList(""), IsOkAndHolds(IsEmpty()));
-}
-
-TEST(ParseAsArgList, WhitespaceValueReturnsEmptyList) {
-  EXPECT_THAT(ParseAsArgList("    "), IsOkAndHolds(IsEmpty()));
-}
-
 enum class WhitespaceCase {
   kNone,
   kLeftSpace,
@@ -344,6 +336,8 @@ std::string WhitespaceCaseName(WhitespaceCase whitespace) {
     case WhitespaceCase::kBothTab:
       return "BothTab";
   }
+  ADD_FAILURE() << "Unsupported whitespace case.";
+  return "";
 }
 
 std::string AddWhitespace(absl::string_view base, WhitespaceCase whitespace) {
@@ -363,6 +357,8 @@ std::string AddWhitespace(absl::string_view base, WhitespaceCase whitespace) {
     case WhitespaceCase::kBothTab:
       return absl::StrCat("\t", base, "\t\t");
   }
+  ADD_FAILURE() << "Unsupported whitespace case.";
+  return "";
 }
 
 class ParseAsArgListTest : public testing::TestWithParam<WhitespaceCase> {};
@@ -402,6 +398,14 @@ INSTANTIATE_TEST_SUITE_P(
       return absl::StrCat("Whitespace", WhitespaceCaseName(info.param));
     });
 
+TEST(ParseAsArgList, EmptyValueReturnsEmptyList) {
+  EXPECT_THAT(ParseAsArgList(""), IsOkAndHolds(IsEmpty()));
+}
+
+TEST(ParseAsArgList, WhitespaceValueReturnsEmptyList) {
+  EXPECT_THAT(ParseAsArgList("    "), IsOkAndHolds(IsEmpty()));
+}
+
 TEST(ParseAsArgList, RemovesSpaceWithinArgument) {
   EXPECT_THAT(ParseAsArgList("a b, b c,c d "),
               IsOkAndHolds(ElementsAre("ab", "bc", "cd")));
@@ -412,10 +416,90 @@ TEST(ParseAsArgList, RemovesTabWithinArgument) {
               IsOkAndHolds(ElementsAre("ab", "bc", "cd")));
 }
 
-TEST(ParseAsArgList, InvalidCharacterReturnsError) {
-  EXPECT_THAT(ParseAsArgList("a,b,)c").status(),
+TEST(ParseAsArgList, PreservesSpacesWithinQuotes) {
+  EXPECT_THAT(ParseAsArgList("  \"  a\t \"  "),
+              IsOkAndHolds(ElementsAre("\"  a\t \"")));
+}
+
+TEST(ParseAsArgList, ConsecutiveCommasReturnEmptyValues) {
+  EXPECT_THAT(ParseAsArgList(",,  , ,\t,"),
+              IsOkAndHolds(ElementsAre("", "", "", "", "", "")));
+}
+
+TEST(ParseAsArgList, TokenizesParentheses) {
+  EXPECT_THAT(ParseAsArgList("(,),(a,)"),
+              IsOkAndHolds(ElementsAre("(,)", "(a,)")));
+}
+
+TEST(ParseAsArgList, TokenizesBraces) {
+  EXPECT_THAT(ParseAsArgList("{,},{a,}"),
+              IsOkAndHolds(ElementsAre("{,}", "{a,}")));
+}
+
+TEST(ParseAsArgList, TokenizesBrackets) {
+  EXPECT_THAT(ParseAsArgList("[,],[a,]"),
+              IsOkAndHolds(ElementsAre("[,]", "[a,]")));
+}
+
+TEST(ParseAsArgList, TokenizesQuotes) {
+  EXPECT_THAT(ParseAsArgList("\",\",\"a,\""),
+              IsOkAndHolds(ElementsAre("\",\"", "\"a,\"")));
+}
+
+TEST(ParseAsArgList, HandlesNestedScope) {
+  EXPECT_THAT(ParseAsArgList("([({(a,b,d),e},f), g], h), a"),
+              IsOkAndHolds(ElementsAre("([({(a,b,d),e},f),g],h)", "a")));
+}
+
+TEST(ParseAsArgList, TreatsQuotesAsLiterals) {
+  EXPECT_THAT(ParseAsArgList("\"[({\", a\"])}\""),
+              IsOkAndHolds(ElementsAre("\"[({\"", "a\"])}\"")));
+}
+
+constexpr char kUnpairedCharacterCases[] = {'(', ')', '{', '}', '[', ']', '\"'};
+
+std::string UnpairedCharacterCasesName(char c) {
+  switch (c) {
+    case '(':
+      return "OpenParenthesis";
+    case ')':
+      return "CloseParenthesis";
+    case '[':
+      return "OpenBracket";
+    case ']':
+      return "CloseBracket";
+    case '{':
+      return "OpenBrace";
+    case '}':
+      return "CloseBrace";
+    case '\"':
+      return "Quote";
+    default:
+      break;
+  }
+  ADD_FAILURE() << "Unsupported unpaired character case: " << c;
+  return "";
+}
+
+class UnpairedCharacterTest : public testing::TestWithParam<char> {};
+
+TEST_P(UnpairedCharacterTest, ReturnsInvalidArgument) {
+  EXPECT_THAT(ParseAsArgList(std::string(1, GetParam())).status(),
               StatusIs(absl::StatusCode::kInvalidArgument, _));
 }
+
+TEST_P(UnpairedCharacterTest, ReturnsInvalidArgumentWithinNest) {
+  EXPECT_THAT(ParseAsArgList(absl::StrCat("(", std::string(1, GetParam()), ")"))
+                  .status(),
+              StatusIs(absl::StatusCode::kInvalidArgument, _));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ParseAsArgList, UnpairedCharacterTest,
+    testing::ValuesIn(kUnpairedCharacterCases),
+    [](const testing::TestParamInfo<UnpairedCharacterTest::ParamType>& info) {
+      return UnpairedCharacterCasesName(info.param);
+    });
 
 }  // namespace
 }  // namespace annotation
