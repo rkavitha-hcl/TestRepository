@@ -19,6 +19,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/status/statusor.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "gutil/status.h"
@@ -31,7 +32,7 @@ namespace internal {
 absl::StatusOr<AnnotationComponents> ParseAnnotation(
     const std::string& annotation) {
   // Regex: @<label>
-  static constexpr LazyRE2 kLabelOnlyParser = {R"([ \t]*@([^ \t(]*)[ \t]*)"};
+  static constexpr LazyRE2 kLabelOnlyParser = {R"([ \t]*@([^ \t()]*)[ \t]*)"};
   // Regex: @<label> *(<&body>)
   static constexpr LazyRE2 kParser = {
       R"([ \t]*@([^ \t(]*)[ \t]*\((.*)\)[ \t]*)"};
@@ -41,6 +42,10 @@ absl::StatusOr<AnnotationComponents> ParseAnnotation(
     return AnnotationComponents({.label = std::move(label)});
   }
   if (RE2::FullMatch(annotation, *kParser, &label, &body)) {
+    if (label.empty() && body.empty()) {
+      return gutil::InvalidArgumentErrorBuilder()
+             << "Annotation \"" << annotation << "\" is malformed";
+    }
     return AnnotationComponents(
         {.label = std::move(label), .body = std::move(body)});
   }

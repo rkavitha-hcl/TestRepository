@@ -57,13 +57,13 @@ absl::StatusOr<std::vector<std::string>> ParseAsArgList(std::string value);
 // Returns the raw input string.
 inline absl::StatusOr<std::string> Raw(std::string body) { return body; }
 
-namespace internal {
-// Structure to hold the useful components of an annotation.
 struct AnnotationComponents {
   std::string label;
   std::string body;
 };
 
+namespace internal {
+// Structure to hold the useful components of an annotation.
 // Parses an annotation into the AnnotationComponents.
 // Returns an InvalidArgument error if parsing failed.
 absl::StatusOr<AnnotationComponents> ParseAnnotation(
@@ -71,6 +71,21 @@ absl::StatusOr<AnnotationComponents> ParseAnnotation(
 
 }  // namespace internal
 }  // namespace annotation
+
+// Returns a list of all annotations split into label & body.
+// Skips annotations that do not follow the expected @<label>(<body>) format.
+template <typename Container>
+std::vector<annotation::AnnotationComponents> GetAllAnnotations(
+    const Container& annotations) {
+  std::vector<annotation::AnnotationComponents> components;
+  for (const auto& annotation : annotations) {
+    auto parser_result = annotation::internal::ParseAnnotation(annotation);
+    if (parser_result.ok()) {
+      components.push_back(std::move(*parser_result));
+    }
+  }
+  return components;
+}
 
 // Returns a list of the parsed body of all annotations with the given label.
 // Returns a Status with code kNotFound if there is no matching annotation.
@@ -90,7 +105,7 @@ absl::StatusOr<std::vector<T>> GetAllParsedAnnotations(
     auto parser_result = annotation::internal::ParseAnnotation(annotation);
     if (!parser_result.ok()) continue;  // Skip unknown labels.
 
-    const annotation::internal::AnnotationComponents& parsed_annotation =
+    const annotation::AnnotationComponents& parsed_annotation =
         parser_result.value();
     if (parsed_annotation.label == label) {
       ASSIGN_OR_RETURN(

@@ -81,7 +81,30 @@ absl::StatusOr<int> ExpectNoParsing(std::string) {
   return 0;
 }
 
+// Matcher for struct AnnotationComponents.
+MATCHER_P2(AnnotationComponentsAre, label, body, "") {
+  auto label_matcher = testing::MatcherCast<std::string>(label);
+  auto body_matcher = testing::MatcherCast<std::string>(body);
+  if (testing::Matches(label_matcher)(arg.label) &&
+      testing::Matches(body_matcher)(arg.body)) {
+    return true;
+  }
+  *result_listener << "Expected AnnotationComponents whose labe matches ";
+  label_matcher.DescribeTo(result_listener->stream());
+  *result_listener << "and whose body matches ";
+  body_matcher.DescribeTo(result_listener->stream());
+  return false;
+}
+
 // === Tests ===
+
+TEST(GetAllAnnotations, ReturnsLabelBodyAnnotations) {
+  EXPECT_THAT(GetAllAnnotations(std::vector<std::string>(
+                  {"@label(body)", "@l2(b2)", "@l3(b3)"})),
+              ElementsAre(AnnotationComponentsAre("label", "body"),
+                          AnnotationComponentsAre("l2", "b2"),
+                          AnnotationComponentsAre("l3", "b3")));
+}
 
 TEST(GetParsedAnnotation, EmptyAnnotationListReturnsNotFound) {
   std::vector<std::string> empty;
@@ -137,6 +160,19 @@ class NonMatchingAnnotationTest : public testing::TestWithParam<std::string> {
   }
 };
 
+TEST_P(NonMatchingAnnotationTest, GetAllAnnotationsReturnsEmpty) {
+  // GetAllAnnotations doesn't require a particular label, so some cases do not
+  // apply.
+  if (GetParam() == "NonMatchingLabel" || GetParam() == "SuperstringLabel" ||
+      GetParam() == "SubstringLabel") {
+    GTEST_SKIP() << "GetAllAnnotations does not perform label matching.";
+  } else {
+    EXPECT_THAT(GetAllAnnotations(
+                    std::vector<std::string>({TestCases().at(GetParam())})),
+                IsEmpty());
+  }
+}
+
 TEST_P(NonMatchingAnnotationTest, GetAnnotationReturnsNotFound) {
   EXPECT_THAT(
       GetParsedAnnotation<int>(
@@ -146,7 +182,7 @@ TEST_P(NonMatchingAnnotationTest, GetAnnotationReturnsNotFound) {
       StatusIs(absl::StatusCode::kNotFound, _));
 }
 
-TEST_P(NonMatchingAnnotationTest, GetAllAnnotationsReturnsNotFound) {
+TEST_P(NonMatchingAnnotationTest, GetAllParsedAnnotationsReturnsNotFound) {
   EXPECT_THAT(
       GetAllParsedAnnotations<int>(
           "label", std::vector<std::string>({TestCases().at(GetParam())}),
@@ -155,14 +191,14 @@ TEST_P(NonMatchingAnnotationTest, GetAllAnnotationsReturnsNotFound) {
       StatusIs(absl::StatusCode::kNotFound, _));
 }
 
-TEST_P(NonMatchingAnnotationTest, GetAnnotationSkipsAnnotation) {
+TEST_P(NonMatchingAnnotationTest, GetParsedAnnotationSkipsAnnotation) {
   EXPECT_THAT(GetAnnotationAsArgList(
                   "label", std::vector<std::string>(
                                {TestCases().at(GetParam()), "@label(arg)"})),
               IsOkAndHolds(ElementsAre("arg")));
 }
 
-TEST_P(NonMatchingAnnotationTest, GetAllAnnotationsSkipsAnnotation) {
+TEST_P(NonMatchingAnnotationTest, GetAllParsedAnnotationsSkipsAnnotation) {
   EXPECT_THAT(GetAllAnnotationsAsArgList(
                   "label", std::vector<std::string>(
                                {TestCases().at(GetParam()), "@label(arg)"})),
@@ -197,16 +233,27 @@ TEST(GetAllParsedAnnotations, ReturnsParserError) {
       StatusIs(absl::StatusCode::kUnknown, testing::HasSubstr("ErrorMessage")));
 }
 
+TEST(GetAllAnnotations, CapturesAllCharactersWithinParentheses) {
+  EXPECT_THAT(
+      GetAllAnnotations(std::vector<std::string>({"@label(*aBxC[]()\"\")"})),
+      ElementsAre(AnnotationComponentsAre("label", "*aBxC[]()\"\"")));
+}
+
 TEST(GetParsedAnnotation, CapturesAllCharactersWithinParentheses) {
   EXPECT_THAT(GetAnnotationBody(
-                  "label", std::vector<std::string>({"@label(*aBxC[])(()\")"})),
-              IsOkAndHolds("*aBxC[])(()\""));
+                  "label", std::vector<std::string>({"@label(*aBxC[]()\"\")"})),
+              IsOkAndHolds("*aBxC[]()\"\""));
 }
 
 TEST(GetAllParsedAnnotations, CapturesAllCharactersWithinParentheses) {
   EXPECT_THAT(GetAllAnnotationBodies(
-                  "label", std::vector<std::string>({"@label(*aBxC[])(\")"})),
-              IsOkAndHolds(ElementsAre("*aBxC[])(\"")));
+                  "label", std::vector<std::string>({"@label(*aBxC[]()\"\")"})),
+              IsOkAndHolds(ElementsAre("*aBxC[]()\"\"")));
+}
+
+TEST(GetAllAnnotations, CapturesAllWhitespace) {
+  EXPECT_THAT(GetAllAnnotations(std::vector<std::string>({"@label(  )"})),
+              ElementsAre(AnnotationComponentsAre("label", "  ")));
 }
 
 TEST(GetParsedAnnotation, CapturesAllWhitespace) {
@@ -219,6 +266,11 @@ TEST(GetAllParsedAnnotations, CapturesAllWhitespace) {
   EXPECT_THAT(
       GetAllAnnotationBodies("label", std::vector<std::string>({"@label(  )"})),
       IsOkAndHolds(ElementsAre("  ")));
+}
+
+TEST(GetAllAnnotations, ReturnsLabelOnlyAnnotation) {
+  EXPECT_THAT(GetAllAnnotations(std::vector<std::string>({"@label"})),
+              ElementsAre(AnnotationComponentsAre("label", "")));
 }
 
 TEST(GetParsedAnnotation, ReturnsLabelOnlyAnnotation) {
@@ -249,14 +301,21 @@ class LabelValueWhitespaceTest : public testing::TestWithParam<std::string> {
   }
 };
 
-TEST_P(LabelValueWhitespaceTest, GetAnnotationIgnoresWhitespace) {
+TEST_P(LabelValueWhitespaceTest, GetAllAnnotationsIgnoresWhitespace) {
+  EXPECT_THAT(
+      GetAllAnnotations(std::vector<std::string>({TestCases().at(GetParam())})),
+      ElementsAre(AnnotationComponentsAre("label", "arg")))
+      << "Annotations {" << TestCases().at(GetParam()) << "}";
+}
+
+TEST_P(LabelValueWhitespaceTest, GetParsedAnnotationIgnoresWhitespace) {
   EXPECT_THAT(GetAnnotationBody("label", std::vector<std::string>(
                                              {TestCases().at(GetParam())})),
               IsOkAndHolds("arg"))
       << "Annotations {" << TestCases().at(GetParam()) << "}";
 }
 
-TEST_P(LabelValueWhitespaceTest, GetAllAnnotationsIgnoresWhitespace) {
+TEST_P(LabelValueWhitespaceTest, GetAllParsedAnnotationsIgnoresWhitespace) {
   EXPECT_THAT(
       GetAllAnnotationBodies(
           "label", std::vector<std::string>({TestCases().at(GetParam())})),
