@@ -1039,6 +1039,22 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
     }
   }
 
+  // Validate and translate meters.
+  if (!table.has_meter() && pi.has_meter_config()) {
+    return InvalidArgumentErrorBuilder()
+           << "Table \"" << ir.table_name()
+           << "\" does not have a meter, but table entry contained a meter "
+              "config.";
+  }
+  if (pi.has_meter_config()) {
+    ir.mutable_meter_config()->set_cir(pi.meter_config().cir());
+    ir.mutable_meter_config()->set_cburst(pi.meter_config().cburst());
+    ir.mutable_meter_config()->set_pir(pi.meter_config().pir());
+    ir.mutable_meter_config()->set_pburst(pi.meter_config().pburst());
+  }
+
+  // TODO: Validate and translate counters.
+
   return ir;
 }
 
@@ -1132,6 +1148,23 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
              << "\"";
     }
   }
+
+  // Validate and translate meters.
+  if (!table.has_meter() && ir.has_meter_config()) {
+    return InvalidArgumentErrorBuilder()
+           << "Table \"" << ir.table_name()
+           << "\" does not have a meter, but table entry contained a meter "
+              "config.";
+  }
+  if (ir.has_meter_config()) {
+    pi.mutable_meter_config()->set_cir(ir.meter_config().cir());
+    pi.mutable_meter_config()->set_cburst(ir.meter_config().cburst());
+    pi.mutable_meter_config()->set_pir(ir.meter_config().pir());
+    pi.mutable_meter_config()->set_pburst(ir.meter_config().pburst());
+  }
+
+  // TODO: Validate and translate counters.
+
   return pi;
 }
 

@@ -93,6 +93,21 @@ absl::StatusOr<const google::protobuf::Message *> GetMessageField(
                                                      field_descriptor);
 }
 
+absl::StatusOr<bool> HasField(const google::protobuf::Message &parent_message,
+                              const std::string &fieldname) {
+  ASSIGN_OR_RETURN(auto *field_descriptor,
+                   GetFieldDescriptor(parent_message, fieldname));
+  if (field_descriptor == nullptr) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "Field " << fieldname << " missing in "
+           << parent_message.GetTypeName() << ". "
+           << kPdProtoAndP4InfoOutOfSync;
+  }
+
+  return parent_message.GetReflection()->HasField(parent_message,
+                                                  field_descriptor);
+}
+
 absl::StatusOr<const google::protobuf::Message *> GetRepeatedMessage(
     const google::protobuf::Message &parent_message,
     const std::string &fieldname, int index) {
@@ -916,30 +931,35 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
   }
 
   if (ir_table_info.has_meter()) {
-    ASSIGN_OR_RETURN(const auto *config,
-                     GetMessageField(*pd_table, "meter_config"));
-    int64_t value;
-    int64_t burst_value;
-    switch (ir_table_info.meter().unit()) {
-      case p4::config::v1::MeterSpec_Unit_BYTES: {
-        ASSIGN_OR_RETURN(value, GetInt64Field(*config, "bytes_per_second"));
-        ASSIGN_OR_RETURN(burst_value, GetInt64Field(*config, "burst_bytes"));
-        break;
+    ASSIGN_OR_RETURN(bool pd_has_meter_config,
+                     HasField(*pd_table, "meter_config"));
+    if (pd_has_meter_config) {
+      ASSIGN_OR_RETURN(const auto *config,
+                       GetMessageField(*pd_table, "meter_config"));
+      int64_t value;
+      int64_t burst_value;
+      switch (ir_table_info.meter().unit()) {
+        case p4::config::v1::MeterSpec_Unit_BYTES: {
+          ASSIGN_OR_RETURN(value, GetInt64Field(*config, "bytes_per_second"));
+          ASSIGN_OR_RETURN(burst_value, GetInt64Field(*config, "burst_bytes"));
+          break;
+        }
+        case p4::config::v1::MeterSpec_Unit_PACKETS: {
+          ASSIGN_OR_RETURN(value, GetInt64Field(*config, "packets_per_second"));
+          ASSIGN_OR_RETURN(burst_value,
+                           GetInt64Field(*config, "burst_packets"));
+          break;
+        }
+        default:
+          return InvalidArgumentErrorBuilder()
+                 << "Invalid meter unit: " << ir_table_info.meter().unit();
       }
-      case p4::config::v1::MeterSpec_Unit_PACKETS: {
-        ASSIGN_OR_RETURN(value, GetInt64Field(*config, "packets_per_second"));
-        ASSIGN_OR_RETURN(burst_value, GetInt64Field(*config, "burst_packets"));
-        break;
-      }
-      default:
-        return InvalidArgumentErrorBuilder()
-               << "Invalid meter unit: " << ir_table_info.meter().unit();
+      auto ir_meter_config = ir.mutable_meter_config();
+      ir_meter_config->set_cir(value);
+      ir_meter_config->set_pir(value);
+      ir_meter_config->set_cburst(burst_value);
+      ir_meter_config->set_pburst(burst_value);
     }
-    auto ir_meter_config = ir.mutable_meter_config();
-    ir_meter_config->set_cir(value);
-    ir_meter_config->set_pir(value);
-    ir_meter_config->set_cburst(burst_value);
-    ir_meter_config->set_pburst(burst_value);
   }
 
   if (ir_table_info.has_counter()) {
@@ -947,22 +967,30 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
       case p4::config::v1::CounterSpec_Unit_BYTES: {
         ASSIGN_OR_RETURN(const auto &pd_byte_counter,
                          GetInt64Field(*pd_table, "byte_counter"));
-        ir.mutable_counter_data()->set_byte_count(pd_byte_counter);
+        if (pd_byte_counter != 0) {
+          ir.mutable_counter_data()->set_byte_count(pd_byte_counter);
+        }
         break;
       }
       case p4::config::v1::CounterSpec_Unit_PACKETS: {
         ASSIGN_OR_RETURN(const auto &pd_packet_counter,
                          GetInt64Field(*pd_table, "packet_counter"));
-        ir.mutable_counter_data()->set_packet_count(pd_packet_counter);
+        if (pd_packet_counter != 0) {
+          ir.mutable_counter_data()->set_packet_count(pd_packet_counter);
+        }
         break;
       }
       case p4::config::v1::CounterSpec_Unit_BOTH: {
         ASSIGN_OR_RETURN(const auto &pd_byte_counter,
                          GetInt64Field(*pd_table, "byte_counter"));
-        ir.mutable_counter_data()->set_byte_count(pd_byte_counter);
+        if (pd_byte_counter != 0) {
+          ir.mutable_counter_data()->set_byte_count(pd_byte_counter);
+        }
         ASSIGN_OR_RETURN(const auto &pd_packet_counter,
                          GetInt64Field(*pd_table, "packet_counter"));
-        ir.mutable_counter_data()->set_packet_count(pd_packet_counter);
+        if (pd_packet_counter != 0) {
+          ir.mutable_counter_data()->set_packet_count(pd_packet_counter);
+        }
         break;
       }
       default:

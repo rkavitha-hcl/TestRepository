@@ -1286,6 +1286,18 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                       )PB"),
                       INPUT_IS_VALID);
 
+  RunPdTableEntryTest(
+      info, "table entry with counters and meters",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+        count_and_meter_table_entry {
+          match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
+          action { count_and_meter {} }
+          meter_config { bytes_per_second: 123 burst_bytes: 345 }
+        }
+      )PB"),
+      INPUT_IS_VALID);
+
+  // TODO: implement counters
   /*
   RunPdTableEntryTest(
       info, "table entry with counters and meters",
@@ -1293,9 +1305,8 @@ static void RunPdTests(const pdpi::IrP4Info info) {
         count_and_meter_table_entry {
           match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
           action { count_and_meter {} }
-          meter_config { bytes_per_second: 32135 burst_bytes: 341312423 }
-          byte_counter: 3123134314
-          packet_counter: 390391789
+          byte_counter: 567
+          packet_counter: 789
         }
       )PB"),
       INPUT_IS_VALID);
