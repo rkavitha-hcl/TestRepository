@@ -27,6 +27,7 @@
 #include "gutil/status_matchers.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4_pdpi/connection_management.h"
+#include "proto/gnmi/gnmi.grpc.pb.h"
 #include "thinkit/ssh_client.h"
 #include "thinkit/switch.h"
 
@@ -36,6 +37,8 @@ namespace {
 using ::testing::Eq;
 
 }  // namespace
+
+constexpr char kOpenconfigStr[] = "openconfig";
 
 void TestSSHCommand(thinkit::SSHClient& ssh_client, thinkit::Switch& sut) {
   ASSERT_OK_AND_ASSIGN(std::string output,
@@ -51,6 +54,33 @@ void TestP4Session(thinkit::Switch& sut) {
   ASSERT_OK_AND_ASSIGN(auto sut_p4runtime_stub, sut.CreateP4RuntimeStub());
   EXPECT_OK(
       pdpi::P4RuntimeSession::Create(std::move(sut_p4runtime_stub), kDeviceId));
+}
+
+void TestGnmiGetInterfaceOperation(thinkit::Switch& sut) {
+  ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
+  gnmi::GetRequest req;
+  req.set_type(gnmi::GetRequest_DataType_ALL);
+  gnmi::Path* path = req.add_path();
+  path->add_elem()->set_name(kOpenconfigStr);
+  path->add_elem()->set_name("interfaces");
+
+  req.set_encoding(::gnmi::Encoding::JSON_IETF);
+
+  gnmi::GetResponse resp;
+  grpc::ClientContext context;
+  ASSERT_OK(sut_gnmi_stub->Get(&context, req, &resp));
+}
+
+void TestGnmiGetAllOperation(thinkit::Switch& sut) {
+  ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
+  gnmi::GetRequest req;
+  req.mutable_prefix()->set_origin(kOpenconfigStr);
+  req.set_type(gnmi::GetRequest_DataType_ALL);
+  req.set_encoding(gnmi::Encoding::JSON_IETF);
+
+  gnmi::GetResponse resp;
+  grpc::ClientContext context;
+  ASSERT_OK(sut_gnmi_stub->Get(&context, req, &resp));
 }
 
 }  // namespace pins_test
