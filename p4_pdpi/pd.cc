@@ -812,7 +812,7 @@ absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
     RETURN_IF_ERROR(IrActionInvocationToPd(ir_p4info, ir.action(), pd_action));
   }
 
-  if (ir_table_info.has_meter()) {
+  if (ir_table_info.has_meter() && ir.has_meter_config()) {
     ASSIGN_OR_RETURN(auto *config, GetMutableMessage(pd_table, "meter_config"));
     const auto &ir_meter_config = ir.meter_config();
     if (ir_meter_config.cir() != ir_meter_config.pir()) {
@@ -847,7 +847,7 @@ absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
     }
   }
 
-  if (ir_table_info.has_counter()) {
+  if (ir_table_info.has_counter() && ir.has_counter_data()) {
     switch (ir_table_info.counter().unit()) {
       case p4::config::v1::CounterSpec_Unit_BYTES: {
         RETURN_IF_ERROR(SetInt64Field(pd_table, "byte_counter",

@@ -1287,7 +1287,17 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
-      info, "table entry with counters and meters",
+      info, "table entry without counters and meters",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+        count_and_meter_table_entry {
+          match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
+          action { count_and_meter {} }
+        }
+      )PB"),
+      INPUT_IS_VALID);
+
+  RunPdTableEntryTest(
+      info, "table entry with a meter",
       gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
         count_and_meter_table_entry {
           match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }

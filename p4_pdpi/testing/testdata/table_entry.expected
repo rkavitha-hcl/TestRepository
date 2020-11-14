@@ -2825,7 +2825,56 @@ action {
 
 
 =========================================================================
-table entry with counters and meters
+table entry without counters and meters
+=========================================================================
+
+--- PD (Input):
+count_and_meter_table_entry {
+  match {
+    ipv4 {
+      value: "16.36.50.0"
+      prefix_length: 24
+    }
+  }
+  action {
+    count_and_meter {
+    }
+  }
+}
+
+--- IR:
+table_name: "count_and_meter_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "16.36.50.0"
+    }
+    prefix_length: 24
+  }
+}
+action {
+  name: "count_and_meter"
+}
+
+--- PI:
+table_id: 33554439
+match {
+  field_id: 1
+  lpm {
+    value: "\020$2\000"
+    prefix_len: 24
+  }
+}
+action {
+  action {
+    action_id: 16777220
+  }
+}
+
+
+=========================================================================
+table entry with a meter
 =========================================================================
 
 --- PD (Input):
