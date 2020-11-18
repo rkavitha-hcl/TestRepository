@@ -265,11 +265,9 @@ absl::StatusOr<std::string> Ipv6ToNormalizedByteString(
 }
 
 std::string NormalizedToCanonicalByteString(std::string bytes) {
-  // Remove leading zeros
-  std::string canonical = bytes;
-  canonical.erase(
-      0, std::min(canonical.find_first_not_of('\x00'), canonical.size() - 1));
-  return canonical;
+  // Remove leading zeros.
+  bytes.erase(0, std::min(bytes.find_first_not_of('\x00'), bytes.size() - 1));
+  return bytes;
 }
 
 uint32_t GetBitwidthOfByteString(const std::string &input_string) {

@@ -1,0 +1,48 @@
+load("//p4_pdpi/testing:diff_test.bzl", "cmd_diff_test", "diff_test")
+load("//p4_pdpi:pdgen.bzl", "p4_pd_proto")
+load("@com_github_p4lang_p4c//:bazel/p4_library.bzl", "p4_library")
+
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],
+)
+
+cc_library(
+    name = "network_address",
+    hdrs = ["network_address.h"],
+    deps = [
+        "//gutil:status",
+        "//p4_pdpi/string_encodings:byte_string",
+        "//p4_pdpi/utils:hex_string",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_library(
+    name = "ipv4_address",
+    srcs = ["ipv4_address.cc"],
+    hdrs = ["ipv4_address.h"],
+    deps = [
+        ":network_address",
+        "//gutil:status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_test(
+    name = "ipv4_address_and_network_address_test",
+    srcs = ["ipv4_address_and_network_address_test.cc"],
+    deps = [
+        ":ipv4_address",
+        ":network_address",
+        "//gutil:status",
+        "//gutil:status_matchers",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

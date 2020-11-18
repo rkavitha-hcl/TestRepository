@@ -1,0 +1,148 @@
+#ifndef GOOGLE_P4_PDPI_NETADDR_NETWORK_ADDRESS_H_
+#define GOOGLE_P4_PDPI_NETADDR_NETWORK_ADDRESS_H_
+
+#include <bitset>
+#include <cstddef>
+#include <iosfwd>
+#include <ostream>
+#include <string>
+#include <utility>
+
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
+#include "gutil/status.h"
+#include "p4_pdpi/string_encodings/byte_string.h"
+#include "p4_pdpi/utils/hex_string.h"
+
+namespace netaddr {
+
+// Base class for network addresses, e.g. IP and MAC addresses.
+//
+// Concrete network address classes must inherit from this base class using the
+// "curiously recurring template pattern", must implement `OfString` and
+// `ToString` functions, and must inherit the constructors:
+// ```
+//   class Ipv4Address : public NetworkAddress<32, Ipv4Address> {
+//    public:
+//     // The default constructor returns the address with all bits set to zero.
+//     constexpr Ipv4Address() = default;
+//     // Returns the address encoded by the given human readable string.
+//     static absl::StatusOr<Ipv4Address> OfString(absl::string_view address);
+//     // Returns address as a human readable string.
+//     std::string ToString() const;
+//
+//    protected:
+//      using NetworkAddress::NetworkAddress;
+//   };
+// ```
+template <std::size_t num_bits, typename T>
+class NetworkAddress {
+ public:
+  // -- Constructors --
+  // Returns the address with all bits set to zero.
+  static constexpr T AllZeros() { return T(std::bitset<num_bits>()); }
+  // Returns the address with all bits set to one.
+  static constexpr T AllOnes() { return T(~std::bitset<num_bits>()); }
+  // Returns the address encoded by the given bitset.
+  static constexpr T OfBitset(std::bitset<num_bits> bits) {
+    return T(std::move(bits));
+  }
+  // Returns the address encoded by the given hex string.
+  static absl::StatusOr<T> OfHexString(absl::string_view hex_str);
+  // Returns the address encoded by the given big-endian, arbitrary-length,
+  // nonempty byte string.
+  // Missing bits are assumed to be zero.
+  // Extra bits are checked to be zero, returning error status otherwise.
+  static absl::StatusOr<T> OfByteString(absl::string_view byte_str);
+  // Returns the address encoded by the given human readable string.
+  // Note: Must be implemented by all subclasses.
+  // (Not `virtual` because C++ does not have `static virtual`.)
+  // static absl::StatusOr<T> OfString(absl::string_view address);
+
+  // -- Checks --
+  bool IsAllZeros() const { return bits_.none(); }
+  bool IsAllOnes() const { return bits_.all(); }
+
+  // -- Conversions --
+  // Returns underlying bit representation.
+  std::bitset<num_bits> ToBitset() const { return bits_; }
+  // Returns hexadecimal representation of the address.
+  std::string ToHexString() const { return pdpi::BitsetToHexString(bits_); }
+  // Returns big-endian byte string encoding of the address of length exactly
+  // ceil(num_bits/8).
+  std::string ToPaddedByteString() const;
+  // Returns big-endian byte string encoding of the address in canonical
+  // P4Runtime format (leading zeros omitted).
+  std::string ToP4RuntimeByteString() const;
+  // Returns address as a human readable string.
+  // Note: Must be implemented by all subclasses.
+  // (Not `virtual` only because that would prevent constexpr addresses.)
+  // std::string ToString() const;
+
+  // -- Bit operations --
+  void operator&=(const T& other) { bits_ &= other.bits_; }
+  void operator|=(const T& other) { bits_ |= other.bits_; }
+  void operator^=(const T& other) { bits_ ^= other.bits_; }
+  T operator~() const { return T(~bits_); }
+
+  // -- Comparisons --
+  bool operator==(const T& other) const { return bits_ == other.bits_; }
+  bool operator!=(const T& other) const { return bits_ != other.bits_; }
+
+  // Hashing (https://abseil.io/docs/cpp/guides/hash).
+  template <typename H>
+  friend H AbslHashValue(H h, const T& address) {
+    return H::combine(std::move(h), address.bits_);
+  }
+
+ protected:
+  std::bitset<num_bits> bits_;
+
+  // -- Note --
+  // Constructors must be inherited by all subclasses. They are protected so the
+  // NetworkAddress class is never instantiated directly.
+
+  // The default constructor returns the address with all bits set to zero.
+  constexpr NetworkAddress() = default;
+  constexpr explicit NetworkAddress(std::bitset<num_bits> bits)
+      : bits_{std::move(bits)} {};
+};
+
+// Pretty printing.
+template <std::size_t num_bits, typename T>
+std::ostream& operator<<(std::ostream& os,
+                         const NetworkAddress<num_bits, T>& address) {
+  // As per the contract of the NetworkAddress class, any NetworkAddress<N,T>
+  // object is castable to T and T has a ToString function.
+  return os << static_cast<const T&>(address).ToString();
+}
+
+// == END OF PUBLIC INTERFACE ==================================================
+
+template <std::size_t N, typename T>
+absl::StatusOr<T> NetworkAddress<N, T>::OfHexString(absl::string_view hex_str) {
+  ASSIGN_OR_RETURN(auto bits, pdpi::HexStringToBitset<N>(hex_str));
+  return T(std::move(bits));
+}
+
+template <std::size_t N, typename T>
+absl::StatusOr<T> NetworkAddress<N, T>::OfByteString(
+    absl::string_view byte_str) {
+  ASSIGN_OR_RETURN(auto bits, pdpi::ByteStringToBitset<N>(byte_str));
+  return T(bits);
+}
+
+template <std::size_t N, typename T>
+std::string NetworkAddress<N, T>::ToPaddedByteString() const {
+  return pdpi::BitsetToPaddedByteString(bits_);
+}
+
+template <std::size_t N, typename T>
+std::string NetworkAddress<N, T>::ToP4RuntimeByteString() const {
+  return pdpi::BitsetToP4RuntimeByteString(bits_);
+}
+
+}  // namespace netaddr
+
+#endif  // GOOGLE_P4_PDPI_NETADDR_NETWORK_ADDRESS_H_

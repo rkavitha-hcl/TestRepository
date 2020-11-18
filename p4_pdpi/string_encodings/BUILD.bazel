@@ -1,0 +1,30 @@
+load("//p4_pdpi/testing:diff_test.bzl", "cmd_diff_test", "diff_test")
+load("//p4_pdpi:pdgen.bzl", "p4_pd_proto")
+load("@com_github_p4lang_p4c//:bazel/p4_library.bzl", "p4_library")
+
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],
+)
+
+cc_library(
+    name = "byte_string",
+    hdrs = ["byte_string.h"],
+    deps = [
+        "//gutil:status",
+        "//p4_pdpi/utils:ir",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "byte_string_test",
+    srcs = ["byte_string_test.cc"],
+    deps = [
+        ":byte_string",
+        "//gutil:status",
+        "//gutil:status_matchers",
+        "@com_google_googletest//:gtest_main",
+    ],
+)

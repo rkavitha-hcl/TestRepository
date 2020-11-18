@@ -122,6 +122,7 @@ absl::StatusOr<std::string> NormalizedByteStringToIpv6(
 absl::StatusOr<std::string> Ipv6ToNormalizedByteString(const std::string &ipv6);
 
 // Convert a normalized byte string to its canonical form.
+// TODO: Move to byte_string.h and rename appropriately.
 std::string NormalizedToCanonicalByteString(std::string bytes);
 
 // Returns the number of bits used by the PI byte string interpreted as an
