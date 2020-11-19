@@ -33,6 +33,7 @@ cc_library(
     deps = [
         ":ir_cc_proto",
         "//gutil:collections",
+        "//gutil:status",
         "@boost//:graph",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",

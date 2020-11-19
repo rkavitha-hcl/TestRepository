@@ -22,6 +22,7 @@
 #include "absl/types/span.h"
 #include "boost/graph/adjacency_list.hpp"
 #include "gutil/collections.h"
+#include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
@@ -219,9 +220,17 @@ absl::StatusOr<std::vector<std::vector<int>>> SequencePiUpdatesInPlace(
         // Is this the final `edge` into `target`?
         if (boost::in_degree(target, graph) == 1) new_roots.push_back(target);
       }
-      boost::clear_vertex(root, graph);
+      boost::clear_out_edges(root, graph);
     }
     roots.swap(new_roots);
+  }
+
+  // Upon exiting the loop, no dependencies should remain.
+  if (boost::num_edges(graph) != 0) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "The dependency graph generated during P4 update sequencing is "
+              "cyclic. This indicates a cycle in @foreign_key dependencies in "
+              "the P4 program.";
   }
   return batches;
 }
