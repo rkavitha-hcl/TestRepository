@@ -248,6 +248,19 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
       const default_action = NoAction();
   }
 
+  @id(12)
+  table referring2_table {
+      key = {
+          meta.str : exact @id(1) @name("referring_id")
+          @refers_to(referred_table, id);
+      }
+      actions = {
+        @proto_id(1) do_thing_4;
+        @defaultonly NoAction();
+      }
+      const default_action = NoAction();
+  }
+
   apply {
     id_test_table.apply();
     exact_table.apply();
@@ -260,6 +273,7 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
     optional_table.apply();
     referred_table.apply();
     referring_table.apply();
+    referring2_table.apply();
   }
 }
 

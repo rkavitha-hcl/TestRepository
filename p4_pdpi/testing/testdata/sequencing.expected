@@ -537,6 +537,70 @@ updates {
 }
 
 =========================================================================
+SequenceTest: A referring to B using a match field
+=========================================================================
+
+--- PD updates (input):
+type: INSERT
+table_entry {
+  referring2_table_entry {
+    match {
+      referring_id: "key-a"
+    }
+    action {
+      do_thing_4 {
+      }
+    }
+  }
+}
+
+type: INSERT
+table_entry {
+  referred_table_entry {
+    match {
+      id: "key-a"
+    }
+    action {
+      do_thing_4 {
+      }
+    }
+  }
+}
+
+--- Write requests (output):
+WriteRequest #0
+updates {
+  type: INSERT
+  table_entry {
+    referred_table_entry {
+      match {
+        id: "key-a"
+      }
+      action {
+        do_thing_4 {
+        }
+      }
+    }
+  }
+}
+
+WriteRequest #1
+updates {
+  type: INSERT
+  table_entry {
+    referring2_table_entry {
+      match {
+        referring_id: "key-a"
+      }
+      action {
+        do_thing_4 {
+        }
+      }
+    }
+  }
+}
+
+=========================================================================
 SortTest: A referring to B
 =========================================================================
 

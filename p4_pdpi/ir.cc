@@ -180,13 +180,13 @@ absl::Status ValidateMatchFieldDefinition(const IrMatchFieldDefinition &match) {
   }
 }
 
-// Returns the set of references for a given parameter. Does not validate the
-// table or match field yet.
+// Returns the set of references for a given set of annotations. Does not
+// validate the table or match field yet.
 absl::StatusOr<std::vector<IrMatchFieldReference>> GetRefersToAnnotations(
-    const p4::config::v1::Action_Param &param) {
+    const ::google::protobuf::RepeatedPtrField<std::string> &annotations) {
   static constexpr char kError[] = "Found invalid @refers_to annotation: ";
   std::vector<IrMatchFieldReference> result;
-  for (absl::string_view annotation_contents : param.annotations()) {
+  for (absl::string_view annotation_contents : annotations) {
     if (absl::ConsumePrefix(&annotation_contents, "@refers_to(")) {
       if (!absl::ConsumeSuffix(&annotation_contents, ")")) {
         return gutil::InvalidArgumentErrorBuilder() << kError << "Missing )";
@@ -226,7 +226,7 @@ StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info &p4_info) {
                        GetFormatForP4InfoElement(param, type_info));
       ir_param.set_format(format);
       ASSIGN_OR_RETURN(const auto references,
-                       GetRefersToAnnotations(ir_param.param()));
+                       GetRefersToAnnotations(ir_param.param().annotations()));
       for (const auto &reference : references) {
         *ir_param.add_references() = reference;
         if (seen_references.insert({reference.table(), reference.match_field()})
@@ -267,6 +267,15 @@ StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info &p4_info) {
       ir_match_definition.set_format(format);
       RETURN_IF_ERROR(ValidateMatchFieldDefinition(ir_match_definition))
           << "Table " << table.preamble().alias() << " has invalid match field";
+      ASSIGN_OR_RETURN(const auto &references,
+                       GetRefersToAnnotations(match_field.annotations()));
+      for (const auto &reference : references) {
+        *ir_match_definition.add_references() = reference;
+        if (seen_references.insert({reference.table(), reference.match_field()})
+                .second) {
+          *info.add_references() = reference;
+        }
+      }
 
       RETURN_IF_ERROR(gutil::InsertIfUnique(
           ir_table_definition.mutable_match_fields_by_id(), match_field.id(),

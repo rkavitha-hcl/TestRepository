@@ -43,6 +43,13 @@ enum Format {
   STRING = 4;
 }
 
+// Describes a match field that is being referred to from an action parameter or
+// another match field.
+message IrMatchFieldReference {
+  string table = 1;
+  string match_field = 2;
+}
+
 // Describes a match field.
 message IrMatchFieldDefinition {
   // Required. From P4Info.
@@ -50,6 +57,8 @@ message IrMatchFieldDefinition {
   // Required, the format of this field as deduced from the match field type
   // and annotations.
   Format format = 2;
+  // Optional. The set of references.
+  repeated IrMatchFieldReference references = 3;
 }
 
 // Describes a meter.
@@ -62,13 +71,6 @@ message IrMeter {
 message IrCounter {
   // Required. Unit for the counter.
   p4.config.v1.CounterSpec.Unit unit = 1;
-}
-
-// Describes a match field that is being referred to from an action parameter or
-// another match field.
-message IrMatchFieldReference {
-  string table = 1;
-  string match_field = 2;
 }
 
 // Describes a P4 table.

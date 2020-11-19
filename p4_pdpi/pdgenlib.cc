@@ -119,6 +119,10 @@ StatusOr<std::string> GetTableMatchMessage(const IrTableDefinition& table) {
               return a.match_field().id() < b.match_field().id();
             });
   for (const auto& match : match_fields) {
+    for (const auto& reference : match.references()) {
+      absl::StrAppend(&result, "    // Refers to '", reference.table(), ".",
+                      reference.match_field(), "'.\n");
+    }
     ASSIGN_OR_RETURN(const auto& match_pd, GetMatchFieldDeclaration(match));
     absl::StrAppend(&result, "    ", match_pd, "\n");
   }

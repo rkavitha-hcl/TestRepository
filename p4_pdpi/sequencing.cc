@@ -70,6 +70,24 @@ absl::StatusOr<absl::optional<std::string>> GetMatchFieldValue(
   return absl::nullopt;
 }
 
+// Given the ReferencedValue of the current_vertex, record all dependencies.
+void RecordDependenciesForReferencedValue(
+    const std::vector<Update>& all_vertices, Vertex current_vertex,
+    ReferencedValue referenced_value, ReferencedValueToVertices& indices,
+    Graph& graph) {
+  for (Vertex referred_update_index : indices[referenced_value]) {
+    const Update& referred_update = all_vertices[referred_update_index];
+    if ((all_vertices[current_vertex].type() == p4::v1::Update::INSERT ||
+         all_vertices[current_vertex].type() == p4::v1::Update::MODIFY) &&
+        referred_update.type() == p4::v1::Update::INSERT) {
+      boost::add_edge(referred_update_index, current_vertex, graph);
+    } else if (all_vertices[current_vertex].type() == p4::v1::Update::DELETE &&
+               referred_update.type() == p4::v1::Update::DELETE) {
+      boost::add_edge(current_vertex, referred_update_index, graph);
+    }
+  }
+}
+
 // Records and updates the dependency graph for for the given action invocation.
 absl::Status RecordDependenciesForActionInvocation(
     const std::vector<Update>& all_vertices,
@@ -85,18 +103,8 @@ absl::Status RecordDependenciesForActionInvocation(
     for (const auto& ir_reference : param_definition.references()) {
       ReferencedValue referenced_value = {
           ir_reference.table(), ir_reference.match_field(), param->value()};
-      for (Vertex referred_update_index : indices[referenced_value]) {
-        const Update& referred_update = all_vertices[referred_update_index];
-        if ((all_vertices[current_vertex].type() == p4::v1::Update::INSERT ||
-             all_vertices[current_vertex].type() == p4::v1::Update::MODIFY) &&
-            referred_update.type() == p4::v1::Update::INSERT) {
-          boost::add_edge(referred_update_index, current_vertex, graph);
-        } else if (all_vertices[current_vertex].type() ==
-                       p4::v1::Update::DELETE &&
-                   referred_update.type() == p4::v1::Update::DELETE) {
-          boost::add_edge(current_vertex, referred_update_index, graph);
-        }
-      }
+      RecordDependenciesForReferencedValue(all_vertices, current_vertex,
+                                           referenced_value, indices, graph);
     }
   }
   return absl::OkStatus();
@@ -137,8 +145,49 @@ absl::StatusOr<Graph> BuildDependencyGraph(const IrP4Info& info,
   // Build dependency graph.
   for (int update_index = 0; update_index < updates.size(); update_index++) {
     const Update& update = updates[update_index];
-    const p4::v1::TableAction& action = update.entity().table_entry().action();
+    const p4::v1::TableEntry& table_entry = update.entity().table_entry();
+    const p4::v1::TableAction& action = table_entry.action();
+    ASSIGN_OR_RETURN(
+        const IrTableDefinition ir_table,
+        gutil::FindOrStatus(info.tables_by_id(), table_entry.table_id()),
+        _ << "Failed to build dependency graph: Table with ID "
+          << table_entry.table_id() << " does not exist.");
 
+    // References from match fields to match fields.
+    for (const auto& match_field : table_entry.match()) {
+      ASSIGN_OR_RETURN(
+          const auto& match_field_definition,
+          gutil::FindOrStatus(ir_table.match_fields_by_id(),
+                              match_field.field_id()),
+          _ << "Failed to build dependency graph: Match field with ID "
+            << match_field.field_id() << " does not exist.");
+      for (const auto& ir_reference : match_field_definition.references()) {
+        switch (match_field_definition.match_field().match_type()) {
+          case p4::config::v1::MatchField::EXACT: {
+            ReferencedValue referenced_value = {ir_reference.table(),
+                                                ir_reference.match_field(),
+                                                match_field.exact().value()};
+            RecordDependenciesForReferencedValue(
+                updates, update_index, referenced_value, indices, graph);
+            break;
+          }
+          case p4::config::v1::MatchField::OPTIONAL: {
+            ReferencedValue referenced_value = {ir_reference.table(),
+                                                ir_reference.match_field(),
+                                                match_field.optional().value()};
+            RecordDependenciesForReferencedValue(
+                updates, update_index, referenced_value, indices, graph);
+            break;
+          }
+          default: {
+            return gutil::InvalidArgumentErrorBuilder()
+                   << "Only exact or optional match fields can use @refers_to.";
+          }
+        }
+      }
+    }
+
+    // References from action parameters to match fields.
     switch (action.type_case()) {
       case p4::v1::TableAction::kAction: {
         ASSIGN_OR_RETURN(

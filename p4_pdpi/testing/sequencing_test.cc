@@ -334,6 +334,26 @@ int main(int argc, char** argv) {
                   }
                 )PB"});
 
+  SequenceTest(info, "A referring to B using a match field",
+               {R"PB(
+                  type: INSERT
+                  table_entry {
+                    referring2_table_entry {
+                      match { referring_id: "key-a" }
+                      action { do_thing_4 {} }
+                    }
+                  }
+                )PB",
+                R"PB(
+                  type: INSERT
+                  table_entry {
+                    referred_table_entry {
+                      match { id: "key-a" }
+                      action { do_thing_4 {} }
+                    }
+                  }
+                )PB"});
+
   SortTest(info, "A referring to B",
            {R"PB(
               referring_table_entry {

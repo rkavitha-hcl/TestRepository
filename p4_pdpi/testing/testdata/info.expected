@@ -584,6 +584,33 @@ tables {
   const_default_action_id: 21257015
   size: 1024
 }
+tables {
+  preamble {
+    id: 33554444
+    name: "ingress.referring2_table"
+    alias: "referring2_table"
+  }
+  match_fields {
+    id: 1
+    name: "referring_id"
+    annotations: "@refers_to(referred_table , id)"
+    match_type: EXACT
+    type_name {
+      name: "string_id_t"
+    }
+  }
+  action_refs {
+    id: 16777221
+    annotations: "@proto_id(1)"
+  }
+  action_refs {
+    id: 21257015
+    annotations: "@defaultonly"
+    scope: DEFAULT_ONLY
+  }
+  const_default_action_id: 21257015
+  size: 1024
+}
 actions {
   preamble {
     id: 16777217
@@ -2319,6 +2346,92 @@ tables_by_id {
     }
   }
 }
+tables_by_id {
+  key: 33554444
+  value {
+    preamble {
+      id: 33554444
+      name: "ingress.referring2_table"
+      alias: "referring2_table"
+    }
+    match_fields_by_id {
+      key: 1
+      value {
+        match_field {
+          id: 1
+          name: "referring_id"
+          annotations: "@refers_to(referred_table , id)"
+          match_type: EXACT
+          type_name {
+            name: "string_id_t"
+          }
+        }
+        format: STRING
+        references {
+          table: "referred_table"
+          match_field: "id"
+        }
+      }
+    }
+    match_fields_by_name {
+      key: "referring_id"
+      value {
+        match_field {
+          id: 1
+          name: "referring_id"
+          annotations: "@refers_to(referred_table , id)"
+          match_type: EXACT
+          type_name {
+            name: "string_id_t"
+          }
+        }
+        format: STRING
+        references {
+          table: "referred_table"
+          match_field: "id"
+        }
+      }
+    }
+    entry_actions {
+      ref {
+        id: 16777221
+        annotations: "@proto_id(1)"
+      }
+      action {
+        preamble {
+          id: 16777221
+          name: "do_thing_4"
+          alias: "do_thing_4"
+        }
+      }
+      proto_id: 1
+    }
+    default_only_actions {
+      ref {
+        id: 21257015
+        annotations: "@defaultonly"
+        scope: DEFAULT_ONLY
+      }
+      action {
+        preamble {
+          id: 21257015
+          name: "NoAction"
+          alias: "NoAction"
+          annotations: "@noWarn(\"unused\")"
+        }
+      }
+    }
+    size: 1024
+    const_default_action {
+      preamble {
+        id: 21257015
+        name: "NoAction"
+        alias: "NoAction"
+        annotations: "@noWarn(\"unused\")"
+      }
+    }
+  }
+}
 tables_by_name {
   key: "count_and_meter_table"
   value {
@@ -3128,6 +3241,92 @@ tables_by_name {
           }
         }
         format: STRING
+      }
+    }
+    entry_actions {
+      ref {
+        id: 16777221
+        annotations: "@proto_id(1)"
+      }
+      action {
+        preamble {
+          id: 16777221
+          name: "do_thing_4"
+          alias: "do_thing_4"
+        }
+      }
+      proto_id: 1
+    }
+    default_only_actions {
+      ref {
+        id: 21257015
+        annotations: "@defaultonly"
+        scope: DEFAULT_ONLY
+      }
+      action {
+        preamble {
+          id: 21257015
+          name: "NoAction"
+          alias: "NoAction"
+          annotations: "@noWarn(\"unused\")"
+        }
+      }
+    }
+    size: 1024
+    const_default_action {
+      preamble {
+        id: 21257015
+        name: "NoAction"
+        alias: "NoAction"
+        annotations: "@noWarn(\"unused\")"
+      }
+    }
+  }
+}
+tables_by_name {
+  key: "referring2_table"
+  value {
+    preamble {
+      id: 33554444
+      name: "ingress.referring2_table"
+      alias: "referring2_table"
+    }
+    match_fields_by_id {
+      key: 1
+      value {
+        match_field {
+          id: 1
+          name: "referring_id"
+          annotations: "@refers_to(referred_table , id)"
+          match_type: EXACT
+          type_name {
+            name: "string_id_t"
+          }
+        }
+        format: STRING
+        references {
+          table: "referred_table"
+          match_field: "id"
+        }
+      }
+    }
+    match_fields_by_name {
+      key: "referring_id"
+      value {
+        match_field {
+          id: 1
+          name: "referring_id"
+          annotations: "@refers_to(referred_table , id)"
+          match_type: EXACT
+          type_name {
+            name: "string_id_t"
+          }
+        }
+        format: STRING
+        references {
+          table: "referred_table"
+          match_field: "id"
+        }
       }
     }
     entry_actions {
