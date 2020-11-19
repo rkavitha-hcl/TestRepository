@@ -224,8 +224,10 @@ message DoThing4Action {
 }
 
 message ReferringAction {
-  // Foreign key referring to 'referred_table.id'.
-  string referring_id = 1; // Format::STRING
+  // Refers to 'referred_table.id'.
+  string referring_id_1 = 1; // Format::STRING
+  // Refers to 'referred_table.id'.
+  string referring_id_2 = 2; // Format::STRING
 }
 
 message NoAction {

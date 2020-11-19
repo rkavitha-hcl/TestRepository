@@ -146,7 +146,12 @@ int main(int argc, char** argv) {
                   table_entry {
                     referring_table_entry {
                       match { val: "0x001" }
-                      action { referring_action { referring_id: "key-a" } }
+                      action {
+                        referring_action {
+                          referring_id_1: "key-a",
+                          referring_id_2: "non-existent"
+                        }
+                      }
                     }
                   }
                 )PB",
@@ -165,7 +170,12 @@ int main(int argc, char** argv) {
                   table_entry {
                     referring_table_entry {
                       match { val: "0x001" }
-                      action { referring_action { referring_id: "key-a" } }
+                      action {
+                        referring_action {
+                          referring_id_1: "key-a",
+                          referring_id_2: "non-existent"
+                        }
+                      }
                     }
                   }
                 )PB",
@@ -184,7 +194,12 @@ int main(int argc, char** argv) {
                   table_entry {
                     referring_table_entry {
                       match { val: "0x001" }
-                      action { referring_action { referring_id: "key-a" } }
+                      action {
+                        referring_action {
+                          referring_id_1: "key-a",
+                          referring_id_2: "non-existent"
+                        }
+                      }
                     }
                   }
                 )PB",
@@ -204,7 +219,12 @@ int main(int argc, char** argv) {
          table_entry {
            referring_table_entry {
              match { val: "0x001" }
-             action { referring_action { referring_id: "key-a" } }
+             action {
+               referring_action {
+                 referring_id_1: "key-a",
+                 referring_id_2: "non-existent"
+               }
+             }
            }
          }
        )PB",
@@ -232,7 +252,12 @@ int main(int argc, char** argv) {
                   table_entry {
                     referring_table_entry {
                       match { val: "0x001" }
-                      action { referring_action { referring_id: "key-a" } }
+                      action {
+                        referring_action {
+                          referring_id_1: "key-a",
+                          referring_id_2: "non-existent"
+                        }
+                      }
                     }
                   }
                 )PB",
@@ -250,7 +275,12 @@ int main(int argc, char** argv) {
                   table_entry {
                     referring_table_entry {
                       match { val: "0x002" }
-                      action { referring_action { referring_id: "key-b" } }
+                      action {
+                        referring_action {
+                          referring_id_1: "key-b",
+                          referring_id_2: "non-existent"
+                        }
+                      }
                     }
                   }
                 )PB",
@@ -271,7 +301,12 @@ int main(int argc, char** argv) {
                   table_entry {
                     referring_table_entry {
                       match { val: "0x001" }
-                      action { referring_action { referring_id: "key-a" } }
+                      action {
+                        referring_action {
+                          referring_id_1: "key-a",
+                          referring_id_2: "non-existent"
+                        }
+                      }
                     }
                   }
                 )PB",
@@ -289,7 +324,12 @@ int main(int argc, char** argv) {
                   table_entry {
                     referring_table_entry {
                       match { val: "0x002" }
-                      action { referring_action { referring_id: "key-a" } }
+                      action {
+                        referring_action {
+                          referring_id_1: "key-a",
+                          referring_id_2: "non-existent"
+                        }
+                      }
                     }
                   }
                 )PB"});
@@ -298,7 +338,31 @@ int main(int argc, char** argv) {
            {R"PB(
               referring_table_entry {
                 match { val: "0x001" }
-                action { referring_action { referring_id: "key-a" } }
+                action {
+                  referring_action {
+                    referring_id_1: "key-a",
+                    referring_id_2: "non-existent"
+                  }
+                }
+              }
+            )PB",
+            R"PB(
+              referred_table_entry {
+                match { id: "key-a" }
+                action { do_thing_4 {} }
+              }
+            )PB"});
+
+  SortTest(info, "A referring to B twice",
+           {R"PB(
+              referring_table_entry {
+                match { val: "0x001" }
+                action {
+                  referring_action {
+                    referring_id_1: "key-a",
+                    referring_id_2: "key-a"
+                  }
+                }
               }
             )PB",
             R"PB(

@@ -303,10 +303,9 @@ StatusOr<std::string> GetActionMessage(const IrActionDefinition& action) {
     ASSIGN_OR_RETURN(
         const std::string param_name,
         P4NameToProtobufFieldName(param.param().name(), kP4Parameter));
-    for (const auto& foreign_key : param.foreign_keys()) {
-      absl::StrAppend(&result, "  // Foreign key referring to '",
-                      foreign_key.table(), ".", foreign_key.match_field(),
-                      "'.\n");
+    for (const auto& reference : param.references()) {
+      absl::StrAppend(&result, "  // Refers to '", reference.table(), ".",
+                      reference.match_field(), "'.\n");
     }
     absl::StrAppend(
         &result, "  string ", param_name, " = ", param.param().id(), "; // ",

@@ -685,8 +685,16 @@ actions {
   }
   params {
     id: 1
-    name: "referring_id"
-    annotations: "@foreign_key(referred_table , id)"
+    name: "referring_id_1"
+    annotations: "@refers_to(referred_table , id)"
+    type_name {
+      name: "string_id_t"
+    }
+  }
+  params {
+    id: 2
+    name: "referring_id_2"
+    annotations: "@refers_to(referred_table , id)"
     type_name {
       name: "string_id_t"
     }
@@ -2215,32 +2223,68 @@ tables_by_id {
           value {
             param {
               id: 1
-              name: "referring_id"
-              annotations: "@foreign_key(referred_table , id)"
+              name: "referring_id_1"
+              annotations: "@refers_to(referred_table , id)"
               type_name {
                 name: "string_id_t"
               }
             }
             format: STRING
-            foreign_keys {
+            references {
+              table: "referred_table"
+              match_field: "id"
+            }
+          }
+        }
+        params_by_id {
+          key: 2
+          value {
+            param {
+              id: 2
+              name: "referring_id_2"
+              annotations: "@refers_to(referred_table , id)"
+              type_name {
+                name: "string_id_t"
+              }
+            }
+            format: STRING
+            references {
               table: "referred_table"
               match_field: "id"
             }
           }
         }
         params_by_name {
-          key: "referring_id"
+          key: "referring_id_1"
           value {
             param {
               id: 1
-              name: "referring_id"
-              annotations: "@foreign_key(referred_table , id)"
+              name: "referring_id_1"
+              annotations: "@refers_to(referred_table , id)"
               type_name {
                 name: "string_id_t"
               }
             }
             format: STRING
-            foreign_keys {
+            references {
+              table: "referred_table"
+              match_field: "id"
+            }
+          }
+        }
+        params_by_name {
+          key: "referring_id_2"
+          value {
+            param {
+              id: 2
+              name: "referring_id_2"
+              annotations: "@refers_to(referred_table , id)"
+              type_name {
+                name: "string_id_t"
+              }
+            }
+            format: STRING
+            references {
               table: "referred_table"
               match_field: "id"
             }
@@ -3172,32 +3216,68 @@ tables_by_name {
           value {
             param {
               id: 1
-              name: "referring_id"
-              annotations: "@foreign_key(referred_table , id)"
+              name: "referring_id_1"
+              annotations: "@refers_to(referred_table , id)"
               type_name {
                 name: "string_id_t"
               }
             }
             format: STRING
-            foreign_keys {
+            references {
+              table: "referred_table"
+              match_field: "id"
+            }
+          }
+        }
+        params_by_id {
+          key: 2
+          value {
+            param {
+              id: 2
+              name: "referring_id_2"
+              annotations: "@refers_to(referred_table , id)"
+              type_name {
+                name: "string_id_t"
+              }
+            }
+            format: STRING
+            references {
               table: "referred_table"
               match_field: "id"
             }
           }
         }
         params_by_name {
-          key: "referring_id"
+          key: "referring_id_1"
           value {
             param {
               id: 1
-              name: "referring_id"
-              annotations: "@foreign_key(referred_table , id)"
+              name: "referring_id_1"
+              annotations: "@refers_to(referred_table , id)"
               type_name {
                 name: "string_id_t"
               }
             }
             format: STRING
-            foreign_keys {
+            references {
+              table: "referred_table"
+              match_field: "id"
+            }
+          }
+        }
+        params_by_name {
+          key: "referring_id_2"
+          value {
+            param {
+              id: 2
+              name: "referring_id_2"
+              annotations: "@refers_to(referred_table , id)"
+              type_name {
+                name: "string_id_t"
+              }
+            }
+            format: STRING
+            references {
               table: "referred_table"
               match_field: "id"
             }
@@ -4033,32 +4113,68 @@ actions_by_id {
       value {
         param {
           id: 1
-          name: "referring_id"
-          annotations: "@foreign_key(referred_table , id)"
+          name: "referring_id_1"
+          annotations: "@refers_to(referred_table , id)"
           type_name {
             name: "string_id_t"
           }
         }
         format: STRING
-        foreign_keys {
+        references {
+          table: "referred_table"
+          match_field: "id"
+        }
+      }
+    }
+    params_by_id {
+      key: 2
+      value {
+        param {
+          id: 2
+          name: "referring_id_2"
+          annotations: "@refers_to(referred_table , id)"
+          type_name {
+            name: "string_id_t"
+          }
+        }
+        format: STRING
+        references {
           table: "referred_table"
           match_field: "id"
         }
       }
     }
     params_by_name {
-      key: "referring_id"
+      key: "referring_id_1"
       value {
         param {
           id: 1
-          name: "referring_id"
-          annotations: "@foreign_key(referred_table , id)"
+          name: "referring_id_1"
+          annotations: "@refers_to(referred_table , id)"
           type_name {
             name: "string_id_t"
           }
         }
         format: STRING
-        foreign_keys {
+        references {
+          table: "referred_table"
+          match_field: "id"
+        }
+      }
+    }
+    params_by_name {
+      key: "referring_id_2"
+      value {
+        param {
+          id: 2
+          name: "referring_id_2"
+          annotations: "@refers_to(referred_table , id)"
+          type_name {
+            name: "string_id_t"
+          }
+        }
+        format: STRING
+        references {
           table: "referred_table"
           match_field: "id"
         }
@@ -4349,32 +4465,68 @@ actions_by_name {
       value {
         param {
           id: 1
-          name: "referring_id"
-          annotations: "@foreign_key(referred_table , id)"
+          name: "referring_id_1"
+          annotations: "@refers_to(referred_table , id)"
           type_name {
             name: "string_id_t"
           }
         }
         format: STRING
-        foreign_keys {
+        references {
+          table: "referred_table"
+          match_field: "id"
+        }
+      }
+    }
+    params_by_id {
+      key: 2
+      value {
+        param {
+          id: 2
+          name: "referring_id_2"
+          annotations: "@refers_to(referred_table , id)"
+          type_name {
+            name: "string_id_t"
+          }
+        }
+        format: STRING
+        references {
           table: "referred_table"
           match_field: "id"
         }
       }
     }
     params_by_name {
-      key: "referring_id"
+      key: "referring_id_1"
       value {
         param {
           id: 1
-          name: "referring_id"
-          annotations: "@foreign_key(referred_table , id)"
+          name: "referring_id_1"
+          annotations: "@refers_to(referred_table , id)"
           type_name {
             name: "string_id_t"
           }
         }
         format: STRING
-        foreign_keys {
+        references {
+          table: "referred_table"
+          match_field: "id"
+        }
+      }
+    }
+    params_by_name {
+      key: "referring_id_2"
+      value {
+        param {
+          id: 2
+          name: "referring_id_2"
+          annotations: "@refers_to(referred_table , id)"
+          type_name {
+            name: "string_id_t"
+          }
+        }
+        format: STRING
+        references {
           table: "referred_table"
           match_field: "id"
         }
@@ -4474,7 +4626,7 @@ packet_out_metadata_by_name {
     }
   }
 }
-foreign_keys {
+references {
   table: "referred_table"
   match_field: "id"
 }

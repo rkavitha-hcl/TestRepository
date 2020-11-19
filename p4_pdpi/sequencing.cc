@@ -36,17 +36,17 @@ using ::p4::v1::WriteRequest;
 
 // We require boost::in_degree, which requires bidirectionalS.
 using Graph =
-    boost::adjacency_list<boost::vecS, boost::vecS, boost::bidirectionalS>;
+    boost::adjacency_list<boost::hash_setS, boost::vecS, boost::bidirectionalS>;
 // Boost uses integers to identify vertices.
 using Vertex = int;
 
-// Describing a foreign key (table + match field) as well as the value of that
-// match field (in this order).
-using ForeignKeyValue = std::tuple<std::string, std::string, std::string>;
-// The mapping of a foreign key value to vertices that are being referred to by
-// that foreign key value.
-using ForeignKeyValueToVertices =
-    absl::flat_hash_map<ForeignKeyValue, absl::flat_hash_set<Vertex>>;
+// Describing a referenced match field (table + match field) as well as the
+// value of that match field (in this order).
+using ReferencedValue = std::tuple<std::string, std::string, std::string>;
+// The mapping of a referenced value to vertices that are being referred to by
+// that referenced value.
+using ReferencedValueToVertices =
+    absl::flat_hash_map<ReferencedValue, absl::flat_hash_set<Vertex>>;
 
 absl::StatusOr<absl::optional<std::string>> GetMatchFieldValue(
     const IrTableDefinition& ir_table_definition, const Update& update,
@@ -75,17 +75,17 @@ absl::Status RecordDependenciesForActionInvocation(
     const std::vector<Update>& all_vertices,
     const IrActionDefinition& ir_action,
     absl::Span<const Action_Param* const> params, Vertex current_vertex,
-    ForeignKeyValueToVertices& indices, Graph& graph) {
+    ReferencedValueToVertices& indices, Graph& graph) {
   for (const Action_Param* const param : params) {
     ASSIGN_OR_RETURN(
         const auto& param_definition,
         gutil::FindOrStatus(ir_action.params_by_id(), param->param_id()),
         _ << "Failed to build dependency graph: Aciton param with ID "
           << param->param_id() << " does not exist.");
-    for (const auto& ir_foreign_key : param_definition.foreign_keys()) {
-      ForeignKeyValue foreign_key_value = {
-          ir_foreign_key.table(), ir_foreign_key.match_field(), param->value()};
-      for (Vertex referred_update_index : indices[foreign_key_value]) {
+    for (const auto& ir_reference : param_definition.references()) {
+      ReferencedValue referenced_value = {
+          ir_reference.table(), ir_reference.match_field(), param->value()};
+      for (Vertex referred_update_index : indices[referenced_value]) {
         const Update& referred_update = all_vertices[referred_update_index];
         if ((all_vertices[current_vertex].type() == p4::v1::Update::INSERT ||
              all_vertices[current_vertex].type() == p4::v1::Update::MODIFY) &&
@@ -109,8 +109,8 @@ absl::StatusOr<Graph> BuildDependencyGraph(const IrP4Info& info,
   // Graph containing one node per update.
   Graph graph(updates.size());
 
-  // Build indices to map foreign keys to the set of updates of that key.
-  ForeignKeyValueToVertices indices;
+  // Build indices to map references to the set of updates of that key.
+  ReferencedValueToVertices indices;
   for (int update_index = 0; update_index < updates.size(); update_index++) {
     const Update& update = updates[update_index];
     ASSIGN_OR_RETURN(
@@ -121,16 +121,15 @@ absl::StatusOr<Graph> BuildDependencyGraph(const IrP4Info& info,
           << update.entity().table_entry().table_id() << " does not exist.");
     const std::string& update_table_name =
         ir_table_definition.preamble().alias();
-    for (const auto& ir_foreign_key : info.foreign_keys()) {
-      if (update_table_name != ir_foreign_key.table()) continue;
+    for (const auto& ir_reference : info.references()) {
+      if (update_table_name != ir_reference.table()) continue;
       ASSIGN_OR_RETURN(absl::optional<std::string> value,
                        GetMatchFieldValue(ir_table_definition, update,
-                                          ir_foreign_key.match_field()));
+                                          ir_reference.match_field()));
       if (value.has_value()) {
-        ForeignKeyValue foreign_key_value = {ir_foreign_key.table(),
-                                             ir_foreign_key.match_field(),
-                                             value.value()};
-        indices[foreign_key_value].insert(update_index);
+        ReferencedValue reference_value = {
+            ir_reference.table(), ir_reference.match_field(), value.value()};
+        indices[reference_value].insert(update_index);
       }
     }
   }

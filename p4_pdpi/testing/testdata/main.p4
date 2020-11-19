@@ -232,8 +232,10 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
   }
   // Generic action
   @id(6)
-  action referring_action(@id(1) @foreign_key(referred_table, id)
-                         string_id_t referring_id) {}
+  action referring_action(@id(1) @refers_to(referred_table, id)
+                         string_id_t referring_id_1,
+                         @id(2) @refers_to(referred_table, id)
+                         string_id_t referring_id_2) {}
   @id(11)
   table referring_table {
       key = {
