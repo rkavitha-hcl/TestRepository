@@ -303,16 +303,7 @@ StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info &p4_info) {
              << "\" is not valid. is_wcmp = " << is_wcmp
              << ", has_oneshot = " << has_oneshot << "";
     }
-    if (is_wcmp) {
-      ir_table_definition.set_uses_oneshot(true);
-      ASSIGN_OR_RETURN(
-          const uint32_t weight_proto_id,
-          GetNumberInAnnotation(table.preamble().annotations(),
-                                "weight_proto_id"),
-          _ << "WCMP table \"" << table.preamble().alias()
-            << "\" does not have a valid @weight_proto_id annotation");
-      ir_table_definition.set_weight_proto_id(weight_proto_id);
-    }
+    ir_table_definition.set_uses_oneshot(has_oneshot);
 
     p4::config::v1::ActionRef default_action_ref;
     for (const auto &action_ref : table.action_refs()) {
@@ -821,6 +812,9 @@ StatusOr<IrActionSet> PiActionSetToIr(
              << pi_profile_action.weight() << " instead";
     }
     ir_action->set_weight(pi_profile_action.weight());
+    if (!pi_profile_action.watch_port().empty()) {
+      ir_action->set_watch_port(pi_profile_action.watch_port());
+    }
   }
   return ir_action_set;
 }
@@ -842,6 +836,9 @@ StatusOr<p4::v1::ActionProfileActionSet> IrActionSetToPi(
              << ir_action.weight() << " instead";
     }
     pi_action->set_weight(ir_action.weight());
+    if (!ir_action.watch_port().empty()) {
+      pi_action->set_watch_port(ir_action.watch_port());
+    }
   }
   return pi;
 }

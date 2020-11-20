@@ -164,16 +164,14 @@ StatusOr<std::string> GetTableActionMessage(const IrTableDefinition& table) {
   if (entry_actions.size() > 1) {
     absl::StrAppend(&result, "  }\n");
   }
+  absl::StrAppend(&result, "  }\n");
 
-  // If necessary, add weight.
+  // If necessary, add WcmpAction message
   if (table.uses_oneshot()) {
-    RETURN_IF_ERROR(gutil::InsertIfUnique(
-        proto_ids, table.weight_proto_id(),
-        absl::StrCat("@weight_proto_id conflicts with the ID of an action")));
-    absl::StrAppend(&result, "    int32 weight = ", table.weight_proto_id(),
-                    ";\n");
-    absl::StrAppend(&result, "  }\n");
-  } else {
+    absl::StrAppend(&result, "  message WcmpAction {\n");
+    absl::StrAppend(&result, "    Action action = 1;\n");
+    absl::StrAppend(&result, "    int32 weight = 2;\n");
+    absl::StrAppend(&result, "    string watch_port = 3;\n");
     absl::StrAppend(&result, "  }\n");
   }
   return result;
@@ -224,7 +222,7 @@ StatusOr<std::string> GetTableMessage(const IrTableDefinition& table) {
   ASSIGN_OR_RETURN(const auto& action_message, GetTableActionMessage(table));
   absl::StrAppend(&result, action_message);
   if (table.uses_oneshot()) {
-    absl::StrAppend(&result, "  repeated Action actions = 2;\n");
+    absl::StrAppend(&result, "  repeated WcmpAction wcmp_actions = 2;\n");
   } else {
     absl::StrAppend(&result, "  Action action = 2;\n");
   }

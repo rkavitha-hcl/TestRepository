@@ -1550,8 +1550,8 @@ missing matches
 id_test_table_entry {
 }
 
---- PD is invalid/unsupported (detected when translating IR to PI):
-Expected 2 mandatory match conditions but found 0 instead
+--- PD is invalid/unsupported:
+INVALID_ARGUMENT: No action set.
 =========================================================================
 missing action
 =========================================================================
@@ -1564,8 +1564,8 @@ id_test_table_entry {
   }
 }
 
---- PD is invalid/unsupported (detected when translating IR to PI):
-Action missing in TableEntry with name "id_test_table"
+--- PD is invalid/unsupported:
+INVALID_ARGUMENT: No action set.
 =========================================================================
 exact match missing
 =========================================================================
@@ -1901,12 +1901,14 @@ wcmp_table_entry {
       prefix_length: 24
     }
   }
-  actions {
-    weight: -1
-    do_thing_1 {
-      arg2: "0x01234567"
-      arg1: "0x01234568"
+  wcmp_actions {
+    action {
+      do_thing_1 {
+        arg2: "0x01234567"
+        arg1: "0x01234568"
+      }
     }
+    weight: -1
   }
 }
 
@@ -1924,19 +1926,23 @@ wcmp2_table_entry {
       prefix_length: 24
     }
   }
-  actions {
+  wcmp_actions {
+    action {
+      do_thing_1 {
+        arg2: "0x01234567"
+        arg1: "0x01234568"
+      }
+    }
     weight: 1
-    do_thing_1 {
-      arg2: "0x01234567"
-      arg1: "0x01234568"
-    }
   }
-  actions {
-    weight: 2
-    do_thing_1 {
-      arg2: "0x01234569"
-      arg1: "0x01234560"
+  wcmp_actions {
+    action {
+      do_thing_1 {
+        arg2: "0x01234569"
+        arg1: "0x01234560"
+      }
     }
+    weight: 2
   }
 }
 
@@ -2034,6 +2040,134 @@ action {
 
 
 =========================================================================
+valid wcmp table with watch_port
+=========================================================================
+
+--- PD (Input):
+wcmp2_table_entry {
+  match {
+    ipv4 {
+      value: "0.0.255.0"
+      prefix_length: 24
+    }
+  }
+  wcmp_actions {
+    action {
+      do_thing_1 {
+        arg2: "0x01234567"
+        arg1: "0x01234568"
+      }
+    }
+    weight: 1
+    watch_port: "abc"
+  }
+  wcmp_actions {
+    action {
+      do_thing_1 {
+        arg2: "0x01234569"
+        arg1: "0x01234560"
+      }
+    }
+    weight: 2
+  }
+}
+
+--- IR:
+table_name: "wcmp2_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "0.0.255.0"
+    }
+    prefix_length: 24
+  }
+}
+action_set {
+  actions {
+    action {
+      name: "do_thing_1"
+      params {
+        name: "arg2"
+        value {
+          hex_str: "0x01234567"
+        }
+      }
+      params {
+        name: "arg1"
+        value {
+          hex_str: "0x01234568"
+        }
+      }
+    }
+    weight: 1
+    watch_port: "abc"
+  }
+  actions {
+    action {
+      name: "do_thing_1"
+      params {
+        name: "arg2"
+        value {
+          hex_str: "0x01234569"
+        }
+      }
+      params {
+        name: "arg1"
+        value {
+          hex_str: "0x01234560"
+        }
+      }
+    }
+    weight: 2
+  }
+}
+
+--- PI:
+table_id: 33554440
+match {
+  field_id: 1
+  lpm {
+    value: "\377\000"
+    prefix_len: 24
+  }
+}
+action {
+  action_profile_action_set {
+    action_profile_actions {
+      action {
+        action_id: 16777217
+        params {
+          param_id: 1
+          value: "\001#Eg"
+        }
+        params {
+          param_id: 2
+          value: "\001#Eh"
+        }
+      }
+      weight: 1
+      watch_port: "abc"
+    }
+    action_profile_actions {
+      action {
+        action_id: 16777217
+        params {
+          param_id: 1
+          value: "\001#Ei"
+        }
+        params {
+          param_id: 2
+          value: "\001#E`"
+        }
+      }
+      weight: 2
+    }
+  }
+}
+
+
+=========================================================================
 valid wcmp table
 =========================================================================
 
@@ -2045,19 +2179,23 @@ wcmp_table_entry {
       prefix_length: 24
     }
   }
-  actions {
+  wcmp_actions {
+    action {
+      do_thing_1 {
+        arg2: "0x01234567"
+        arg1: "0x01234568"
+      }
+    }
     weight: 1
-    do_thing_1 {
-      arg2: "0x01234567"
-      arg1: "0x01234568"
-    }
   }
-  actions {
-    weight: 2
-    do_thing_1 {
-      arg2: "0x01234569"
-      arg1: "0x01234560"
+  wcmp_actions {
+    action {
+      do_thing_1 {
+        arg2: "0x01234569"
+        arg1: "0x01234560"
+      }
     }
+    weight: 2
   }
 }
 

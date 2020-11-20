@@ -1146,8 +1146,8 @@ static void RunPdTests(const pdpi::IrP4Info info) {
       gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
         wcmp_table_entry {
           match { ipv4 { value: "0.0.255.0" prefix_length: 24 } }
-          actions {
-            do_thing_1 { arg2: "0x01234567" arg1: "0x01234568" }
+          wcmp_actions {
+            action { do_thing_1 { arg2: "0x01234567" arg1: "0x01234568" } }
             weight: -1
           }
         }
@@ -1159,12 +1159,30 @@ static void RunPdTests(const pdpi::IrP4Info info) {
       gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
         wcmp2_table_entry {
           match { ipv4 { value: "0.0.255.0" prefix_length: 24 } }
-          actions {
-            do_thing_1 { arg2: "0x01234567" arg1: "0x01234568" }
+          wcmp_actions {
+            action { do_thing_1 { arg2: "0x01234567" arg1: "0x01234568" } }
             weight: 1
           }
-          actions {
-            do_thing_1 { arg2: "0x01234569" arg1: "0x01234560" }
+          wcmp_actions {
+            action { do_thing_1 { arg2: "0x01234569" arg1: "0x01234560" } }
+            weight: 2
+          }
+        }
+      )PB"),
+      INPUT_IS_VALID);
+
+  RunPdTableEntryTest(
+      info, "valid wcmp table with watch_port",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+        wcmp2_table_entry {
+          match { ipv4 { value: "0.0.255.0" prefix_length: 24 } }
+          wcmp_actions {
+            action { do_thing_1 { arg2: "0x01234567" arg1: "0x01234568" } }
+            weight: 1
+            watch_port: "abc"
+          }
+          wcmp_actions {
+            action { do_thing_1 { arg2: "0x01234569" arg1: "0x01234560" } }
             weight: 2
           }
         }
@@ -1175,12 +1193,12 @@ static void RunPdTests(const pdpi::IrP4Info info) {
       info, "valid wcmp table", gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
         wcmp_table_entry {
           match { ipv4 { value: "0.0.255.0" prefix_length: 24 } }
-          actions {
-            do_thing_1 { arg2: "0x01234567" arg1: "0x01234568" }
+          wcmp_actions {
+            action { do_thing_1 { arg2: "0x01234567" arg1: "0x01234568" } }
             weight: 1
           }
-          actions {
-            do_thing_1 { arg2: "0x01234569" arg1: "0x01234560" }
+          wcmp_actions {
+            action { do_thing_1 { arg2: "0x01234569" arg1: "0x01234560" } }
             weight: 2
           }
         }

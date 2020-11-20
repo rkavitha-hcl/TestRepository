@@ -121,9 +121,13 @@ message WcmpTableEntry {
   Match match = 1;
   message Action {
     DoThing1Action do_thing_1 = 2;
-    int32 weight = 1;
   }
-  repeated Action actions = 2;
+  message WcmpAction {
+    Action action = 1;
+    int32 weight = 2;
+    string watch_port = 3;
+  }
+  repeated WcmpAction wcmp_actions = 2;
   bytes controller_metadata = 8;
 }
 
@@ -152,9 +156,13 @@ message Wcmp2TableEntry {
     DoThing1Action do_thing_1 = 2;
     DoThing2Action do_thing_2 = 3;
   }
-    int32 weight = 1;
   }
-  repeated Action actions = 2;
+  message WcmpAction {
+    Action action = 1;
+    int32 weight = 2;
+    string watch_port = 3;
+  }
+  repeated WcmpAction wcmp_actions = 2;
   bytes controller_metadata = 8;
 }
 

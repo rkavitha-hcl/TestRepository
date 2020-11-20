@@ -81,11 +81,16 @@ def pins_infra_deps():
             sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
         )
     if not native.existing_rule("com_github_p4lang_p4runtime"):
-        http_archive(
+        # TODO: use a released version.
+        git_repository(
             name = "com_github_p4lang_p4runtime",
-            urls = ["https://github.com/p4lang/p4runtime/archive/v1.2.0.tar.gz"],
-            strip_prefix = "p4runtime-1.2.0/proto",
-            sha256 = "92582fd514193bc40c841aa2b1fa80e4f1f8b618def974877de7b0f2de3e4be4",
+            # Newest commit on master on 2020-11-18.
+            commit = "4b36c2de11d21d163411e512c29c2e09f0d744ac",
+            remote = "https://github.com/p4lang/p4runtime.git",
+            shallow_since = "1603815587 -0700",
+            # strip_prefix is broken, using a mv instead ().
+            patch_cmds = ["mv proto/* ."],
+            # strip_prefix = "proto",  # https://github.com/bazelbuild/bazel/issues/10062
         )
     if not native.existing_rule("com_github_p4lang_p4c"):
         git_repository(

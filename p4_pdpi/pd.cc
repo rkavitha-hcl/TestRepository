@@ -722,8 +722,21 @@ static absl::Status IrActionInvocationToPd(
 
 // Converts a PD action invocation to its IR form and returns it.
 static absl::StatusOr<IrActionInvocation> PdActionInvocationToIr(
-    const IrP4Info &ir_p4info, const std::string &action_name,
-    const google::protobuf::Message &pd_action) {
+    const IrP4Info &ir_p4info,
+    const google::protobuf::Message &pd_action_invocation) {
+  const std::vector<std::string> all_fields =
+      GetAllFieldNames(pd_action_invocation);
+  if (all_fields.empty()) {
+    return gutil::InvalidArgumentErrorBuilder() << "No action set.";
+  }
+  if (all_fields.size() > 1) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "Invalid PD proto, expected exactly one action.";
+  }
+  const std::string &action_name = all_fields[0];
+  ASSIGN_OR_RETURN(const auto *pd_action,
+                   GetMessageField(pd_action_invocation, action_name));
+
   ASSIGN_OR_RETURN(
       const auto &ir_action_info,
       gutil::FindOrStatus(ir_p4info.actions_by_name(), action_name),
@@ -731,12 +744,12 @@ static absl::StatusOr<IrActionInvocation> PdActionInvocationToIr(
         << "\"");
   IrActionInvocation ir_action;
   ir_action.set_name(action_name);
-  for (const auto &pd_arg_name : GetAllFieldNames(pd_action)) {
+  for (const auto &pd_arg_name : GetAllFieldNames(*pd_action)) {
     ASSIGN_OR_RETURN(
         const auto &param_info,
         gutil::FindOrStatus(ir_action_info.params_by_name(), pd_arg_name));
     ASSIGN_OR_RETURN(const auto &pd_arg,
-                     GetStringField(pd_action, pd_arg_name));
+                     GetStringField(*pd_action, pd_arg_name));
     auto *ir_param = ir_action.add_params();
     ir_param->set_name(pd_arg_name);
     ASSIGN_OR_RETURN(*ir_param->mutable_value(),
@@ -750,16 +763,20 @@ static absl::StatusOr<IrActionInvocation> PdActionInvocationToIr(
 static absl::Status IrActionSetToPd(const IrP4Info &ir_p4info,
                                     const IrTableEntry &ir_table_entry,
                                     google::protobuf::Message *pd_table) {
-  ASSIGN_OR_RETURN(const auto *pd_action_set_descriptor,
-                   GetFieldDescriptor(*pd_table, "actions"));
+  ASSIGN_OR_RETURN(const auto *pd_wcmp_action_set_descriptor,
+                   GetFieldDescriptor(*pd_table, "wcmp_actions"));
   for (const auto &ir_action_set_invocation :
        ir_table_entry.action_set().actions()) {
-    auto *pd_action_set = pd_table->GetReflection()->AddMessage(
-        pd_table, pd_action_set_descriptor);
+    auto *pd_wcmp_action_set = pd_table->GetReflection()->AddMessage(
+        pd_table, pd_wcmp_action_set_descriptor);
+    ASSIGN_OR_RETURN(auto *pd_action_set,
+                     GetMutableMessage(pd_wcmp_action_set, "action"));
     RETURN_IF_ERROR(IrActionInvocationToPd(
         ir_p4info, ir_action_set_invocation.action(), pd_action_set));
-    RETURN_IF_ERROR(SetInt32Field(pd_action_set, "weight",
+    RETURN_IF_ERROR(SetInt32Field(pd_wcmp_action_set, "weight",
                                   ir_action_set_invocation.weight()));
+    RETURN_IF_ERROR(SetStringField(pd_wcmp_action_set, "watch_port",
+                                   ir_action_set_invocation.watch_port()));
   }
   return absl::OkStatus();
 }
@@ -769,18 +786,21 @@ static absl::Status IrActionSetToPd(const IrP4Info &ir_p4info,
 static absl::StatusOr<IrActionSetInvocation> PdActionSetToIr(
     const IrP4Info &ir_p4info, const google::protobuf::Message &pd_action_set) {
   IrActionSetInvocation ir_action_set_invocation;
-  for (const auto &pd_field_name : GetAllFieldNames(pd_action_set)) {
-    if (pd_field_name == "weight") {
-      ASSIGN_OR_RETURN(const auto &pd_weight,
-                       GetInt32Field(pd_action_set, "weight"));
-      ir_action_set_invocation.set_weight(pd_weight);
-    } else {
-      ASSIGN_OR_RETURN(const auto *pd_action,
-                       GetMessageField(pd_action_set, pd_field_name));
-      ASSIGN_OR_RETURN(
-          *ir_action_set_invocation.mutable_action(),
-          PdActionInvocationToIr(ir_p4info, pd_field_name, *pd_action));
-    }
+  {
+    ASSIGN_OR_RETURN(const auto &pd_weight,
+                     GetInt32Field(pd_action_set, "weight"));
+    ir_action_set_invocation.set_weight(pd_weight);
+  }
+  {
+    ASSIGN_OR_RETURN(const auto &pd_watch_port,
+                     GetStringField(pd_action_set, "watch_port"));
+    ir_action_set_invocation.set_watch_port(pd_watch_port);
+  }
+  {
+    ASSIGN_OR_RETURN(const auto *pd_action,
+                     GetMessageField(pd_action_set, "action"));
+    ASSIGN_OR_RETURN(*ir_action_set_invocation.mutable_action(),
+                     PdActionInvocationToIr(ir_p4info, *pd_action));
   }
   return ir_action_set_invocation;
 }
@@ -907,7 +927,7 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
 
   if (ir_table_info.uses_oneshot()) {
     ASSIGN_OR_RETURN(const auto *pd_action_set,
-                     GetFieldDescriptor(*pd_table, "actions"));
+                     GetFieldDescriptor(*pd_table, "wcmp_actions"));
     auto *action_set = ir.mutable_action_set();
     for (auto i = 0;
          i < pd_table->GetReflection()->FieldSize(*pd_table, pd_action_set);
@@ -921,13 +941,8 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
   } else {
     ASSIGN_OR_RETURN(const auto *pd_action,
                      GetMessageField(*pd_table, "action"));
-    for (const auto &action_name : GetAllFieldNames(*pd_action)) {
-      ASSIGN_OR_RETURN(const auto *pd_action_invocation,
-                       GetMessageField(*pd_action, action_name));
-      ASSIGN_OR_RETURN(*ir.mutable_action(),
-                       PdActionInvocationToIr(ir_p4info, action_name,
-                                              *pd_action_invocation));
-    }
+    ASSIGN_OR_RETURN(*ir.mutable_action(),
+                     PdActionInvocationToIr(ir_p4info, *pd_action));
   }
 
   if (ir_table_info.has_meter()) {

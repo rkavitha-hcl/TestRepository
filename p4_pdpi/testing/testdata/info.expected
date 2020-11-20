@@ -1662,7 +1662,6 @@ tables_by_id {
     }
     size: 1024
     uses_oneshot: true
-    weight_proto_id: 1
   }
 }
 tables_by_id {
@@ -1985,7 +1984,6 @@ tables_by_id {
     }
     size: 1024
     uses_oneshot: true
-    weight_proto_id: 1
   }
 }
 tables_by_id {
@@ -3938,7 +3936,6 @@ tables_by_name {
     }
     size: 1024
     uses_oneshot: true
-    weight_proto_id: 1
   }
 }
 tables_by_name {
@@ -4048,7 +4045,6 @@ tables_by_name {
     }
     size: 1024
     uses_oneshot: true
-    weight_proto_id: 1
   }
 }
 actions_by_id {
