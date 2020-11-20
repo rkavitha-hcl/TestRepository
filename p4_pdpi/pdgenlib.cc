@@ -171,7 +171,7 @@ StatusOr<std::string> GetTableActionMessage(const IrTableDefinition& table) {
     absl::StrAppend(&result, "  message WcmpAction {\n");
     absl::StrAppend(&result, "    Action action = 1;\n");
     absl::StrAppend(&result, "    int32 weight = 2;\n");
-    absl::StrAppend(&result, "    string watch_port = 3;\n");
+    absl::StrAppend(&result, "    string watch_port = 3;  // Format::STRING\n");
     absl::StrAppend(&result, "  }\n");
   }
   return result;
