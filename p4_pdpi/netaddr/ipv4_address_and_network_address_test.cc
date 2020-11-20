@@ -28,6 +28,24 @@ using ::gutil::IsOkAndHolds;
 using ::testing::Eq;
 using ::testing::Not;
 
+// Safely constructs `char` from integer. Example: `c(0xFF)`.
+//
+// In C(++), it is implementation dependent whether char is signed or unsigned.
+// This can lead to surprises/undefined behavior when relying on implicit
+// conversions from integers types to char. This function avoids such surprises.
+char c(uint8_t n) {
+  char c = 0;
+  memcpy(&c, &n, 1);
+  return c;
+}
+
+// Constructs a string from a vector of bytes.
+std::string string(std::vector<uint8_t> bytes) {
+  std::string result;
+  for (auto byte : bytes) result.push_back(c(byte));
+  return result;
+}
+
 constexpr std::pair<Ipv4Address, absl::string_view> kIpsAndIpStrings[]{
     {Ipv4Address(0, 0, 0, 0), "0.0.0.0"},
     {Ipv4Address(255, 255, 255, 255), "255.255.255.255"},
@@ -43,24 +61,24 @@ constexpr absl::string_view kBadIpStrings[]{
 
 absl::flat_hash_map<Ipv4Address, std::string> IpsAndPaddedByteStrings() {
   return {
-      {Ipv4Address(0, 0, 0, 0), {0, 0, 0, 0}},
-      {Ipv4Address(255, 255, 255, 255), {255u, 255u, 255u, 255u}},
-      {Ipv4Address(1, 1, 1, 1), {1, 1, 1, 1}},
-      {Ipv4Address(10, 0, 0, 2), {10, 0, 0, 2}},
-      {Ipv4Address(192, 168, 2, 1), {192, 168, 2, 1}},
-      {Ipv4Address(0, 0, 2, 1), {0, 0, 2, 1}},
+      {Ipv4Address(0, 0, 0, 0), string({0, 0, 0, 0})},
+      {Ipv4Address(255, 255, 255, 255), string({255, 255, 255, 255})},
+      {Ipv4Address(1, 1, 1, 1), string({1, 1, 1, 1})},
+      {Ipv4Address(10, 0, 0, 2), string({10, 0, 0, 2})},
+      {Ipv4Address(192, 168, 2, 1), string({192, 168, 2, 1})},
+      {Ipv4Address(0, 0, 2, 1), string({0, 0, 2, 1})},
   };
 }
 
 absl::flat_hash_map<Ipv4Address, std::string> IpsAndP4RuntimeByteStrings() {
   return {
-      {Ipv4Address(0, 0, 0, 0), {0}},
-      {Ipv4Address(255, 255, 255, 255), {255u, 255u, 255u, 255u}},
-      {Ipv4Address(1, 1, 1, 1), {1, 1, 1, 1}},
-      {Ipv4Address(0, 1, 1, 1), {1, 1, 1}},
-      {Ipv4Address(0, 0, 1, 1), {1, 1}},
-      {Ipv4Address(0, 0, 0, 1), {1}},
-      {Ipv4Address(10, 0, 0, 0), {10, 0, 0, 0}},
+      {Ipv4Address(0, 0, 0, 0), string({0})},
+      {Ipv4Address(255, 255, 255, 255), string({255, 255, 255, 255})},
+      {Ipv4Address(1, 1, 1, 1), string({1, 1, 1, 1})},
+      {Ipv4Address(0, 1, 1, 1), string({1, 1, 1})},
+      {Ipv4Address(0, 0, 1, 1), string({1, 1})},
+      {Ipv4Address(0, 0, 0, 1), string({1})},
+      {Ipv4Address(10, 0, 0, 0), string({10, 0, 0, 0})},
   };
 }
 
@@ -115,7 +133,8 @@ TEST(Ipv4AddressTest, AllOnesIsIndeedAllOnes) {
 
 TEST(Ipv4AddressTest, OfByteStringSuccess) {
   // Extra zeros are tolerated.
-  std::vector<std::string> harmless_prefixes = {{}, {0}, {0, 0}, {0, 0, 0}};
+  std::vector<std::string> harmless_prefixes = {"", string({0}), string({0, 0}),
+                                                string({0, 0, 0})};
   for (auto& harmless_prefix : harmless_prefixes) {
     // Padded byte strings are okay.
     for (auto [ip, byte_str] : IpsAndPaddedByteStrings()) {
@@ -134,7 +153,8 @@ TEST(Ipv4AddressTest, OfByteStringSuccess) {
 
 TEST(Ipv4AddressTest, OfByteStringErrors) {
   // Extra non-zeros are illegal.
-  std::vector<std::string> harmful_prefixes = {{1}, {100}, {0, 1}, {1, 0}};
+  std::vector<std::string> harmful_prefixes = {string({1}), string({100}),
+                                               string({0, 1}), string({1, 0})};
   for (auto& harmful_prefix : harmful_prefixes) {
     for (auto [ip, byte_str] : IpsAndPaddedByteStrings()) {
       byte_str = harmful_prefix + byte_str;

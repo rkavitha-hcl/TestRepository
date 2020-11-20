@@ -17,13 +17,12 @@ namespace netaddr {
 
 namespace {
 
-bool ParseDecimalByte(absl::string_view decimal_string, uint8_t& byte) {
-  if (decimal_string.empty() || decimal_string.size() > 3) return false;
+bool ParseByteInBase10(absl::string_view base10_string, uint8_t& byte) {
+  if (base10_string.empty() || base10_string.size() > 3) return false;
   int buffer = 0;
-  for (; !decimal_string.empty(); decimal_string.remove_prefix(1)) {
-    char digit = decimal_string[0] - '0';
-    if (digit > 10u) return false;  // Not a decimal digit.
-    buffer = buffer * 10 + digit;
+  for (char c : base10_string) {
+    if (c > '9' || c < '0') return false;
+    buffer = buffer * 10 + (c - '0');
   }
   if (buffer > 255) return false;  // Too large to fit into a byte.
   memcpy(&byte, &buffer, 1);
@@ -44,7 +43,7 @@ absl::StatusOr<Ipv4Address> Ipv4Address::OfString(absl::string_view address) {
   std::bitset<32> bits;
   for (absl::string_view byte_string : bytes) {
     uint8_t byte;
-    if (!ParseDecimalByte(byte_string, byte)) return invalid();
+    if (!ParseByteInBase10(byte_string, byte)) return invalid();
     bits <<= 8;
     bits |= byte;
   }

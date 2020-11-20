@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <bitset>
 #include <cstddef>
+#include <cstring>
 #include <string>
 
 #include "absl/status/statusor.h"
@@ -56,7 +57,9 @@ inline constexpr int NumBitsToNumBytes(int num_bits) {
 template <std::size_t num_bits>
 std::bitset<num_bits> AnyByteStringToBitset(absl::string_view byte_string) {
   std::bitset<num_bits> bits;
-  for (char byte : byte_string) {
+  for (char c : byte_string) {
+    uint8_t byte = 0;
+    memcpy(&byte, &c, 1);
     bits <<= 8;
     bits |= byte;
   }
@@ -99,15 +102,13 @@ template <std::size_t num_bits>
 std::string BitsetToPaddedByteString(std::bitset<num_bits> bits) {
   static constexpr int kNumBytes = internal::NumBitsToNumBytes(num_bits);
 
-  std::string byte_string;
-  byte_string.reserve(kNumBytes);
-  for (int i = 0; i < kNumBytes; ++i) {
-    char byte = bits.to_ulong() & 0xFFu;
-    byte_string.push_back(byte);
+  char buffer[kNumBytes];
+  for (int i = kNumBytes - 1; i >= 0; --i) {
+    uint8_t byte = static_cast<uint8_t>(bits.to_ulong() & 0xFFu);
+    memcpy(&buffer[i], &byte, 1);
     bits >>= 8;
   }
-  std::reverse(byte_string.begin(), byte_string.end());
-  return byte_string;
+  return std::string(buffer, kNumBytes);
 }
 
 template <std::size_t num_bits>
