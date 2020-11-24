@@ -23,7 +23,8 @@ import "p4/v1/p4runtime.proto";
 
 // -- P4Info -------------------------------------------------------------------
 
-// Describes the format of a value.
+// Describes the format of a value which has a bit width `num_bits` (unless for
+// the STRING format, which has no limit in the number of characters).
 enum Format {
   // Hex string, e.g. 0x0a8b. All lowercase, and always of length
   // ceil(num_bits/4)+2 (1 character for every 4 bits, zero-padded to be
@@ -35,8 +36,8 @@ enum Format {
   // IPv4 address, e.g. 10.0.0.2.
   IPV4 = 2;
   // IPv6 address, e.g. fe80::21a:11ff:fe17:5f80. All lowercase, formatted
-  // according to RFC5952. This can be used for any bitwidth of 128 or less. If
-  // the bitwidth n is less than 128, then by convention only the upper n bits
+  // according to RFC5952. This can be used for any num_bits of 128 or less. If
+  // num_bits is less than 128, then by convention only the upper num_bits bits
   // can be set.
   IPV6 = 3;
   // String format, only printable characters.
