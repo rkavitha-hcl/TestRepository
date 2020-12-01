@@ -458,6 +458,11 @@ message Optional {
   absl::StrAppend(&result, "  }\n");
   absl::StrAppend(&result, "}\n\n");
 
+  // TableEntries message (vector of TableEntry).
+  absl::StrAppend(&result, "message TableEntries {\n");
+  absl::StrAppend(&result, "  repeated TableEntry entries = 1;\n");
+  absl::StrAppend(&result, "}\n\n");
+
   // PacketIo message.
   absl::StrAppend(&result, HeaderComment("Packet-IO"), "\n");
   ASSIGN_OR_RETURN(const auto& packetio_pd, GetPacketIoMessage(info));

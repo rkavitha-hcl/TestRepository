@@ -274,6 +274,10 @@ message TableEntry {
   }
 }
 
+message TableEntries {
+  repeated TableEntry entries = 1;
+}
+
 
 // -- Packet-IO ----------------------------------------------------------------
 
