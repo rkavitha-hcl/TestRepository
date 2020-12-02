@@ -48,13 +48,13 @@ namespace pdpi {
 // Generally PDPI functions take arbitrary byte strings as inputs, and produce
 // byte strings in canonical form as output (unless otherwise stated).
 
-const uint32_t kNumBitsInByte = 8;
-const uint32_t kNumBitsInMac = 48;
-const uint32_t kNumBytesInMac = kNumBitsInMac / kNumBitsInByte;
-const uint32_t kNumBitsInIpv4 = 32;
-const uint32_t kNumBytesInIpv4 = kNumBitsInIpv4 / kNumBitsInByte;
-const uint32_t kNumBitsInIpv6 = 128;
-const uint32_t kNumBytesInIpv6 = kNumBitsInIpv6 / kNumBitsInByte;
+constexpr int kNumBitsInByte = 8;
+constexpr int kNumBitsInMac = 48;
+constexpr int kNumBytesInMac = kNumBitsInMac / kNumBitsInByte;
+constexpr int kNumBitsInIpv4 = 32;
+constexpr int kNumBytesInIpv4 = kNumBitsInIpv4 / kNumBitsInByte;
+constexpr int kNumBitsInIpv6 = 128;
+constexpr int kNumBytesInIpv6 = kNumBitsInIpv6 / kNumBitsInByte;
 
 // Returns the format for value, given the annotations on it, it's bitwidth
 // and named type (if any).
@@ -90,6 +90,10 @@ absl::StatusOr<std::string> IrValueToFormattedString(const IrValue &value,
 absl::StatusOr<std::string> ArbitraryToNormalizedByteString(
     const std::string &bytes, int expected_bitwidth);
 
+// Convert an arbitrary byte string to its canonical form.
+// TODO: Move to byte_string.h and rename appropriately.
+std::string ArbitraryToCanonicalByteString(std::string bytes);
+
 // Convert the given byte string into a uint value.
 absl::StatusOr<uint64_t> ArbitraryByteStringToUint(const std::string &bytes,
                                                    int bitwidth);
@@ -121,13 +125,9 @@ absl::StatusOr<std::string> NormalizedByteStringToIpv6(
 // Convert the given : separated IPv6 representation into a byte string.
 absl::StatusOr<std::string> Ipv6ToNormalizedByteString(const std::string &ipv6);
 
-// Convert a normalized byte string to its canonical form.
-// TODO: Move to byte_string.h and rename appropriately.
-std::string NormalizedToCanonicalByteString(std::string bytes);
-
 // Returns the number of bits used by the PI byte string interpreted as an
 // unsigned integer.
-uint32_t GetBitwidthOfByteString(const std::string &input_string);
+int GetBitwidthOfByteString(const std::string &input_string);
 
 // Returns if a (normalized) byte string is all zeros.
 bool IsAllZeros(const std::string &s);

@@ -89,26 +89,17 @@ bool IsValidIpv6(std::string s) {
 
 absl::StatusOr<std::string> ArbitraryToNormalizedByteString(
     const std::string &bytes, int expected_bitwidth) {
-  std::string stripped_value = bytes;
-  // Remove leading zeros
-  stripped_value.erase(0, std::min(stripped_value.find_first_not_of('\x00'),
-                                   stripped_value.size() - 1));
-  int length = GetBitwidthOfByteString(stripped_value);
-  if (length > expected_bitwidth) {
+  std::string canonical_string = ArbitraryToCanonicalByteString(bytes);
+  const int bitwidth = GetBitwidthOfByteString(canonical_string);
+  if (bitwidth > expected_bitwidth) {
     return gutil::InvalidArgumentErrorBuilder()
-           << "Bytestring of length " << length << " bits does not fit in "
+           << "Bytestring of length " << bitwidth << " bits does not fit in "
            << expected_bitwidth << " bits";
   }
 
-  int total_bytes;
-  if (expected_bitwidth % 8) {
-    total_bytes = expected_bitwidth / 8 + 1;
-  } else {
-    total_bytes = expected_bitwidth / 8;
-  }
-  std::string zeros =
-      std::string(total_bytes - stripped_value.length(), '\x00');
-  return zeros.append(stripped_value);
+  const int num_bytes = (expected_bitwidth + 7) / 8;
+  return absl::StrCat(std::string(num_bytes - canonical_string.length(), 0),
+                      canonical_string);
 }
 
 absl::StatusOr<uint64_t> ArbitraryByteStringToUint(const std::string &bytes,
@@ -264,20 +255,22 @@ absl::StatusOr<std::string> Ipv6ToNormalizedByteString(
   return std::string(ip6_addr, kNumBytesInIpv6);
 }
 
-std::string NormalizedToCanonicalByteString(std::string bytes) {
+std::string ArbitraryToCanonicalByteString(std::string bytes) {
   // Remove leading zeros.
   bytes.erase(0, std::min(bytes.find_first_not_of('\x00'), bytes.size() - 1));
   return bytes;
 }
 
-uint32_t GetBitwidthOfByteString(const std::string &input_string) {
+int GetBitwidthOfByteString(const std::string &input_string) {
+  if (input_string.empty()) return 0;
+
   // Use str.length() - 1. MSB will need to be handled separately since it
   // can have leading zeros which should not be counted.
-  int length_in_bits =
-      (static_cast<int>(input_string.length()) - 1) * kNumBitsInByte;
+  int length_in_bits = (input_string.length() - 1) * kNumBitsInByte;
 
-  uint8_t msb = input_string[0];
-  while (msb) {
+  uint8_t msb;
+  memcpy(&msb, &input_string[0], 1);
+  while (msb != 0) {
     ++length_in_bits;
     msb >>= 1;
   }

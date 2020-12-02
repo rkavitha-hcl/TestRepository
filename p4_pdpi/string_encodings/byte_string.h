@@ -113,7 +113,7 @@ std::string BitsetToPaddedByteString(std::bitset<num_bits> bits) {
 
 template <std::size_t num_bits>
 std::string BitsetToP4RuntimeByteString(std::bitset<num_bits> bits) {
-  return NormalizedToCanonicalByteString(BitsetToPaddedByteString(bits));
+  return ArbitraryToCanonicalByteString(BitsetToPaddedByteString(bits));
 }
 
 }  // namespace pdpi
