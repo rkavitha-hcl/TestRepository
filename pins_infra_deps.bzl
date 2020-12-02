@@ -100,3 +100,15 @@ def pins_infra_deps():
             remote = "https://github.com/p4lang/p4c",
             shallow_since = "1599773698 -0700",
         )
+    if not native.existing_rule("com_github_nlohmann_json"):
+        http_archive(
+            name = "com_github_nlohmann_json",
+            # JSON for Modern C++
+            url = "https://github.com/nlohmann/json/archive/v3.7.3.zip",
+            strip_prefix = "json-3.7.3",
+            sha256 = "e109cd4a9d1d463a62f0a81d7c6719ecd780a52fb80a22b901ed5b6fe43fb45b",
+            build_file_content = """cc_library(name="json",
+                                               visibility=["//visibility:public"],
+                                               hdrs=["single_include/nlohmann/json.hpp"]
+                                              )""",
+        )
