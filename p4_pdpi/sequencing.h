@@ -19,6 +19,7 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/types/span.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
 
@@ -30,13 +31,13 @@ namespace pdpi {
 // when the write requests are sent in order.
 absl::StatusOr<std::vector<p4::v1::WriteRequest>>
 SequencePiUpdatesIntoWriteRequests(const IrP4Info& info,
-                                   const std::vector<p4::v1::Update>& updates);
+                                   absl::Span<const p4::v1::Update> updates);
 
 // Returns a vector of batches, where each batch is given by a vector of indices
 // into the input vector, such that updates are sequenced correctly when sent
 // batched in the order indicated.
 absl::StatusOr<std::vector<std::vector<int>>> SequencePiUpdatesInPlace(
-    const IrP4Info& info, const std::vector<p4::v1::Update>& updates);
+    const IrP4Info& info, absl::Span<const p4::v1::Update> updates);
 
 // Sorts the table entries such that entries that are depended on come first.
 // That is, two entries x and y where x refers to y will be sorted as [y, x].

@@ -71,10 +71,11 @@ absl::StatusOr<absl::optional<std::string>> GetMatchFieldValue(
 }
 
 // Given the ReferencedValue of the current_vertex, record all dependencies.
-void RecordDependenciesForReferencedValue(
-    const std::vector<Update>& all_vertices, Vertex current_vertex,
-    ReferencedValue referenced_value, ReferencedValueToVertices& indices,
-    Graph& graph) {
+void RecordDependenciesForReferencedValue(absl::Span<const Update> all_vertices,
+                                          Vertex current_vertex,
+                                          ReferencedValue referenced_value,
+                                          ReferencedValueToVertices& indices,
+                                          Graph& graph) {
   for (Vertex referred_update_index : indices[referenced_value]) {
     const Update& referred_update = all_vertices[referred_update_index];
     if ((all_vertices[current_vertex].type() == p4::v1::Update::INSERT ||
@@ -90,8 +91,7 @@ void RecordDependenciesForReferencedValue(
 
 // Records and updates the dependency graph for for the given action invocation.
 absl::Status RecordDependenciesForActionInvocation(
-    const std::vector<Update>& all_vertices,
-    const IrActionDefinition& ir_action,
+    absl::Span<const Update> all_vertices, const IrActionDefinition& ir_action,
     absl::Span<const Action_Param* const> params, Vertex current_vertex,
     ReferencedValueToVertices& indices, Graph& graph) {
   for (const Action_Param* const param : params) {
@@ -113,7 +113,7 @@ absl::Status RecordDependenciesForActionInvocation(
 // Builds the dependency graph between updates. An edge from u to v indicates
 // that u must be sent in a batch before sending v.
 absl::StatusOr<Graph> BuildDependencyGraph(const IrP4Info& info,
-                                           const std::vector<Update>& updates) {
+                                           absl::Span<const Update> updates) {
   // Graph containing one node per update.
   Graph graph(updates.size());
 
@@ -233,7 +233,7 @@ absl::StatusOr<Graph> BuildDependencyGraph(const IrP4Info& info,
 
 absl::StatusOr<std::vector<p4::v1::WriteRequest>>
 SequencePiUpdatesIntoWriteRequests(const IrP4Info& info,
-                                   const std::vector<Update>& updates) {
+                                   absl::Span<const Update> updates) {
   std::vector<WriteRequest> requests;
   ASSIGN_OR_RETURN(const auto batches, SequencePiUpdatesInPlace(info, updates));
   for (const std::vector<int>& batch : batches) {
@@ -245,7 +245,7 @@ SequencePiUpdatesIntoWriteRequests(const IrP4Info& info,
 }
 
 absl::StatusOr<std::vector<std::vector<int>>> SequencePiUpdatesInPlace(
-    const IrP4Info& info, const std::vector<Update>& updates) {
+    const IrP4Info& info, absl::Span<const Update> updates) {
   ASSIGN_OR_RETURN(Graph graph, BuildDependencyGraph(info, updates));
 
   std::vector<Vertex> roots;
