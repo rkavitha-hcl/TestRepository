@@ -182,14 +182,14 @@ absl::StatusOr<std::string> NormalizedByteStringToMac(
 absl::StatusOr<std::string> MacToNormalizedByteString(const std::string &mac) {
   if (!IsValidMac(mac)) {
     return gutil::InvalidArgumentErrorBuilder()
-           << "String cannot be parsed as MAC address: " << mac
-           << ". It must be of the format xx:xx:xx:xx:xx:xx where x is a lower "
-              "case hexadecimal character";
+           << "String cannot be parsed as MAC address: '" << mac
+           << "'. It must be of the format xx:xx:xx:xx:xx:xx where x is a lower"
+              " case hexadecimal character";
   }
   struct ether_addr *byte_string = ether_aton(mac.c_str());
   if (byte_string == nullptr) {
     return gutil::InvalidArgumentErrorBuilder()
-           << "String cannot be parsed as MAC address: " << mac;
+           << "String cannot be parsed as MAC address: '" << mac << "'";
   }
   return std::string((const char *)byte_string->ether_addr_octet,
                      sizeof(byte_string->ether_addr_octet));
@@ -217,7 +217,7 @@ absl::StatusOr<std::string> Ipv4ToNormalizedByteString(
   char ip_addr[kNumBytesInIpv4];
   if (inet_pton(AF_INET, ipv4.c_str(), &ip_addr) == 0) {
     return gutil::InvalidArgumentErrorBuilder()
-           << "Invalid IPv4 address: " << ipv4;
+           << "Invalid IPv4 address: '" << ipv4 << "'";
   }
   return std::string(ip_addr, kNumBytesInIpv4);
 }
@@ -250,7 +250,7 @@ absl::StatusOr<std::string> Ipv6ToNormalizedByteString(
   char ip6_addr[kNumBytesInIpv6];
   if (inet_pton(AF_INET6, ipv6.c_str(), &ip6_addr) == 0) {
     return gutil::InvalidArgumentErrorBuilder()
-           << "Invalid IPv6 address: " << ipv6;
+           << "Invalid IPv6 address: '" << ipv6 << "'";
   }
   return std::string(ip6_addr, kNumBytesInIpv6);
 }
@@ -298,7 +298,7 @@ absl::StatusOr<Format> GetFormat(const std::vector<std::string> &annotations,
         format = Format::IPV6;
       } else {
         return gutil::InvalidArgumentErrorBuilder()
-               << "Found invalid format annotation: " << annotation;
+               << "Found invalid format annotation: '" << annotation << "'";
       }
     }
   }
