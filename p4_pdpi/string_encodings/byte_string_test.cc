@@ -112,5 +112,10 @@ TEST(ByteStringTest, ByteStringToBitsetCorrect) {
   EXPECT_THAT(ByteStringToBitset<2>(string({0, 0, 0b100})), Not(IsOk()));
 }
 
+TEST(ByteStringTest, BitsetToPaddedByteString_Regression_2020_12_02) {
+  const auto bitset = ~std::bitset<128>();
+  BitsetToPaddedByteString(bitset);  // No crash.
+}
+
 }  // namespace
 }  // namespace pdpi

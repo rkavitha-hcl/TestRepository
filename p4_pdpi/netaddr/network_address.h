@@ -84,6 +84,13 @@ class NetworkAddress {
   void operator&=(const T& other) { bits_ &= other.bits_; }
   void operator|=(const T& other) { bits_ |= other.bits_; }
   void operator^=(const T& other) { bits_ ^= other.bits_; }
+  void operator<<=(std::size_t pos) { bits_ <<= pos; }
+  void operator>>=(std::size_t pos) { bits_ >>= pos; }
+  T operator&(const T& other) { return T(bits_ & other.bits_); }
+  T operator|(const T& other) { return T(bits_ | other.bits_); }
+  T operator^(const T& other) { return T(bits_ ^ other.bits_); }
+  T operator<<(std::size_t pos) { return T(bits_ << pos); }
+  T operator>>(std::size_t pos) { return T(bits_ >> pos); }
   T operator~() const { return T(~bits_); }
 
   // -- Comparisons --

@@ -46,3 +46,16 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "ipv6_address",
+    srcs = ["ipv6_address.cc"],
+    hdrs = ["ipv6_address.h"],
+    deps = [
+        ":network_address",
+        "//gutil:status",
+        "//p4_pdpi/utils:ir",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)

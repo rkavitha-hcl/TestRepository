@@ -101,10 +101,11 @@ absl::StatusOr<std::bitset<num_bits>> ByteStringToBitset(
 template <std::size_t num_bits>
 std::string BitsetToPaddedByteString(std::bitset<num_bits> bits) {
   static constexpr int kNumBytes = internal::NumBitsToNumBytes(num_bits);
+  static constexpr std::bitset<num_bits> lsb_mask = std::bitset<num_bits>(0xFF);
 
   char buffer[kNumBytes];
   for (int i = kNumBytes - 1; i >= 0; --i) {
-    uint8_t byte = static_cast<uint8_t>(bits.to_ulong() & 0xFFu);
+    uint8_t byte = static_cast<uint8_t>((bits & lsb_mask).to_ulong());
     memcpy(&buffer[i], &byte, 1);
     bits >>= 8;
   }

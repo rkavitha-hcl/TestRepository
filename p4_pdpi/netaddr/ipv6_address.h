@@ -1,0 +1,38 @@
+#ifndef GOOGLE_P4_PDPI_NETADDR_IPV6_ADDRESS_H_
+#define GOOGLE_P4_PDPI_NETADDR_IPV6_ADDRESS_H_
+
+#include <bitset>
+#include <cstdint>
+#include <string>
+
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
+#include "p4_pdpi/netaddr/network_address.h"
+
+namespace netaddr {
+
+class Ipv6Address : public NetworkAddress<128, Ipv6Address> {
+ public:
+  // The default constructor returns the address with all bits set to zero.
+  constexpr Ipv6Address() = default;
+
+  // Ipv6Address(0xffff, 0x1) constructs the IP address ffff:1::.
+  explicit Ipv6Address(uint16_t hextet8, uint16_t hextet7 = 0,
+                       uint16_t hextet6 = 0, uint16_t hextet5 = 0,
+                       uint16_t hextet4 = 0, uint16_t hextet3 = 0,
+                       uint16_t hextet2 = 0, uint16_t hextet1 = 0);
+
+  // Constructs an IPv6Address from an string in IPv6 address notation,
+  // e.g. "2001:0db8:85a3::7334".
+  static absl::StatusOr<Ipv6Address> OfString(absl::string_view address);
+
+  // Returns address in IPv6 address notation, e.g. "2001:0db8:85a3::7334".
+  std::string ToString() const;
+
+ protected:
+  using NetworkAddress::NetworkAddress;
+};
+
+}  // namespace netaddr
+
+#endif  // GOOGLE_P4_PDPI_NETADDR_IPV6_ADDRESS_H_
