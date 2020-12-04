@@ -9,6 +9,7 @@
 #include "gtest/gtest.h"
 #include "gutil/status.h"
 #include "gutil/status_matchers.h"
+#include "p4_pdpi/string_encodings/safe.h"
 
 namespace pdpi {
 namespace {
@@ -18,41 +19,23 @@ using ::gutil::IsOkAndHolds;
 using ::testing::Eq;
 using ::testing::Not;
 
-// Safely constructs `char` from integer. Example: `c(0xFF)`.
-//
-// In C(++), it is implementation dependent whether char is signed or unsigned.
-// This can lead to surprises/undefined behavior when relying on implicit
-// conversions from integers types to char. This function avoids such surprises.
-char c(uint8_t n) {
-  char c = 0;
-  memcpy(&c, &n, 1);
-  return c;
-}
-
-// Constructs a string from a vector of bytes.
-std::string string(std::vector<uint8_t> bytes) {
-  std::string result;
-  for (auto byte : bytes) result.push_back(c(byte));
-  return result;
-}
-
 std::vector<std::pair<std::bitset<9>, std::string>>
 BitsetsAndPaddedByteStrings() {
   return {
-      {{0x00'00}, string({0x00, 0x00})},
-      {{0x00'01}, string({0x00, 0x01})},
-      {{0x01'cd}, string({0x01, 0xcd})},
-      {{0x00'23}, string({0x00, 0x23})},
+      {{0x00'00}, SafeString({0x00, 0x00})},
+      {{0x00'01}, SafeString({0x00, 0x01})},
+      {{0x01'cd}, SafeString({0x01, 0xcd})},
+      {{0x00'23}, SafeString({0x00, 0x23})},
   };
 }
 
 std::vector<std::pair<std::bitset<9>, std::string>>
 BitsetsAndP4RuntimeByteStrings() {
   return {
-      {{0x00'00}, string({0x00})},
-      {{0x00'01}, string({0x01})},
-      {{0x01'cd}, string({0x01, 0xcd})},
-      {{0x00'23}, string({0x23})},
+      {{0x00'00}, SafeString({0x00})},
+      {{0x00'01}, SafeString({0x01})},
+      {{0x01'cd}, SafeString({0x01, 0xcd})},
+      {{0x00'23}, SafeString({0x23})},
   };
 }
 
@@ -86,8 +69,8 @@ TEST(ByteStringTest, ByteStringToBitsetCorrect) {
                 IsOkAndHolds(Eq(std::bitset<200>(bitset.to_ulong()))));
 
     // Extra bytes are also okay if they are zero.
-    const std::vector<std::string> zero_prefixes = {string({0}),
-                                                    string({0, 0})};
+    const std::vector<std::string> zero_prefixes = {SafeString({0}),
+                                                    SafeString({0, 0})};
     for (const auto& prefix : zero_prefixes) {
       EXPECT_THAT(ByteStringToBitset<9>(prefix + byte_str),
                   IsOkAndHolds(Eq(bitset)));
@@ -95,21 +78,22 @@ TEST(ByteStringTest, ByteStringToBitsetCorrect) {
 
     // Extra bytes are *not* okay if they are non-zero.
     const std::vector<std::string> nonzero_prefixes = {
-        string({1}), string({2}), string({3}), string({100}), string({1, 0})};
+        SafeString({1}), SafeString({2}), SafeString({3}), SafeString({100}),
+        SafeString({1, 0})};
     for (const auto& prefix : nonzero_prefixes) {
       EXPECT_THAT(ByteStringToBitset<9>(prefix + byte_str), Not(IsOk()));
     }
   }
 
   // Extra nonzero bits are never okay.
-  EXPECT_THAT(ByteStringToBitset<1>(string({0b01})), IsOk());
-  EXPECT_THAT(ByteStringToBitset<1>(string({0b10})), Not(IsOk()));
-  EXPECT_THAT(ByteStringToBitset<1>(string({0, 0b01})), IsOk());
-  EXPECT_THAT(ByteStringToBitset<1>(string({0, 0b10})), Not(IsOk()));
-  EXPECT_THAT(ByteStringToBitset<1>(string({0, 0, 0b01})), IsOk());
-  EXPECT_THAT(ByteStringToBitset<1>(string({0, 0, 0b10})), Not(IsOk()));
-  EXPECT_THAT(ByteStringToBitset<2>(string({0, 0, 0b010})), IsOk());
-  EXPECT_THAT(ByteStringToBitset<2>(string({0, 0, 0b100})), Not(IsOk()));
+  EXPECT_THAT(ByteStringToBitset<1>(SafeString({0b01})), IsOk());
+  EXPECT_THAT(ByteStringToBitset<1>(SafeString({0b10})), Not(IsOk()));
+  EXPECT_THAT(ByteStringToBitset<1>(SafeString({0, 0b01})), IsOk());
+  EXPECT_THAT(ByteStringToBitset<1>(SafeString({0, 0b10})), Not(IsOk()));
+  EXPECT_THAT(ByteStringToBitset<1>(SafeString({0, 0, 0b01})), IsOk());
+  EXPECT_THAT(ByteStringToBitset<1>(SafeString({0, 0, 0b10})), Not(IsOk()));
+  EXPECT_THAT(ByteStringToBitset<2>(SafeString({0, 0, 0b010})), IsOk());
+  EXPECT_THAT(ByteStringToBitset<2>(SafeString({0, 0, 0b100})), Not(IsOk()));
 }
 
 TEST(ByteStringTest, BitsetToPaddedByteString_Regression_2020_12_02) {

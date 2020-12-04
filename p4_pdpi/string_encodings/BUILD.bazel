@@ -23,8 +23,15 @@ cc_test(
     srcs = ["byte_string_test.cc"],
     deps = [
         ":byte_string",
+        ":safe",
         "//gutil:status",
         "//gutil:status_matchers",
         "@com_google_googletest//:gtest_main",
     ],
+)
+
+cc_library(
+    name = "safe",
+    srcs = ["safe.cc"],
+    hdrs = ["safe.h"],
 )

@@ -41,6 +41,7 @@ cc_test(
         ":network_address",
         "//gutil:status",
         "//gutil:status_matchers",
+        "//p4_pdpi/string_encodings:safe",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
@@ -57,5 +58,19 @@ cc_library(
         "//p4_pdpi/utils:ir",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "ipv6_address_test",
+    srcs = ["ipv6_address_test.cc"],
+    deps = [
+        ":ipv6_address",
+        ":network_address",
+        "//gutil:status",
+        "//gutil:status_matchers",
+        "//p4_pdpi/string_encodings:safe",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
     ],
 )

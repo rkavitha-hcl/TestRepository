@@ -1,7 +1,6 @@
 #ifndef GOOGLE_P4_PDPI_NETADDR_IPV6_ADDRESS_H_
 #define GOOGLE_P4_PDPI_NETADDR_IPV6_ADDRESS_H_
 
-#include <bitset>
 #include <cstdint>
 #include <string>
 
