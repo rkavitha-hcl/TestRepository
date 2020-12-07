@@ -26,7 +26,7 @@ absl::Status gutil::StatusBuilder::GetStatusAndLog() const {
     }
   }
   if (log_error_ && status_.code() != absl::StatusCode::kOk) {
-    std::cout << message;
+    std::cout << message << std::endl;
   }
   return absl::Status(status_.code(), message);
 }
