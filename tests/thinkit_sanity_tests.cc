@@ -44,6 +44,7 @@ using ::testing::Eq;
 constexpr char kOpenconfigStr[] = "openconfig";
 constexpr char kStateUp[] = "UP";
 constexpr char kInterfaces[] = "interfaces";
+constexpr char KEthernet10GBSpeed[] = "\"openconfig-if-ethernet:SPEED_10GB\"";
 
 void TestSSHCommand(thinkit::SSHClient& ssh_client, thinkit::Switch& sut) {
   ASSERT_OK_AND_ASSIGN(std::string output,
@@ -115,13 +116,30 @@ void TestGnmiCheckInterfaceStateOperation(thinkit::Switch& sut) {
   auto const oc_intf_list_json = oc_intf_json->find("interface");
   ASSERT_NE(oc_intf_list_json, oc_intf_json->end());
   for (auto const& element : oc_intf_list_json->items()) {
-    auto const element_state_json = element.value().find("state");
-    ASSERT_NE(element_state_json, element.value().end());
+    auto const element_if_ethernet_json =
+        element.value().find("openconfig-if-ethernet:ethernet");
+    ASSERT_NE(element_if_ethernet_json, element.value().end());
 
-    auto const element_status_json = element_state_json->find("oper-status");
-    ASSERT_NE(element_status_json, element_state_json->end());
+    auto const element_if_ethernet_state_json =
+        element_if_ethernet_json->find("state");
+    ASSERT_NE(element_if_ethernet_state_json, element_if_ethernet_json->end());
 
-    EXPECT_THAT(element_status_json->dump(), testing::HasSubstr(kStateUp));
+    auto const element_portspeed_json =
+        element_if_ethernet_state_json->find("port-speed");
+    ASSERT_NE(element_portspeed_json, element_if_ethernet_state_json->end());
+
+    // Arista chassis have 2 additional 10G SFP ports, skipping checks for these
+    // ports as they aren't connected.
+    if (element_portspeed_json->dump() != KEthernet10GBSpeed) {
+      auto const element_interface_state_json = element.value().find("state");
+      ASSERT_NE(element_interface_state_json, element.value().end());
+
+      auto const element_status_json =
+          element_interface_state_json->find("oper-status");
+      ASSERT_NE(element_status_json, element_interface_state_json->end());
+
+      EXPECT_THAT(element_status_json->dump(), testing::HasSubstr(kStateUp));
+    }
   }
 }
 void TestGnmiGetInterfaceOperation(thinkit::Switch& sut) {
