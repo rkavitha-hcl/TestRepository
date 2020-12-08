@@ -55,6 +55,20 @@ absl::Status PiWriteRequestToPd(const IrP4Info &info,
 absl::StatusOr<p4::v1::WriteRequest> PdWriteRequestToPi(
     const IrP4Info &info, const google::protobuf::Message &pd);
 
+absl::Status PiReadRequestToPd(const IrP4Info &info,
+                               const p4::v1::ReadRequest &pi,
+                               google::protobuf::Message *pd);
+
+absl::StatusOr<p4::v1::ReadRequest> PdReadRequestToPi(
+    const IrP4Info &info, const google::protobuf::Message &pd);
+
+absl::Status PiReadResponseToPd(const IrP4Info &info,
+                                const p4::v1::ReadResponse &pi,
+                                google::protobuf::Message *pd);
+
+absl::StatusOr<p4::v1::ReadResponse> PdReadResponseToPi(
+    const IrP4Info &info, const google::protobuf::Message &pd);
+
 absl::Status PiPacketInToPd(const IrP4Info &info,
                             const p4::v1::PacketIn &pi_packet,
                             google::protobuf::Message *pd_packet);

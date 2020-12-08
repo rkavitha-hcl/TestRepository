@@ -349,6 +349,32 @@ absl::StatusOr<p4::v1::WriteRequest> PdWriteRequestToPi(
   return IrWriteRequestToPi(info, ir_entry);
 }
 
+absl::Status PiReadRequestToPd(const IrP4Info &info,
+                               const p4::v1::ReadRequest &pi,
+                               google::protobuf::Message *pd) {
+  ASSIGN_OR_RETURN(const auto ir_entry, PiReadRequestToIr(info, pi));
+  return IrReadRequestToPd(info, ir_entry, pd);
+}
+
+absl::StatusOr<p4::v1::ReadRequest> PdReadRequestToPi(
+    const IrP4Info &info, const google::protobuf::Message &pd) {
+  ASSIGN_OR_RETURN(const auto ir_entry, PdReadRequestToIr(info, pd));
+  return IrReadRequestToPi(info, ir_entry);
+}
+
+absl::Status PiReadResponseToPd(const IrP4Info &info,
+                                const p4::v1::ReadResponse &pi,
+                                google::protobuf::Message *pd) {
+  ASSIGN_OR_RETURN(const auto ir_entry, PiReadResponseToIr(info, pi));
+  return IrReadResponseToPd(info, ir_entry, pd);
+}
+
+absl::StatusOr<p4::v1::ReadResponse> PdReadResponseToPi(
+    const IrP4Info &info, const google::protobuf::Message &pd) {
+  ASSIGN_OR_RETURN(const auto ir_entry, PdReadResponseToIr(info, pd));
+  return IrReadResponseToPi(info, ir_entry);
+}
+
 absl::Status PiPacketInToPd(const IrP4Info &info,
                             const p4::v1::PacketIn &pi_packet,
                             google::protobuf::Message *pd_packet) {
