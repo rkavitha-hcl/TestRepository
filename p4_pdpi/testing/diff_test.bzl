@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-"""Blaze targets for golden file testing of the pdpi library.
+"""Blaze targets for golden file testing.
 
 This file defines targets `diff_test` and `cmd_diff_test` for "golden file
 testing".
@@ -45,9 +45,7 @@ diff -u "{expected}" "{actual}"
 if [[ $? = 0 ]]; then
     # Expected and actual agree.
     if [[ "$1" == "--update" ]]; then
-        echo "Successfully updated: {expected}. Contents:"
-        echo ""
-        cat {expected}
+        echo "Successfully updated: {expected}."
     else
         echo "PASSED"
     fi
