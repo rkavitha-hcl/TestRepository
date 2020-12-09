@@ -792,7 +792,7 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Expected exact match type in IR table entry
+INVALID_ARGUMENT: In match field 'ipv6' of table 'id_test_table': Expected exact match type in IR table entry
 
 =========================================================================
 invalid match type - expect optional
@@ -811,7 +811,7 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Expected optional match type in IR table entry
+INVALID_ARGUMENT: In match field 'ipv6' of table 'optional_table': Expected optional match type in IR table entry
 
 =========================================================================
 invalid match type - expect lpm
@@ -832,7 +832,7 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Expected LPM match type in IR table entry
+INVALID_ARGUMENT: In match field 'ipv6' of table 'lpm2_table': Expected LPM match type in IR table entry
 
 =========================================================================
 invalid match type - expect ternary
@@ -849,7 +849,7 @@ matches {
 priority: 32
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Expected ternary match type in IR table entry
+INVALID_ARGUMENT: In match field 'ipv6' of table 'ternary_table': Expected ternary match type in IR table entry
 
 =========================================================================
 invalid match field name
@@ -881,7 +881,7 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Expected format "IPV4", but got "ipv6" instead
+INVALID_ARGUMENT: In match field 'ipv4' of table 'id_test_table': Expected format "IPV4", but got "ipv6" instead
 
 =========================================================================
 invalid prefix length
@@ -900,7 +900,7 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Prefix length 40 is greater than bitwidth 32 in LPM
+INVALID_ARGUMENT: In match field 'ipv4' of table 'lpm1_table': Prefix length 40 is greater than bitwidth 32 in LPM
 
 =========================================================================
 duplicate match field name
@@ -941,7 +941,7 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: LPM value has masked bits that are set.
+INVALID_ARGUMENT: In match field 'ipv4' of table 'lpm1_table': LPM value has masked bits that are set.
 Value: ipv4: "10.43.23.12"
 Prefix Length: 24
 
@@ -965,7 +965,7 @@ matches {
 priority: 32
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: IR Value "0x4212" has the wrong number of characters. Has 6 characters, but expected 5 instead.
+INVALID_ARGUMENT: In match field 'normal' of table 'ternary_table': IR Value "0x4212" has the wrong number of characters. Has 6 characters, but expected 5 instead.
 
 =========================================================================
 ternary value and mask too long
@@ -987,7 +987,7 @@ matches {
 priority: 32
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: IR Value "0x4212" has the wrong number of characters. Has 6 characters, but expected 5 instead.
+INVALID_ARGUMENT: In match field 'normal' of table 'ternary_table': IR Value "0x4212" has the wrong number of characters. Has 6 characters, but expected 5 instead.
 
 =========================================================================
 ternary value - masked bits set
@@ -1009,7 +1009,7 @@ matches {
 priority: 32
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Ternary value has masked bits that are set.
+INVALID_ARGUMENT: In match field 'ipv6' of table 'ternary_table': Ternary value has masked bits that are set.
 Value: ipv6: "::0100"
 Mask : ipv6: "::00ff"
 
@@ -1285,7 +1285,7 @@ action {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: A wild-card LPM match (i.e., prefix length of 0) must be represented by omitting the match altogether
+INVALID_ARGUMENT: In match field 'ipv4' of table 'lpm1_table': A wild-card LPM match (i.e., prefix length of 0) must be represented by omitting the match altogether
 
 =========================================================================
 zero ternary mask
@@ -1322,7 +1322,7 @@ action {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: A wild-card ternary match (i.e., mask of 0) must be represented by omitting the match altogether
+INVALID_ARGUMENT: In match field 'normal' of table 'ternary_table': A wild-card ternary match (i.e., mask of 0) must be represented by omitting the match altogether
 
 =========================================================================
 zero priority
@@ -1646,7 +1646,7 @@ lpm2_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-A wild-card LPM match (i.e., prefix length of 0) must be represented by omitting the match altogether
+In match field 'ipv6' of table 'lpm2_table': A wild-card LPM match (i.e., prefix length of 0) must be represented by omitting the match altogether
 =========================================================================
 ternary entry with zero mask
 =========================================================================
@@ -1681,7 +1681,7 @@ ternary_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-A wild-card ternary match (i.e., mask of 0) must be represented by omitting the match altogether
+In match field 'normal' of table 'ternary_table': A wild-card ternary match (i.e., mask of 0) must be represented by omitting the match altogether
 =========================================================================
 lpm value - masked bits set
 =========================================================================
@@ -1701,7 +1701,7 @@ lpm2_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-LPM value has masked bits that are set.
+In match field 'ipv6' of table 'lpm2_table': LPM value has masked bits that are set.
 Value: ipv6: "ffff::abcd:0:aabb"
 Prefix Length: 96
 =========================================================================
@@ -1738,7 +1738,7 @@ ternary_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-Ternary value has masked bits that are set.
+In match field 'normal' of table 'ternary_table': Ternary value has masked bits that are set.
 Value: hex_str: "0x052"
 Mask : hex_str: "0x001"
 

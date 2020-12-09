@@ -1086,8 +1086,10 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
         gutil::FindOrStatus(table.match_fields_by_name(), ir_match.name()),
         _ << "Match Field \"" << ir_match.name()
           << "\" does not exist in table \"" << ir.table_name() << "\"");
-    ASSIGN_OR_RETURN(const auto &match_entry,
-                     IrMatchFieldToPi(info, match, ir_match));
+    ASSIGN_OR_RETURN(
+        const auto &match_entry, IrMatchFieldToPi(info, match, ir_match),
+        _.SetPrepend() << "In match field '" << ir_match.name() << "'"
+                       << " of table '" << ir.table_name() << "': ");
     *pi.add_match() = match_entry;
 
     if (match.match_field().match_type() == MatchField::EXACT) {
