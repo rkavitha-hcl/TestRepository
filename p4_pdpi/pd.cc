@@ -1244,4 +1244,174 @@ absl::StatusOr<IrWriteRpcStatus> PdWriteRpcStatusToIr(
   return ir_write_rpc_status;
 }
 
+absl::Status IrArbitrationToPd(
+    const p4::v1::MasterArbitrationUpdate &ir_arbitration,
+    google::protobuf::Message *stream_message) {
+  ASSIGN_OR_RETURN(auto *arbitration,
+                   GetMutableMessage(stream_message, "arbitration"));
+
+  RETURN_IF_ERROR(
+      SetUint64Field(arbitration, "device_id", ir_arbitration.device_id()));
+
+  ASSIGN_OR_RETURN(auto *election_id,
+                   GetMutableMessage(arbitration, "election_id"));
+  RETURN_IF_ERROR(
+      SetUint64Field(election_id, "high", ir_arbitration.election_id().high()));
+  RETURN_IF_ERROR(
+      SetUint64Field(election_id, "low", ir_arbitration.election_id().low()));
+
+  ASSIGN_OR_RETURN(auto *pd_status, GetMutableMessage(arbitration, "status"));
+  RETURN_IF_ERROR(
+      SetInt32Field(pd_status, "code", ir_arbitration.status().code()));
+  RETURN_IF_ERROR(
+      SetStringField(pd_status, "message", ir_arbitration.status().message()));
+  return absl::OkStatus();
+}
+
+absl::StatusOr<p4::v1::MasterArbitrationUpdate> PdArbitrationToIr(
+    const google::protobuf::Message &stream_message) {
+  p4::v1::MasterArbitrationUpdate ir_arbitration;
+  ASSIGN_OR_RETURN(const auto *arbitration,
+                   GetMessageField(stream_message, "arbitration"));
+
+  ASSIGN_OR_RETURN(const auto device_id,
+                   GetUint64Field(*arbitration, "device_id"));
+  ir_arbitration.set_device_id(device_id);
+
+  ASSIGN_OR_RETURN(const auto *election_id,
+                   GetMessageField(*arbitration, "election_id"));
+  ASSIGN_OR_RETURN(const auto high, GetUint64Field(*election_id, "high"));
+  ir_arbitration.mutable_election_id()->set_high(high);
+  ASSIGN_OR_RETURN(const auto low, GetUint64Field(*election_id, "low"));
+  ir_arbitration.mutable_election_id()->set_low(low);
+
+  ASSIGN_OR_RETURN(const auto *status, GetMessageField(*arbitration, "status"));
+  ASSIGN_OR_RETURN(const auto code, GetInt32Field(*status, "code"));
+  ir_arbitration.mutable_status()->set_code(code);
+  ASSIGN_OR_RETURN(const auto message, GetStringField(*status, "message"));
+  ir_arbitration.mutable_status()->set_message(message);
+
+  return ir_arbitration;
+}
+
+absl::Status IrStreamMessageRequestToPd(
+    const IrP4Info &info, const IrStreamMessageRequest &ir,
+    google::protobuf::Message *stream_message) {
+  switch (ir.update_case()) {
+    case IrStreamMessageRequest::kArbitration: {
+      RETURN_IF_ERROR(IrArbitrationToPd(ir.arbitration(), stream_message));
+      break;
+    }
+    case IrStreamMessageRequest::kPacket: {
+      ASSIGN_OR_RETURN(auto *packet_out,
+                       GetMutableMessage(stream_message, "packet"));
+      RETURN_IF_ERROR(IrPacketOutToPd(info, ir.packet(), packet_out));
+      break;
+    }
+    default:
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Unsupported update: ",
+          ir.GetDescriptor()->FindFieldByNumber(ir.update_case())->name(),
+          "."));
+  }
+  return absl::OkStatus();
+}
+
+absl::StatusOr<IrStreamMessageRequest> PdStreamMessageRequestToIr(
+    const IrP4Info &info, const google::protobuf::Message &stream_message) {
+  IrStreamMessageRequest ir_stream_message;
+  ASSIGN_OR_RETURN(const std::string update_one_of_name,
+                   gutil::GetOneOfFieldName(stream_message, "update"));
+  if (update_one_of_name == "arbitration") {
+    ASSIGN_OR_RETURN(*ir_stream_message.mutable_arbitration(),
+                     PdArbitrationToIr(stream_message));
+  } else if (update_one_of_name == "packet") {
+    ASSIGN_OR_RETURN(const auto *packet,
+                     GetMessageField(stream_message, "packet"));
+    ASSIGN_OR_RETURN(*ir_stream_message.mutable_packet(),
+                     PdPacketOutToIr(info, *packet));
+  } else {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Unsupported update: ", update_one_of_name, "."));
+  }
+  return ir_stream_message;
+}
+
+absl::Status IrStreamMessageResponseToPd(
+    const IrP4Info &info, const IrStreamMessageResponse &ir,
+    google::protobuf::Message *stream_message) {
+  switch (ir.update_case()) {
+    case IrStreamMessageResponse::kArbitration: {
+      RETURN_IF_ERROR(IrArbitrationToPd(ir.arbitration(), stream_message));
+      break;
+    }
+    case IrStreamMessageResponse::kPacket: {
+      ASSIGN_OR_RETURN(auto *packet,
+                       GetMutableMessage(stream_message, "packet"));
+      RETURN_IF_ERROR(IrPacketInToPd(info, ir.packet(), packet));
+      break;
+    }
+    case IrStreamMessageResponse::kError: {
+      IrStreamError ir_error = ir.error();
+      ASSIGN_OR_RETURN(auto *error, GetMutableMessage(stream_message, "error"));
+
+      ASSIGN_OR_RETURN(auto *pd_status, GetMutableMessage(error, "status"));
+      RETURN_IF_ERROR(
+          SetInt32Field(pd_status, "code", ir_error.status().code()));
+
+      RETURN_IF_ERROR(
+          SetStringField(pd_status, "message", ir_error.status().message()));
+
+      ASSIGN_OR_RETURN(auto *packet_out,
+                       GetMutableMessage(error, "packet_out"));
+      RETURN_IF_ERROR(
+          IrPacketOutToPd(info, ir.error().packet_out(), packet_out));
+      break;
+    }
+    default:
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Unsupported update: ",
+          ir.GetDescriptor()->FindFieldByNumber(ir.update_case())->name(),
+          "."));
+  }
+  return absl::OkStatus();
+}
+
+absl::StatusOr<IrStreamMessageResponse> PdStreamMessageResponseToIr(
+    const IrP4Info &info, const google::protobuf::Message &stream_message) {
+  IrStreamMessageResponse ir_stream_message;
+  ASSIGN_OR_RETURN(const std::string update_one_of_name,
+                   gutil::GetOneOfFieldName(stream_message, "update"));
+  if (update_one_of_name == "arbitration") {
+    ASSIGN_OR_RETURN(*ir_stream_message.mutable_arbitration(),
+                     PdArbitrationToIr(stream_message));
+  } else if (update_one_of_name == "packet") {
+    ASSIGN_OR_RETURN(const auto *packet,
+                     GetMessageField(stream_message, "packet"));
+    ASSIGN_OR_RETURN(*ir_stream_message.mutable_packet(),
+                     PdPacketInToIr(info, *packet));
+  } else if (update_one_of_name == "error") {
+    auto *ir_error = ir_stream_message.mutable_error();
+    ASSIGN_OR_RETURN(const auto *error,
+                     GetMessageField(stream_message, "error"));
+
+    ASSIGN_OR_RETURN(const auto *status, GetMessageField(*error, "status"));
+    auto *ir_status = ir_error->mutable_status();
+    ASSIGN_OR_RETURN(const auto code, GetInt32Field(*status, "code"));
+    ir_status->set_code(code);
+
+    ASSIGN_OR_RETURN(const auto message, GetStringField(*status, "message"));
+    ir_status->set_message(message);
+
+    ASSIGN_OR_RETURN(const auto *packet_out,
+                     GetMessageField(*error, "packet_out"));
+    ASSIGN_OR_RETURN(*ir_error->mutable_packet_out(),
+                     PdPacketOutToIr(info, *packet_out));
+  } else {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Unsupported update: ", update_one_of_name, "."));
+  }
+  return ir_stream_message;
+}
+
 }  // namespace pdpi

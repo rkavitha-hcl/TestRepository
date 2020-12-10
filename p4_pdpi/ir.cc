@@ -1586,4 +1586,153 @@ absl::Status WriteRpcGrpcStatusToAbslStatus(
          << write_rpc_status.DebugString();
 }
 
+StatusOr<IrStreamMessageRequest> PiStreamMessageRequestToIr(
+    const IrP4Info &info,
+    const p4::v1::StreamMessageRequest &stream_message_request) {
+  IrStreamMessageRequest ir_stream_message_request;
+
+  switch (stream_message_request.update_case()) {
+    case p4::v1::StreamMessageRequest::kArbitration: {
+      *ir_stream_message_request.mutable_arbitration() =
+          stream_message_request.arbitration();
+      break;
+    }
+    case p4::v1::StreamMessageRequest::kPacket: {
+      ASSIGN_OR_RETURN(*ir_stream_message_request.mutable_packet(),
+                       PiPacketOutToIr(info, stream_message_request.packet()));
+      break;
+    }
+    default: {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Unsupported update: ",
+          stream_message_request.GetDescriptor()
+              ->FindFieldByNumber(stream_message_request.update_case())
+              ->name(),
+          "."));
+    }
+  }
+  return ir_stream_message_request;
+}
+
+StatusOr<p4::v1::StreamMessageRequest> IrStreamMessageRequestToPi(
+    const IrP4Info &info,
+    const IrStreamMessageRequest &ir_stream_message_request) {
+  p4::v1::StreamMessageRequest pi_stream_message_request;
+
+  switch (ir_stream_message_request.update_case()) {
+    case IrStreamMessageRequest::kArbitration: {
+      *pi_stream_message_request.mutable_arbitration() =
+          ir_stream_message_request.arbitration();
+      break;
+    }
+    case IrStreamMessageRequest::kPacket: {
+      ASSIGN_OR_RETURN(
+          *pi_stream_message_request.mutable_packet(),
+          IrPacketOutToPi(info, ir_stream_message_request.packet()));
+      break;
+    }
+    default: {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Unsupported update: ",
+          ir_stream_message_request.GetDescriptor()
+              ->FindFieldByNumber(ir_stream_message_request.update_case())
+              ->name(),
+          "."));
+    }
+  }
+  return pi_stream_message_request;
+}
+
+StatusOr<IrStreamMessageResponse> PiStreamMessageResponseToIr(
+    const IrP4Info &info,
+    const p4::v1::StreamMessageResponse &stream_message_response) {
+  IrStreamMessageResponse ir_stream_message_response;
+
+  switch (stream_message_response.update_case()) {
+    case p4::v1::StreamMessageResponse::kArbitration: {
+      *ir_stream_message_response.mutable_arbitration() =
+          stream_message_response.arbitration();
+      break;
+    }
+    case p4::v1::StreamMessageResponse::kPacket: {
+      ASSIGN_OR_RETURN(*ir_stream_message_response.mutable_packet(),
+                       PiPacketInToIr(info, stream_message_response.packet()));
+      break;
+    }
+    case p4::v1::StreamMessageResponse::kError: {
+      auto pi_error = stream_message_response.error();
+      auto *ir_error = ir_stream_message_response.mutable_error();
+      auto *ir_status = ir_error->mutable_status();
+      ir_status->set_code(pi_error.canonical_code());
+      ir_status->set_message(pi_error.message());
+      switch (pi_error.details_case()) {
+        case p4::v1::StreamError::kPacketOut: {
+          ASSIGN_OR_RETURN(
+              *ir_error->mutable_packet_out(),
+              PiPacketOutToIr(info, pi_error.packet_out().packet_out()));
+          break;
+        }
+        default: {
+          return absl::InvalidArgumentError(
+              absl::StrCat("Unsupported error detail: ",
+                           pi_error.GetDescriptor()
+                               ->FindFieldByNumber(pi_error.details_case())
+                               ->name(),
+                           "."));
+        }
+      }
+      break;
+    }
+    default: {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Unsupported update: ",
+          stream_message_response.GetDescriptor()
+              ->FindFieldByNumber(stream_message_response.update_case())
+              ->name(),
+          "."));
+    }
+  }
+  return ir_stream_message_response;
+}
+
+StatusOr<p4::v1::StreamMessageResponse> IrStreamMessageResponseToPi(
+    const IrP4Info &info,
+    const IrStreamMessageResponse &ir_stream_message_response) {
+  p4::v1::StreamMessageResponse pi_stream_message_response;
+
+  switch (ir_stream_message_response.update_case()) {
+    case IrStreamMessageResponse::kArbitration: {
+      *pi_stream_message_response.mutable_arbitration() =
+          ir_stream_message_response.arbitration();
+      break;
+    }
+    case IrStreamMessageResponse::kPacket: {
+      ASSIGN_OR_RETURN(
+          *pi_stream_message_response.mutable_packet(),
+          IrPacketInToPi(info, ir_stream_message_response.packet()));
+      break;
+    }
+    case IrStreamMessageResponse::kError: {
+      auto *pi_error = pi_stream_message_response.mutable_error();
+      auto ir_error = ir_stream_message_response.error();
+
+      pi_error->set_canonical_code(ir_error.status().code());
+      pi_error->set_message(ir_error.status().message());
+
+      ASSIGN_OR_RETURN(*pi_error->mutable_packet_out()->mutable_packet_out(),
+                       IrPacketOutToPi(info, ir_error.packet_out()));
+      break;
+    }
+    default: {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Unsupported update: ",
+          ir_stream_message_response.GetDescriptor()
+              ->FindFieldByNumber(ir_stream_message_response.update_case())
+              ->name(),
+          "."));
+    }
+  }
+  return pi_stream_message_response;
+}
+
 }  // namespace pdpi

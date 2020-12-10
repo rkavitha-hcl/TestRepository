@@ -281,6 +281,46 @@ static void RunPdWriteRpcStatusTest(const std::string& test_name,
   std::cout << std::endl;
 }
 
+static void RunPiStreamMessageRequestTest(
+    const pdpi::IrP4Info& info, const std::string& test_name,
+    const p4::v1::StreamMessageRequest& pi) {
+  RunGenericPiTest<pdpi::IrStreamMessageRequest, p4::v1::StreamMessageRequest>(
+      info, absl::StrCat("StreamMessageRequest test: ", test_name), pi,
+      pdpi::PiStreamMessageRequestToIr);
+}
+
+static void RunPdStreamMessageRequestTest(const pdpi::IrP4Info& info,
+                                          const std::string& test_name,
+                                          const pdpi::StreamMessageRequest& pd,
+                                          const InputValidity validity) {
+  RunGenericPdTest<pdpi::StreamMessageRequest, pdpi::IrStreamMessageRequest,
+                   p4::v1::StreamMessageRequest>(
+      info, absl::StrCat("StreamMessageRequest test: ", test_name), pd,
+      pdpi::PdStreamMessageRequestToIr, pdpi::IrStreamMessageRequestToPd,
+      pdpi::IrStreamMessageRequestToPi, pdpi::PiStreamMessageRequestToIr,
+      validity);
+}
+
+static void RunPiStreamMessageResponseTest(
+    const pdpi::IrP4Info& info, const std::string& test_name,
+    const p4::v1::StreamMessageResponse& pi) {
+  RunGenericPiTest<pdpi::IrStreamMessageResponse,
+                   p4::v1::StreamMessageResponse>(
+      info, absl::StrCat("StreamMessageResponse test: ", test_name), pi,
+      pdpi::PiStreamMessageResponseToIr);
+}
+
+static void RunPdStreamMessageResponseTest(
+    const pdpi::IrP4Info& info, const std::string& test_name,
+    const pdpi::StreamMessageResponse& pd, const InputValidity validity) {
+  RunGenericPdTest<pdpi::StreamMessageResponse, pdpi::IrStreamMessageResponse,
+                   p4::v1::StreamMessageResponse>(
+      info, absl::StrCat("StreamMessageResponse test: ", test_name), pd,
+      pdpi::PdStreamMessageResponseToIr, pdpi::IrStreamMessageResponseToPd,
+      pdpi::IrStreamMessageResponseToPi, pdpi::PiStreamMessageResponseToIr,
+      validity);
+}
+
 static void RunReadRequestTests(pdpi::IrP4Info info) {
   RunPiReadRequestTest(info, "empty",
                        gutil::ParseProtoOrDie<p4::v1::ReadRequest>(""));
@@ -731,8 +771,88 @@ static void RunWriteRpcStatusTest() {
       3, INPUT_IS_VALID);
 }
 
+static void RunStreamMessageRequestTests(pdpi::IrP4Info info) {
+  RunPiStreamMessageRequestTest(
+      info, "unsupported update",
+      gutil::ParseProtoOrDie<p4::v1::StreamMessageRequest>(R"PB(
+        digest_ack { digest_id: 1 list_id: 3 }
+      )PB"));
+
+  RunPdStreamMessageRequestTest(
+      info, "empty", gutil::ParseProtoOrDie<pdpi::StreamMessageRequest>(R"PB(
+      )PB"),
+      INPUT_IS_INVALID);
+
+  // Invalid packet values are tested in packet_io_test.cc.
+  RunPdStreamMessageRequestTest(
+      info, "arbitration",
+      gutil::ParseProtoOrDie<pdpi::StreamMessageRequest>(R"PB(
+        arbitration {
+          device_id: 5314
+          election_id { high: 0 low: 234123 }
+          status { code: 0 }
+        }
+      )PB"),
+      INPUT_IS_VALID);
+
+  RunPdStreamMessageRequestTest(
+      info, "packet", gutil::ParseProtoOrDie<pdpi::StreamMessageRequest>(R"PB(
+        packet {
+          payload: "1"
+          metadata { submit_to_ingress: "0x1" egress_port: "eth-1/2/3" }
+        }
+      )PB"),
+      INPUT_IS_VALID);
+}
+
+static void RunStreamMessageResponseTests(pdpi::IrP4Info info) {
+  RunPiStreamMessageResponseTest(
+      info, "unsupported update",
+      gutil::ParseProtoOrDie<p4::v1::StreamMessageResponse>(R"PB(
+        digest { digest_id: 1 list_id: 3 }
+      )PB"));
+
+  RunPdStreamMessageResponseTest(
+      info, "empty", gutil::ParseProtoOrDie<pdpi::StreamMessageResponse>(R"PB(
+      )PB"),
+      INPUT_IS_INVALID);
+
+  // Invalid packet values are tested in packet_io_test.cc.
+  RunPdStreamMessageResponseTest(
+      info, "arbitration",
+      gutil::ParseProtoOrDie<pdpi::StreamMessageResponse>(R"PB(
+        arbitration {
+          device_id: 5314
+          election_id { high: 0 low: 234123 }
+          status { code: 0 }
+        }
+      )PB"),
+      INPUT_IS_VALID);
+
+  RunPdStreamMessageResponseTest(
+      info, "packet", gutil::ParseProtoOrDie<pdpi::StreamMessageResponse>(R"PB(
+        packet {
+          payload: "1"
+          metadata { ingress_port: "0x034" target_egress_port: "eth-1/2/3" }
+        }
+      )PB"),
+      INPUT_IS_VALID);
+
+  RunPdStreamMessageResponseTest(
+      info, "error", gutil::ParseProtoOrDie<pdpi::StreamMessageResponse>(R"PB(
+        error {
+          status { code: 1 message: "This is an error." }
+          packet_out {
+            payload: "1"
+            metadata { submit_to_ingress: "0x1" egress_port: "eth-1/2/3" }
+          }
+        }
+      )PB"),
+      INPUT_IS_VALID);
+}
+
 int main(int argc, char** argv) {
-  CHECK(argc == 2);  // Usage: rpc_test <p4info file>.
+  CHECK_EQ(argc, 2);  // Usage: rpc_test <p4info file>.
   const auto p4info =
       gutil::ParseProtoFileOrDie<p4::config::v1::P4Info>(argv[1]);
 
@@ -745,5 +865,7 @@ int main(int argc, char** argv) {
   RunUpdateTests(info);
   RunWriteRequestTests(info);
   RunWriteRpcStatusTest();
+  RunStreamMessageRequestTests(info);
+  RunStreamMessageResponseTests(info);
   return 0;
 }

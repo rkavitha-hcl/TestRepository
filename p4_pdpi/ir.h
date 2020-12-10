@@ -75,6 +75,22 @@ absl::StatusOr<IrUpdate> PiUpdateToIr(const IrP4Info& info,
 absl::StatusOr<p4::v1::Update> IrUpdateToPi(const IrP4Info& info,
                                             const IrUpdate& update);
 
+// RPC-level conversion functions for StreamMessageRequest
+absl::StatusOr<p4::v1::StreamMessageRequest> IrStreamMessageRequestToPi(
+    const IrP4Info& info,
+    const IrStreamMessageRequest& ir_stream_message_request);
+absl::StatusOr<IrStreamMessageRequest> PiStreamMessageRequestToIr(
+    const IrP4Info& info,
+    const p4::v1::StreamMessageRequest& stream_message_request);
+
+// RPC-level conversion functions for StreamMessageResponse
+absl::StatusOr<p4::v1::StreamMessageResponse> IrStreamMessageResponseToPi(
+    const IrP4Info& info,
+    const IrStreamMessageResponse& ir_stream_message_response);
+absl::StatusOr<IrStreamMessageResponse> PiStreamMessageResponseToIr(
+    const IrP4Info& info,
+    const p4::v1::StreamMessageResponse& stream_message_response);
+
 // RPC-level conversion functions for write request.
 absl::StatusOr<IrWriteRequest> PiWriteRequestToIr(
     const IrP4Info& info, const p4::v1::WriteRequest& write_request);

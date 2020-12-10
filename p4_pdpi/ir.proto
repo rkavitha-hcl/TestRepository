@@ -331,3 +331,32 @@ message IrReadResponse {
   // The table entries read by the switch.
   repeated IrTableEntry table_entries = 1;
 }
+
+// A stream message request
+message IrStreamMessageRequest {
+  oneof update {
+    p4.v1.MasterArbitrationUpdate arbitration = 1;
+    IrPacketOut packet = 2;
+  }
+}
+
+// A stream error message
+message IrStreamError {
+  google.rpc.Status status = 1;
+  // Used by the server to convey additional information about the error.
+  // The field must be set (so that the client can identify which type of
+  // stream message triggered the error), but that field may be set to its
+  // default value.
+  IrPacketOut packet_out = 2;
+}
+
+// A stream message response
+message IrStreamMessageResponse {
+  oneof update {
+    p4.v1.MasterArbitrationUpdate arbitration = 1;
+    IrPacketIn packet = 2;
+    // Used by the server to asynchronously report errors which occur when
+    // processing StreamMessageRequest messages.
+    IrStreamError error = 3;
+  }
+}

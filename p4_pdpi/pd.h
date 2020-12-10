@@ -141,6 +141,16 @@ absl::Status IrPacketInToPd(const IrP4Info &info, const IrPacketIn &packet,
                             google::protobuf::Message *pd_packet);
 absl::Status IrPacketOutToPd(const IrP4Info &info, const IrPacketOut &packet,
                              google::protobuf::Message *pd_packet);
+absl::StatusOr<IrStreamMessageRequest> PdStreamMessageRequestToIr(
+    const IrP4Info &info, const google::protobuf::Message &stream_message);
+absl::Status IrStreamMessageRequestToPd(
+    const IrP4Info &info, const IrStreamMessageRequest &ir,
+    google::protobuf::Message *stream_message);
+absl::StatusOr<IrStreamMessageResponse> PdStreamMessageResponseToIr(
+    const IrP4Info &info, const google::protobuf::Message &stream_message);
+absl::Status IrStreamMessageResponseToPd(
+    const IrP4Info &info, const IrStreamMessageResponse &ir,
+    google::protobuf::Message *stream_message);
 
 // -- PD getters/setters -------------------------------------------------------
 

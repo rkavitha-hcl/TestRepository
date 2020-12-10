@@ -1419,3 +1419,265 @@ UNKNOWN: Batch failed, individual results:
 #3: ALREADY_EXISTS: entry already exists.
 
 
+=========================================================================
+StreamMessageRequest test: unsupported update
+=========================================================================
+
+--- PI (Input):
+digest_ack {
+  digest_id: 1
+  list_id: 3
+}
+
+--- PI is invalid/unsupported:
+INVALID_ARGUMENT: Unsupported update: digest_ack.
+
+=========================================================================
+StreamMessageRequest test: empty
+=========================================================================
+
+--- PD (Input):
+
+--- PD is invalid/unsupported:
+NOT_FOUND: Oneof field "update" is not set
+=========================================================================
+StreamMessageRequest test: arbitration
+=========================================================================
+
+--- PD (Input):
+arbitration {
+  device_id: 5314
+  election_id {
+    low: 234123
+  }
+  status {
+  }
+}
+
+--- IR:
+arbitration {
+  device_id: 5314
+  election_id {
+    low: 234123
+  }
+  status {
+  }
+}
+
+--- PI:
+arbitration {
+  device_id: 5314
+  election_id {
+    low: 234123
+  }
+  status {
+  }
+}
+
+
+=========================================================================
+StreamMessageRequest test: packet
+=========================================================================
+
+--- PD (Input):
+packet {
+  payload: "1"
+  metadata {
+    egress_port: "eth-1/2/3"
+    submit_to_ingress: "0x1"
+  }
+}
+
+--- IR:
+packet {
+  payload: "1"
+  metadata {
+    name: "egress_port"
+    value {
+      str: "eth-1/2/3"
+    }
+  }
+  metadata {
+    name: "submit_to_ingress"
+    value {
+      hex_str: "0x1"
+    }
+  }
+}
+
+--- PI:
+packet {
+  payload: "1"
+  metadata {
+    metadata_id: 1
+    value: "eth-1/2/3"
+  }
+  metadata {
+    metadata_id: 2
+    value: "\001"
+  }
+}
+
+
+=========================================================================
+StreamMessageResponse test: unsupported update
+=========================================================================
+
+--- PI (Input):
+digest {
+  digest_id: 1
+  list_id: 3
+}
+
+--- PI is invalid/unsupported:
+INVALID_ARGUMENT: Unsupported update: digest.
+
+=========================================================================
+StreamMessageResponse test: empty
+=========================================================================
+
+--- PD (Input):
+
+--- PD is invalid/unsupported:
+NOT_FOUND: Oneof field "update" is not set
+=========================================================================
+StreamMessageResponse test: arbitration
+=========================================================================
+
+--- PD (Input):
+arbitration {
+  device_id: 5314
+  election_id {
+    low: 234123
+  }
+  status {
+  }
+}
+
+--- IR:
+arbitration {
+  device_id: 5314
+  election_id {
+    low: 234123
+  }
+  status {
+  }
+}
+
+--- PI:
+arbitration {
+  device_id: 5314
+  election_id {
+    low: 234123
+  }
+  status {
+  }
+}
+
+
+=========================================================================
+StreamMessageResponse test: packet
+=========================================================================
+
+--- PD (Input):
+packet {
+  payload: "1"
+  metadata {
+    ingress_port: "0x034"
+    target_egress_port: "eth-1/2/3"
+  }
+}
+
+--- IR:
+packet {
+  payload: "1"
+  metadata {
+    name: "ingress_port"
+    value {
+      hex_str: "0x034"
+    }
+  }
+  metadata {
+    name: "target_egress_port"
+    value {
+      str: "eth-1/2/3"
+    }
+  }
+}
+
+--- PI:
+packet {
+  payload: "1"
+  metadata {
+    metadata_id: 1
+    value: "4"
+  }
+  metadata {
+    metadata_id: 2
+    value: "eth-1/2/3"
+  }
+}
+
+
+=========================================================================
+StreamMessageResponse test: error
+=========================================================================
+
+--- PD (Input):
+error {
+  status {
+    code: 1
+    message: "This is an error."
+  }
+  packet_out {
+    payload: "1"
+    metadata {
+      egress_port: "eth-1/2/3"
+      submit_to_ingress: "0x1"
+    }
+  }
+}
+
+--- IR:
+error {
+  status {
+    code: 1
+    message: "This is an error."
+  }
+  packet_out {
+    payload: "1"
+    metadata {
+      name: "egress_port"
+      value {
+        str: "eth-1/2/3"
+      }
+    }
+    metadata {
+      name: "submit_to_ingress"
+      value {
+        hex_str: "0x1"
+      }
+    }
+  }
+}
+
+--- PI:
+error {
+  canonical_code: 1
+  message: "This is an error."
+  packet_out {
+    packet_out {
+      payload: "1"
+      metadata {
+        metadata_id: 1
+        value: "eth-1/2/3"
+      }
+      metadata {
+        metadata_id: 2
+        value: "\001"
+      }
+    }
+  }
+}
+
+

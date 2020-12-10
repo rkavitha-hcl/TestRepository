@@ -544,6 +544,31 @@ message ReadResponse {
   // The table entries read by the switch.
   repeated TableEntry table_entries = 1;
 }
+
+// A stream message request
+message StreamMessageRequest {
+  oneof update {
+    p4.v1.MasterArbitrationUpdate arbitration = 1;
+    PacketOut packet = 2;
+  }
+}
+
+// A stream error message
+message StreamError {
+  google.rpc.Status status = 1;
+  PacketOut packet_out = 2;
+}
+
+// A stream message response
+message StreamMessageResponse {
+  oneof update {
+    p4.v1.MasterArbitrationUpdate arbitration = 1;
+    PacketIn packet = 2;
+    // Used by the server to asynchronously report errors which occur when
+    // processing StreamMessageRequest messages.
+    StreamError error = 3;
+  }
+}
 )");
 
   return result;
