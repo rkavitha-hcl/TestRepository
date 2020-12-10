@@ -401,6 +401,20 @@ absl::StatusOr<p4::v1::PacketOut> PdPacketOutToPi(
   return IrPacketOutToPi(info, ir);
 }
 
+absl::Status PiStreamMessageRequestToPd(const IrP4Info &info,
+                                        const p4::v1::StreamMessageRequest &pi,
+                                        google::protobuf::Message *pd) {
+  ASSIGN_OR_RETURN(const auto ir, PiStreamMessageRequestToIr(info, pi));
+  return IrStreamMessageRequestToPd(info, ir, pd);
+}
+
+absl::Status PiStreamMessageResponseToPd(
+    const IrP4Info &info, const p4::v1::StreamMessageResponse &pi,
+    google::protobuf::Message *pd) {
+  ASSIGN_OR_RETURN(const auto ir, PiStreamMessageResponseToIr(info, pi));
+  return IrStreamMessageResponseToPd(info, ir, pd);
+}
+
 absl::Status GrpcStatusToPd(const grpc::Status &status,
                             int number_of_updates_in_write_request,
                             google::protobuf::Message *pd) {

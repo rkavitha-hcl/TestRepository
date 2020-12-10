@@ -83,6 +83,14 @@ absl::Status PiPacketOutToPd(const IrP4Info &info,
 absl::StatusOr<p4::v1::PacketOut> PdPacketOutToPi(
     const IrP4Info &info, const google::protobuf::Message &packet);
 
+absl::Status PiStreamMessageRequestToPd(const IrP4Info &info,
+                                        const p4::v1::StreamMessageRequest &pi,
+                                        google::protobuf::Message *pd);
+
+absl::Status PiStreamMessageResponseToPd(
+    const IrP4Info &info, const p4::v1::StreamMessageResponse &pi,
+    google::protobuf::Message *pd);
+
 // -- Conversions to and from grpc::Status -------------------------------------
 
 absl::Status GrpcStatusToPd(const grpc::Status &status,
