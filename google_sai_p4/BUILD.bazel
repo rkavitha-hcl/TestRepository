@@ -1,0 +1,181 @@
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("//p4_pdpi/testing:diff_test.bzl", "cmd_diff_test", "diff_test")
+load("//p4_pdpi:pdgen.bzl", "p4_pd_proto")
+load("@com_github_p4lang_p4c//:bazel/p4_library.bzl", "p4_library")
+load("//gutil/embed_data:build_defs.bzl", "cc_embed_data")
+
+package(
+    licenses = ["notice"],
+)
+
+# -- PD: program dependent P4Runtime API ---------------------------------------
+
+proto_library(
+    name = "sai_pd_proto",
+    srcs = ["sai_pd.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_p4lang_p4runtime//:p4runtime_proto",
+        "@com_google_googleapis//google/rpc:code_proto",
+        "@com_google_googleapis//google/rpc:status_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "sai_pd_cc_proto",
+    visibility = ["//visibility:public"],
+    deps = [":sai_pd_proto"],
+)
+
+build_test(
+    name = "sai_pd_proto_test",
+    targets = [
+        ":sai_pd_proto",
+        ":sai_pd_cc_proto",
+    ],
+)
+
+# Ensures that the checked in and compile-time generated SAI PDs match.
+# To update the checked in PD:
+#   blaze run //platforms/networking/orion/p4/sai:sai_pd_up_to_date_test -- --update
+
+# Only for testing and updating the PD proto when the P4 program changes.
+p4_pd_proto(
+    name = "generated_sai_pd",
+    src = "generated/sai.p4info.pb.txt",
+    # Do not access directly. Use checked in sai_pd.proto instead.
+    out = "generated/sai_pd.proto",
+    package = "sai",
+)
+
+# -- P4Info --------------------------------------------------------------------
+
+# The P4Info proto, in C++ format.
+cc_library(
+    name = "sai_p4info_cc",
+    srcs = ["sai_p4info.cc"],
+    hdrs = ["sai_p4info.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":sai_p4info_embed",
+        "//p4_pdpi:ir",
+        "//p4_pdpi:ir_cc_proto",
+        "@com_github_google_glog//:glog",
+        "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+# Ensures that the checked in and compile-time generated P4Infos match.
+# To update the checked in P4Info:
+#   blaze run //platforms/networking/orion/p4/sai:sai_p4info_up_to_date_test -- --update
+diff_test(
+    name = "sai_p4info_up_to_date_test",
+    actual = "generated/sai.p4info.pb.txt",  # Generated.
+    expected = "sai.p4info.pb.txt",  # Checked in.
+)
+
+# Auxiliary target, see go/totw/128.
+cc_embed_data(
+    name = "sai_p4info_embed",
+    srcs = ["sai.p4info.pb.txt"],
+    cc_file_output = "sai_p4info_embed.cc",
+    cpp_namespace = "sai",
+    h_file_output = "sai_p4info_embed.h",
+)
+
+cc_test(
+    name = "sai_p4info_test",
+    srcs = ["sai_p4info_test.cc"],
+    deps = [
+        ":sai_p4info_cc",
+        "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_absl//absl/types:variant",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+# -- P4 program ----------------------------------------------------------------
+
+p4_library(
+    name = "sai",
+    src = "sai_main.p4",
+    # Do not access directly. Use checked in sai.p4info.pb.txt instead.
+    p4info_out = "generated/sai.p4info.pb.txt",
+    deps = [
+        "acl_ingress.p4",
+        "acl_linkqual.p4",
+        "acl_lookup.p4",
+        "headers.p4",
+        "ids.h",
+        "ipv4_checksum.p4",
+        "l3_admit.p4",
+        "metadata.p4",
+        "mirroring.p4",
+        "parser.p4",
+        "resource_limits.p4",
+        "routing.p4",
+        "ttl.p4",
+    ],
+)
+
+cc_library(
+    name = "p4_ids",
+    hdrs = ["ids.h"],
+    visibility = [
+        "//platforms/networking/apes/z3/lib/lego_herc:__pkg__",
+    ],
+)
+
+# -- BMv2 ----------------------------------------------------------------------
+
+# Like "sai" target, but specialized to BMv2 by setting -D PLATFORM_BMV2.
+p4_library(
+    name = "sai_bmv2",
+    src = "sai_main.p4",
+    extra_args = "-DPLATFORM_BMV2",
+    p4info_out = "generated/sai_bmv2.p4info.pb.txt",
+    target = "bmv2",
+    target_out = "generated/sai_bmv2.config.json",
+    visibility = ["//visibility:public"],
+    deps = [
+        "acl_ingress.p4",
+        "acl_linkqual.p4",
+        "acl_lookup.p4",
+        "headers.p4",
+        "ids.h",
+        "ipv4_checksum.p4",
+        "l3_admit.p4",
+        "metadata.p4",
+        "mirroring.p4",
+        "parser.p4",
+        "resource_limits.p4",
+        "routing.p4",
+        "ttl.p4",
+    ],
+)
+
+build_test(
+    name = "sai_bmv2_test",
+    targets = [
+        ":sai_bmv2",
+    ],
+)

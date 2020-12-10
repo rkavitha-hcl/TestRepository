@@ -1,10 +1,10 @@
-# Copyright 2020 Google LLC
+# Copyright 2019 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-#      http://www.apache.org/licenses/LICENSE-2.0
+#      https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
@@ -12,23 +12,26 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# Generates source files with embedded file contents.
+
 load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//p4_pdpi/testing:diff_test.bzl", "cmd_diff_test", "diff_test")
 load("//p4_pdpi:pdgen.bzl", "p4_pd_proto")
 load("@com_github_p4lang_p4c//:bazel/p4_library.bzl", "p4_library")
 
 package(
-    default_visibility = ["//p4_pdpi:__subpackages__"],
+    default_visibility = ["//visibility:public"],
+    features = ["layering_check"],
     licenses = ["notice"],
 )
 
-cc_library(
-    name = "ordered_protobuf_map",
-    hdrs = [
-        "ordered_protobuf_map.h",
-    ],
-    visibility = ["//visibility:public"],
+cc_binary(
+    name = "generate_cc_embed_data",
+    srcs = ["generate_cc_embed_data_main.cc"],
     deps = [
-        "@com_google_protobuf//:protobuf",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/flags:parse",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
     ],
 )
