@@ -44,11 +44,13 @@ constexpr int P4GRPCMaxMetadataSize() {
 
 // Generates an election id that is monotonically increasing with time.
 // Specifically, the upper 64 bits are the unix timestamp in seconds, and the
-// lower 64 bits are 0. This is compatible with election-systems that use the
-// same epoch-based election IDs, and in that case, this election ID will be
-// guaranteed to be higher than any previous election ID.
+// lower 64 bits are the remaining milliseconds. This is compatible with
+// election-systems that use the same epoch-based election IDs, and in that
+// case, this election ID will be guaranteed to be higher than any previous
+// election ID.
 inline absl::uint128 TimeBasedElectionId() {
-  return absl::MakeUint128(absl::ToUnixSeconds(absl::Now()), 0);
+  uint64_t msec = absl::ToUnixMillis(absl::Now());
+  return absl::MakeUint128(msec / 1000, msec % 1000);
 }
 
 // A P4Runtime session
