@@ -98,7 +98,8 @@ header packet_in_header_t {
 
 @controller_header("packet_out")
 header packet_out_header_t {
-  // The port this packet should egress out of.
+  // The port this packet should egress out of when `submit_to_ingress == 0`.
+  // Meaningless when `submit_to_ingress == 1`.
   @id(PACKET_OUT_EGRESS_PORT_ID)
   port_id_t egress_port;
   // Should the packet be submitted to the ingress pipeline instead of being
