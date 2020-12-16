@@ -7,7 +7,7 @@
 #include "ids.h"
 #include "resource_limits.p4"
 
-control acl_ingress(inout headers_t headers,
+control acl_ingress(in headers_t headers,
                     inout local_metadata_t local_metadata,
                     inout standard_metadata_t standard_metadata) {
   // IPv4 TTL or IPv6 hoplimit bits (or 0, for non-IP packets)

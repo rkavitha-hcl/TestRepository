@@ -70,10 +70,19 @@ struct headers_t {
   arp_t arp;
 }
 
+// Header fields rewritten by the ingress pipeline. Rewrites are computed and
+// stored in this struct, but actual rewriting is dealyed until the egress
+// pipeline so that the original values aren't overridden and get be matched on.
+struct packet_rewrites_t {
+  ethernet_addr_t src_mac;
+  ethernet_addr_t dst_mac;
+}
+
 // Local metadata for each packet being processed.
 struct local_metadata_t {
   bool admit_to_l3;
   vrf_id_t vrf_id;
+  packet_rewrites_t packet_rewrites;
   bit<16> l4_src_port;
   bit<16> l4_dst_port;
   bool mirror_session_id_valid;

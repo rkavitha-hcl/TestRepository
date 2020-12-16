@@ -10,6 +10,7 @@
 #include "acl_ingress.p4"
 #include "acl_lookup.p4"
 #include "acl_linkqual.p4"
+#include "packet_rewrites.p4"
 
 control ingress(inout headers_t headers,
                 inout local_metadata_t local_metadata,
@@ -28,7 +29,9 @@ control ingress(inout headers_t headers,
 control egress(inout headers_t headers,
                inout local_metadata_t local_metadata,
                inout standard_metadata_t standard_metadata) {
-  apply {}
+  apply {
+    packet_rewrites.apply(headers, local_metadata, standard_metadata);
+  }
 }  // control egress
 
 V1Switch(packet_parser(), verify_ipv4_checksum(), ingress(), egress(),

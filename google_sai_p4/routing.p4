@@ -25,7 +25,11 @@
 // router interface, which determines the packet's src_mac and the egress_port
 // to forward the packet to. The nexthop also points to a neighbor which,
 // together with the router_interface, determines the packet's dst_mac.
-control routing(inout headers_t headers,
+//
+// Note that this block does not rewrite any header fields directly, but only
+// records rewrites in `local_metadata.packet_rewrites`, from where they will be
+// read and applied in the egress stage.
+control routing(in headers_t headers,
                 inout local_metadata_t local_metadata,
                 inout standard_metadata_t standard_metadata) {
   // Wcmp group id, only valid if `wcmp_group_id_valid` is true.
@@ -52,7 +56,7 @@ control routing(inout headers_t headers,
   // Sets SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS.
   @id(ROUTING_SET_DST_MAC_ACTION_ID)
   action set_dst_mac(@id(1) @format(MAC_ADDRESS) ethernet_addr_t dst_mac) {
-    headers.ethernet.dst_addr = dst_mac;
+    local_metadata.packet_rewrites.dst_mac = dst_mac;
   }
 
   @proto_package("sai")
@@ -83,7 +87,7 @@ control routing(inout headers_t headers,
                               ethernet_addr_t src_mac) {
     // Cast is necessary, because v1model does not define port using `type`.
     standard_metadata.egress_spec = (bit<PORT_BITWIDTH>)port;
-    headers.ethernet.src_addr = src_mac;
+    local_metadata.packet_rewrites.src_mac = src_mac;
   }
 
   @proto_package("sai")

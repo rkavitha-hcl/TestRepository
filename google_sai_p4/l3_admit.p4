@@ -7,9 +7,9 @@
 #include "ids.h"
 #include "resource_limits.p4"
 
-control l3_admit(inout headers_t headers,
+control l3_admit(in headers_t headers,
                  inout local_metadata_t local_metadata,
-                 inout standard_metadata_t standard_metadata) {
+                 in standard_metadata_t standard_metadata) {
   @id(L3_ADMIT_ACTION_ID)
   action admit_to_l3() {
     local_metadata.admit_to_l3 = true;

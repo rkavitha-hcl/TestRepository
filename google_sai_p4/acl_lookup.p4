@@ -7,9 +7,9 @@
 #include "ids.h"
 #include "resource_limits.p4"
 
-control acl_lookup(inout headers_t headers,
-                    inout local_metadata_t local_metadata,
-                    inout standard_metadata_t standard_metadata) {
+control acl_lookup(in headers_t headers,
+                   inout local_metadata_t local_metadata,
+                   in standard_metadata_t standard_metadata) {
   // First 6 bits of IPv4 TOS or IPv6 traffic class (or 0, for non-IP packets)
   bit<6> dscp = 0;
 

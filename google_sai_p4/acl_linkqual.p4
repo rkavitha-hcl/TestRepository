@@ -7,9 +7,9 @@
 #include "ids.h"
 #include "resource_limits.p4"
 
-control acl_linkqual(inout headers_t headers,
-                    inout local_metadata_t local_metadata,
-                    inout standard_metadata_t standard_metadata) {
+control acl_linkqual(in headers_t headers,
+                     inout local_metadata_t local_metadata,
+                     inout standard_metadata_t standard_metadata) {
 
   @id(ACL_LINKQUAL_COUNTER_ID)
   direct_counter(CounterType.packets_and_bytes) linkqual_counter;
