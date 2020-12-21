@@ -198,7 +198,7 @@ message AclIngressTableEntry {
     Ternary dscp = 11;         // ternary match / Format::HEX_STRING / 6 bits
     Ternary ecn = 12;          // ternary match / Format::HEX_STRING / 2 bits
     Ternary ip_protocol = 13;  // ternary match / Format::HEX_STRING / 8 bits
-    Ternary icmp_type = 14;    // ternary match / Format::HEX_STRING / 8 bits
+    Ternary icmpv6_type = 14;  // ternary match / Format::HEX_STRING / 8 bits
     Ternary l4_dst_port = 15;  // ternary match / Format::HEX_STRING / 16 bits
     Ternary arp_tpa = 16;      // ternary match / Format::IPV4
   }

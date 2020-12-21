@@ -119,8 +119,8 @@ control acl_ingress(in headers_t headers,
       // Field for v4 IP protocol and v6 next header.
       ip_protocol : ternary @name("ip_protocol") @id(13)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_IP_PROTOCOL);
-      headers.icmp.type : ternary @name("icmp_type") @id(14)
-          @sai_field(SAI_ACL_TABLE_ATTR_FIELD_ICMP_TYPE);
+      headers.icmp.type : ternary @name("icmpv6_type") @id(14)
+          @sai_field(SAI_ACL_ENTRY_ATTR_FIELD_ICMPV6_TYPE);
       local_metadata.l4_dst_port : ternary @name("l4_dst_port") @id(15)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_L4_DST_PORT);
       headers.arp.target_proto_addr : ternary @name("arp_tpa") @id(16)

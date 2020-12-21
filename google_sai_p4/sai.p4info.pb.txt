@@ -461,8 +461,8 @@ tables {
   }
   match_fields {
     id: 14
-    name: "icmp_type"
-    annotations: "@sai_field(SAI_ACL_TABLE_ATTR_FIELD_ICMP_TYPE)"
+    name: "icmpv6_type"
+    annotations: "@sai_field(SAI_ACL_ENTRY_ATTR_FIELD_ICMPV6_TYPE)"
     bitwidth: 8
     match_type: TERNARY
   }
