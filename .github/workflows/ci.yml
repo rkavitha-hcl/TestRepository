@@ -9,7 +9,8 @@ on:
 jobs:
 
   build:
-    runs-on: ubuntu-latest
+    # We use Ubuntu 20.04 as it comes with GCC v9.3 by default.
+    runs-on: ubuntu-20.04
     env:
       BAZEL: bazelisk-linux-amd64
     steps:
@@ -20,7 +21,7 @@ jobs:
       with:
         # See https://docs.bazel.build/versions/master/output_directories.html
         path: "~/.cache/bazel"
-        key: ${{ runner.os }}-build
+        key: ${{ runner.os }}-building
 
     - name: Install p4c system dependencies (Flex, Bison, GMP)
       run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
@@ -34,7 +35,8 @@ jobs:
       run: ./$BAZEL build //... --distinct_host_configuration=false
 
   test:
-    runs-on: ubuntu-latest
+    # We use Ubuntu 20.04 as it comes with GCC v9.3 by default.
+    runs-on: ubuntu-20.04
     env:
       BAZEL: bazelisk-linux-amd64
     steps:
@@ -45,7 +47,7 @@ jobs:
       with:
         # See https://docs.bazel.build/versions/master/output_directories.html
         path: "~/.cache/bazel"
-        key: ${{ runner.os }}-test
+        key: ${{ runner.os }}-testing
 
     - name: Install p4c system dependencies (Flex, Bison, GMP)
       run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev

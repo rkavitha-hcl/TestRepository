@@ -1,0 +1,15 @@
+load("@rules_foreign_cc//tools/build_defs:configure.bzl", "configure_make")
+
+filegroup(
+    name = "all",
+    srcs = glob(["**"]),
+)
+
+configure_make(
+    name = "cudd",
+    lib_source = ":all",
+    configure_options = ["--enable-obj"],
+    make_commands = ["make install"],
+    lib_name = "libcudd",
+    visibility = ["//visibility:public"],
+)

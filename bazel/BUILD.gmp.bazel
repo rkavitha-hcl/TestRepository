@@ -1,0 +1,14 @@
+load("@rules_foreign_cc//tools/build_defs:configure.bzl", "configure_make")
+
+filegroup(
+    name = "all",
+    srcs = glob(["**"]),
+)
+
+configure_make(
+    name = "gmp",
+    lib_source = ":all",
+    make_commands = ["make install"],
+    lib_name = "libgmp",
+    visibility = ["//visibility:public"],
+)

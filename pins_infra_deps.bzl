@@ -1,6 +1,6 @@
 """Third party dependencies."""
 
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository", "new_git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def pins_infra_deps():
@@ -80,18 +80,6 @@ def pins_infra_deps():
             strip_prefix = "rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313",
             sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
         )
-    if not native.existing_rule("com_github_p4lang_p4runtime"):
-        # TODO: use a released version.
-        git_repository(
-            name = "com_github_p4lang_p4runtime",
-            # Newest commit on master on 2020-11-18.
-            commit = "4b36c2de11d21d163411e512c29c2e09f0d744ac",
-            remote = "https://github.com/p4lang/p4runtime.git",
-            shallow_since = "1603815587 -0700",
-            # strip_prefix is broken, using a mv instead ().
-            patch_cmds = ["mv proto/* ."],
-            # strip_prefix = "proto",  # https://github.com/bazelbuild/bazel/issues/10062
-        )
     if not native.existing_rule("com_github_p4lang_p4c"):
         git_repository(
             name = "com_github_p4lang_p4c",
@@ -99,6 +87,20 @@ def pins_infra_deps():
             commit = "557b77f8c41fc5ee1158710eda1073d84f5acf53",
             remote = "https://github.com/p4lang/p4c",
             shallow_since = "1599773698 -0700",
+        )
+    if not native.existing_rule("com_github_p4lang_p4runtime"):
+        http_archive(
+            name = "com_github_p4lang_p4runtime",
+            urls = ["https://github.com/p4lang/p4runtime/archive/v1.3.0.tar.gz"],
+            strip_prefix = "p4runtime-1.3.0/proto",
+            sha256 = "09d826e868b1c18e47ff1b5c3d9c6afc5fa7b7a3f856f9d2d9273f38f4fc87e2",
+        )
+    if not native.existing_rule("com_github_p4lang_p4_constraints"):
+        git_repository(
+            name = "com_github_p4lang_p4_constraints",
+            # Newest commit on master on 2020-12-21.
+            commit = "cbd911c54e5d21ce8448865366263a6915a7e434",
+            remote = "https://github.com/p4lang/p4-constraints",
         )
     if not native.existing_rule("com_github_nlohmann_json"):
         http_archive(
@@ -111,4 +113,33 @@ def pins_infra_deps():
                                                visibility=["//visibility:public"],
                                                hdrs=["single_include/nlohmann/json.hpp"]
                                               )""",
+        )
+    if not native.existing_rule("com_github_ivmai_cudd"):
+        http_archive(
+            name = "com_github_ivmai_cudd",
+            build_file = "@//:bazel/BUILD.cudd.bazel",
+            strip_prefix = "cudd-cudd-3.0.0",
+            sha256 = "5fe145041c594689e6e7cf4cd623d5f2b7c36261708be8c9a72aed72cf67acce",
+            urls = ["https://github.com/ivmai/cudd/archive/cudd-3.0.0.tar.gz"],
+        )
+    if not native.existing_rule("com_google_protobuf_mutator"):
+        new_git_repository(
+            name = "com_github_google_libprotobuf_mutator",
+            branch = "master",
+            build_file = "@//:bazel/BUILD.libprotobuf_mutator.bazel",
+            remote = "https://github.com/google/libprotobuf-mutator.git",
+        )
+    if not native.existing_rule("rules_foreign_cc"):
+        http_archive(
+            name = "rules_foreign_cc",
+            strip_prefix = "rules_foreign_cc-master",
+            url = "https://github.com/bazelbuild/rules_foreign_cc/archive/master.zip",
+        )
+    if not native.existing_rule("com_gnu_gmp"):
+        http_archive(
+            name = "com_gnu_gmp",
+            url = "https://gmplib.org/download/gmp/gmp-6.1.2.tar.xz",
+            strip_prefix = "gmp-6.1.2",
+            sha256 = "87b565e89a9a684fe4ebeeddb8399dce2599f9c9049854ca8c0dfbdea0e21912",
+            build_file = "@//:bazel/BUILD.gmp.bazel",
         )

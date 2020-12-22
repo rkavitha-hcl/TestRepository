@@ -18,6 +18,12 @@ load("pins_infra_deps.bzl", "pins_infra_deps")
 
 pins_infra_deps()
 
+# -- Load Rules Foreign CC -----------------------------------------------------
+
+load("@rules_foreign_cc//:workspace_definitions.bzl", "rules_foreign_cc_dependencies")
+
+rules_foreign_cc_dependencies()
+
 # -- Load Protobuf -------------------------------------------------------------
 
 load("@com_google_protobuf//:protobuf_deps.bzl", "protobuf_deps")
