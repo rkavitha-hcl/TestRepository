@@ -115,4 +115,38 @@ absl::StatusOr<std::string> ParseGnmiGetResponse(
   return match_tag_json->dump();
 }
 
+absl::Status SetGnmiConfigPath(gnmi::gNMI::Stub* sut_gnmi_stub,
+                               absl::string_view config_path,
+                               GnmiSetType operation, absl::string_view value) {
+  ASSIGN_OR_RETURN(gnmi::SetRequest request,
+                   BuildGnmiSetRequest(config_path, operation, value));
+  LOG(INFO) << "Sending SET request: " << request.ShortDebugString();
+  gnmi::SetResponse response;
+  grpc::ClientContext context;
+  auto status = sut_gnmi_stub->Set(&context, request, &response);
+  if (!status.ok()) {
+    return gutil::InternalErrorBuilder();
+  }
+  LOG(INFO) << "Received SET response: " << response.ShortDebugString();
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::string> GetGnmiStatePathInfo(
+    gnmi::gNMI::Stub* sut_gnmi_stub, absl::string_view state_path,
+    absl::string_view resp_parse_str) {
+  ASSIGN_OR_RETURN(gnmi::GetRequest request,
+                   BuildGnmiGetRequest(state_path, gnmi::GetRequest::STATE));
+  LOG(INFO) << "Sending GET request: " << request.ShortDebugString();
+  gnmi::GetResponse response;
+  grpc::ClientContext context;
+  auto status = sut_gnmi_stub->Get(&context, request, &response);
+  if (!status.ok()) {
+    return gutil::InternalErrorBuilder();
+  }
+  LOG(INFO) << "Received GET response: " << response.ShortDebugString();
+  ASSIGN_OR_RETURN(std::string state_path_response,
+                   ParseGnmiGetResponse(response, resp_parse_str));
+  return state_path_response;
+}
+
 }  // namespace pins_test

@@ -2,6 +2,7 @@
 #define GOOGLE_LIB_GNMI_GNMI_HELPER_H_
 
 #include <cstddef>
+#include <string>
 
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -31,6 +32,14 @@ absl::StatusOr<gnmi::GetRequest> BuildGnmiGetRequest(
 // Parses Get Response to retrieve specific tag value.
 absl::StatusOr<std::string> ParseGnmiGetResponse(
     const gnmi::GetResponse& response, absl::string_view match_tag);
+
+absl::Status SetGnmiConfigPath(gnmi::gNMI::Stub* sut_gnmi_stub,
+                               absl::string_view config_path,
+                               GnmiSetType operation, absl::string_view value);
+
+absl::StatusOr<std::string> GetGnmiStatePathInfo(
+    gnmi::gNMI::Stub* sut_gnmi_stub, absl::string_view state_path,
+    absl::string_view resp_parse_str);
 
 }  // namespace pins_test
 #endif  // GOOGLE_LIB_GNMI_GNMI_HELPER_H_
