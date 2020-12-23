@@ -125,8 +125,8 @@ control acl_ingress(in headers_t headers,
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_L4_DST_PORT);
       headers.arp.target_proto_addr : ternary @name("arp_tpa") @id(16)
           @composite_field(
-              @sai_udf(base=SAI_UDF_BASE_L3, offset=24, length=2, group="udf-group-1"),
-              @sai_udf(base=SAI_UDF_BASE_L3, offset=26, length=2, group="udf-group-2")
+              @sai_udf(base=SAI_UDF_BASE_L3, offset=24, length=2),
+              @sai_udf(base=SAI_UDF_BASE_L3, offset=26, length=2)
           ) @format(IPV4_ADDRESS);
     }
     actions = {
