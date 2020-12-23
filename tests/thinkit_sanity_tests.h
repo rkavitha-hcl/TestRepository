@@ -42,6 +42,9 @@ void TestGnmiCheckSpecificInterfaceStateOperation(thinkit::Switch& sut,
 // Tests that SUT specific port MTU can be updated.
 void TestGnmiInterfaceConfigSetMtu(thinkit::Switch& sut,
                                    absl::string_view if_name);
+
+// Tests that SUT is updated with a config Blob.
+void TestGnmiConfigBlobSet(thinkit::Switch& sut);
 }  // namespace pins_test
 
 #endif  // GOOGLE_TESTS_THINKIT_SANITY_TESTS_H_
