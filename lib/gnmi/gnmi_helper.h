@@ -3,8 +3,10 @@
 
 #include <cstddef>
 #include <string>
+#include <type_traits>
 
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
 #include "proto/gnmi/gnmi.pb.h"
@@ -40,6 +42,20 @@ absl::Status SetGnmiConfigPath(gnmi::gNMI::Stub* sut_gnmi_stub,
 absl::StatusOr<std::string> GetGnmiStatePathInfo(
     gnmi::gNMI::Stub* sut_gnmi_stub, absl::string_view state_path,
     absl::string_view resp_parse_str);
+
+template <class T>
+std::string ConstructGnmiConfigSetString(std::string field, T value) {
+  std::string result_str;
+  if (std::is_integral<T>::value) {
+    // result: "{\"field\":value}"
+    result_str = absl::StrCat("{\"", field, "\":", value, "}");
+  } else if (std::is_same<T, std::string>::value) {
+    // result: "{\"field\":\"value\"};
+    result_str = absl::StrCat("{\"", field, "\":\"", value, "\"}");
+  }
+
+  return result_str;
+}
 
 }  // namespace pins_test
 #endif  // GOOGLE_LIB_GNMI_GNMI_HELPER_H_

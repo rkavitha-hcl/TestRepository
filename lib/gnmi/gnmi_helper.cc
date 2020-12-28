@@ -125,6 +125,8 @@ absl::Status SetGnmiConfigPath(gnmi::gNMI::Stub* sut_gnmi_stub,
   grpc::ClientContext context;
   auto status = sut_gnmi_stub->Set(&context, request, &response);
   if (!status.ok()) {
+    LOG(INFO) << "SET request failed! Error code: " << status.error_code()
+              << " , Error message: " << status.error_message();
     return gutil::InternalErrorBuilder();
   }
   LOG(INFO) << "Received SET response: " << response.ShortDebugString();
@@ -141,6 +143,8 @@ absl::StatusOr<std::string> GetGnmiStatePathInfo(
   grpc::ClientContext context;
   auto status = sut_gnmi_stub->Get(&context, request, &response);
   if (!status.ok()) {
+    LOG(INFO) << "GET request failed! Error code: " << status.error_code()
+              << " , Error message: " << status.error_message();
     return gutil::InternalErrorBuilder();
   }
   LOG(INFO) << "Received GET response: " << response.ShortDebugString();
