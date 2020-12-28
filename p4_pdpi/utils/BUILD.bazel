@@ -122,9 +122,11 @@ cc_library(
     ],
 )
 
-cc_binary(
-    name = "hex_string_test_binary",
+# go/golden-test-with-coverage
+cc_test(
+    name = "hex_string_test_runner",
     srcs = ["hex_string_test.cc"],
+    linkstatic = True,
     deps = [
         ":hex_string",
     ],
@@ -132,9 +134,9 @@ cc_binary(
 
 cmd_diff_test(
     name = "hex_string_test",
-    actual_cmd = "$(execpath :hex_string_test_binary)",
+    actual_cmd = "$(execpath :hex_string_test_runner)",
     expected = "//p4_pdpi/testing/testdata:hex_string.expected",
     tools = [
-        ":hex_string_test_binary",
+        ":hex_string_test_runner",
     ],
 )

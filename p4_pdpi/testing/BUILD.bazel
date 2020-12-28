@@ -73,11 +73,13 @@ cc_library(
     ],
 )
 
-cc_binary(
-    name = "sequencing_test_binary",
-    testonly = True,
+# go/golden-test-with-coverage
+cc_test(
+    name = "sequencing_test_runner",
     srcs = ["sequencing_test.cc"],
+    args = ["$(location :main-p4info.pb.txt)"],
     data = ["main-p4info.pb.txt"],
+    linkstatic = True,
     deps = [
         ":main_p4_pd_cc_proto",
         ":test_helper",
@@ -98,19 +100,21 @@ cc_binary(
 
 cmd_diff_test(
     name = "sequencing_test",
-    actual_cmd = "$(execpath :sequencing_test_binary) $(location :main-p4info.pb.txt)",
+    actual_cmd = "$(execpath :sequencing_test_runner) $(location :main-p4info.pb.txt)",
     expected = "//p4_pdpi/testing/testdata:sequencing.expected",
     tools = [
         "main-p4info.pb.txt",
-        ":sequencing_test_binary",
+        ":sequencing_test_runner",
     ],
 )
 
-cc_binary(
-    name = "info_test_binary",
-    testonly = True,
+# go/golden-test-with-coverage
+cc_test(
+    name = "info_test_runner",
     srcs = ["info_test.cc"],
+    args = ["$(location :main-p4info.pb.txt)"],
     data = ["main-p4info.pb.txt"],
+    linkstatic = True,
     deps = [
         ":test_helper",
         "//gutil:status",
@@ -126,19 +130,21 @@ cc_binary(
 
 cmd_diff_test(
     name = "info_test",
-    actual_cmd = "$(execpath :info_test_binary) $(location :main-p4info.pb.txt)",
+    actual_cmd = "$(execpath :info_test_runner) $(location :main-p4info.pb.txt)",
     expected = "//p4_pdpi/testing/testdata:info.expected",
     tools = [
         "main-p4info.pb.txt",
-        ":info_test_binary",
+        ":info_test_runner",
     ],
 )
 
-cc_binary(
-    name = "rpc_test_binary",
-    testonly = True,
+# go/golden-test-with-coverage
+cc_test(
+    name = "rpc_test_runner",
     srcs = ["rpc_test.cc"],
+    args = ["$(location :main-p4info.pb.txt)"],
     data = ["main-p4info.pb.txt"],
+    linkstatic = True,
     deps = [
         ":main_p4_pd_cc_proto",
         ":test_helper",
@@ -162,19 +168,21 @@ cc_binary(
 
 cmd_diff_test(
     name = "rpc_test",
-    actual_cmd = "$(execpath :rpc_test_binary)  $(location :main-p4info.pb.txt)",
+    actual_cmd = "$(execpath :rpc_test_runner)  $(location :main-p4info.pb.txt)",
     expected = "//p4_pdpi/testing/testdata:rpc.expected",
     tools = [
         "main-p4info.pb.txt",
-        ":rpc_test_binary",
+        ":rpc_test_runner",
     ],
 )
 
-cc_binary(
-    name = "packet_io_test_binary",
-    testonly = True,
+# go/golden-test-with-coverage
+cc_test(
+    name = "packet_io_test_runner",
     srcs = ["packet_io_test.cc"],
+    args = ["$(location :main-p4info.pb.txt)"],
     data = ["main-p4info.pb.txt"],
+    linkstatic = True,
     deps = [
         ":main_p4_pd_cc_proto",
         ":test_helper",
@@ -194,18 +202,21 @@ cc_binary(
 
 cmd_diff_test(
     name = "packet_io_test",
-    actual_cmd = "$(execpath :packet_io_test_binary) $(location :main-p4info.pb.txt)",
+    actual_cmd = "$(execpath :packet_io_test_runner) $(location :main-p4info.pb.txt)",
     expected = "//p4_pdpi/testing/testdata:packet_io.expected",
     tools = [
         "main-p4info.pb.txt",
-        ":packet_io_test_binary",
+        ":packet_io_test_runner",
     ],
 )
 
-cc_binary(
-    name = "table_entry_test_binary",
-    testonly = True,
+# go/golden-test-with-coverage
+cc_test(
+    name = "table_entry_test_runner",
     srcs = ["table_entry_test.cc"],
+    args = ["$(location :main-p4info.pb.txt)"],
+    data = ["main-p4info.pb.txt"],
+    linkstatic = True,
     deps = [
         ":main_p4_pd_cc_proto",
         ":test_helper",
@@ -224,11 +235,11 @@ cc_binary(
 
 cmd_diff_test(
     name = "table_entry_test",
-    actual_cmd = "$(execpath :table_entry_test_binary) $(location :main-p4info.pb.txt)",
+    actual_cmd = "$(execpath :table_entry_test_runner) $(location :main-p4info.pb.txt)",
     expected = "//p4_pdpi/testing/testdata:table_entry.expected",
     tools = [
         "main-p4info.pb.txt",
-        ":table_entry_test_binary",
+        ":table_entry_test_runner",
     ],
 )
 
