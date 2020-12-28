@@ -852,12 +852,19 @@ static void RunStreamMessageResponseTests(pdpi::IrP4Info info) {
 }
 
 int main(int argc, char** argv) {
-  CHECK_EQ(argc, 2);  // Usage: rpc_test <p4info file>.
+  // Usage: rpc_test <p4info file>.
+  if (argc != 2) {
+    std::cerr << "Invalid number of arguments." << std::endl;
+    return 1;
+  }
   const auto p4info =
       gutil::ParseProtoFileOrDie<p4::config::v1::P4Info>(argv[1]);
 
   absl::StatusOr<pdpi::IrP4Info> status_or_info = pdpi::CreateIrP4Info(p4info);
-  CHECK_OK(status_or_info.status()) << status_or_info.status();
+  if (!status_or_info.status().ok()) {
+    std::cerr << "Unable to create IrP4Info." << std::endl;
+    return 1;
+  }
   pdpi::IrP4Info info = status_or_info.value();
 
   RunReadRequestTests(info);

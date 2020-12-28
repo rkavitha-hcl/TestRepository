@@ -125,7 +125,7 @@ cc_library(
 # go/golden-test-with-coverage
 cc_test(
     name = "hex_string_test_runner",
-    srcs = ["hex_string_test.cc"],
+    srcs = ["hex_string_test_runner.cc"],
     linkstatic = True,
     deps = [
         ":hex_string",

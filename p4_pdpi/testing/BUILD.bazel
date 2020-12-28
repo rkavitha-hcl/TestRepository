@@ -76,7 +76,7 @@ cc_library(
 # go/golden-test-with-coverage
 cc_test(
     name = "sequencing_test_runner",
-    srcs = ["sequencing_test.cc"],
+    srcs = ["sequencing_test_runner.cc"],
     args = ["$(location :main-p4info.pb.txt)"],
     data = ["main-p4info.pb.txt"],
     linkstatic = True,
@@ -111,7 +111,7 @@ cmd_diff_test(
 # go/golden-test-with-coverage
 cc_test(
     name = "info_test_runner",
-    srcs = ["info_test.cc"],
+    srcs = ["info_test_runner.cc"],
     args = ["$(location :main-p4info.pb.txt)"],
     data = ["main-p4info.pb.txt"],
     linkstatic = True,
@@ -141,7 +141,7 @@ cmd_diff_test(
 # go/golden-test-with-coverage
 cc_test(
     name = "rpc_test_runner",
-    srcs = ["rpc_test.cc"],
+    srcs = ["rpc_test_runner.cc"],
     args = ["$(location :main-p4info.pb.txt)"],
     data = ["main-p4info.pb.txt"],
     linkstatic = True,
@@ -179,7 +179,7 @@ cmd_diff_test(
 # go/golden-test-with-coverage
 cc_test(
     name = "packet_io_test_runner",
-    srcs = ["packet_io_test.cc"],
+    srcs = ["packet_io_test_runner.cc"],
     args = ["$(location :main-p4info.pb.txt)"],
     data = ["main-p4info.pb.txt"],
     linkstatic = True,
@@ -213,7 +213,7 @@ cmd_diff_test(
 # go/golden-test-with-coverage
 cc_test(
     name = "table_entry_test_runner",
-    srcs = ["table_entry_test.cc"],
+    srcs = ["table_entry_test_runner.cc"],
     args = ["$(location :main-p4info.pb.txt)"],
     data = ["main-p4info.pb.txt"],
     linkstatic = True,

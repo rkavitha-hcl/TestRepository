@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "p4_pdpi/utils/hex_string.h"
-
 #include <iostream>
 #include <limits>
+
+#include "p4_pdpi/utils/hex_string.h"
 
 #define TEST_PURE(function_call)                                       \
   do {                                                                 \

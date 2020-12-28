@@ -42,7 +42,11 @@ static void RunP4InfoTest(const std::string& test_name, const P4Info& p4info) {
 }
 
 int main(int argc, char** argv) {
-  CHECK(argc == 2);  // Usage: info_test <p4info file>.
+  // Usage: info_test <p4info file>.
+  if (argc != 2) {
+    std::cerr << "Invalid number of arguments." << std::endl;
+    return 1;
+  }
   const auto p4info =
       gutil::ParseProtoFileOrDie<p4::config::v1::P4Info>(argv[1]);
 

@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "p4_pdpi/sequencing.h"
-
 #include <iostream>
 
 #include "absl/status/status.h"
@@ -27,6 +25,7 @@
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/pd.h"
+#include "p4_pdpi/sequencing.h"
 #include "p4_pdpi/testing/main_p4_pd.pb.h"
 #include "p4_pdpi/testing/test_helper.h"
 
@@ -45,7 +44,10 @@ void SequenceTest(const pdpi::IrP4Info& info, const std::string& test_name,
         gutil::ParseProtoOrDie<pdpi::Update>(pd_update_string);
     pd_updates.push_back(pd_update);
     const auto pi_update_or_status = pdpi::PdUpdateToPi(info, pd_update);
-    CHECK_OK(pi_update_or_status.status());
+    if (!pi_update_or_status.status().ok()) {
+      std::cerr << "Unable to convert Update from PD to PI." << std::endl;
+      return;
+    }
     const auto& pi_update = pi_update_or_status.value();
     pi_updates.push_back(pi_update);
   }
@@ -78,7 +80,10 @@ void SequenceTest(const pdpi::IrP4Info& info, const std::string& test_name,
     pdpi::WriteRequest pd_write_request;
     const auto& status =
         pdpi::PiWriteRequestToPd(info, pi_write_request, &pd_write_request);
-    CHECK_OK(status);
+    if (!status.ok()) {
+      std::cerr << "Unable to convert WriteRequest from PI to PD." << std::endl;
+      return;
+    }
     std::cout << "WriteRequest #" << i << std::endl;
     i += 1;
     std::cout << pd_write_request.DebugString() << std::endl;
@@ -96,7 +101,10 @@ void SortTest(const pdpi::IrP4Info& info, const std::string& test_name,
         gutil::ParseProtoOrDie<pdpi::TableEntry>(pd_entry_string);
     pd_entries.push_back(pd_entry);
     const auto pi_entry_or_status = pdpi::PdTableEntryToPi(info, pd_entry);
-    CHECK_OK(pi_entry_or_status.status());
+    if (!pi_entry_or_status.status().ok()) {
+      std::cerr << "Unable to convert TableEntry from PD to PI." << std::endl;
+      return;
+    }
     const auto& pi_entry = pi_entry_or_status.value();
     pi_entries.push_back(pi_entry);
   }
@@ -123,21 +131,27 @@ void SortTest(const pdpi::IrP4Info& info, const std::string& test_name,
   if (pi_entries.empty()) std::cout << "<empty>" << std::endl << std::endl;
   for (const auto& entry : pi_entries) {
     pdpi::TableEntry pd_entry;
-    CHECK_OK(pdpi::PiTableEntryToPd(info, entry, &pd_entry));
+    if (!pdpi::PiTableEntryToPd(info, entry, &pd_entry).ok()) {
+      std::cerr << "Unable to convert TableEntry from PI to PD." << std::endl;
+      return;
+    }
     std::cout << pd_entry.DebugString() << std::endl;
   }
 }
 
 int main(int argc, char** argv) {
-  // Usage: info_test <p4info file>.
+  // Usage: sequencing_test <p4info file>.
   if (argc != 2) {
     std::cerr << "Invalid number of arguments." << std::endl;
     return 1;
   }
   const auto p4info = gutil::ParseProtoFileOrDie<P4Info>(argv[1]);
-  const auto info_or_status = pdpi::CreateIrP4Info(p4info);
-  CHECK_OK(info_or_status.status());
-  const auto& info = info_or_status.value();
+  const auto status_or_info = pdpi::CreateIrP4Info(p4info);
+  if (!status_or_info.status().ok()) {
+    std::cerr << "Unable to create IrP4Info." << std::endl;
+    return 1;
+  }
+  const auto& info = status_or_info.value();
 
   SequenceTest(info, "Empty input", {});
   SequenceTest(info, "Insert(a) -> Insert(a)",
