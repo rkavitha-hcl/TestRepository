@@ -75,3 +75,31 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "mac_address",
+    srcs = ["mac_address.cc"],
+    hdrs = ["mac_address.h"],
+    deps = [
+        ":network_address",
+        "//gutil:status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_test(
+    name = "mac_address_test",
+    srcs = ["mac_address_test.cc"],
+    deps = [
+        ":mac_address",
+        ":network_address",
+        "//gutil:status",
+        "//gutil:status_matchers",
+        "//p4_pdpi/string_encodings:safe",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
