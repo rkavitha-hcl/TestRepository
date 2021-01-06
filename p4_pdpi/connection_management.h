@@ -75,20 +75,32 @@ class P4RuntimeSession {
   static std::unique_ptr<P4RuntimeSession> Default(
       std::unique_ptr<p4::v1::P4Runtime::Stub> stub, uint32_t device_id);
 
-  // Disable copy semantics.
+  // Disables copy semantics.
   P4RuntimeSession(const P4RuntimeSession&) = delete;
   P4RuntimeSession& operator=(const P4RuntimeSession&) = delete;
 
-  // Allow move semantics.
+  // Allows move semantics.
   P4RuntimeSession(P4RuntimeSession&&) = default;
   P4RuntimeSession& operator=(P4RuntimeSession&&) = default;
 
-  // Return the id of the node that this session belongs to.
+  // Returns the id of the node that this session belongs to.
   uint32_t DeviceId() const { return device_id_; }
-  // Return the election id that has been used to perform master arbitration.
+  // Returns the election id that has been used to perform master arbitration.
   p4::v1::Uint128 ElectionId() const { return election_id_; }
-  // Return the P4Runtime stub.
+  // Returns the P4Runtime stub.
   p4::v1::P4Runtime::Stub& Stub() { return *stub_; }
+  // Reads back stream message response.
+  ABSL_MUST_USE_RESULT bool StreamChannelRead(
+      p4::v1::StreamMessageResponse& response) {
+    return stream_channel_->Read(&response);
+  }
+  // Writes stream message request.
+  ABSL_MUST_USE_RESULT bool StreamChannelWrite(
+      const p4::v1::StreamMessageRequest& request) {
+    return stream_channel_->Write(request);
+  }
+  // Cancels the RPC. It is done in a best-effort fashion.
+  void TryCancel() { stream_channel_context_->TryCancel(); }
 
  private:
   P4RuntimeSession(uint32_t device_id,

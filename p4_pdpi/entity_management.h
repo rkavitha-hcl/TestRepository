@@ -68,6 +68,11 @@ absl::Status InstallPiTableEntries(
 absl::Status SetForwardingPipelineConfig(P4RuntimeSession* session,
                                          const p4::config::v1::P4Info& p4info);
 
+// Sets the forwarding pipeline from the given p4 info and device configuration.
+absl::Status SetForwardingPipelineConfig(P4RuntimeSession* session,
+                                         const p4::config::v1::P4Info& p4info,
+                                         absl::string_view p4_device_config);
+
 }  // namespace pdpi
 
 #endif  // GOOGLE_P4_PDPI_ENTITY_MANAGEMENT_H_

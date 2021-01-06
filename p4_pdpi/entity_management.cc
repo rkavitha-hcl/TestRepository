@@ -58,6 +58,22 @@ std::vector<Update> CreatePiUpdates(absl::Span<const TableEntry> pi_entries,
   return pi_updates;
 }
 
+absl::Status BuildRequestAndSetForwardingPipelineConfig(
+    P4RuntimeSession* session, const P4Info& p4info,
+    SetForwardingPipelineConfigRequest& request) {
+  request.set_device_id(session->DeviceId());
+  *request.mutable_election_id() = session->ElectionId();
+  request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT);
+  *request.mutable_config()->mutable_p4info() = p4info;
+
+  // Empty message; intentionally discarded.
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  return gutil::GrpcStatusToAbslStatus(
+      session->Stub().SetForwardingPipelineConfig(&context, request,
+                                                  &response));
+}
+
 }  // namespace
 
 absl::StatusOr<ReadResponse> SetIdAndSendPiReadRequest(
@@ -156,17 +172,16 @@ absl::Status InstallPiTableEntries(P4RuntimeSession* session,
 absl::Status SetForwardingPipelineConfig(P4RuntimeSession* session,
                                          const P4Info& p4info) {
   SetForwardingPipelineConfigRequest request;
-  request.set_device_id(session->DeviceId());
-  *request.mutable_election_id() = session->ElectionId();
-  request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT);
-  *request.mutable_config()->mutable_p4info() = p4info;
+  return BuildRequestAndSetForwardingPipelineConfig(session, p4info, request);
+}
 
-  // Empty message; intentionally discarded.
-  SetForwardingPipelineConfigResponse response;
-  grpc::ClientContext context;
-  return gutil::GrpcStatusToAbslStatus(
-      session->Stub().SetForwardingPipelineConfig(&context, request,
-                                                  &response));
+absl::Status SetForwardingPipelineConfig(P4RuntimeSession* session,
+                                         const P4Info& p4info,
+                                         absl::string_view p4_device_config) {
+  SetForwardingPipelineConfigRequest request;
+  *request.mutable_config()->mutable_p4_device_config() = p4_device_config;
+
+  return BuildRequestAndSetForwardingPipelineConfig(session, p4info, request);
 }
 
 }  // namespace pdpi
