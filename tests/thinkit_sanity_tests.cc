@@ -53,9 +53,9 @@ constexpr char kV3ReleaseConfigBlob[] = R"({
    "openconfig-platform:components" : {
       "component" : [
          {
-           "name" : "integrated-circuit0",
+           "name" : "integrated_circuit0",
            "config" : {
-               "name" : "integrated-circuit0"
+               "name" : "integrated_circuit0"
            },
            "integrated-circuit" : {
                "config" : {
@@ -159,7 +159,7 @@ void TestGnmiConfigBlobSet(thinkit::Switch& sut) {
         element_integrated_circuit_json.value().find("config");
     const auto element_node_json =
         element_ic_config_json.value().find("node-id");
-    // Converting "integrated-circuit0" to integrated-circuit0
+    // Converting "integrated_circuit0" to integrated_circuit0
     ic_nodeid_map[element_name_json->dump().substr(
         1, element_name_json->dump().size() - 2)] =
         element_node_json->dump().substr(1,
