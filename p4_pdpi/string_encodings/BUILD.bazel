@@ -36,3 +36,53 @@ cc_library(
     srcs = ["safe.cc"],
     hdrs = ["safe.h"],
 )
+
+cc_library(
+    name = "bit_string",
+    srcs = ["bit_string.cc"],
+    hdrs = ["bit_string.h"],
+    deps = [
+        "//gutil:status",
+        "//p4_pdpi/netaddr:ipv4_address",
+        "//p4_pdpi/netaddr:ipv6_address",
+        "//p4_pdpi/netaddr:mac_address",
+        "//p4_pdpi/utils:hex_string",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "bit_string_test",
+    srcs = ["bit_string_test.cc"],
+    deps = [
+        ":bit_string",
+        "//gutil:status_matchers",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_library(
+    name = "readable_byte_string",
+    srcs = ["readable_byte_string.cc"],
+    hdrs = ["readable_byte_string.h"],
+    deps = [
+        ":bit_string",
+        "//gutil:status",
+        "//p4_pdpi/utils:hex_string",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "readable_byte_string_test",
+    srcs = ["readable_byte_string_test.cc"],
+    deps = [
+        ":readable_byte_string",
+        "//gutil:status_matchers",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
