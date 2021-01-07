@@ -36,7 +36,7 @@ def rootpath(path):
 def _diff_test_script(ctx):
     """Returns bash script to be executed by the diff_test target."""
     return """
-if [[ "$1" == "--update" ]]; then
+if [[ "$1" == "--update" || "$1" == "--test" ]]; then
     cp -f "{actual}" "${{BUILD_WORKSPACE_DIRECTORY}}/{expected}"
 fi
 
@@ -46,6 +46,10 @@ if [[ $? = 0 ]]; then
     # Expected and actual agree.
     if [[ "$1" == "--update" ]]; then
         echo "Successfully updated: {expected}."
+    elif [[ "$1" == "--test" ]]; then
+        echo "Successfully updated: {expected}."
+        echo ""
+        cat {expected}
     else
         echo "PASSED"
     fi
