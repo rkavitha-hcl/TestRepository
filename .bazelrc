@@ -12,3 +12,11 @@ test --copt='-Wno-error=stringop-truncation'
 test --host_copt='-Wno-error=stringop-truncation'
 run --copt='-Wno-error=stringop-truncation'
 run --host_copt='-Wno-error=stringop-truncation'
+
+# To allow loops with int and comparison against a .size() that's size_t.
+build --copt='-Wno-error=sign-compare'
+build --host_copt='-Wno-error=sign-compare'
+test --copt='-Wno-error=sign-compare'
+test --host_copt='-Wno-error=sign-compare'
+run --copt='-Wno-error=sign-compare'
+run --host_copt='-Wno-error=sign-compare'

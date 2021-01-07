@@ -116,6 +116,8 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//gutil:status",
+        "//p4_pdpi/string_encodings:byte_string",
+        "//p4_pdpi/string_encodings:safe",
         "@com_github_google_glog//:glog",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",

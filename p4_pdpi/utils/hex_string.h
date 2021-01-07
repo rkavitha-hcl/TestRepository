@@ -23,6 +23,7 @@
 
 #include <algorithm>
 #include <bitset>
+#include <cstddef>
 #include <cstdint>
 #include <string>
 
@@ -38,6 +39,8 @@ namespace pdpi {
 
 template <std::size_t num_bits>
 std::string BitsetToHexString(const std::bitset<num_bits>& bitset);
+
+std::string ByteStringToHexString(absl::string_view byte_string);
 
 // We do not provide direct conversions from integer types; use
 // BitsetToHexString for that purpose, e.g.:
@@ -68,6 +71,8 @@ absl::StatusOr<int32_t> HexStringToInt32(absl::string_view hex_string);
 absl::StatusOr<int64_t> HexStringToInt64(absl::string_view hex_string);
 absl::StatusOr<uint32_t> HexStringToUint32(absl::string_view hex_string);
 absl::StatusOr<uint64_t> HexStringToUint64(absl::string_view hex_string);
+
+absl::StatusOr<std::string> HexStringToByteString(absl::string_view hex_string);
 
 // == END OF PUBLIC INTERFACE ==================================================
 
@@ -115,7 +120,7 @@ absl::StatusOr<std::bitset<num_bits>> HexStringToAnyLargeEnoughBitset(
         _ << " while trying to convert hex string: " << hex_string);
     for (int j = 0; j < 4; ++j) {
       // k is the index of the j-th bit of the i-th hex digit.
-      const int k = 4 * i + j;
+      const std::size_t k = 4 * i + j;
       const bool kth_bit = (ith_digit >> j) % 2 == 1;
       if (!kth_bit) continue;
       if (k < num_bits) {
