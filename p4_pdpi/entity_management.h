@@ -56,7 +56,6 @@ absl::Status ClearTableEntries(P4RuntimeSession* session, const IrP4Info& info);
 
 // Installs the given PI (program independent) table entry on the switch.
 absl::Status InstallPiTableEntry(P4RuntimeSession* session,
-                                 const IrP4Info& info,
                                  const p4::v1::TableEntry& pi_entry);
 
 // Installs the given PI (program independent) table entries on the switch.

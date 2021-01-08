@@ -154,10 +154,13 @@ absl::Status RemovePiTableEntries(P4RuntimeSession* session,
 }
 
 absl::Status InstallPiTableEntry(P4RuntimeSession* session,
-                                 const IrP4Info& info,
                                  const TableEntry& pi_entry) {
-  return InstallPiTableEntries(session, info,
-                               absl::MakeConstSpan(&pi_entry, 1));
+  WriteRequest request;
+  Update& update = *request.add_updates();
+  update.set_type(Update::INSERT);
+  *update.mutable_entity()->mutable_table_entry() = pi_entry;
+
+  return SetIdsAndSendPiWriteRequest(session, request);
 }
 
 absl::Status InstallPiTableEntries(P4RuntimeSession* session,
