@@ -1,0 +1,84 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package packetlib;
+
+// Describes a network packet.
+message Packet {
+  // Headers in order, starting with outermost header. Can be empty.
+  repeated Header headers = 1;
+  // Payload is a sequence of uninterpreted bytes.
+  bytes payload = 2;
+  // Explanation why parsing has stopped early due to a feature that is not
+  // supported. Describes a problem with the first set of bytes in `payload`.
+  // Only used in the output of parsing functions, and is ignored during
+  // serialization.
+  string reason_unsupported = 3;
+  // Explanation why the parsed set of headers is not valid (e.g., invalid
+  // checksum). Only covers `headers`, not the `payload`.
+  // Only used in the output of parsing functions, and is ignored during
+  // serialization.
+  repeated string reasons_invalid = 4;
+}
+
+// Describes a network packet header. This is not an exhaustive list of headers,
+// and not every header may support all fields available for that particular
+// header (e.g. optional fields may not be supported).
+//
+// Individual header fields are named roughly according to what the
+// corresponding Wikipedia article names the fields, and fields are ordered
+// based on the order of the fields in the packet.
+//
+// The header fields use the format from PDPI's ir.proto, i.e.
+// "00:11:ab:cd:ef:22" for  MAC addresses, "10.0.0.2" or
+// "fe80::21a:11ff:fe17:5f80" for IP addresses, and hex strings such as "0x0800"
+// for most other fields. This allows us to distinguish the absense of fields
+// even though we use proto3, since the empty string is never a valid value.
+message Header {
+  oneof header {
+    EthernetHeader ethernet_header = 1;
+    Ipv4Header ipv4_header = 2;
+    // Ipv6Header ipv6_header = 3;
+    // TcpHeader tcp_header = 4;
+    // UdpHeader udp_header = 5;
+  }
+}
+
+// An ethernet header.
+// Only a handful of ethertypes are supported.
+message EthernetHeader {
+  string ethernet_source = 1;       // Format::MAC
+  string ethernet_destination = 2;  // Format::MAC
+  string ethertype = 3;             // 8 bits
+}
+
+// An IPv4 header.
+// Only IHL == 5 is supported.
+message Ipv4Header {
+  string version = 1;            //  4 bits (computed field)
+  string ihl = 2;                //  4 bits
+  string dscp = 3;               //  6 bits
+  string ecn = 4;                //  2 bits
+  string total_length = 5;       // 16 bits (computed field)
+  string identification = 6;     // 16 bits
+  string flags = 7;              //  3 bits
+  string fragment_offset = 8;    // 13 bits
+  string ttl = 9;                //  8 bits
+  string protocol = 10;          //  8 bits
+  string checksum = 11;          // 16 bits (computed field)
+  string ipv4_source = 12;       // Format::IPV4
+  string ipv4_destination = 13;  // Format::IPV4
+}

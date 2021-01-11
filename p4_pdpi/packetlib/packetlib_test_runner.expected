@@ -1,0 +1,155 @@
+================================================================================
+Parsing test: IPv4 packet
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+# ethernet header
+    ethernet_source: 0x112233445566
+    ethernet_destination: 0xaabbccddeeff
+    ether_type: 0x0800
+    # IPv4 header:
+    version: 0x4
+    ihl: 0x5
+    dhcp: 0b011011
+    ecn: 0b01
+    total_length: 0x6fc6
+    identification: 0xa3cd
+    flags: 0b000
+    fragment_offset: 0b0000000000000
+    ttl: 0x10
+    protocol: 0x05  # some unsupported protocol
+    checksum: 0x1234
+    ipv4_source: 0x0a000001
+    ipv4_destination: 0x14000003
+    # other headers:
+    payload: 0x1234
+-- OUTPUT ----------------------------------------------------------------------
+headers {
+  ethernet_header {
+    ethernet_source: "11:22:33:44:55:66"
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethertype: "0x0800"
+  }
+}
+headers {
+  ipv4_header {
+    version: "0x4"
+    ihl: "0x5"
+    dscp: "0x1b"
+    ecn: "0x1"
+    total_length: "0x6fc6"
+    identification: "0xa3cd"
+    flags: "0x0"
+    fragment_offset: "0x0000"
+    ttl: "0x10"
+    protocol: "0x05"
+    checksum: "0x1234"
+    ipv4_source: "10.0.0.1"
+    ipv4_destination: "20.0.0.3"
+  }
+}
+payload: "0x1234"
+reasons_invalid: "headers[1].total_length: Must be 0x0120, but was 0x6fc6 instead."
+reasons_invalid: "headers[1].checksum: Must be 0xaedd, but was 0x1234 instead."
+
+================================================================================
+Proto packet test: IPv4 without computed fields
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+packet =
+headers {
+  ethernet_header {
+    ethernet_source: "11:22:33:44:55:66"
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethertype: "0x0800"
+  }
+}
+headers {
+  ipv4_header {
+    ihl: "0x5"
+    dscp: "0x1b"
+    ecn: "0x1"
+    identification: "0xa3cd"
+    flags: "0x0"
+    fragment_offset: "0x0000"
+    ttl: "0x10"
+    protocol: "0x05"
+    ipv4_source: "10.0.0.1"
+    ipv4_destination: "20.0.0.3"
+  }
+}
+payload: "0xabcd"
+
+-- OUTPUT ----------------------------------------------------------------------
+ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[1].version: missing
+- headers[1].total_length: missing
+- headers[1].checksum: missing
+
+UpdateComputedFields(packet) = true
+packet =
+headers {
+  ethernet_header {
+    ethernet_source: "11:22:33:44:55:66"
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethertype: "0x0800"
+  }
+}
+headers {
+  ipv4_header {
+    version: "0x4"
+    ihl: "0x5"
+    dscp: "0x1b"
+    ecn: "0x1"
+    total_length: "0x0120"
+    identification: "0xa3cd"
+    flags: "0x0"
+    fragment_offset: "0x0000"
+    ttl: "0x10"
+    protocol: "0x05"
+    checksum: "0x4f67"
+    ipv4_source: "10.0.0.1"
+    ipv4_destination: "20.0.0.3"
+  }
+}
+payload: "0xabcd"
+
+
+================================================================================
+Proto packet test: IPv4 with various invalid fields
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+packet =
+headers {
+  ethernet_header {
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethertype: "0x0800"
+  }
+}
+headers {
+  ipv4_header {
+    version: "0x3"
+    ihl: "0x5k"
+    dscp: "0x1b"
+    ecn: "0x1"
+    identification: "0xa3cd"
+    flags: "0x0"
+    fragment_offset: "0x0000"
+    ttl: "0x10"
+    protocol: "0x05"
+    ipv4_source: "ffff:1::"
+    ipv4_destination: "20.0.0.3"
+  }
+}
+payload: "0xabcd"
+
+-- OUTPUT ----------------------------------------------------------------------
+ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[0].ethernet_source: missing
+- headers[1].ihl: invalid format: illegal conversion from hex string 0x5k to 4 bits; expected between 5 and 8 bits
+- headers[1].total_length: missing
+- headers[1].checksum: missing
+- headers[1].ipv4_source: invalid format: Invalid IPv4 address: ffff:1::
+- headers[1].version: Must be 0x4, but was 0x3 instead.
+
+UpdateComputedFields(packet) = INVALID_ARGUMENT: illegal conversion from hex string 0x5k to 4 bits; expected between 5 and 8 bits
+
