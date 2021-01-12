@@ -9,6 +9,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "grpcpp/grpcpp.h"
 
@@ -89,6 +90,16 @@
   return gutil::InternalErrorBuilder() << "(" << #cond << ") failed"
 
 namespace gutil {
+
+// Protobuf and some other Google projects use Status classes that are isomorph,
+// but not equal to absl::Status (outside of google3).
+// This auxiliary function converts such Status classes to absl::Status.
+template <typename T>
+absl::Status ToAbslStatus(T status) {
+  return absl::Status(
+      static_cast<absl::StatusCode>(status.code()),
+      absl::string_view(status.message().data(), status.message().size()));
+}
 
 // StatusBuilder facilitates easier construction of Status objects with streamed
 // message building.

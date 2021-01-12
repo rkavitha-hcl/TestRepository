@@ -7,9 +7,9 @@ filegroup(
 
 configure_make(
     name = "cudd",
-    lib_source = ":all",
     configure_options = ["--enable-obj"],
-    make_commands = ["make install"],
     lib_name = "libcudd",
+    lib_source = ":all",
+    make_commands = ["make install"],
     visibility = ["//visibility:public"],
 )

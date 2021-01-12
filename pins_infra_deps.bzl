@@ -1,6 +1,6 @@
 """Third party dependencies."""
 
-load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository", "new_git_repository")
+load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def pins_infra_deps():
@@ -22,9 +22,9 @@ def pins_infra_deps():
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
-            url = "https://github.com/protocolbuffers/protobuf/releases/download/v3.12.3/protobuf-all-3.12.3.tar.gz",
-            strip_prefix = "protobuf-3.12.3",
-            sha256 = "1a83f0525e5c8096b7b812181865da3c8637de88f9777056cefbf51a1eb0b83f",
+            url = "https://github.com/protocolbuffers/protobuf/releases/download/v3.14.0/protobuf-all-3.14.0.tar.gz",
+            strip_prefix = "protobuf-3.14.0",
+            sha256 = "6dd0f6b20094910fbb7f1f7908688df01af2d4f6c5c21331b9f636048674aebf",
         )
     if not native.existing_rule("com_googlesource_code_re2"):
         http_archive(
@@ -122,13 +122,6 @@ def pins_infra_deps():
             sha256 = "5fe145041c594689e6e7cf4cd623d5f2b7c36261708be8c9a72aed72cf67acce",
             urls = ["https://github.com/ivmai/cudd/archive/cudd-3.0.0.tar.gz"],
         )
-    if not native.existing_rule("com_google_protobuf_mutator"):
-        new_git_repository(
-            name = "com_github_google_libprotobuf_mutator",
-            branch = "master",
-            build_file = "@//:bazel/BUILD.libprotobuf_mutator.bazel",
-            remote = "https://github.com/google/libprotobuf-mutator.git",
-        )
     if not native.existing_rule("rules_foreign_cc"):
         http_archive(
             name = "rules_foreign_cc",
@@ -142,4 +135,12 @@ def pins_infra_deps():
             strip_prefix = "gmp-6.1.2",
             sha256 = "87b565e89a9a684fe4ebeeddb8399dce2599f9c9049854ca8c0dfbdea0e21912",
             build_file = "@//:bazel/BUILD.gmp.bazel",
+        )
+    if not native.existing_rule("com_github_z3prover_z3"):
+        http_archive(
+            name = "com_github_z3prover_z3",
+            url = "https://github.com/Z3Prover/z3/archive/z3-4.8.7.tar.gz",
+            strip_prefix = "z3-z3-4.8.7",
+            sha256 = "8c1c49a1eccf5d8b952dadadba3552b0eac67482b8a29eaad62aa7343a0732c3",
+            build_file = "@//:bazel/BUILD.z3.bazel",
         )

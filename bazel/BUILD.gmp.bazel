@@ -7,8 +7,8 @@ filegroup(
 
 configure_make(
     name = "gmp",
+    lib_name = "libgmp",
     lib_source = ":all",
     make_commands = ["make install"],
-    lib_name = "libgmp",
     visibility = ["//visibility:public"],
 )
