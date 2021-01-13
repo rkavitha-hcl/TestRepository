@@ -19,7 +19,7 @@
 CLANG_FORMAT_EXTENSIONS="cc|h|proto"
 
 # Run clang-format.
-find . -not -path "./third_party/**" \
+find . \
   | egrep "\.(${CLANG_FORMAT_EXTENSIONS})\$" \
   | xargs clang-format -style=google -i
 
