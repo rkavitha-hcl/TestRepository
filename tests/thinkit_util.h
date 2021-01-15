@@ -22,13 +22,9 @@ constexpr char kEnabledTrue[] = "{\"enabled\":true}";
 constexpr char kStateUp[] = "UP";
 constexpr char kStateDown[] = "DOWN";
 constexpr char kInterfaces[] = "interfaces";
-
-#if 0
-constexpr char kPlatformJson[] =
-    "/lib/google/taygeta/syncd/sonic/platform/GPINs/platform.json";
-#endif
+constexpr char kPortSpeed[] = "openconfig-if-ethernet:port-speed";
 constexpr char kPlatformJson[] = "platform.json";
-
+constexpr char kGB[] = "GB";
 }  // namespace pins_test
 
 #endif  // GOOGLE_TESTS_THINKIT_UTIL_H_
