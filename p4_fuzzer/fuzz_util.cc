@@ -277,6 +277,11 @@ uint64_t BitsToUint64(const std::string& data) {
 }
 
 std::string FuzzBits(absl::BitGen* gen, int bits, int bytes) {
+  if (bits == 0 && bytes == 0) {
+    // TODO: For now, the fuzzer does not fuzz string fields (which have
+    // 0 bits), but instead just uses a fixed string.
+    return "some-id";
+  }
   std::string data(bytes, 0);
   for (int i = 0; i < bytes; ++i)
     data[i] = absl::implicit_cast<char>(Uniform<uint8_t>(*gen));
@@ -526,6 +531,9 @@ AnnotatedWriteRequest FuzzWriteRequest(absl::BitGen* gen,
 
   while (absl::Bernoulli(*gen, kAddUpdateProbability)) {
     *request.add_updates() = FuzzUpdate(gen, ir_p4_info, switch_state);
+    // TODO: For now, we only send requests of size <= 1. This makes
+    // debugging easier.
+    break;
   }
 
   return request;
