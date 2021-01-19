@@ -127,7 +127,7 @@ void TestGnmiPortComponentPaths(thinkit::SSHClient& ssh_client,
   ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
 
   // Configure integrated circuit name on the switch.
-  const std::string ic_name = "integrated-circuit0";
+  const std::string ic_name = "integrated_circuit0";
   const std::string ic_name_config_path =
       absl::StrCat("components/component[name=", ic_name, "]/config/name");
   ASSERT_OK(SetGnmiConfigPath(sut_gnmi_stub.get(), ic_name_config_path,
@@ -253,6 +253,7 @@ void TestGnmiInterfaceConfigSetPortSpeed(
     ASSERT_OK(SetGnmiConfigPath(
         sut_gnmi_stub.get(), if_port_speed_config_path, GnmiSetType::kUpdate,
         ConstructGnmiConfigSetString(kPortSpeed, kNewPortSpeedStr)));
+    absl::SleepFor(absl::Seconds(5));
 
     // Perform state path verifications.
     // Verify /interfaces/interface[name=<port>]/ethernet/state/port-speed =
@@ -281,6 +282,7 @@ void TestGnmiInterfaceConfigSetPortSpeed(
   ASSERT_OK(SetGnmiConfigPath(
       sut_gnmi_stub.get(), if_port_speed_config_path, GnmiSetType::kUpdate,
       ConstructGnmiConfigSetString(kPortSpeed, kOriginalPortSpeedStr)));
+  absl::SleepFor(absl::Seconds(5));
 
   // Verify /interfaces/interface[name=<port>]/ethernet/state/port-speed =
   // original speed.
