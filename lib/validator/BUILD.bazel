@@ -50,3 +50,18 @@ cc_library(
         "@com_google_absl//absl/types:span",
     ],
 )
+
+cc_library(
+    name = "common_backend",
+    srcs = ["common_backend.cc"],
+    hdrs = ["common_backend.h"],
+    deps = [
+        ":validator",
+        ":validator_backend",
+        "//gutil:status",
+        "//thinkit:ssh_client",
+        "@com_google_absl//absl/functional:bind_front",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
