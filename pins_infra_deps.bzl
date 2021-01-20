@@ -144,3 +144,10 @@ def pins_infra_deps():
             sha256 = "8c1c49a1eccf5d8b952dadadba3552b0eac67482b8a29eaad62aa7343a0732c3",
             build_file = "@//:bazel/BUILD.z3.bazel",
         )
+    if not native.existing_rule("com_github_gnoi"):
+        git_repository(
+            name = "com_github_gnoi",
+            commit = "f4d40a9c9e7422e488af69490a1f85970e43f325",
+            # TODO: Upstream changes from this private repo to official gnoi repo.
+            remote = "https://github.com/vamsipunati/gnoi.git",
+        )

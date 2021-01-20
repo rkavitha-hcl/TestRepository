@@ -45,6 +45,9 @@ void TestGnmiInterfaceConfigSetMtu(thinkit::Switch& sut,
 
 // Tests that SUT is updated with a config Blob.
 void TestGnmiConfigBlobSet(thinkit::Switch& sut);
+
+// Tests gNOI Cold Reboot on SUT.
+void TestGnoiSystemColdReboot(thinkit::Switch& sut);
 }  // namespace pins_test
 
 #endif  // GOOGLE_TESTS_THINKIT_SANITY_TESTS_H_

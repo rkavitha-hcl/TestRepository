@@ -16,6 +16,7 @@
 
 #include <stdint.h>
 
+#include <cstdlib>
 #include <string>
 #include <utility>
 
@@ -25,6 +26,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
@@ -35,6 +37,7 @@
 #include "p4_pdpi/connection_management.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
 #include "single_include/nlohmann/json.hpp"
+#include "system/system.pb.h"
 #include "tests/thinkit_util.h"
 #include "thinkit/ssh_client.h"
 #include "thinkit/switch.h"
@@ -43,11 +46,14 @@ namespace pins_test {
 namespace {
 
 using ::nlohmann::json;
+using ::std::abs;
 using ::testing::Eq;
 using ::testing::HasSubstr;
 
 }  // namespace
-
+constexpr int kEpochMarginalError = 2;
+constexpr absl::Duration kColdRebootDelayTime = absl::Seconds(1);
+constexpr absl::Duration kColdRebootTotalWaitTime = absl::Seconds(30);
 constexpr char kMtuJsonVal[] = "{\"mtu\":2000}";
 constexpr char kV3ReleaseConfigBlob[] = R"({
    "openconfig-platform:components" : {
@@ -362,5 +368,57 @@ void TestGnmiGetAllOperation(thinkit::Switch& sut) {
   ASSERT_OK(sut_gnmi_stub->Get(&context, req, &resp));
   LOG(INFO) << "Received GET response: " << resp.ShortDebugString();
 }
+//  Returns last boot time of SUT.
+absl::StatusOr<int> GetGnmiSystemBootTime(thinkit::Switch& sut,
+                                          gnmi::gNMI::Stub* sut_gnmi_stub) {
+  ASSIGN_OR_RETURN(
+      gnmi::GetRequest request,
+      BuildGnmiGetRequest("system/state/boot-time", gnmi::GetRequest::STATE));
+  LOG(INFO) << "Sending GET request: " << request.ShortDebugString();
+  gnmi::GetResponse response;
+  grpc::ClientContext context;
+  EXPECT_OK(sut_gnmi_stub->Get(&context, request, &response));
+  LOG(INFO) << "Received GET response: " << response.ShortDebugString();
 
+  ASSIGN_OR_RETURN(
+      std::string parsed_str,
+      ParseGnmiGetResponse(response, "openconfig-system:boot-time"));
+  // Remove characters <"">  in the parsed string.
+  std::string boot_time_string = parsed_str.substr(1, parsed_str.size() - 2);
+  int boot_time;
+  if (!absl::SimpleAtoi(boot_time_string, &boot_time)) {
+    return gutil::InternalErrorBuilder().LogError()
+           << absl::StrCat("SimpleAtoi Error while parsing ")
+           << boot_time_string;
+  }
+  LOG(INFO) << "Boot Time: " << boot_time;
+  return boot_time;
+}
+void TestGnoiSystemColdReboot(thinkit::Switch& sut) {
+  ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
+  ASSERT_OK_AND_ASSIGN(auto first_boot_time,
+                       GetGnmiSystemBootTime(sut, sut_gnmi_stub.get()));
+
+  ASSERT_OK_AND_ASSIGN(auto sut_gnoi_system_stub, sut.CreateGnoiSystemStub());
+  gnoi::system::RebootRequest request;
+  request.set_method(gnoi::system::RebootMethod::COLD);
+  request.set_delay(absl::ToInt64Nanoseconds(kColdRebootDelayTime));
+  request.set_message("Testing Purpose");
+  gnoi::system::RebootResponse response;
+  grpc::ClientContext context;
+  LOG(INFO) << "Sending Reboot request: " << request.ShortDebugString();
+  ASSERT_OK(sut_gnoi_system_stub->Reboot(&context, request, &response));
+  LOG(INFO) << "Received Reboot response: " << response.ShortDebugString();
+
+  const auto start_time = absl::Now();
+  int latest_boot_time = first_boot_time;
+
+  while (abs(latest_boot_time - first_boot_time) < kEpochMarginalError &&
+         absl::Now() < (start_time + kColdRebootTotalWaitTime)) {
+    absl::SleepFor(kColdRebootDelayTime);
+    ASSERT_OK_AND_ASSIGN(latest_boot_time,
+                         GetGnmiSystemBootTime(sut, sut_gnmi_stub.get()));
+  }
+  EXPECT_GT(abs(latest_boot_time - first_boot_time), kEpochMarginalError);
+}
 }  // namespace pins_test
