@@ -21,7 +21,10 @@ jobs:
       with:
         # See https://docs.bazel.build/versions/master/output_directories.html
         path: "~/.cache/bazel"
-        key: ${{ runner.os }}-building
+        # See https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows
+        key: ${{ runner.os }}-build-${{ hashFiles('**/*.bzl', '**/*.bazel') }}
+        restore-keys: |
+          ${{ runner.os }}-build-
 
     - name: Install p4c system dependencies (Flex, Bison, GMP)
       run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
@@ -47,7 +50,10 @@ jobs:
       with:
         # See https://docs.bazel.build/versions/master/output_directories.html
         path: "~/.cache/bazel"
-        key: ${{ runner.os }}-testing
+        # See https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows
+        key: ${{ runner.os }}-test-${{ hashFiles('**/*.bzl', '**/*.bazel') }}
+        restore-keys: |
+          ${{ runner.os }}-test-
 
     - name: Install p4c system dependencies (Flex, Bison, GMP)
       run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
