@@ -1,5 +1,5 @@
 ================================================================================
-Parsing test: IPv4 packet
+Parsing test: IPv4 packet (invalid)
 ================================================================================
 -- INPUT -----------------------------------------------------------------------
 # ethernet header
@@ -48,8 +48,147 @@ headers {
   }
 }
 payload: "0x1234"
-reasons_invalid: "headers[1].total_length: Must be 0x0120, but was 0x6fc6 instead."
+reasons_invalid: "headers[1].total_length: Must be 0x0016, but was 0x6fc6 instead."
 reasons_invalid: "headers[1].checksum: Must be 0xaedd, but was 0x1234 instead."
+
+================================================================================
+Parsing test: IPv4 packet (valid)
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+# ethernet header
+    ethernet_source: 0x112233445566
+    ethernet_destination: 0xaabbccddeeff
+    ether_type: 0x0800
+    # IPv4 header:
+    version: 0x4
+    ihl: 0x5
+    dhcp: 0b011011
+    ecn: 0b01
+    total_length: 0x0016
+    identification: 0xa3cd
+    flags: 0b000
+    fragment_offset: 0b0000000000000
+    ttl: 0x10
+    protocol: 0x05  # some unsupported protocol
+    checksum: 0xb2e7
+    ipv4_source: 0x0a000001
+    ipv4_destination: 0x14000003
+    # other headers:
+    payload: 0x1234
+-- OUTPUT ----------------------------------------------------------------------
+headers {
+  ethernet_header {
+    ethernet_source: "11:22:33:44:55:66"
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethertype: "0x0800"
+  }
+}
+headers {
+  ipv4_header {
+    version: "0x4"
+    ihl: "0x5"
+    dscp: "0x1b"
+    ecn: "0x1"
+    total_length: "0x0016"
+    identification: "0xa3cd"
+    flags: "0x0"
+    fragment_offset: "0x0000"
+    ttl: "0x10"
+    protocol: "0x05"
+    checksum: "0xb2e7"
+    ipv4_source: "10.0.0.1"
+    ipv4_destination: "20.0.0.3"
+  }
+}
+payload: "0x1234"
+
+================================================================================
+Parsing test: IPv6 packet (invalid)
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+# ethernet header
+    ethernet_source: 0x554433221100
+    ethernet_destination: 0xffeeddccbbaa
+    ether_type: 0x86DD
+    # IPv6 header:
+    version: 0x4
+    dhcp: 0b011011
+    ecn: 0b01
+    flow_label: 0x12345
+    payload_length: 0x0000
+    next_header: 0x90  # some unassigned protocol
+    hop_limit: 0xff
+    ipv6_source: 0x00001111222233334444555566667777
+    ipv6_destination: 0x88889999aaaabbbbccccddddeeeeffff
+    # other headers:
+    payload: 0x12
+-- OUTPUT ----------------------------------------------------------------------
+headers {
+  ethernet_header {
+    ethernet_source: "55:44:33:22:11:00"
+    ethernet_destination: "ff:ee:dd:cc:bb:aa"
+    ethertype: "0x86dd"
+  }
+}
+headers {
+  ipv6_header {
+    version: "0x4"
+    dscp: "0x1b"
+    ecn: "0x1"
+    flow_label: "0x12345"
+    payload_length: "0x0000"
+    next_header: "0x90"
+    hop_limit: "0xff"
+    ipv6_source: "0:1111:2222:3333:4444:5555:6666:7777"
+    ipv6_destination: "8888:9999:aaaa:bbbb:cccc:dddd:eeee:ffff"
+  }
+}
+payload: "0x12"
+reasons_invalid: "headers[1].version: Must be 0x6, but was 0x4 instead."
+reasons_invalid: "headers[1].payload_length: Must be 0x0001, but was 0x0000 instead."
+
+================================================================================
+Parsing test: IPv6 packet (valid)
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+# ethernet header
+    ethernet_source: 0x554433221100
+    ethernet_destination: 0xffeeddccbbaa
+    ether_type: 0x86DD
+    # IPv6 header:
+    version: 0x6
+    dhcp: 0b011011
+    ecn: 0b01
+    flow_label: 0x12345
+    payload_length: 0x0001
+    next_header: 0x90  # some unassigned protocol
+    hop_limit: 0x03
+    ipv6_source: 0x00001111222233334444555566667777
+    ipv6_destination: 0x88889999aaaabbbbccccddddeeeeffff
+    # other headers:
+    payload: 0x12
+-- OUTPUT ----------------------------------------------------------------------
+headers {
+  ethernet_header {
+    ethernet_source: "55:44:33:22:11:00"
+    ethernet_destination: "ff:ee:dd:cc:bb:aa"
+    ethertype: "0x86dd"
+  }
+}
+headers {
+  ipv6_header {
+    version: "0x6"
+    dscp: "0x1b"
+    ecn: "0x1"
+    flow_label: "0x12345"
+    payload_length: "0x0001"
+    next_header: "0x90"
+    hop_limit: "0x03"
+    ipv6_source: "0:1111:2222:3333:4444:5555:6666:7777"
+    ipv6_destination: "8888:9999:aaaa:bbbb:cccc:dddd:eeee:ffff"
+  }
+}
+payload: "0x12"
 
 ================================================================================
 Proto packet test: IPv4 without computed fields
@@ -100,19 +239,21 @@ headers {
     ihl: "0x5"
     dscp: "0x1b"
     ecn: "0x1"
-    total_length: "0x0120"
+    total_length: "0x0016"
     identification: "0xa3cd"
     flags: "0x0"
     fragment_offset: "0x0000"
     ttl: "0x10"
     protocol: "0x05"
-    checksum: "0x4f67"
+    checksum: "0xb2e7"
     ipv4_source: "10.0.0.1"
     ipv4_destination: "20.0.0.3"
   }
 }
 payload: "0xabcd"
 
+ValidatePacket(packet) = OK
+Serialize(Packet) = OK
 
 ================================================================================
 Proto packet test: IPv4 with various invalid fields
@@ -152,4 +293,169 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 - headers[1].version: Must be 0x4, but was 0x3 instead.
 
 UpdateComputedFields(packet) = INVALID_ARGUMENT: illegal conversion from hex string 0x5k to 4 bits; expected between 5 and 8 bits
+Serialize(Packet) = INVALID_ARGUMENT: illegal conversion from hex string 0x5k to 4 bits; expected between 5 and 8 bits
+
+================================================================================
+Proto packet test: IPv6 without computed fields
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+packet =
+headers {
+  ethernet_header {
+    ethernet_source: "11:22:33:44:55:66"
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethertype: "0x86dd"
+  }
+}
+headers {
+  ipv6_header {
+    dscp: "0x1b"
+    ecn: "0x1"
+    flow_label: "0x12345"
+    next_header: "0x05"
+    hop_limit: "0x10"
+    ipv6_source: "::"
+    ipv6_destination: "f::f"
+  }
+}
+payload: "0xabcd"
+
+-- OUTPUT ----------------------------------------------------------------------
+ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[1].version: missing
+- headers[1].payload_length: missing
+
+UpdateComputedFields(packet) = true
+packet =
+headers {
+  ethernet_header {
+    ethernet_source: "11:22:33:44:55:66"
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethertype: "0x86dd"
+  }
+}
+headers {
+  ipv6_header {
+    version: "0x6"
+    dscp: "0x1b"
+    ecn: "0x1"
+    flow_label: "0x12345"
+    payload_length: "0x0002"
+    next_header: "0x05"
+    hop_limit: "0x10"
+    ipv6_source: "::"
+    ipv6_destination: "f::f"
+  }
+}
+payload: "0xabcd"
+
+ValidatePacket(packet) = OK
+Serialize(Packet) = OK
+
+================================================================================
+Proto packet test: IPv6 with various invalid fields
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+packet =
+headers {
+  ethernet_header {
+    ethernet_source: "11:22:33:44:55:66"
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethertype: "0x86dd"
+  }
+}
+headers {
+  ipv6_header {
+    version: "0x4"
+    dscp: "1b"
+    ecn: "0b01"
+    flow_label: "0x1234"
+    payload_length: "0x0000"
+    next_header: "0x050"
+    hop_limit: "0x1"
+    ipv6_source: "20.0.0.3"
+    ipv6_destination: ":"
+  }
+}
+payload: "0xabcd"
+
+-- OUTPUT ----------------------------------------------------------------------
+ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[1].dscp: invalid format: illegal conversion from hex string 1b to 6 bits; expected between -3 and 0 bits
+- headers[1].ecn: invalid format: illegal conversion from hex string 0b01 to 2 bits; expected between 5 and 8 bits
+- headers[1].flow_label: invalid format: illegal conversion from hex string 0x1234 to 20 bits; expected between 13 and 16 bits
+- headers[1].next_header: invalid format: illegal conversion from hex string 0x050 to 8 bits; expected between 9 and 12 bits
+- headers[1].hop_limit: invalid format: illegal conversion from hex string 0x1 to 8 bits; expected between 1 and 4 bits
+- headers[1].ipv6_source: invalid format: On input '20.0.0.3': Invalid IPv6 address: '20.0.0.3'
+- headers[1].ipv6_destination: invalid format: On input ':': Invalid IPv6 address: ':'
+- headers[1].version: Must be 0x6, but was 0x4 instead.
+- headers[1].payload_length: Must be 0x0002, but was 0x0000 instead.
+
+UpdateComputedFields(packet) = false
+Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[1].dscp: invalid format: illegal conversion from hex string 1b to 6 bits; expected between -3 and 0 bits
+- headers[1].ecn: invalid format: illegal conversion from hex string 0b01 to 2 bits; expected between 5 and 8 bits
+- headers[1].flow_label: invalid format: illegal conversion from hex string 0x1234 to 20 bits; expected between 13 and 16 bits
+- headers[1].next_header: invalid format: illegal conversion from hex string 0x050 to 8 bits; expected between 9 and 12 bits
+- headers[1].hop_limit: invalid format: illegal conversion from hex string 0x1 to 8 bits; expected between 1 and 4 bits
+- headers[1].ipv6_source: invalid format: On input '20.0.0.3': Invalid IPv6 address: '20.0.0.3'
+- headers[1].ipv6_destination: invalid format: On input ':': Invalid IPv6 address: ':'
+- headers[1].version: Must be 0x6, but was 0x4 instead.
+- headers[1].payload_length: Must be 0x0002, but was 0x0000 instead.
+
+================================================================================
+Proto packet test: IPv6 packet with IPv4 ethertype
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+packet =
+headers {
+  ethernet_header {
+    ethernet_source: "11:22:33:44:55:66"
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethertype: "0x0800"
+  }
+}
+headers {
+  ipv6_header {
+    version: "0x6"
+    dscp: "0x1b"
+    ecn: "0x1"
+    flow_label: "0x12345"
+    payload_length: "0x0000"
+    next_header: "0x05"
+    hop_limit: "0x10"
+    ipv6_source: "::"
+    ipv6_destination: "f::f"
+  }
+}
+
+-- OUTPUT ----------------------------------------------------------------------
+ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[1]: expected Ipv4Header, got Ipv6Header
+
+UpdateComputedFields(packet) = false
+Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[1]: expected Ipv4Header, got Ipv6Header
+
+================================================================================
+Proto packet test: IPv6 packet without IPv6 header
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+packet =
+headers {
+  ethernet_header {
+    ethernet_source: "11:22:33:44:55:66"
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethertype: "0x86dd"
+  }
+}
+payload: "0xabcd"
+
+-- OUTPUT ----------------------------------------------------------------------
+ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[1]: header missing - expected Ipv6Header
+
+UpdateComputedFields(packet) = false
+Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[1]: header missing - expected Ipv6Header
 

@@ -34,6 +34,7 @@ cc_library(
         ":packetlib_cc_proto",
         "//gutil:status",
         "//p4_pdpi/netaddr:ipv4_address",
+        "//p4_pdpi/netaddr:ipv6_address",
         "//p4_pdpi/netaddr:mac_address",
         "//p4_pdpi/netaddr:network_address",
         "//p4_pdpi/string_encodings:bit_string",
@@ -76,6 +77,7 @@ cc_test(
         "//gutil:testing",
         "//p4_pdpi/string_encodings:readable_byte_string",
         "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf",
     ],
 )
 

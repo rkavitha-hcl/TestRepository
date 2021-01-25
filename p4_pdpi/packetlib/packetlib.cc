@@ -14,6 +14,7 @@
 #include "glog/logging.h"
 #include "gutil/status.h"
 #include "p4_pdpi/netaddr/ipv4_address.h"
+#include "p4_pdpi/netaddr/ipv6_address.h"
 #include "p4_pdpi/netaddr/mac_address.h"
 #include "p4_pdpi/netaddr/network_address.h"
 #include "p4_pdpi/packetlib/bit_widths.h"
@@ -24,11 +25,41 @@
 namespace packetlib {
 
 using ::netaddr::Ipv4Address;
+using ::netaddr::Ipv6Address;
 using ::netaddr::MacAddress;
 
-// ---- Parsing ----------------------------------------------------------------
-
 namespace {
+
+// -- Header cases -------------------------------------------------------------
+
+Header::HeaderCase NextHeader(const EthernetHeader& header) {
+  if (header.ethertype() == "0x0800") return Header::kIpv4Header;
+  if (header.ethertype() == "0x86dd") return Header::kIpv6Header;
+  return Header::HEADER_NOT_SET;
+}
+Header::HeaderCase NextHeader(const Ipv4Header& header) {
+  // No L4 headers supported for now.
+  return Header::HEADER_NOT_SET;
+}
+Header::HeaderCase NextHeader(const Ipv6Header& header) {
+  // No L4 headers supported for now.
+  return Header::HEADER_NOT_SET;
+}
+Header::HeaderCase NextHeader(const Header& header) {
+  switch (header.header_case()) {
+    case Header::kEthernetHeader:
+      return NextHeader(header.ethernet_header());
+    case Header::kIpv4Header:
+      return NextHeader(header.ipv4_header());
+    case Header::kIpv6Header:
+      return NextHeader(header.ipv6_header());
+    case Header::HEADER_NOT_SET:
+      return Header::HEADER_NOT_SET;
+  }
+  return Header::HEADER_NOT_SET;
+}
+
+// ---- Parsing ----------------------------------------------------------------
 
 // Parser helper functions.  Assumes that there are enough bits left in data.
 std::string ParseMacAddress(pdpi::BitString& data) {
@@ -49,6 +80,15 @@ std::string ParseIpv4Address(pdpi::BitString& data) {
     return "INTERNAL ERROR";
   }
 }
+std::string ParseIpv6Address(pdpi::BitString& data) {
+  if (auto ip = data.ConsumeIpv6Address(); ip.ok()) {
+    return ip->ToString();
+  } else {
+    LOG(DFATAL) << "Size was already checked, should never fail; "
+                << ip.status();
+    return "INTERNAL ERROR";
+  }
+}
 std::string ParseBits(pdpi::BitString& data, int num_bits) {
   if (auto bits = data.ConsumeHexString(num_bits); bits.ok()) {
     return *bits;
@@ -60,15 +100,14 @@ std::string ParseBits(pdpi::BitString& data, int num_bits) {
 }
 
 // Parse an ethernet header. Returns the next header to be parsed for supported
-// ether types.
-absl::optional<Header::HeaderCase> ParseEthernetHeader(pdpi::BitString& data,
-                                                       Packet& packet) {
-  if (data.size() < kStandardEthernetPacketBitwidth) {
+// ether types, or HEADER_NOT_SET for unsupported ether types.
+Header::HeaderCase ParseEthernetHeader(pdpi::BitString& data, Packet& packet) {
+  if (data.size() < kStandardEthernetHeaderBitwidth) {
     packet.add_reasons_invalid(absl::StrCat(
         "Packet is too short to parse an Ethernet header next. Only ",
         data.size(), " bits left, need at least ",
-        kStandardEthernetPacketBitwidth, "."));
-    return absl::nullopt;
+        kStandardEthernetHeaderBitwidth, "."));
+    return Header::HEADER_NOT_SET;
   }
 
   EthernetHeader* header = packet.add_headers()->mutable_ethernet_header();
@@ -76,18 +115,17 @@ absl::optional<Header::HeaderCase> ParseEthernetHeader(pdpi::BitString& data,
   header->set_ethernet_destination(ParseMacAddress(data));
   header->set_ethertype(ParseBits(data, kEthernetEthertypeBitwidth));
 
-  if (header->ethertype() == "0x0800") return Header::kIpv4Header;
-  return absl::nullopt;
+  return NextHeader(*header);
 }
 
-// Parse an IPv4 header. Returns the next header to be parsed.
-absl::optional<Header::HeaderCase> ParseIpv4Header(pdpi::BitString& data,
-                                                   Packet& packet) {
-  if (data.size() < kStandardIpv4PacketBitwidth) {
+// Parse an IPv4 header. Returns the next header to be parsed, or HEADER_NOT_SET
+// for unsupported protocol types.
+Header::HeaderCase ParseIpv4Header(pdpi::BitString& data, Packet& packet) {
+  if (data.size() < kStandardIpv4HeaderBitwidth) {
     packet.add_reasons_invalid(absl::StrCat(
         "Packet is too short to parse an IPv4 header next. Only ", data.size(),
-        " bits left, need at least ", kStandardIpv4PacketBitwidth, "."));
-    return absl::nullopt;
+        " bits left, need at least ", kStandardIpv4HeaderBitwidth, "."));
+    return Header::HEADER_NOT_SET;
   }
 
   Ipv4Header* header = packet.add_headers()->mutable_ipv4_header();
@@ -105,8 +143,31 @@ absl::optional<Header::HeaderCase> ParseIpv4Header(pdpi::BitString& data,
   header->set_ipv4_source(ParseIpv4Address(data));
   header->set_ipv4_destination(ParseIpv4Address(data));
 
-  // No L4 protocols supported.
-  return absl::nullopt;
+  return NextHeader(*header);
+}
+
+// Parse an IPv6 header. Returns the next header to be parsed, or HEADER_NOT_SET
+// for unsupported protocol types.
+Header::HeaderCase ParseIpv6Header(pdpi::BitString& data, Packet& packet) {
+  if (data.size() < kStandardIpv6HeaderBitwidth) {
+    packet.add_reasons_invalid(absl::StrCat(
+        "Packet is too short to parse an IPv6 header next. Only ", data.size(),
+        " bits left, need at least ", kStandardIpv6HeaderBitwidth, "."));
+    return Header::HEADER_NOT_SET;
+  }
+
+  Ipv6Header* header = packet.add_headers()->mutable_ipv6_header();
+  header->set_version(ParseBits(data, kIpVersionBitwidth));
+  header->set_dscp(ParseBits(data, kIpDscpBitwidth));
+  header->set_ecn(ParseBits(data, kIpEcnBitwidth));
+  header->set_flow_label(ParseBits(data, kIpFlowLabelBitwidth));
+  header->set_payload_length(ParseBits(data, kIpPayloadLengthBitwidth));
+  header->set_next_header(ParseBits(data, kIpNextHeaderBitwidth));
+  header->set_hop_limit(ParseBits(data, kIpHopLimitBitwidth));
+  header->set_ipv6_source(ParseIpv6Address(data));
+  header->set_ipv6_destination(ParseIpv6Address(data));
+
+  return NextHeader(*header);
 }
 
 }  // namespace
@@ -115,38 +176,35 @@ Packet ParsePacket(absl::string_view input, Header::HeaderCase first_header) {
   pdpi::BitString data = pdpi::BitString::OfByteString(input);
   Packet packet;
 
-  absl::optional<Header::HeaderCase> next_header = first_header;
-  while (true) {
-    // Done parsing.
-    if (data.size() == 0) break;
-
-    // Cannot parse any further.
-    if (!next_header.has_value()) {
-      if (auto payload = data.ToHexString(); payload.ok()) {
-        packet.set_payload(*payload);
-      } else {
-        LOG(DFATAL) << "Payload should be non-empty";
-      }
-      break;
-    }
-
-    // Parse next header.
-    switch (*next_header) {
+  // Parse headers.
+  Header::HeaderCase next_header = first_header;
+  while (next_header != Header::HEADER_NOT_SET) {
+    switch (next_header) {
       case Header::kEthernetHeader:
         next_header = ParseEthernetHeader(data, packet);
         break;
       case Header::kIpv4Header:
         next_header = ParseIpv4Header(data, packet);
         break;
-      case Header::HEADER_NOT_SET:
-        LOG(DFATAL) << "Unexpected Header::HEADER_NOT_SET while parsing '"
-                    << absl::BytesToHexString(input) << "'";
-        packet.set_reason_unsupported(
-            "Internal error: unexpected HEADER_NOT_SET");
-        return packet;
+      case Header::kIpv6Header:
+        next_header = ParseIpv6Header(data, packet);
+        break;
+      case Header::HEADER_NOT_SET:  // unreachable
+        break;
     }
   }
 
+  // Set payload.
+  if (data.size() != 0) {
+    auto payload = data.ToHexString();
+    if (payload.ok()) {
+      packet.set_payload(*payload);
+    } else {
+      LOG(DFATAL) << payload.status();
+    }
+  }
+
+  // Check packet validity.
   for (const auto& invalid_reason : PacketInvalidReasons(packet)) {
     packet.add_reasons_invalid(invalid_reason);
   }
@@ -156,9 +214,8 @@ Packet ParsePacket(absl::string_view input, Header::HeaderCase first_header) {
 
 // ---- Validation -------------------------------------------------------------
 
-absl::Status ValidatePacket(const Packet& packet, bool check_computed_fields) {
-  std::vector<std::string> invalid =
-      PacketInvalidReasons(packet, check_computed_fields);
+absl::Status ValidatePacket(const Packet& packet) {
+  std::vector<std::string> invalid = PacketInvalidReasons(packet);
   if (invalid.empty()) return absl::OkStatus();
   return gutil::InvalidArgumentErrorBuilder()
          << "Packet invalid for the following reasons:\n- "
@@ -193,19 +250,35 @@ void Ipv4AddressInvalidReasons(absl::string_view address,
         field, ": invalid format: ", parsed_address.status().message()));
   }
 }
+void Ipv6AddressInvalidReasons(absl::string_view address,
+                               const std::string& field,
+                               std::vector<std::string>& output) {
+  if (address.empty()) {
+    output.push_back(absl::StrCat(field, ": missing"));
+    return;
+  }
+  if (auto parsed_address = Ipv6Address::OfString(address);
+      !parsed_address.ok()) {
+    output.push_back(absl::StrCat(
+        field, ": invalid format: ", parsed_address.status().message()));
+  }
+}
+// Returns `true` if invalid, `false` otherwise.
 template <size_t num_bits>
-void HexStringInvalidReasons(absl::string_view hex_string,
+bool HexStringInvalidReasons(absl::string_view hex_string,
                              const std::string& field,
                              std::vector<std::string>& output) {
   if (hex_string.empty()) {
     output.push_back(absl::StrCat(field, ": missing"));
-    return;
+    return true;
   }
   if (auto parsed = pdpi::HexStringToBitset<num_bits>(hex_string);
       !parsed.ok()) {
     output.push_back(
         absl::StrCat(field, ": invalid format: ", parsed.status().message()));
+    return true;
   }
+  return false;
 }
 
 void EthernetHeaderInvalidReasons(const EthernetHeader& header,
@@ -222,23 +295,20 @@ void EthernetHeaderInvalidReasons(const EthernetHeader& header,
 }
 
 void Ipv4HeaderInvalidReasons(const Ipv4Header& header,
-                              bool check_computed_fields,
                               const std::string& field_prefix,
                               const Packet& packet, int header_index,
                               std::vector<std::string>& output) {
-  if (check_computed_fields || header.version().empty())
-    HexStringInvalidReasons<kIpVersionBitwidth>(
-        header.version(), absl::StrCat(field_prefix, "version"), output);
+  bool version_invalid = HexStringInvalidReasons<kIpVersionBitwidth>(
+      header.version(), absl::StrCat(field_prefix, "version"), output);
   HexStringInvalidReasons<kIpIhlBitwidth>(
       header.ihl(), absl::StrCat(field_prefix, "ihl"), output);
   HexStringInvalidReasons<kIpDscpBitwidth>(
       header.dscp(), absl::StrCat(field_prefix, "dscp"), output);
   HexStringInvalidReasons<kIpEcnBitwidth>(
       header.ecn(), absl::StrCat(field_prefix, "ecn"), output);
-  if (check_computed_fields || header.total_length().empty())
-    HexStringInvalidReasons<kIpTotalLengthBitwidth>(
-        header.total_length(), absl::StrCat(field_prefix, "total_length"),
-        output);
+  bool length_invalid = HexStringInvalidReasons<kIpTotalLengthBitwidth>(
+      header.total_length(), absl::StrCat(field_prefix, "total_length"),
+      output);
   HexStringInvalidReasons<kIpIdentificationBitwidth>(
       header.identification(), absl::StrCat(field_prefix, "identification"),
       output);
@@ -251,24 +321,22 @@ void Ipv4HeaderInvalidReasons(const Ipv4Header& header,
       header.ttl(), absl::StrCat(field_prefix, "ttl"), output);
   HexStringInvalidReasons<kIpProtocolBitwidth>(
       header.protocol(), absl::StrCat(field_prefix, "protocol"), output);
-  if (check_computed_fields || header.checksum().empty())
-    HexStringInvalidReasons<kIpChecksumBitwidth>(
-        header.checksum(), absl::StrCat(field_prefix, "checksum"), output);
+  bool checksum_invalid = HexStringInvalidReasons<kIpChecksumBitwidth>(
+      header.checksum(), absl::StrCat(field_prefix, "checksum"), output);
   Ipv4AddressInvalidReasons(header.ipv4_source(),
                             absl::StrCat(field_prefix, "ipv4_source"), output);
   Ipv4AddressInvalidReasons(header.ipv4_destination(),
                             absl::StrCat(field_prefix, "ipv4_destination"),
                             output);
 
-  // Check computed fields
-  if (check_computed_fields && !header.version().empty() &&
-      header.version() != "0x4") {
+  // Check computed fields.
+  if (!version_invalid && header.version() != "0x4") {
     output.push_back(absl::StrCat(field_prefix,
                                   "version: Must be 0x4, but was ",
                                   header.version(), " instead."));
   }
-  if (check_computed_fields && !header.total_length().empty()) {
-    if (auto size = PacketSizeInBits(packet, header_index); !size.ok()) {
+  if (!length_invalid) {
+    if (auto size = PacketSizeInBytes(packet, header_index); !size.ok()) {
       output.push_back(absl::StrCat(
           field_prefix, "total_length: Couldn't compute expected size: ",
           size.status().ToString()));
@@ -282,7 +350,7 @@ void Ipv4HeaderInvalidReasons(const Ipv4Header& header,
       }
     }
   }
-  if (check_computed_fields && !header.checksum().empty()) {
+  if (!checksum_invalid) {
     if (auto checksum = Ipv4HeaderChecksum(header); !checksum.ok()) {
       output.push_back(absl::StrCat(
           field_prefix, "checksum: Couldn't compute expected checksum: ",
@@ -299,30 +367,131 @@ void Ipv4HeaderInvalidReasons(const Ipv4Header& header,
   }
 }
 
+void Ipv6HeaderInvalidReasons(const Ipv6Header& header,
+                              const std::string& field_prefix,
+                              const Packet& packet, int header_index,
+                              std::vector<std::string>& output) {
+  bool version_invalid = HexStringInvalidReasons<kIpVersionBitwidth>(
+      header.version(), absl::StrCat(field_prefix, "version"), output);
+  HexStringInvalidReasons<kIpDscpBitwidth>(
+      header.dscp(), absl::StrCat(field_prefix, "dscp"), output);
+  HexStringInvalidReasons<kIpEcnBitwidth>(
+      header.ecn(), absl::StrCat(field_prefix, "ecn"), output);
+  HexStringInvalidReasons<kIpFlowLabelBitwidth>(
+      header.flow_label(), absl::StrCat(field_prefix, "flow_label"), output);
+  bool length_invalid = HexStringInvalidReasons<kIpPayloadLengthBitwidth>(
+      header.payload_length(), absl::StrCat(field_prefix, "payload_length"),
+      output);
+  HexStringInvalidReasons<kIpNextHeaderBitwidth>(
+      header.next_header(), absl::StrCat(field_prefix, "next_header"), output);
+  HexStringInvalidReasons<kIpHopLimitBitwidth>(
+      header.hop_limit(), absl::StrCat(field_prefix, "hop_limit"), output);
+  Ipv6AddressInvalidReasons(header.ipv6_source(),
+                            absl::StrCat(field_prefix, "ipv6_source"), output);
+  Ipv6AddressInvalidReasons(header.ipv6_destination(),
+                            absl::StrCat(field_prefix, "ipv6_destination"),
+                            output);
+
+  // Check computed fields.
+  if (!version_invalid && header.version() != "0x6") {
+    output.push_back(absl::StrCat(field_prefix,
+                                  "version: Must be 0x6, but was ",
+                                  header.version(), " instead."));
+  }
+  if (!length_invalid) {
+    // `+1` to skip the IPv6 header and previous headers in the calculation.
+    if (auto size = PacketSizeInBytes(packet, header_index + 1); !size.ok()) {
+      output.push_back(absl::StrCat(
+          field_prefix, "total_length: Couldn't compute expected size: ",
+          size.status().ToString()));
+    } else {
+      std::string expected =
+          pdpi::BitsetToHexString(std::bitset<kIpPayloadLengthBitwidth>(*size));
+      if (header.payload_length() != expected) {
+        output.push_back(absl::StrCat(field_prefix, "payload_length: Must be ",
+                                      expected, ", but was ",
+                                      header.payload_length(), " instead."));
+      }
+    }
+  }
+}
+
 }  // namespace
 
-std::vector<std::string> PacketInvalidReasons(const Packet& packet,
-                                              bool check_computed_fields) {
+std::string HeaderCaseName(Header::HeaderCase header_case) {
+  switch (header_case) {
+    case Header::kEthernetHeader:
+      return "EthernetHeader";
+    case Header::kIpv4Header:
+      return "Ipv4Header";
+    case Header::kIpv6Header:
+      return "Ipv6Header";
+    case Header::HEADER_NOT_SET:
+      return "HEADER_NOT_SET";
+  }
+  LOG(DFATAL) << "unexpected HeaderCase: " << header_case;
+  return "";
+}
+
+std::vector<std::string> PacketInvalidReasons(const Packet& packet) {
   std::vector<std::string> result;
-  int index = 0;
+
+  if (auto bitsize = PacketSizeInBits(packet); !bitsize.ok()) {
+    result.push_back(absl::StrCat("Unable to determine total packet size: ",
+                                  bitsize.status().ToString()));
+  } else if (*bitsize % 8 != 0) {
+    result.push_back(absl::StrCat(
+        "Packet size must be multiple of 8 bits; found ", *bitsize, " bits"));
+  }
+
+  Header::HeaderCase expected_header_case =
+      packet.headers().empty() ? Header::HEADER_NOT_SET
+                               : packet.headers(0).header_case();
+  int index = -1;
   for (const Header& header : packet.headers()) {
-    std::string field_prefix = absl::StrCat("headers[", index, "].");
+    index += 1;
+    const std::string header_prefix = absl::StrCat("headers[", index, "]: ");
+    const std::string field_prefix = absl::StrCat("headers[", index, "].");
+
     switch (header.header_case()) {
       case Header::kEthernetHeader:
         EthernetHeaderInvalidReasons(header.ethernet_header(), field_prefix,
                                      result);
         break;
-      case Header::kIpv4Header: {
-        Ipv4HeaderInvalidReasons(header.ipv4_header(), check_computed_fields,
-                                 field_prefix, packet, index, result);
+      case Header::kIpv4Header:
+        Ipv4HeaderInvalidReasons(header.ipv4_header(), field_prefix, packet,
+                                 index, result);
         break;
-      }
+      case Header::kIpv6Header:
+        Ipv6HeaderInvalidReasons(header.ipv6_header(), field_prefix, packet,
+                                 index, result);
+        break;
       case Header::HEADER_NOT_SET:
-        result.push_back("Found invalid HEADER_NOT_SET in header.");
-        break;
+        result.push_back(absl::StrCat(header_prefix, "header uninitialized"));
+        continue;  // skip expected_header_case check
     }
-    index += 1;
+
+    // Check order of headers.
+    if (expected_header_case == Header::HEADER_NOT_SET) {
+      result.push_back(absl::StrCat(
+          header_prefix,
+          "expected no header (because the previous header demands either no "
+          "header or an unsupported header), got ",
+          HeaderCaseName(header.header_case())));
+    } else if (header.header_case() != expected_header_case) {
+      result.push_back(absl::StrCat(
+          header_prefix, "expected ", HeaderCaseName(expected_header_case),
+          ", got ", HeaderCaseName(header.header_case())));
+    }
+    expected_header_case = NextHeader(header);
   }
+
+  if (expected_header_case != Header::HEADER_NOT_SET) {
+    result.push_back(absl::StrCat("headers[", packet.headers().size(),
+                                  "]: header missing - expected ",
+                                  HeaderCaseName(expected_header_case)));
+  }
+
   return result;
 }
 
@@ -339,6 +508,12 @@ absl::Status SerializeMacAddress(absl::string_view address,
 absl::Status SerializeIpv4Address(absl::string_view address,
                                   pdpi::BitString& output) {
   ASSIGN_OR_RETURN(Ipv4Address parsed_address, Ipv4Address::OfString(address));
+  output.AppendBits(parsed_address.ToBitset());
+  return absl::OkStatus();
+}
+absl::Status SerializeIpv6Address(absl::string_view address,
+                                  pdpi::BitString& output) {
+  ASSIGN_OR_RETURN(Ipv6Address parsed_address, Ipv6Address::OfString(address));
   output.AppendBits(parsed_address.ToBitset());
   return absl::OkStatus();
 }
@@ -382,6 +557,24 @@ absl::Status SerializeIpv4Header(const Ipv4Header& header,
   return absl::OkStatus();
 }
 
+absl::Status SerializeIpv6Header(const Ipv6Header& header,
+                                 pdpi::BitString& output) {
+  RETURN_IF_ERROR(SerializeBits<kIpVersionBitwidth>(header.version(), output));
+  RETURN_IF_ERROR(SerializeBits<kIpDscpBitwidth>(header.dscp(), output));
+  RETURN_IF_ERROR(SerializeBits<kIpEcnBitwidth>(header.ecn(), output));
+  RETURN_IF_ERROR(
+      SerializeBits<kIpFlowLabelBitwidth>(header.flow_label(), output));
+  RETURN_IF_ERROR(
+      SerializeBits<kIpPayloadLengthBitwidth>(header.payload_length(), output));
+  RETURN_IF_ERROR(
+      SerializeBits<kIpNextHeaderBitwidth>(header.next_header(), output));
+  RETURN_IF_ERROR(
+      SerializeBits<kIpHopLimitBitwidth>(header.hop_limit(), output));
+  RETURN_IF_ERROR(SerializeIpv6Address(header.ipv6_source(), output));
+  RETURN_IF_ERROR(SerializeIpv6Address(header.ipv6_destination(), output));
+  return absl::OkStatus();
+}
+
 }  // namespace
 
 absl::StatusOr<std::string> SerializePacket(Packet packet) {
@@ -401,6 +594,9 @@ absl::StatusOr<std::string> RawSerializePacket(const Packet& packet) {
         break;
       case Header::kIpv4Header:
         RETURN_IF_ERROR(SerializeIpv4Header(header.ipv4_header(), result));
+        break;
+      case Header::kIpv6Header:
+        RETURN_IF_ERROR(SerializeIpv6Header(header.ipv6_header(), result));
         break;
       case Header::HEADER_NOT_SET:
         return gutil::InvalidArgumentErrorBuilder()
@@ -430,7 +626,7 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
           changes = true;
         }
         if (ipv4_header.total_length().empty()) {
-          ASSIGN_OR_RETURN(int size, PacketSizeInBits(packet, header_index));
+          ASSIGN_OR_RETURN(int size, PacketSizeInBytes(packet, header_index));
           ipv4_header.set_total_length(pdpi::BitsetToHexString(
               std::bitset<kIpTotalLengthBitwidth>(size)));
           changes = true;
@@ -439,6 +635,22 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
           ASSIGN_OR_RETURN(uint16_t checksum, Ipv4HeaderChecksum(ipv4_header));
           ipv4_header.set_checksum(pdpi::BitsetToHexString(
               std::bitset<kIpChecksumBitwidth>(checksum)));
+          changes = true;
+        }
+        break;
+      }
+      case Header::kIpv6Header: {
+        Ipv6Header& ipv6_header = *header.mutable_ipv6_header();
+        if (ipv6_header.version().empty()) {
+          ipv6_header.set_version("0x6");
+          changes = true;
+        }
+        if (ipv6_header.payload_length().empty()) {
+          // `+1` to skip the IPv6 header and previous headers in calculation.
+          ASSIGN_OR_RETURN(int size,
+                           PacketSizeInBytes(packet, header_index + 1));
+          ipv6_header.set_payload_length(pdpi::BitsetToHexString(
+              std::bitset<kIpTotalLengthBitwidth>(size)));
           changes = true;
         }
         break;
@@ -457,6 +669,16 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
   return changes;
 }
 
+absl::StatusOr<int> PacketSizeInBytes(const Packet& packet,
+                                      int start_header_index) {
+  ASSIGN_OR_RETURN(int bit_size, PacketSizeInBits(packet, start_header_index));
+  if (bit_size % 8 != 0) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "packet size of " << bit_size << " cannot be converted to bytes";
+  }
+  return bit_size / 8;
+}
+
 absl::StatusOr<int> PacketSizeInBits(const Packet& packet,
                                      int start_header_index) {
   if (start_header_index > packet.headers_size() || start_header_index < 0) {
@@ -467,13 +689,17 @@ absl::StatusOr<int> PacketSizeInBits(const Packet& packet,
 
   int size = 0;
 
-  for (const Header& header : packet.headers()) {
-    switch (header.header_case()) {
+  for (auto* header :
+       absl::MakeSpan(packet.headers()).subspan(start_header_index)) {
+    switch (header->header_case()) {
       case Header::kIpv4Header:
-        size += kStandardIpv4PacketBitwidth;
+        size += kStandardIpv4HeaderBitwidth;
+        break;
+      case Header::kIpv6Header:
+        size += kStandardIpv6HeaderBitwidth;
         break;
       case Header::kEthernetHeader:
-        size += kStandardEthernetPacketBitwidth;
+        size += kStandardEthernetHeaderBitwidth;
         break;
       case Header::HEADER_NOT_SET:
         return gutil::InvalidArgumentErrorBuilder()
@@ -482,8 +708,8 @@ absl::StatusOr<int> PacketSizeInBits(const Packet& packet,
   }
 
   if (!packet.payload().empty()) {
-    // Two bytes for '0x' prefix, and then every hex char is 4 bits.
-    size += (packet.payload().size() - 2) * 4;
+    // 4 bits for every hex char after the '0x' prefix.
+    size += 4 * (packet.payload().size() - 2);
   }
 
   return size;

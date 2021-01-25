@@ -51,7 +51,7 @@ message Header {
   oneof header {
     EthernetHeader ethernet_header = 1;
     Ipv4Header ipv4_header = 2;
-    // Ipv6Header ipv6_header = 3;
+    Ipv6Header ipv6_header = 3;
     // TcpHeader tcp_header = 4;
     // UdpHeader udp_header = 5;
   }
@@ -68,7 +68,7 @@ message EthernetHeader {
 // An IPv4 header.
 // Only IHL == 5 is supported.
 message Ipv4Header {
-  string version = 1;            //  4 bits (computed field)
+  string version = 1;            //  4 bits (computed field, constant 4)
   string ihl = 2;                //  4 bits
   string dscp = 3;               //  6 bits
   string ecn = 4;                //  2 bits
@@ -81,4 +81,17 @@ message Ipv4Header {
   string checksum = 11;          // 16 bits (computed field)
   string ipv4_source = 12;       // Format::IPV4
   string ipv4_destination = 13;  // Format::IPV4
+}
+
+// An IPv6 header.
+message Ipv6Header {
+  string version = 1;           //  4 bits (computed field, constant 6)
+  string dscp = 2;              //  6 bits
+  string ecn = 3;               //  2 bits
+  string flow_label = 4;        // 20 bits
+  string payload_length = 5;    // 16 bits (computed field)
+  string next_header = 6;       // 8 bits
+  string hop_limit = 7;         // 8 bits
+  string ipv6_source = 8;       // Format::IPV6
+  string ipv6_destination = 9;  // Format::IPV6
 }

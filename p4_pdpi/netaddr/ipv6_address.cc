@@ -31,7 +31,7 @@ absl::StatusOr<Ipv6Address> Ipv6Address::OfString(absl::string_view address) {
   std::string lower{address.data()};
   absl::AsciiStrToLower(&lower);
   ASSIGN_OR_RETURN(std::string bytes, pdpi::Ipv6ToNormalizedByteString(lower),
-                   _.SetPrepend() << "On input '" << address << "':");
+                   _.SetPrepend() << "On input '" << address << "': ");
   return Ipv6Address::OfByteString(bytes);
 }
 
