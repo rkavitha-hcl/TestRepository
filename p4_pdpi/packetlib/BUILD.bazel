@@ -32,6 +32,7 @@ cc_library(
     deps = [
         ":bit_widths",
         ":packetlib_cc_proto",
+        "//gutil:overload",
         "//gutil:status",
         "//p4_pdpi/netaddr:ipv4_address",
         "//p4_pdpi/netaddr:ipv6_address",

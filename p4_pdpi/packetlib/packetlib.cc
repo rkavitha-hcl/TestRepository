@@ -13,6 +13,7 @@
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "glog/logging.h"
+#include "gutil/overload.h"
 #include "gutil/status.h"
 #include "p4_pdpi/netaddr/ipv4_address.h"
 #include "p4_pdpi/netaddr/ipv6_address.h"
@@ -31,29 +32,52 @@ using ::netaddr::MacAddress;
 
 namespace {
 
-// -- Header cases -------------------------------------------------------------
+// -- Determining the header following a given header  -------------------------
 
-Header::HeaderCase NextHeader(const EthernetHeader& header) {
-  if (header.ethertype() == "0x0800") return Header::kIpv4Header;
-  if (header.ethertype() == "0x86dd") return Header::kIpv6Header;
-  return Header::HEADER_NOT_SET;
+// Indicates that a header should follow the current header, but that that
+// header is unsupported by packetlib.
+struct UnsupportedNextHeader {
+  std::string reason;
+};
+
+// Encodes header, if any, that should follow the current header.
+using NextHeader = absl::variant<
+    // A supported next header, or no next header (encoded as HEADER_NOT_SET) if
+    // the previous header was the final one before the payload.
+    Header::HeaderCase,
+    // An unsupported next header.
+    UnsupportedNextHeader>;
+
+absl::StatusOr<NextHeader> GetNextHeader(const EthernetHeader& header) {
+  ASSIGN_OR_RETURN(int ethertype, pdpi::HexStringToInt(header.ethertype()),
+                   _.SetCode(absl::StatusCode::kInternal).SetPrepend()
+                       << "unable to parse ethertype: ");
+  // See https://en.wikipedia.org/wiki/EtherType.
+  if (ethertype <= 1535) return Header::HEADER_NOT_SET;
+  if (ethertype == 0x0800) return Header::kIpv4Header;
+  if (ethertype == 0x86dd) return Header::kIpv6Header;
+  return UnsupportedNextHeader{
+      .reason = absl::StrFormat("ethernet_header.ethertype %s: unsupported",
+                                header.ethertype())};
 }
-Header::HeaderCase NextHeader(const Ipv4Header& header) {
-  // No L4 headers supported for now.
-  return Header::HEADER_NOT_SET;
+absl::StatusOr<NextHeader> GetNextHeader(const Ipv4Header& header) {
+  return UnsupportedNextHeader{
+      .reason = absl::StrFormat("ipv4_header.protocol %s: unsupported",
+                                header.protocol())};
 }
-Header::HeaderCase NextHeader(const Ipv6Header& header) {
-  // No L4 headers supported for now.
-  return Header::HEADER_NOT_SET;
+absl::StatusOr<NextHeader> GetNextHeader(const Ipv6Header& header) {
+  return UnsupportedNextHeader{
+      .reason = absl::StrFormat("ipv6_header.next_header %s: unsupported",
+                                header.next_header())};
 }
-Header::HeaderCase NextHeader(const Header& header) {
+absl::StatusOr<NextHeader> GetNextHeader(const Header& header) {
   switch (header.header_case()) {
     case Header::kEthernetHeader:
-      return NextHeader(header.ethernet_header());
+      return GetNextHeader(header.ethernet_header());
     case Header::kIpv4Header:
-      return NextHeader(header.ipv4_header());
+      return GetNextHeader(header.ipv4_header());
     case Header::kIpv6Header:
-      return NextHeader(header.ipv6_header());
+      return GetNextHeader(header.ipv6_header());
     case Header::HEADER_NOT_SET:
       return Header::HEADER_NOT_SET;
   }
@@ -100,75 +124,93 @@ std::string ParseBits(pdpi::BitString& data, int num_bits) {
   }
 }
 
-// Parse an ethernet header. Returns the next header to be parsed for supported
-// ether types, or HEADER_NOT_SET for unsupported ether types.
-Header::HeaderCase ParseEthernetHeader(pdpi::BitString& data, Packet& packet) {
+// Parse and return an Ethernet header, or return error if the packet is too
+// small.
+absl::StatusOr<EthernetHeader> ParseEthernetHeader(pdpi::BitString& data) {
   if (data.size() < kStandardEthernetHeaderBitwidth) {
-    packet.add_reasons_invalid(absl::StrCat(
-        "Packet is too short to parse an Ethernet header next. Only ",
-        data.size(), " bits left, need at least ",
-        kStandardEthernetHeaderBitwidth, "."));
-    return Header::HEADER_NOT_SET;
+    return gutil::InvalidArgumentErrorBuilder()
+           << "Packet is too short to parse an Ethernet header next. Only "
+           << data.size() << " bits left, need at least "
+           << kStandardEthernetHeaderBitwidth << ".";
   }
 
-  EthernetHeader* header = packet.add_headers()->mutable_ethernet_header();
-  header->set_ethernet_source(ParseMacAddress(data));
-  header->set_ethernet_destination(ParseMacAddress(data));
-  header->set_ethertype(ParseBits(data, kEthernetEthertypeBitwidth));
-
-  return NextHeader(*header);
+  EthernetHeader header;
+  header.set_ethernet_source(ParseMacAddress(data));
+  header.set_ethernet_destination(ParseMacAddress(data));
+  header.set_ethertype(ParseBits(data, kEthernetEthertypeBitwidth));
+  return std::move(header);
 }
 
-// Parse an IPv4 header. Returns the next header to be parsed, or HEADER_NOT_SET
-// for unsupported protocol types.
-Header::HeaderCase ParseIpv4Header(pdpi::BitString& data, Packet& packet) {
+// Parse and return an IPv4 header, or return error if the packet is too small.
+absl::StatusOr<Ipv4Header> ParseIpv4Header(pdpi::BitString& data) {
   if (data.size() < kStandardIpv4HeaderBitwidth) {
-    packet.add_reasons_invalid(absl::StrCat(
-        "Packet is too short to parse an IPv4 header next. Only ", data.size(),
-        " bits left, need at least ", kStandardIpv4HeaderBitwidth, "."));
-    return Header::HEADER_NOT_SET;
+    return gutil::InvalidArgumentErrorBuilder()
+           << "Packet is too short to parse an IPv4 header next. Only "
+           << data.size() << " bits left, need at least "
+           << kStandardIpv4HeaderBitwidth << ".";
   }
 
-  Ipv4Header* header = packet.add_headers()->mutable_ipv4_header();
-  header->set_version(ParseBits(data, kIpVersionBitwidth));
-  header->set_ihl(ParseBits(data, kIpIhlBitwidth));
-  header->set_dscp(ParseBits(data, kIpDscpBitwidth));
-  header->set_ecn(ParseBits(data, kIpEcnBitwidth));
-  header->set_total_length(ParseBits(data, kIpTotalLengthBitwidth));
-  header->set_identification(ParseBits(data, kIpIdentificationBitwidth));
-  header->set_flags(ParseBits(data, kIpFlagsBitwidth));
-  header->set_fragment_offset(ParseBits(data, kIpFragmentOffsetBitwidth));
-  header->set_ttl(ParseBits(data, kIpTtlBitwidth));
-  header->set_protocol(ParseBits(data, kIpProtocolBitwidth));
-  header->set_checksum(ParseBits(data, kIpChecksumBitwidth));
-  header->set_ipv4_source(ParseIpv4Address(data));
-  header->set_ipv4_destination(ParseIpv4Address(data));
-
-  return NextHeader(*header);
+  Ipv4Header header;
+  header.set_version(ParseBits(data, kIpVersionBitwidth));
+  header.set_ihl(ParseBits(data, kIpIhlBitwidth));
+  header.set_dscp(ParseBits(data, kIpDscpBitwidth));
+  header.set_ecn(ParseBits(data, kIpEcnBitwidth));
+  header.set_total_length(ParseBits(data, kIpTotalLengthBitwidth));
+  header.set_identification(ParseBits(data, kIpIdentificationBitwidth));
+  header.set_flags(ParseBits(data, kIpFlagsBitwidth));
+  header.set_fragment_offset(ParseBits(data, kIpFragmentOffsetBitwidth));
+  header.set_ttl(ParseBits(data, kIpTtlBitwidth));
+  header.set_protocol(ParseBits(data, kIpProtocolBitwidth));
+  header.set_checksum(ParseBits(data, kIpChecksumBitwidth));
+  header.set_ipv4_source(ParseIpv4Address(data));
+  header.set_ipv4_destination(ParseIpv4Address(data));
+  return std::move(header);
 }
 
-// Parse an IPv6 header. Returns the next header to be parsed, or HEADER_NOT_SET
-// for unsupported protocol types.
-Header::HeaderCase ParseIpv6Header(pdpi::BitString& data, Packet& packet) {
+// Parse and return an IPv6 header, or return error if the packet is too small.
+absl::StatusOr<Ipv6Header> ParseIpv6Header(pdpi::BitString& data) {
   if (data.size() < kStandardIpv6HeaderBitwidth) {
-    packet.add_reasons_invalid(absl::StrCat(
-        "Packet is too short to parse an IPv6 header next. Only ", data.size(),
-        " bits left, need at least ", kStandardIpv6HeaderBitwidth, "."));
-    return Header::HEADER_NOT_SET;
+    return gutil::InvalidArgumentErrorBuilder()
+           << "Packet is too short to parse an IPv6 header next. Only "
+           << data.size() << " bits left, need at least "
+           << kStandardIpv6HeaderBitwidth << ".";
   }
 
-  Ipv6Header* header = packet.add_headers()->mutable_ipv6_header();
-  header->set_version(ParseBits(data, kIpVersionBitwidth));
-  header->set_dscp(ParseBits(data, kIpDscpBitwidth));
-  header->set_ecn(ParseBits(data, kIpEcnBitwidth));
-  header->set_flow_label(ParseBits(data, kIpFlowLabelBitwidth));
-  header->set_payload_length(ParseBits(data, kIpPayloadLengthBitwidth));
-  header->set_next_header(ParseBits(data, kIpNextHeaderBitwidth));
-  header->set_hop_limit(ParseBits(data, kIpHopLimitBitwidth));
-  header->set_ipv6_source(ParseIpv6Address(data));
-  header->set_ipv6_destination(ParseIpv6Address(data));
+  Ipv6Header header;
+  header.set_version(ParseBits(data, kIpVersionBitwidth));
+  header.set_dscp(ParseBits(data, kIpDscpBitwidth));
+  header.set_ecn(ParseBits(data, kIpEcnBitwidth));
+  header.set_flow_label(ParseBits(data, kIpFlowLabelBitwidth));
+  header.set_payload_length(ParseBits(data, kIpPayloadLengthBitwidth));
+  header.set_next_header(ParseBits(data, kIpNextHeaderBitwidth));
+  header.set_hop_limit(ParseBits(data, kIpHopLimitBitwidth));
+  header.set_ipv6_source(ParseIpv6Address(data));
+  header.set_ipv6_destination(ParseIpv6Address(data));
+  return std::move(header);
+}
 
-  return NextHeader(*header);
+absl::StatusOr<Header> ParseHeader(Header::HeaderCase header_case,
+                                   pdpi::BitString& data) {
+  Header result;
+  switch (header_case) {
+    case Header::kEthernetHeader: {
+      ASSIGN_OR_RETURN(*result.mutable_ethernet_header(),
+                       ParseEthernetHeader(data));
+      return result;
+    }
+    case Header::kIpv4Header: {
+      ASSIGN_OR_RETURN(*result.mutable_ipv4_header(), ParseIpv4Header(data));
+      return result;
+    }
+    case Header::kIpv6Header: {
+      ASSIGN_OR_RETURN(*result.mutable_ipv6_header(), ParseIpv6Header(data));
+      return result;
+    }
+    case Header::HEADER_NOT_SET:
+      break;
+  }
+  return gutil::InvalidArgumentErrorBuilder()
+         << "unexpected HeaderCase: " << HeaderCaseName(header_case);
 }
 
 }  // namespace
@@ -180,18 +222,23 @@ Packet ParsePacket(absl::string_view input, Header::HeaderCase first_header) {
   // Parse headers.
   Header::HeaderCase next_header = first_header;
   while (next_header != Header::HEADER_NOT_SET) {
-    switch (next_header) {
-      case Header::kEthernetHeader:
-        next_header = ParseEthernetHeader(data, packet);
-        break;
-      case Header::kIpv4Header:
-        next_header = ParseIpv4Header(data, packet);
-        break;
-      case Header::kIpv6Header:
-        next_header = ParseIpv6Header(data, packet);
-        break;
-      case Header::HEADER_NOT_SET:  // unreachable
-        break;
+    absl::StatusOr<Header> header = ParseHeader(next_header, data);
+    if (!header.ok()) {
+      packet.add_reasons_invalid(std::string(header.status().message()));
+      break;
+    }
+    *packet.add_headers() = *header;
+    if (absl::StatusOr<NextHeader> next = GetNextHeader(*header); next.ok()) {
+      absl::visit(
+          gutil::Overload{[&](Header::HeaderCase next) { next_header = next; },
+                          [&](UnsupportedNextHeader unsupported) {
+                            next_header = Header::HEADER_NOT_SET;
+                            packet.set_reason_unsupported(unsupported.reason);
+                          }},
+          *next);
+    } else {
+      LOG(DFATAL) << "SHOULD NEVER HAPPEN: " << next.status();
+      next_header = Header::HEADER_NOT_SET;
     }
   }
 
@@ -305,10 +352,6 @@ void EthernetHeaderInvalidReasons(const EthernetHeader& header,
       output.push_back(absl::StrCat(field_prefix, "ethertype: INTERNAL ERROR: ",
                                     ethertype.status().ToString()));
     } else if (*ethertype <= 1500) {
-      std::string prefix = absl::StrFormat(
-          "%sethertype: value %d is <= 1500 and should thus match packet size, "
-          "but packet size ",
-          field_prefix, *ethertype);
       // `+1` to skip this (and previous) headers in the calculation.
       if (auto size = PacketSizeInBytes(packet, header_index + 1); !size.ok()) {
         output.push_back(absl::StrCat("packet size could not be computed: ",
@@ -316,7 +359,7 @@ void EthernetHeaderInvalidReasons(const EthernetHeader& header,
       } else if (*ethertype != *size) {
         output.push_back(
             absl::StrFormat("%sethertype: value %s is <= 1500 and should thus "
-                            "match packet size, but packet size is %d",
+                            "match payload size, but payload size is %d bytes",
                             field_prefix, header.ethertype(), *size));
       }
     }
@@ -512,7 +555,17 @@ std::vector<std::string> PacketInvalidReasons(const Packet& packet) {
           header_prefix, "expected ", HeaderCaseName(expected_header_case),
           ", got ", HeaderCaseName(header.header_case())));
     }
-    expected_header_case = NextHeader(header);
+
+    // Update `expected_header_case`.
+    if (absl::StatusOr<NextHeader> next = GetNextHeader(header); next.ok()) {
+      expected_header_case = absl::visit(
+          gutil::Overload{
+              [](Header::HeaderCase next) { return next; },
+              [](UnsupportedNextHeader) { return Header::HEADER_NOT_SET; }},
+          *next);
+    } else {
+      expected_header_case = Header::HEADER_NOT_SET;
+    }
   }
 
   if (expected_header_case != Header::HEADER_NOT_SET) {

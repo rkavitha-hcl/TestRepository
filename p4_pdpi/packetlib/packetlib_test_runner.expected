@@ -37,7 +37,25 @@ headers {
   }
 }
 payload: "0x0102"
-reasons_invalid: "headers[0].ethertype: value 0x0001 is <= 1500 and should thus match packet size, but packet size is 2"
+reasons_invalid: "headers[0].ethertype: value 0x0001 is <= 1500 and should thus match payload size, but payload size is 2 bytes"
+
+================================================================================
+Parsing test: Ethernet packet (unsupported EtherType)
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+# ethernet header
+    ethernet_source: 0x112233445566
+    ethernet_destination: 0xaabbccddeeff
+    ether_type: 0x0842  # Wake-on-LAN
+-- OUTPUT ----------------------------------------------------------------------
+headers {
+  ethernet_header {
+    ethernet_source: "11:22:33:44:55:66"
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethertype: "0x0842"
+  }
+}
+reason_unsupported: "ethernet_header.ethertype 0x0842: unsupported"
 
 ================================================================================
 Parsing test: IPv4 packet (invalid)
@@ -89,6 +107,7 @@ headers {
   }
 }
 payload: "0x1234"
+reason_unsupported: "ipv4_header.protocol 0x05: unsupported"
 reasons_invalid: "headers[1].total_length: Must be 0x0016, but was 0x6fc6 instead."
 reasons_invalid: "headers[1].checksum: Must be 0xaedd, but was 0x1234 instead."
 
@@ -142,6 +161,7 @@ headers {
   }
 }
 payload: "0x1234"
+reason_unsupported: "ipv4_header.protocol 0x05: unsupported"
 
 ================================================================================
 Parsing test: IPv6 packet (invalid)
@@ -185,6 +205,7 @@ headers {
   }
 }
 payload: "0x12"
+reason_unsupported: "ipv6_header.next_header 0x90: unsupported"
 reasons_invalid: "headers[1].version: Must be 0x6, but was 0x4 instead."
 reasons_invalid: "headers[1].payload_length: Must be 0x0001, but was 0x0000 instead."
 
@@ -230,6 +251,7 @@ headers {
   }
 }
 payload: "0x12"
+reason_unsupported: "ipv6_header.next_header 0x90: unsupported"
 
 ================================================================================
 Proto packet test: IPv4 without computed fields

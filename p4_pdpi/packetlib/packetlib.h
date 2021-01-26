@@ -28,7 +28,8 @@ namespace packetlib {
 //    `serialized.ok() && *serialized == data`.
 // 3. If a header is supported by packetlib, it will be parsed. Partially
 //    supported headers may not be parsed, but then `reason_unsupported`
-//    will indicate what unsupported feature the packet uses.
+//    will indicate what unsupported feature the packet uses, and the
+//    unsupported header will appear uninterpreted in the payload.
 Packet ParsePacket(absl::string_view input,
                    Header::HeaderCase first_header = Header::kEthernetHeader);
 

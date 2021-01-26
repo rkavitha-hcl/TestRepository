@@ -138,3 +138,9 @@ cc_library(
         "@com_google_protobuf//:protobuf",
     ],
 )
+
+cc_library(
+    name = "overload",
+    hdrs = ["overload.h"],
+    visibility = ["//visibility:public"],
+)

@@ -97,6 +97,8 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
 
   // Test if the packet can be parsed back.
   auto reparsed_packet = ParsePacket(*bytes);
+  // Check roundtrip property modulo `reason_unsupported` field.
+  reparsed_packet.clear_reason_unsupported();
   google::protobuf::util::MessageDifferencer differ;
   std::string diff;
   differ.ReportDifferencesToString(&diff);
@@ -124,6 +126,12 @@ void main() {
     ether_type: 0x0001  # This means size(payload) = 1 byte.
     # payload
     pqyload: 0x0102  # 2 bytes, but ether_type says 1 byte.
+  )PB");
+  RunPacketParseTest("Ethernet packet (unsupported EtherType)", R"PB(
+    # ethernet header
+    ethernet_source: 0x112233445566
+    ethernet_destination: 0xaabbccddeeff
+    ether_type: 0x0842  # Wake-on-LAN
   )PB");
   RunPacketParseTest("IPv4 packet (invalid)", R"PB(
     # ethernet header
