@@ -40,7 +40,7 @@
   if (!__ASSIGN_OR_RETURN_VAL(__LINE__).ok()) {       \
     return __ASSIGN_OR_RETURN_VAL(__LINE__).status(); \
   }                                                   \
-  dest = __ASSIGN_OR_RETURN_VAL(__LINE__).value()
+  dest = std::move(__ASSIGN_OR_RETURN_VAL(__LINE__)).value()
 
 // An implementation of ASSIGN_OR_RETURN that provides a StatusBuilder for extra
 // processing. Not for public use.
@@ -51,7 +51,7 @@
                __ASSIGN_OR_RETURN_VAL(__LINE__).status()) \
         .builder##stream;                                 \
   }                                                       \
-  dest = __ASSIGN_OR_RETURN_VAL(__LINE__).value()
+  dest = std::move(__ASSIGN_OR_RETURN_VAL(__LINE__)).value()
 
 // Macro to choose the correct implementation for ASSIGN_OR_RETURN based on
 // the number of inputs. Not for public use.
