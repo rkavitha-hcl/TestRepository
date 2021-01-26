@@ -6,6 +6,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
@@ -283,6 +284,7 @@ bool HexStringInvalidReasons(absl::string_view hex_string,
 
 void EthernetHeaderInvalidReasons(const EthernetHeader& header,
                                   const std::string& field_prefix,
+                                  const Packet& packet, int header_index,
                                   std::vector<std::string>& output) {
   MacAddressInvalidReasons(header.ethernet_source(),
                            absl::StrCat(field_prefix, "ethernet_source"),
@@ -290,8 +292,35 @@ void EthernetHeaderInvalidReasons(const EthernetHeader& header,
   MacAddressInvalidReasons(header.ethernet_destination(),
                            absl::StrCat(field_prefix, "ethernet_destination"),
                            output);
-  HexStringInvalidReasons<kEthernetEthertypeBitwidth>(
+  bool ethertype_invalid = HexStringInvalidReasons<kEthernetEthertypeBitwidth>(
       header.ethertype(), absl::StrCat(field_prefix, "ethertype"), output);
+
+  // Check EtherType, see https://en.wikipedia.org/wiki/EtherType.
+  if (!ethertype_invalid) {
+    auto ethertype = pdpi::HexStringToInt(header.ethertype());
+    if (!ethertype.ok()) {
+      LOG(DFATAL) << field_prefix
+                  << "ethertype invalid despite previous check: "
+                  << ethertype.status();
+      output.push_back(absl::StrCat(field_prefix, "ethertype: INTERNAL ERROR: ",
+                                    ethertype.status().ToString()));
+    } else if (*ethertype <= 1500) {
+      std::string prefix = absl::StrFormat(
+          "%sethertype: value %d is <= 1500 and should thus match packet size, "
+          "but packet size ",
+          field_prefix, *ethertype);
+      // `+1` to skip this (and previous) headers in the calculation.
+      if (auto size = PacketSizeInBytes(packet, header_index + 1); !size.ok()) {
+        output.push_back(absl::StrCat("packet size could not be computed: ",
+                                      size.status().ToString()));
+      } else if (*ethertype != *size) {
+        output.push_back(
+            absl::StrFormat("%sethertype: value %s is <= 1500 and should thus "
+                            "match packet size, but packet size is %d",
+                            field_prefix, header.ethertype(), *size));
+      }
+    }
+  }
 }
 
 void Ipv4HeaderInvalidReasons(const Ipv4Header& header,
@@ -456,7 +485,7 @@ std::vector<std::string> PacketInvalidReasons(const Packet& packet) {
     switch (header.header_case()) {
       case Header::kEthernetHeader:
         EthernetHeaderInvalidReasons(header.ethernet_header(), field_prefix,
-                                     result);
+                                     packet, index, result);
         break;
       case Header::kIpv4Header:
         Ipv4HeaderInvalidReasons(header.ipv4_header(), field_prefix, packet,

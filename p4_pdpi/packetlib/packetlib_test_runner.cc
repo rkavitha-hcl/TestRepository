@@ -109,6 +109,22 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
 }
 
 void main() {
+  RunPacketParseTest("Ethernet packet (valid)", R"PB(
+    # ethernet header
+    ethernet_source: 0x112233445566
+    ethernet_destination: 0xaabbccddeeff
+    ether_type: 0x0001  # This means size(payload) = 1 byte.
+    # payload
+    payload: 0x01
+  )PB");
+  RunPacketParseTest("Ethernet packet (invalid)", R"PB(
+    # ethernet header
+    ethernet_source: 0x112233445566
+    ethernet_destination: 0xaabbccddeeff
+    ether_type: 0x0001  # This means size(payload) = 1 byte.
+    # payload
+    pqyload: 0x0102  # 2 bytes, but ether_type says 1 byte.
+  )PB");
   RunPacketParseTest("IPv4 packet (invalid)", R"PB(
     # ethernet header
     ethernet_source: 0x112233445566
