@@ -25,6 +25,7 @@ jobs:
         key: ${{ runner.os }}-build-${{ hashFiles('**/*.bzl', '**/*.bazel') }}
         restore-keys: |
           ${{ runner.os }}-build-
+          ${{ runner.os }}-
 
     - name: Install p4c system dependencies (Flex, Bison, GMP)
       run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
@@ -54,6 +55,7 @@ jobs:
         key: ${{ runner.os }}-test-${{ hashFiles('**/*.bzl', '**/*.bazel') }}
         restore-keys: |
           ${{ runner.os }}-test-
+          ${{ runner.os }}-
 
     - name: Install p4c system dependencies (Flex, Bison, GMP)
       run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
