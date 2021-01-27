@@ -53,8 +53,6 @@ absl::Status PINSBackend::CanEstablishP4RuntimeSession(
   ASSIGN_OR_RETURN(auto p4runtime_stub, sut_switch->CreateP4RuntimeStub());
   return pdpi::P4RuntimeSession::Create(std::move(p4runtime_stub), kDeviceId, 0)
       .status();
-
-  return absl::OkStatus();
 }
 
 absl::Status PINSBackend::CanGetAllInterfaceOverGnmi(absl::string_view chassis,
