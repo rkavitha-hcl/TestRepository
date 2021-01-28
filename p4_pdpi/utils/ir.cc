@@ -168,8 +168,10 @@ absl::StatusOr<std::string> NormalizedByteStringToMac(
   for (int i = 0; i < bytes.size(); ++i) {
     byte_string.ether_addr_octet[i] = bytes[i] & 0xFF;
   }
-  std::string mac = std::string(ether_ntoa(&byte_string));
-  std::vector<std::string> parts = absl::StrSplit(mac, ':');
+  // (2 chars per byte * 6) + (1 char for : * 5) + (1 char for \0) = 18
+  char mac[18];
+  ether_ntoa_r(&byte_string, mac);
+  std::vector<std::string> parts = absl::StrSplit(std::string(mac), ':');
   // ether_ntoa returns a string that is not zero padded. Add zero padding.
   for (int i = 0; i < parts.size(); ++i) {
     if (parts[i].size() == 1) {
@@ -186,13 +188,10 @@ absl::StatusOr<std::string> MacToNormalizedByteString(const std::string &mac) {
            << "'. It must be of the format xx:xx:xx:xx:xx:xx where x is a lower"
               " case hexadecimal character";
   }
-  struct ether_addr *byte_string = ether_aton(mac.c_str());
-  if (byte_string == nullptr) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "String cannot be parsed as MAC address: '" << mac << "'";
-  }
-  return std::string((const char *)byte_string->ether_addr_octet,
-                     sizeof(byte_string->ether_addr_octet));
+  struct ether_addr byte_string;
+  ether_aton_r(mac.c_str(), &byte_string);
+  return std::string((const char *)byte_string.ether_addr_octet,
+                     sizeof(byte_string.ether_addr_octet));
 }
 
 absl::StatusOr<std::string> NormalizedByteStringToIpv4(
