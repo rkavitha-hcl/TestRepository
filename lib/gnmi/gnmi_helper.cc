@@ -14,6 +14,7 @@
 #include "gutil/status_matchers.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4_pdpi/connection_management.h"
+#include "proto/gnmi/gnmi.pb.h"
 #include "re2/re2.h"
 #include "single_include/nlohmann/json.hpp"
 #include "thinkit/ssh_client.h"
@@ -153,4 +154,39 @@ absl::StatusOr<std::string> GetGnmiStatePathInfo(
   return state_path_response;
 }
 
+void AddSubtreeToGnmiSubscription(absl::string_view subtree_root,
+                                  gnmi::SubscriptionList& subscription_list,
+                                  gnmi::SubscriptionMode mode,
+                                  bool suppress_redundant,
+                                  absl::Duration interval) {
+  gnmi::Subscription* subscription = subscription_list.add_subscription();
+  subscription->set_mode(mode);
+  if (mode == gnmi::SAMPLE) {
+    subscription->set_sample_interval(absl::ToInt64Nanoseconds(interval));
+  }
+  subscription->set_suppress_redundant(suppress_redundant);
+  *subscription->mutable_path() = ConvertOCStringToPath(subtree_root);
+}
+
+absl::StatusOr<std::vector<absl::string_view>>
+GnmiGetElementFromTelemetryResponse(const gnmi::SubscribeResponse& response) {
+  if (response.update().update_size() <= 0)
+    return gutil::InternalErrorBuilder().LogError()
+           << "Unexpected update size in response (should be > 0): "
+           << response.update().update_size();
+  LOG(INFO) << "Update size in response: " << response.update().update_size();
+
+  std::vector<absl::string_view> elements;
+  for (const auto& u : response.update().update()) {
+    if (u.path().elem_size() <= 0)
+      return gutil::InternalErrorBuilder().LogError()
+             << "Unexpected element size in response (should be > 0): "
+             << u.path().elem_size();
+
+    for (const auto& e : u.path().elem()) {
+      elements.push_back(e.name());
+    }
+  }
+  return elements;
+}
 }  // namespace pins_test

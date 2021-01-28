@@ -22,6 +22,7 @@ constexpr char kEnabledTrue[] = "{\"enabled\":true}";
 constexpr char kStateUp[] = "UP";
 constexpr char kStateDown[] = "DOWN";
 constexpr char kInterfaces[] = "interfaces";
+constexpr char kComponents[] = "components";
 constexpr char kPortSpeed[] = "openconfig-if-ethernet:port-speed";
 constexpr char kPlatformJson[] = "platform.json";
 constexpr char kGB[] = "GB";

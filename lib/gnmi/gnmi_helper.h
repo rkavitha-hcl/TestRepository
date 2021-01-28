@@ -8,12 +8,14 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/time/time.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
 #include "proto/gnmi/gnmi.pb.h"
 
 namespace pins_test {
 
 inline constexpr char kOpenconfigStr[] = "openconfig";
+inline constexpr char kTarget[] = "target";
 
 enum class GnmiSetType : char { kUpdate, kReplace, kDelete };
 
@@ -56,6 +58,17 @@ std::string ConstructGnmiConfigSetString(std::string field, T value) {
 
   return result_str;
 }
+
+// Adding subtree to gNMI Subscription list.
+void AddSubtreeToGnmiSubscription(absl::string_view subtree_root,
+                                  gnmi::SubscriptionList& subscription_list,
+                                  gnmi::SubscriptionMode mode,
+                                  bool suppress_redundant,
+                                  absl::Duration interval);
+
+// Returns vector of elements in subscriber response.
+absl::StatusOr<std::vector<absl::string_view>>
+GnmiGetElementFromTelemetryResponse(const gnmi::SubscribeResponse& response);
 
 }  // namespace pins_test
 #endif  // GOOGLE_LIB_GNMI_GNMI_HELPER_H_
