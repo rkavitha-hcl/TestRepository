@@ -189,6 +189,50 @@ void main() {
     ipv4_header: 0x 4500 0073 0000 4000 4011 b861 c0a8 0001 c0a8 00c7
     payload: 0x 0035 e97c 005f 279f 1e4b 8180
   )PB");
+  RunPacketParseTest("IPv4 packet with options (valid)", R"PB(
+    # Ethernet header
+    ethernet_source: 0x112233445566
+    ethernet_destination: 0xaabbccddeeff
+    ether_type: 0x0800
+    # IPv4 header:
+    version: 0x4
+    ihl: 0x6  # 5 + 1 x 32-bit suffix
+    dhcp: 0b011011
+    ecn: 0b01
+    total_length: 0x001c
+    identification: 0xa3cd
+    flags: 0b000
+    fragment_offset: 0b0000000000000
+    ttl: 0x10
+    protocol: 0x05  # some unsupported protocol
+    checksum: 0xa339
+    ipv4_source: 0x0a000001
+    ipv4_destination: 0x14000003
+    uninterpreted_suffix: 0x11223344
+    # Payload
+    payload: 0x55667788
+  )PB");
+  RunPacketParseTest("IPv4 packet with options (too short)", R"PB(
+    # Ethernet header
+    ethernet_source: 0x112233445566
+    ethernet_destination: 0xaabbccddeeff
+    ether_type: 0x0800
+    # IPv4 header:
+    version: 0x4
+    ihl: 0x6  # 5 + 1 x 32-bit suffix
+    dhcp: 0b011011
+    ecn: 0b01
+    total_length: 0x0018
+    identification: 0xa3cd
+    flags: 0b000
+    fragment_offset: 0b0000000000000
+    ttl: 0x10
+    protocol: 0x05  # some unsupported protocol
+    checksum: 0xd6a3
+    ipv4_source: 0x0a000001
+    ipv4_destination: 0x14000003
+    uninterpreted_suffix: 0x11  # Should be 32 bits, but is only 8 bits.
+  )PB");
   RunPacketParseTest("IPv6 packet (invalid)", R"PB(
     # ethernet header
     ethernet_source: 0x554433221100
@@ -324,7 +368,7 @@ void main() {
                        headers {
                          ipv4_header {
                            version: "0x3"
-                           ihl: "0x5k"
+                           ihl: "0x6k"
                            dscp: "0x1b"
                            ecn: "0x1"
                            identification: "0xa3cd"

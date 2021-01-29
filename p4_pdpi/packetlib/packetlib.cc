@@ -171,6 +171,24 @@ absl::StatusOr<Ipv4Header> ParseIpv4Header(pdpi::BitString& data) {
   header.set_checksum(ParseBits(data, kIpChecksumBitwidth));
   header.set_ipv4_source(ParseIpv4Address(data));
   header.set_ipv4_destination(ParseIpv4Address(data));
+
+  // Parse suffix/options.
+  absl::StatusOr<int> ihl = pdpi::HexStringToInt(header.ihl());
+  if (!ihl.ok()) {
+    LOG(DFATAL) << "SHOULD NEVER HAPPEN: IHL badly formatted: " << ihl.status();
+    // Don't return error status so parsing is lossless despite error.
+    // The packet will be invalid, but this will be caught by validity checking.
+  } else if (*ihl > 5) {
+    int options_bit_width = 32 * (*ihl - 5);
+    // If the packet ends prematurely, we still parse what's there to maintain
+    // the property that parsing is lossless. The result is an invalid packet,
+    // since the IHL and the options length will be inconsistent, but this will
+    // be caught by the validity check.
+    if (data.size() < options_bit_width) {
+      options_bit_width = data.size();
+    }
+    header.set_uninterpreted_options(ParseBits(data, options_bit_width));
+  }
   return header;
 }
 
@@ -357,6 +375,23 @@ bool HexStringInvalidReasons(absl::string_view hex_string,
   return false;
 }
 
+bool Ipv4UninterpretedOptionsInvalidReasons(
+    absl::string_view uninterpreted_options, const std::string& error_prefix,
+    std::vector<std::string>& output) {
+  if (uninterpreted_options.empty()) return false;
+  if (auto bytes = pdpi::HexStringToByteString(uninterpreted_options);
+      !bytes.ok()) {
+    output.push_back(absl::StrCat(
+        error_prefix, ": invalid format: ", bytes.status().message()));
+    return true;
+  } else if (int num_bits = bytes->size() * 8; num_bits % 32 != 0) {
+    output.push_back(absl::StrCat(error_prefix, ": found ", num_bits,
+                                  " bits, but expected multiple of 32 bits"));
+    return true;
+  }
+  return false;
+}
+
 void EthernetHeaderInvalidReasons(const EthernetHeader& header,
                                   const std::string& field_prefix,
                                   const Packet& packet, int header_index,
@@ -400,7 +435,7 @@ void Ipv4HeaderInvalidReasons(const Ipv4Header& header,
                               std::vector<std::string>& output) {
   bool version_invalid = HexStringInvalidReasons<kIpVersionBitwidth>(
       header.version(), absl::StrCat(field_prefix, "version"), output);
-  HexStringInvalidReasons<kIpIhlBitwidth>(
+  bool ihl_invalid = HexStringInvalidReasons<kIpIhlBitwidth>(
       header.ihl(), absl::StrCat(field_prefix, "ihl"), output);
   HexStringInvalidReasons<kIpDscpBitwidth>(
       header.dscp(), absl::StrCat(field_prefix, "dscp"), output);
@@ -428,8 +463,29 @@ void Ipv4HeaderInvalidReasons(const Ipv4Header& header,
   Ipv4AddressInvalidReasons(header.ipv4_destination(),
                             absl::StrCat(field_prefix, "ipv4_destination"),
                             output);
+  bool options_invalid = Ipv4UninterpretedOptionsInvalidReasons(
+      header.uninterpreted_options(),
+      absl::StrCat(field_prefix, "uninterpreted_options"), output);
 
   // Check computed fields.
+  if (!ihl_invalid) {
+    if (options_invalid) {
+      output.push_back(absl::StrCat(field_prefix,
+                                    "ihl: Correct value undefined since "
+                                    "uninterpreted_options is invalid."));
+    } else {
+      absl::string_view options = header.uninterpreted_options();
+      // 4 bits for every hex char after "0x"-prefix.
+      int options_bitwidth = options.empty() ? 0 : 4 * (options.size() - 2);
+      int num_32bit_words = 5 + options_bitwidth / 32;
+      std::string expected =
+          pdpi::BitsetToHexString<kIpIhlBitwidth>(num_32bit_words);
+      if (header.ihl() != expected) {
+        output.push_back(absl::StrCat(field_prefix, "ihl: Must be ", expected,
+                                      ", but was ", header.ihl(), " instead."));
+      }
+    }
+  }
   if (!version_invalid && header.version() != "0x4") {
     output.push_back(absl::StrCat(field_prefix,
                                   "version: Must be 0x4, but was ",
@@ -735,6 +791,9 @@ absl::Status SerializeIpv4Header(const Ipv4Header& header,
       SerializeBits<kIpChecksumBitwidth>(header.checksum(), output));
   RETURN_IF_ERROR(SerializeIpv4Address(header.ipv4_source(), output));
   RETURN_IF_ERROR(SerializeIpv4Address(header.ipv4_destination(), output));
+  if (!header.uninterpreted_options().empty()) {
+    RETURN_IF_ERROR(output.AppendHexString(header.uninterpreted_options()));
+  }
   return absl::OkStatus();
 }
 
@@ -824,6 +883,8 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
 
   int header_index = 0;
   for (Header& header : *packet.mutable_headers()) {
+    const std::string error_prefix =
+        absl::StrFormat("failed to compute packet.headers[%d].", header_index);
     switch (header.header_case()) {
       case Header::kIpv4Header: {
         Ipv4Header& ipv4_header = *header.mutable_ipv4_header();
@@ -831,14 +892,34 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
           ipv4_header.set_version("0x4");
           changes = true;
         }
+        if (ipv4_header.ihl().empty()) {
+          absl::string_view options = ipv4_header.uninterpreted_options();
+          if (options.empty()) {
+            ipv4_header.set_ihl("0x5");
+            changes = true;
+          } else if (absl::ConsumePrefix(&options, "0x") &&
+                     (options.size() * 4) % 32 == 0) {
+            // 4 bits per hex char.
+            int num_32bit_words_in_options = (options.size() * 4) / 32;
+            ipv4_header.set_ihl(pdpi::BitsetToHexString<kIpIhlBitwidth>(
+                5 + num_32bit_words_in_options));
+            changes = true;
+          } else {
+            return gutil::InvalidArgumentErrorBuilder()
+                   << error_prefix
+                   << "ihl: uninterpreted_options field is invalid";
+          }
+        }
         if (ipv4_header.total_length().empty()) {
-          ASSIGN_OR_RETURN(int size, PacketSizeInBytes(packet, header_index));
+          ASSIGN_OR_RETURN(int size, PacketSizeInBytes(packet, header_index),
+                           _.SetPrepend() << error_prefix << "total_length: ");
           ipv4_header.set_total_length(pdpi::BitsetToHexString(
               std::bitset<kIpTotalLengthBitwidth>(size)));
           changes = true;
         }
         if (ipv4_header.checksum().empty()) {
-          ASSIGN_OR_RETURN(int checksum, Ipv4HeaderChecksum(ipv4_header));
+          ASSIGN_OR_RETURN(int checksum, Ipv4HeaderChecksum(ipv4_header),
+                           _.SetPrepend() << error_prefix << "checksum: ");
           ipv4_header.set_checksum(pdpi::BitsetToHexString(
               std::bitset<kIpChecksumBitwidth>(checksum)));
           changes = true;
@@ -853,8 +934,9 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
         }
         if (ipv6_header.payload_length().empty()) {
           // `+1` to skip the IPv6 header and previous headers in calculation.
-          ASSIGN_OR_RETURN(int size,
-                           PacketSizeInBytes(packet, header_index + 1));
+          ASSIGN_OR_RETURN(
+              int size, PacketSizeInBytes(packet, header_index + 1),
+              _.SetPrepend() << error_prefix << "payload_length: ");
           ipv6_header.set_payload_length(pdpi::BitsetToHexString(
               std::bitset<kIpTotalLengthBitwidth>(size)));
           changes = true;
@@ -864,14 +946,16 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
       case Header::kUdpHeader: {
         UdpHeader& udp_header = *header.mutable_udp_header();
         if (udp_header.length().empty()) {
-          ASSIGN_OR_RETURN(int size, PacketSizeInBytes(packet, header_index));
+          ASSIGN_OR_RETURN(int size, PacketSizeInBytes(packet, header_index),
+                           _.SetPrepend() << error_prefix << "length: ");
           udp_header.set_length(
               pdpi::BitsetToHexString(std::bitset<kUdpLengthBitwidth>(size)));
           changes = true;
         }
         if (udp_header.checksum().empty()) {
           ASSIGN_OR_RETURN(int checksum,
-                           UdpHeaderChecksum(packet, header_index));
+                           UdpHeaderChecksum(packet, header_index),
+                           _.SetPrepend() << error_prefix << "checksum: ");
           udp_header.set_checksum(pdpi::BitsetToHexString(
               std::bitset<kUdpChecksumBitwidth>(checksum)));
           changes = true;
@@ -918,9 +1002,18 @@ absl::StatusOr<int> PacketSizeInBits(const Packet& packet,
       case Header::kEthernetHeader:
         size += kEthernetHeaderBitwidth;
         break;
-      case Header::kIpv4Header:
+      case Header::kIpv4Header: {
         size += kStandardIpv4HeaderBitwidth;
+        if (const auto& options = header->ipv4_header().uninterpreted_options();
+            !options.empty()) {
+          ASSIGN_OR_RETURN(
+              auto bytes, pdpi::HexStringToByteString(options),
+              _.SetPrepend()
+                  << "failed to parse uninterpreted_options in Ipv4Header: ");
+          size += 8 * bytes.size();
+        }
         break;
+      }
       case Header::kIpv6Header:
         size += kIpv6HeaderBitwidth;
         break;

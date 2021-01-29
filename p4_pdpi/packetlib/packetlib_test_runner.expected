@@ -216,6 +216,114 @@ reasons_invalid: "headers[2].length: Must be 0x000c, but was 0x005f instead."
 reasons_invalid: "headers[2].checksum: Must be 0xf399, but was 0x279f instead."
 
 ================================================================================
+Parsing test: IPv4 packet with options (valid)
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+# Ethernet header
+    ethernet_source: 0x112233445566
+    ethernet_destination: 0xaabbccddeeff
+    ether_type: 0x0800
+    # IPv4 header:
+    version: 0x4
+    ihl: 0x6  # 5 + 1 x 32-bit suffix
+    dhcp: 0b011011
+    ecn: 0b01
+    total_length: 0x001c
+    identification: 0xa3cd
+    flags: 0b000
+    fragment_offset: 0b0000000000000
+    ttl: 0x10
+    protocol: 0x05  # some unsupported protocol
+    checksum: 0xa339
+    ipv4_source: 0x0a000001
+    ipv4_destination: 0x14000003
+    uninterpreted_suffix: 0x11223344
+    # Payload
+    payload: 0x55667788
+-- OUTPUT ----------------------------------------------------------------------
+headers {
+  ethernet_header {
+    ethernet_source: "11:22:33:44:55:66"
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethertype: "0x0800"
+  }
+}
+headers {
+  ipv4_header {
+    version: "0x4"
+    ihl: "0x6"
+    dscp: "0x1b"
+    ecn: "0x1"
+    total_length: "0x001c"
+    identification: "0xa3cd"
+    flags: "0x0"
+    fragment_offset: "0x0000"
+    ttl: "0x10"
+    protocol: "0x05"
+    checksum: "0xa339"
+    ipv4_source: "10.0.0.1"
+    ipv4_destination: "20.0.0.3"
+    uninterpreted_options: "0x11223344"
+  }
+}
+payload: "0x55667788"
+reason_unsupported: "ipv4_header.protocol 0x05: unsupported"
+
+================================================================================
+Parsing test: IPv4 packet with options (too short)
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+# Ethernet header
+    ethernet_source: 0x112233445566
+    ethernet_destination: 0xaabbccddeeff
+    ether_type: 0x0800
+    # IPv4 header:
+    version: 0x4
+    ihl: 0x6  # 5 + 1 x 32-bit suffix
+    dhcp: 0b011011
+    ecn: 0b01
+    total_length: 0x0018
+    identification: 0xa3cd
+    flags: 0b000
+    fragment_offset: 0b0000000000000
+    ttl: 0x10
+    protocol: 0x05  # some unsupported protocol
+    checksum: 0xd6a3
+    ipv4_source: 0x0a000001
+    ipv4_destination: 0x14000003
+    uninterpreted_suffix: 0x11  # Should be 32 bits, but is only 8 bits.
+-- OUTPUT ----------------------------------------------------------------------
+headers {
+  ethernet_header {
+    ethernet_source: "11:22:33:44:55:66"
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethertype: "0x0800"
+  }
+}
+headers {
+  ipv4_header {
+    version: "0x4"
+    ihl: "0x6"
+    dscp: "0x1b"
+    ecn: "0x1"
+    total_length: "0x0018"
+    identification: "0xa3cd"
+    flags: "0x0"
+    fragment_offset: "0x0000"
+    ttl: "0x10"
+    protocol: "0x05"
+    checksum: "0xd6a3"
+    ipv4_source: "10.0.0.1"
+    ipv4_destination: "20.0.0.3"
+    uninterpreted_options: "0x11"
+  }
+}
+reason_unsupported: "ipv4_header.protocol 0x05: unsupported"
+reasons_invalid: "headers[1].uninterpreted_options: found 8 bits, but expected multiple of 32 bits"
+reasons_invalid: "headers[1].ihl: Correct value undefined since uninterpreted_options is invalid."
+reasons_invalid: "headers[1].total_length: Must be 0x0015, but was 0x0018 instead."
+
+================================================================================
 Parsing test: IPv6 packet (invalid)
 ================================================================================
 -- INPUT -----------------------------------------------------------------------
@@ -506,7 +614,7 @@ headers {
 headers {
   ipv4_header {
     version: "0x3"
-    ihl: "0x5k"
+    ihl: "0x6k"
     dscp: "0x1b"
     ecn: "0x1"
     identification: "0xa3cd"
@@ -523,14 +631,14 @@ payload: "0xabcd"
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - headers[0].ethernet_source: missing
-- headers[1].ihl: invalid format: illegal conversion from hex string '0x5k' to 4 bits; expected between 5 and 8 bits
+- headers[1].ihl: invalid format: illegal conversion from hex string '0x6k' to 4 bits; expected between 5 and 8 bits
 - headers[1].total_length: missing
 - headers[1].checksum: missing
 - headers[1].ipv4_source: invalid format: Invalid IPv4 address: ffff:1::
 - headers[1].version: Must be 0x4, but was 0x3 instead.
 
-UpdateComputedFields(packet) = INVALID_ARGUMENT: illegal conversion from hex string '0x5k' to 4 bits; expected between 5 and 8 bits
-Serialize(Packet) = INVALID_ARGUMENT: illegal conversion from hex string '0x5k' to 4 bits; expected between 5 and 8 bits
+UpdateComputedFields(packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].checksum: illegal conversion from hex string '0x6k' to 4 bits; expected between 5 and 8 bits
+Serialize(Packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].checksum: illegal conversion from hex string '0x6k' to 4 bits; expected between 5 and 8 bits
 
 ================================================================================
 Proto packet test: IPv6 without computed fields

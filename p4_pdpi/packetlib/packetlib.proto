@@ -46,7 +46,7 @@ message Packet {
 // The header fields use the format from PDPI's ir.proto, i.e.
 // "00:11:ab:cd:ef:22" for  MAC addresses, "10.0.0.2" or
 // "fe80::21a:11ff:fe17:5f80" for IP addresses, and hex strings such as "0x0800"
-// for most other fields. This allows us to distinguish the absense of fields
+// for most other fields. This allows us to distinguish the absence of fields
 // even though we use proto3, since the empty string is never a valid value.
 message Header {
   oneof header {
@@ -66,10 +66,9 @@ message EthernetHeader {
 }
 
 // An IPv4 header.
-// Only IHL == 5 is supported.
 message Ipv4Header {
   string version = 1;            //  4 bits (computed field, constant 4)
-  string ihl = 2;                //  4 bits
+  string ihl = 2;                //  4 bits (computed field)
   string dscp = 3;               //  6 bits
   string ecn = 4;                //  2 bits
   string total_length = 5;       // 16 bits (computed field)
@@ -81,6 +80,10 @@ message Ipv4Header {
   string checksum = 11;          // 16 bits (computed field)
   string ipv4_source = 12;       // Format::IPV4
   string ipv4_destination = 13;  // Format::IPV4
+  // Empty string when IHL = 5. Sequence of (IHL - 5) uninterpreted 32-bit words
+  // in hex format when IHL > 5. Includes the options, but may contain
+  // additional trailing bits so as to match in length what is specified by IHL.
+  string uninterpreted_options = 14;
 }
 
 // An IPv6 header.
