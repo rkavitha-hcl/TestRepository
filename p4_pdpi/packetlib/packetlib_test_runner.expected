@@ -3,16 +3,16 @@ Parsing test: Ethernet packet (valid)
 ================================================================================
 -- INPUT -----------------------------------------------------------------------
 # ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0001  # This means size(payload) = 1 byte.
     # payload
     payload: 0x01
 -- OUTPUT ----------------------------------------------------------------------
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x0001"
   }
 }
@@ -23,16 +23,16 @@ Parsing test: Ethernet packet (invalid)
 ================================================================================
 -- INPUT -----------------------------------------------------------------------
 # ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0001  # This means size(payload) = 1 byte.
     # payload
     pqyload: 0x0102  # 2 bytes, but ether_type says 1 byte.
 -- OUTPUT ----------------------------------------------------------------------
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x0001"
   }
 }
@@ -44,14 +44,14 @@ Parsing test: Ethernet packet (unsupported EtherType)
 ================================================================================
 -- INPUT -----------------------------------------------------------------------
 # ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0842  # Wake-on-LAN
 -- OUTPUT ----------------------------------------------------------------------
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x0842"
   }
 }
@@ -62,8 +62,8 @@ Parsing test: IPv4 packet (invalid)
 ================================================================================
 -- INPUT -----------------------------------------------------------------------
 # ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0800
     # IPv4 header:
     version: 0x4
@@ -84,8 +84,8 @@ Parsing test: IPv4 packet (invalid)
 -- OUTPUT ----------------------------------------------------------------------
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x0800"
   }
 }
@@ -116,8 +116,8 @@ Parsing test: IPv4 packet (valid)
 ================================================================================
 -- INPUT -----------------------------------------------------------------------
 # ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0800
     # IPv4 header:
     version: 0x4
@@ -138,8 +138,8 @@ Parsing test: IPv4 packet (valid)
 -- OUTPUT ----------------------------------------------------------------------
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x0800"
   }
 }
@@ -171,8 +171,8 @@ Parsing test: IPv4 packet (checksum example)
     # wikipedia.org/wiki/IPv4_header_checksum#Calculating_the_IPv4_header_checksum
     #
     # ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0800
     # IPv4 header and payload
     ipv4_header: 0x 4500 0073 0000 4000 4011 b861 c0a8 0001 c0a8 00c7
@@ -180,8 +180,8 @@ Parsing test: IPv4 packet (checksum example)
 -- OUTPUT ----------------------------------------------------------------------
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x0800"
   }
 }
@@ -220,8 +220,8 @@ Parsing test: IPv4 packet with options (valid)
 ================================================================================
 -- INPUT -----------------------------------------------------------------------
 # Ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0800
     # IPv4 header:
     version: 0x4
@@ -243,8 +243,8 @@ Parsing test: IPv4 packet with options (valid)
 -- OUTPUT ----------------------------------------------------------------------
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x0800"
   }
 }
@@ -274,8 +274,8 @@ Parsing test: IPv4 packet with options (too short)
 ================================================================================
 -- INPUT -----------------------------------------------------------------------
 # Ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0800
     # IPv4 header:
     version: 0x4
@@ -295,8 +295,8 @@ Parsing test: IPv4 packet with options (too short)
 -- OUTPUT ----------------------------------------------------------------------
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x0800"
   }
 }
@@ -328,8 +328,8 @@ Parsing test: IPv6 packet (invalid)
 ================================================================================
 -- INPUT -----------------------------------------------------------------------
 # ethernet header
-    ethernet_source: 0x554433221100
     ethernet_destination: 0xffeeddccbbaa
+    ethernet_source: 0x554433221100
     ether_type: 0x86DD
     # IPv6 header:
     version: 0x4
@@ -346,8 +346,8 @@ Parsing test: IPv6 packet (invalid)
 -- OUTPUT ----------------------------------------------------------------------
 headers {
   ethernet_header {
-    ethernet_source: "55:44:33:22:11:00"
     ethernet_destination: "ff:ee:dd:cc:bb:aa"
+    ethernet_source: "55:44:33:22:11:00"
     ethertype: "0x86dd"
   }
 }
@@ -374,8 +374,8 @@ Parsing test: IPv6 packet (valid)
 ================================================================================
 -- INPUT -----------------------------------------------------------------------
 # ethernet header
-    ethernet_source: 0x554433221100
     ethernet_destination: 0xffeeddccbbaa
+    ethernet_source: 0x554433221100
     ether_type: 0x86DD
     # IPv6 header:
     version: 0x6
@@ -392,8 +392,8 @@ Parsing test: IPv6 packet (valid)
 -- OUTPUT ----------------------------------------------------------------------
 headers {
   ethernet_header {
-    ethernet_source: "55:44:33:22:11:00"
     ethernet_destination: "ff:ee:dd:cc:bb:aa"
+    ethernet_source: "55:44:33:22:11:00"
     ethertype: "0x86dd"
   }
 }
@@ -421,8 +421,8 @@ Parsing test: UDP packet (valid)
     # www.securitynik.com/2015/08/calculating-udp-checksum-with-taste-of.html
     # --------------------------------------------------------------------------
     # Ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0800
     # IPv4 header
     version: 0x4
@@ -448,8 +448,8 @@ Parsing test: UDP packet (valid)
 -- OUTPUT ----------------------------------------------------------------------
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x0800"
   }
 }
@@ -510,8 +510,8 @@ Proto packet test: UDP header not preceded by IP header
 packet =
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x000a"
   }
 }
@@ -542,8 +542,8 @@ Proto packet test: IPv4 without computed fields
 packet =
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x0800"
   }
 }
@@ -573,8 +573,8 @@ UpdateComputedFields(packet) = true
 packet =
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x0800"
   }
 }
@@ -647,8 +647,8 @@ Proto packet test: IPv6 without computed fields
 packet =
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x86dd"
   }
 }
@@ -674,8 +674,8 @@ UpdateComputedFields(packet) = true
 packet =
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x86dd"
   }
 }
@@ -704,8 +704,8 @@ Proto packet test: IPv6 with various invalid fields
 packet =
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x86dd"
   }
 }
@@ -755,8 +755,8 @@ Proto packet test: IPv6 packet with IPv4 ethertype
 packet =
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x0800"
   }
 }
@@ -789,8 +789,8 @@ Proto packet test: IPv6 packet without IPv6 header
 packet =
 headers {
   ethernet_header {
-    ethernet_source: "11:22:33:44:55:66"
     ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
     ethertype: "0x86dd"
   }
 }

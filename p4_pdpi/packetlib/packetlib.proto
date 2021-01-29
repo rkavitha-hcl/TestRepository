@@ -60,8 +60,8 @@ message Header {
 // An ethernet header.
 // Only a handful of ethertypes are supported.
 message EthernetHeader {
-  string ethernet_source = 1;       // Format::MAC
-  string ethernet_destination = 2;  // Format::MAC
+  string ethernet_destination = 1;  // Format::MAC
+  string ethernet_source = 2;       // Format::MAC
   string ethertype = 3;             // 8 bits
 }
 

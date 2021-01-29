@@ -142,8 +142,8 @@ absl::StatusOr<EthernetHeader> ParseEthernetHeader(pdpi::BitString& data) {
   }
 
   EthernetHeader header;
-  header.set_ethernet_source(ParseMacAddress(data));
   header.set_ethernet_destination(ParseMacAddress(data));
+  header.set_ethernet_source(ParseMacAddress(data));
   header.set_ethertype(ParseBits(data, kEthernetEthertypeBitwidth));
   return header;
 }
@@ -396,11 +396,11 @@ void EthernetHeaderInvalidReasons(const EthernetHeader& header,
                                   const std::string& field_prefix,
                                   const Packet& packet, int header_index,
                                   std::vector<std::string>& output) {
-  MacAddressInvalidReasons(header.ethernet_source(),
-                           absl::StrCat(field_prefix, "ethernet_source"),
-                           output);
   MacAddressInvalidReasons(header.ethernet_destination(),
                            absl::StrCat(field_prefix, "ethernet_destination"),
+                           output);
+  MacAddressInvalidReasons(header.ethernet_source(),
+                           absl::StrCat(field_prefix, "ethernet_source"),
                            output);
   bool ethertype_invalid = HexStringInvalidReasons<kEthernetEthertypeBitwidth>(
       header.ethertype(), absl::StrCat(field_prefix, "ethertype"), output);
@@ -764,8 +764,8 @@ absl::Status SerializeBits(absl::string_view hex_string,
 
 absl::Status SerializeEthernetHeader(const EthernetHeader& header,
                                      pdpi::BitString& output) {
-  RETURN_IF_ERROR(SerializeMacAddress(header.ethernet_source(), output));
   RETURN_IF_ERROR(SerializeMacAddress(header.ethernet_destination(), output));
+  RETURN_IF_ERROR(SerializeMacAddress(header.ethernet_source(), output));
   RETURN_IF_ERROR(
       SerializeBits<kEthernetEthertypeBitwidth>(header.ethertype(), output));
   return absl::OkStatus();

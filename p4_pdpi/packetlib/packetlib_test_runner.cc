@@ -113,30 +113,30 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
 void main() {
   RunPacketParseTest("Ethernet packet (valid)", R"PB(
     # ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0001  # This means size(payload) = 1 byte.
     # payload
     payload: 0x01
   )PB");
   RunPacketParseTest("Ethernet packet (invalid)", R"PB(
     # ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0001  # This means size(payload) = 1 byte.
     # payload
     pqyload: 0x0102  # 2 bytes, but ether_type says 1 byte.
   )PB");
   RunPacketParseTest("Ethernet packet (unsupported EtherType)", R"PB(
     # ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0842  # Wake-on-LAN
   )PB");
   RunPacketParseTest("IPv4 packet (invalid)", R"PB(
     # ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0800
     # IPv4 header:
     version: 0x4
@@ -157,8 +157,8 @@ void main() {
   )PB");
   RunPacketParseTest("IPv4 packet (valid)", R"PB(
     # ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0800
     # IPv4 header:
     version: 0x4
@@ -182,8 +182,8 @@ void main() {
     # wikipedia.org/wiki/IPv4_header_checksum#Calculating_the_IPv4_header_checksum
     #
     # ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0800
     # IPv4 header and payload
     ipv4_header: 0x 4500 0073 0000 4000 4011 b861 c0a8 0001 c0a8 00c7
@@ -191,8 +191,8 @@ void main() {
   )PB");
   RunPacketParseTest("IPv4 packet with options (valid)", R"PB(
     # Ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0800
     # IPv4 header:
     version: 0x4
@@ -214,8 +214,8 @@ void main() {
   )PB");
   RunPacketParseTest("IPv4 packet with options (too short)", R"PB(
     # Ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0800
     # IPv4 header:
     version: 0x4
@@ -235,8 +235,8 @@ void main() {
   )PB");
   RunPacketParseTest("IPv6 packet (invalid)", R"PB(
     # ethernet header
-    ethernet_source: 0x554433221100
     ethernet_destination: 0xffeeddccbbaa
+    ethernet_source: 0x554433221100
     ether_type: 0x86DD
     # IPv6 header:
     version: 0x4
@@ -253,8 +253,8 @@ void main() {
   )PB");
   RunPacketParseTest("IPv6 packet (valid)", R"PB(
     # ethernet header
-    ethernet_source: 0x554433221100
     ethernet_destination: 0xffeeddccbbaa
+    ethernet_source: 0x554433221100
     ether_type: 0x86DD
     # IPv6 header:
     version: 0x6
@@ -274,8 +274,8 @@ void main() {
     # www.securitynik.com/2015/08/calculating-udp-checksum-with-taste-of.html
     # --------------------------------------------------------------------------
     # Ethernet header
-    ethernet_source: 0x112233445566
     ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
     ether_type: 0x0800
     # IPv4 header
     version: 0x4
@@ -315,8 +315,8 @@ void main() {
                      gutil::ParseProtoOrDie<Packet>(R"PB(
                        headers {
                          ethernet_header {
-                           ethernet_source: "11:22:33:44:55:66"
                            ethernet_destination: "aa:bb:cc:dd:ee:ff"
+                           ethernet_source: "11:22:33:44:55:66"
                            ethertype: "0x000a"
                          }
                        }
@@ -335,8 +335,8 @@ void main() {
                      gutil::ParseProtoOrDie<Packet>(R"PB(
                        headers {
                          ethernet_header {
-                           ethernet_source: "11:22:33:44:55:66"
                            ethernet_destination: "aa:bb:cc:dd:ee:ff"
+                           ethernet_source: "11:22:33:44:55:66"
                            ethertype: "0x0800"
                          }
                        }
@@ -387,8 +387,8 @@ void main() {
                      gutil::ParseProtoOrDie<Packet>(R"PB(
                        headers {
                          ethernet_header {
-                           ethernet_source: "11:22:33:44:55:66"
                            ethernet_destination: "aa:bb:cc:dd:ee:ff"
+                           ethernet_source: "11:22:33:44:55:66"
                            ethertype: "0x86dd"
                          }
                        }
@@ -410,8 +410,8 @@ void main() {
                      gutil::ParseProtoOrDie<Packet>(R"PB(
                        headers {
                          ethernet_header {
-                           ethernet_source: "11:22:33:44:55:66"
                            ethernet_destination: "aa:bb:cc:dd:ee:ff"
+                           ethernet_source: "11:22:33:44:55:66"
                            ethertype: "0x86dd"
                          }
                        }
@@ -435,8 +435,8 @@ void main() {
                      gutil::ParseProtoOrDie<Packet>(R"PB(
                        headers {
                          ethernet_header {
-                           ethernet_source: "11:22:33:44:55:66"
                            ethernet_destination: "aa:bb:cc:dd:ee:ff"
+                           ethernet_source: "11:22:33:44:55:66"
                            ethertype: "0x0800"
                          }
                        }
@@ -459,8 +459,8 @@ void main() {
                      gutil::ParseProtoOrDie<Packet>(R"PB(
                        headers {
                          ethernet_header {
-                           ethernet_source: "11:22:33:44:55:66"
                            ethernet_destination: "aa:bb:cc:dd:ee:ff"
+                           ethernet_source: "11:22:33:44:55:66"
                            ethertype: "0x86dd"
                          }
                        }
