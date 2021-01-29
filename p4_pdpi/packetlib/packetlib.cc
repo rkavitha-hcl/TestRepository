@@ -61,19 +61,26 @@ absl::StatusOr<NextHeader> GetNextHeader(const EthernetHeader& header) {
                                 header.ethertype())};
 }
 absl::StatusOr<NextHeader> GetNextHeader(const Ipv4Header& header) {
+  if (header.protocol() == "0x06") return Header::kTcpHeaderPrefix;
   if (header.protocol() == "0x11") return Header::kUdpHeader;
   return UnsupportedNextHeader{
       .reason = absl::StrFormat("ipv4_header.protocol %s: unsupported",
                                 header.protocol())};
 }
 absl::StatusOr<NextHeader> GetNextHeader(const Ipv6Header& header) {
+  if (header.next_header() == "0x06") return Header::kTcpHeaderPrefix;
   if (header.next_header() == "0x11") return Header::kUdpHeader;
   return UnsupportedNextHeader{
       .reason = absl::StrFormat("ipv6_header.next_header %s: unsupported",
                                 header.next_header())};
 }
-Header::HeaderCase GetNextHeader(const UdpHeader& header) {
+absl::StatusOr<NextHeader> GetNextHeader(const UdpHeader& header) {
   return Header::HEADER_NOT_SET;
+}
+absl::StatusOr<NextHeader> GetNextHeader(const TcpHeaderPrefix& header) {
+  return UnsupportedNextHeader{.reason =
+                                   "TCP only partially supported -- parsing "
+                                   "prefix of header containing ports only"};
 }
 absl::StatusOr<NextHeader> GetNextHeader(const Header& header) {
   switch (header.header_case()) {
@@ -85,6 +92,8 @@ absl::StatusOr<NextHeader> GetNextHeader(const Header& header) {
       return GetNextHeader(header.ipv6_header());
     case Header::kUdpHeader:
       return GetNextHeader(header.udp_header());
+    case Header::kTcpHeaderPrefix:
+      return GetNextHeader(header.tcp_header_prefix());
     case Header::HEADER_NOT_SET:
       return Header::HEADER_NOT_SET;
   }
@@ -231,6 +240,21 @@ absl::StatusOr<UdpHeader> ParseUdpHeader(pdpi::BitString& data) {
   return header;
 }
 
+// Parse a TCP header prefix, or return error if the packet is too small.
+absl::StatusOr<TcpHeaderPrefix> ParseTcpHeaderPrefix(pdpi::BitString& data) {
+  if (data.size() < kTcpHeaderPrefixBitwidth) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "Packet is too short to parse a TCP header next. Only "
+           << data.size() << " bits left, need at least "
+           << kTcpHeaderPrefixBitwidth << ".";
+  }
+
+  TcpHeaderPrefix header;
+  header.set_source_port(ParseBits(data, kTcpPortBitwidth));
+  header.set_destination_port(ParseBits(data, kTcpPortBitwidth));
+  return header;
+}
+
 absl::StatusOr<Header> ParseHeader(Header::HeaderCase header_case,
                                    pdpi::BitString& data) {
   Header result;
@@ -250,6 +274,11 @@ absl::StatusOr<Header> ParseHeader(Header::HeaderCase header_case,
     }
     case Header::kUdpHeader: {
       ASSIGN_OR_RETURN(*result.mutable_udp_header(), ParseUdpHeader(data));
+      return result;
+    }
+    case Header::kTcpHeaderPrefix: {
+      ASSIGN_OR_RETURN(*result.mutable_tcp_header_prefix(),
+                       ParseTcpHeaderPrefix(data));
       return result;
     }
     case Header::HEADER_NOT_SET:
@@ -635,6 +664,17 @@ void UdpHeaderInvalidReasons(const UdpHeader& header,
   }
 }
 
+void TcpHeaderPrefixInvalidReasons(const TcpHeaderPrefix& header,
+                                   const std::string& field_prefix,
+                                   const Packet& packet, int header_index,
+                                   std::vector<std::string>& output) {
+  HexStringInvalidReasons<kUdpPortBitwidth>(
+      header.source_port(), absl::StrCat(field_prefix, "source_port"), output);
+  HexStringInvalidReasons<kUdpPortBitwidth>(
+      header.destination_port(), absl::StrCat(field_prefix, "destination_port"),
+      output);
+}
+
 }  // namespace
 
 std::string HeaderCaseName(Header::HeaderCase header_case) {
@@ -647,6 +687,8 @@ std::string HeaderCaseName(Header::HeaderCase header_case) {
       return "Ipv6Header";
     case Header::kUdpHeader:
       return "UdpHeader";
+    case Header::kTcpHeaderPrefix:
+      return "TcpHeaderPrefix";
     case Header::HEADER_NOT_SET:
       return "HEADER_NOT_SET";
   }
@@ -690,6 +732,11 @@ std::vector<std::string> PacketInvalidReasons(const Packet& packet) {
       case Header::kUdpHeader: {
         UdpHeaderInvalidReasons(header.udp_header(), field_prefix, packet,
                                 index, result);
+        break;
+      }
+      case Header::kTcpHeaderPrefix: {
+        TcpHeaderPrefixInvalidReasons(header.tcp_header_prefix(), field_prefix,
+                                      packet, index, result);
         break;
       }
       case Header::HEADER_NOT_SET:
@@ -827,6 +874,15 @@ absl::Status SerializeUdpHeader(const UdpHeader& header,
   return absl::OkStatus();
 }
 
+absl::Status SerializeTcpHeaderPrefix(const TcpHeaderPrefix& header,
+                                      pdpi::BitString& output) {
+  RETURN_IF_ERROR(
+      SerializeBits<kTcpPortBitwidth>(header.source_port(), output));
+  RETURN_IF_ERROR(
+      SerializeBits<kTcpPortBitwidth>(header.destination_port(), output));
+  return absl::OkStatus();
+}
+
 absl::Status SerializeHeader(const Header& header, pdpi::BitString& output) {
   switch (header.header_case()) {
     case Header::kEthernetHeader:
@@ -837,6 +893,8 @@ absl::Status SerializeHeader(const Header& header, pdpi::BitString& output) {
       return SerializeIpv6Header(header.ipv6_header(), output);
     case Header::kUdpHeader:
       return SerializeUdpHeader(header.udp_header(), output);
+    case Header::kTcpHeaderPrefix:
+      return SerializeTcpHeaderPrefix(header.tcp_header_prefix(), output);
     case Header::HEADER_NOT_SET:
       return gutil::InvalidArgumentErrorBuilder()
              << "Found invalid HEADER_NOT_SET in header.";
@@ -963,6 +1021,7 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
         break;
       }
       case Header::kEthernetHeader:
+      case Header::kTcpHeaderPrefix:
         // No computed fields.
         break;
       case Header::HEADER_NOT_SET:
@@ -1019,6 +1078,9 @@ absl::StatusOr<int> PacketSizeInBits(const Packet& packet,
         break;
       case Header::kUdpHeader:
         size += kUdpHeaderBitwidth;
+        break;
+      case Header::kTcpHeaderPrefix:
+        size += kTcpHeaderPrefixBitwidth;
         break;
       case Header::HEADER_NOT_SET:
         return gutil::InvalidArgumentErrorBuilder()

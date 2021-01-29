@@ -330,6 +330,41 @@ void main() {
                        }
                        payload: "0x4869"
                      )PB"));
+  RunPacketParseTest("TCP packet (valid)", R"PB(
+    # Taken from
+    # www.erg.abdn.ac.uk/users/gorry/course/inet-pages/packet-decode3.html
+    # --------------------------------------------------------------------------
+    # Ethernet header
+    ethernet_destination: 0x 00 e0 f7 26 3f e9
+    ethernet_source: 0x 08 00 20 86 35 4b
+    ether_type: 0x0800
+    # IPv4 header
+    version: 0x4
+    ihl: 0x5
+    dhcp: 0b000000
+    ecn: 0b00
+    total_length: 0x002c
+    identification: 0x08b8
+    flags: 0b010
+    fragment_offset: 0b0000000000000
+    ttl: 0xff
+    protocol: 0x06  # TCP
+    checksum: 0x9997
+    ipv4_source: 0x8b85d96e       # 139.133.217.110
+    ipv4_destination: 0x8b85e902  # 139.133.233.2
+    # TCP header
+    source_port: 0x9005          # 36869
+    destination_port: 0x0017     # 23 (TELNET)
+    sequence_number: 0x7214f114  # 1913975060
+    acknowledgement_number: 0x00000000
+    data_offset: 0x6  # 6 x 32 bits = 24 bytes
+    reserved: 0b000
+    flags: 0b 0 0 0 0 0 0 0 1 0  # SYN
+    window_size: 0x2238          # 8760
+    checksum: 0xa92c
+    urgent_pointer: 0x0000
+    options: 0x 0204 05b4
+  )PB");
 
   RunProtoPacketTest("IPv4 without computed fields",
                      gutil::ParseProtoOrDie<Packet>(R"PB(

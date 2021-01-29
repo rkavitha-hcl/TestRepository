@@ -12,6 +12,7 @@ constexpr int kEthernetHeaderBitwidth = 48 * 2 + 16;
 constexpr int kStandardIpv4HeaderBitwidth = 160;
 constexpr int kIpv6HeaderBitwidth = 320;
 constexpr int kUdpHeaderBitwidth = 64;
+constexpr int kTcpHeaderPrefixBitwidth = 32;
 
 // Ethernet constants.
 constexpr int kEthernetEthertypeBitwidth = 16;
@@ -37,6 +38,9 @@ constexpr int kIpHopLimitBitwidth = 8;         // IPv6
 constexpr int kUdpPortBitwidth = 16;
 constexpr int kUdpLengthBitwidth = 16;
 constexpr int kUdpChecksumBitwidth = 16;
+
+// TCP constants.
+constexpr int kTcpPortBitwidth = 16;
 
 }  // namespace packetlib
 

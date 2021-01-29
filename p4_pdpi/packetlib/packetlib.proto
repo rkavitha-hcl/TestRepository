@@ -54,6 +54,7 @@ message Header {
     Ipv4Header ipv4_header = 2;
     Ipv6Header ipv6_header = 3;
     UdpHeader udp_header = 4;
+    TcpHeaderPrefix tcp_header_prefix = 5;
   }
 }
 
@@ -103,6 +104,14 @@ message Ipv6Header {
 message UdpHeader {
   string source_port = 1;       // 16 bits
   string destination_port = 2;  // 16 bits
-  string length = 3;            // 16 bits
-  string checksum = 4;          // 16 bits
+  string length = 3;            // 16 bits (computed field)
+  string checksum = 4;          // 16 bits (computed field)
+}
+
+// A (partial) TCP header.
+// We parse only the ports, and regard the rest of the header as "payload".
+// May be replaced by full TcpHeader when the need arises.
+message TcpHeaderPrefix {
+  string source_port = 1;       // 16 bits
+  string destination_port = 2;  // 16 bits
 }
