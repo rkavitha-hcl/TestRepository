@@ -9,6 +9,7 @@
 #include "p4_pdpi/netaddr/ipv4_address.h"
 #include "p4_pdpi/netaddr/ipv6_address.h"
 #include "p4_pdpi/netaddr/mac_address.h"
+#include "p4_pdpi/utils/hex_string.h"
 
 namespace pdpi {
 
@@ -37,10 +38,16 @@ class BitString {
     }
   }
 
-  void AppendBytes(std::string bytes) {
+  void AppendBytes(absl::string_view bytes) {
     for (int i = 0; i < bytes.size(); i++) {
       AppendBits(std::bitset<8>(bytes[i]));
     }
+  }
+
+  absl::Status AppendHexString(absl::string_view hex_string) {
+    ASSIGN_OR_RETURN(auto bytes, pdpi::HexStringToByteString(hex_string));
+    AppendBytes(bytes);
+    return absl::OkStatus();
   }
 
   // Consumes the given number of bits from the front of the bit string, and
@@ -63,10 +70,11 @@ class BitString {
   // Consumes the given number of bits and returns them as a std::bitset.
   template <size_t num_bits>
   absl::StatusOr<std::bitset<num_bits>> ConsumeBitset() {
+    const int start_index = start_index_;
     RETURN_IF_ERROR(Consume(num_bits));
     std::bitset<num_bits> result;
-    for (size_t bit = 0; bit < num_bits; bit++) {
-      result.set(bit, bits_[start_index_ - num_bits + bit]);
+    for (int i = 0; i < num_bits; ++i) {
+      result[num_bits - i - 1] = bits_[start_index + i];
     }
     return result;
   }

@@ -80,9 +80,16 @@ absl::StatusOr<int> PacketSizeInBits(const Packet& packet,
 absl::StatusOr<int> PacketSizeInBytes(const Packet& packet,
                                       int start_header_index = 0);
 
-// Computes the checksum of an IPv4 header. All fields must be set and valid
-// except possibly the checksum, which is ignored.
-absl::StatusOr<uint16_t> Ipv4HeaderChecksum(const Ipv4Header& header);
+// Computes the 16-bit checksum of an IPv4 header. All fields must be set and
+// valid except possibly the checksum, which is ignored.
+absl::StatusOr<int> Ipv4HeaderChecksum(Ipv4Header header);
+
+// Computes the 16-bit UDP checksum for the given `packet` and
+// `udp_header_index`.
+// The header at the given index must be a UDP header, and it must be preceded
+// by an IP header. All fields in all headers following that IP header must be
+// set and valid except possibly the UDP checksum field, which is ignored.
+absl::StatusOr<int> UdpHeaderChecksum(Packet packet, int udp_header_index);
 
 std::string HeaderCaseName(Header::HeaderCase header_case);
 

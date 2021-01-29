@@ -140,13 +140,16 @@ template <std::size_t num_bits>
 absl::StatusOr<std::bitset<num_bits>> HexStringToBitset(
     absl::string_view hex_string) {
   // Sanity check: hex_string.size() - 2 == ceil(num_bits/4).
-  const int num_hex_chars = hex_string.size() - 2;  // Due to "0x"-prefix.
-  const int expected_num_hex_chars = num_bits / 4 + (num_bits % 4 != 0 ? 1 : 0);
-  if (num_hex_chars != expected_num_hex_chars) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "illegal conversion from hex string " << hex_string << " to "
-           << num_bits << " bits; expected between " << (num_hex_chars * 4 - 3)
-           << " and " << (num_hex_chars * 4) << " bits";
+  if (absl::StartsWith(hex_string, "0x")) {
+    const int num_hex_chars = hex_string.size() - 2;  // Due to "0x"-prefix.
+    const int expected_num_hex_chars = (num_bits + 3) / 4;  // ceil(num_bits/4)
+    if (num_hex_chars != expected_num_hex_chars) {
+      return gutil::InvalidArgumentErrorBuilder()
+             << "illegal conversion from hex string '" << hex_string << "' to "
+             << num_bits << " bits; expected between "
+             << (num_hex_chars * 4 - 3) << " and " << (num_hex_chars * 4)
+             << " bits";
+    }
   }
   return HexStringToAnyLargeEnoughBitset<num_bits>(hex_string);
 }

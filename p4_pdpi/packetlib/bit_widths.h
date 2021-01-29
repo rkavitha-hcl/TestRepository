@@ -8,9 +8,10 @@
 namespace packetlib {
 
 // Standard header sizes (for headers without extensions, etc).
-constexpr int kStandardEthernetHeaderBitwidth = 48 * 2 + 16;
+constexpr int kEthernetHeaderBitwidth = 48 * 2 + 16;
 constexpr int kStandardIpv4HeaderBitwidth = 160;
-constexpr int kStandardIpv6HeaderBitwidth = 320;
+constexpr int kIpv6HeaderBitwidth = 320;
+constexpr int kUdpHeaderBitwidth = 64;
 
 // Ethernet constants.
 constexpr int kEthernetEthertypeBitwidth = 16;
@@ -31,6 +32,11 @@ constexpr int kIpFlowLabelBitwidth = 20;       // IPv6
 constexpr int kIpPayloadLengthBitwidth = 16;   // IPv6
 constexpr int kIpNextHeaderBitwidth = 8;       // IPv6
 constexpr int kIpHopLimitBitwidth = 8;         // IPv6
+
+// UDP constants.
+constexpr int kUdpPortBitwidth = 16;
+constexpr int kUdpLengthBitwidth = 16;
+constexpr int kUdpChecksumBitwidth = 16;
 
 }  // namespace packetlib
 

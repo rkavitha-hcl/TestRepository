@@ -61,14 +61,19 @@ absl::StatusOr<NextHeader> GetNextHeader(const EthernetHeader& header) {
                                 header.ethertype())};
 }
 absl::StatusOr<NextHeader> GetNextHeader(const Ipv4Header& header) {
+  if (header.protocol() == "0x11") return Header::kUdpHeader;
   return UnsupportedNextHeader{
       .reason = absl::StrFormat("ipv4_header.protocol %s: unsupported",
                                 header.protocol())};
 }
 absl::StatusOr<NextHeader> GetNextHeader(const Ipv6Header& header) {
+  if (header.next_header() == "0x11") return Header::kUdpHeader;
   return UnsupportedNextHeader{
       .reason = absl::StrFormat("ipv6_header.next_header %s: unsupported",
                                 header.next_header())};
+}
+Header::HeaderCase GetNextHeader(const UdpHeader& header) {
+  return Header::HEADER_NOT_SET;
 }
 absl::StatusOr<NextHeader> GetNextHeader(const Header& header) {
   switch (header.header_case()) {
@@ -78,6 +83,8 @@ absl::StatusOr<NextHeader> GetNextHeader(const Header& header) {
       return GetNextHeader(header.ipv4_header());
     case Header::kIpv6Header:
       return GetNextHeader(header.ipv6_header());
+    case Header::kUdpHeader:
+      return GetNextHeader(header.udp_header());
     case Header::HEADER_NOT_SET:
       return Header::HEADER_NOT_SET;
   }
@@ -127,18 +134,18 @@ std::string ParseBits(pdpi::BitString& data, int num_bits) {
 // Parse and return an Ethernet header, or return error if the packet is too
 // small.
 absl::StatusOr<EthernetHeader> ParseEthernetHeader(pdpi::BitString& data) {
-  if (data.size() < kStandardEthernetHeaderBitwidth) {
+  if (data.size() < kEthernetHeaderBitwidth) {
     return gutil::InvalidArgumentErrorBuilder()
            << "Packet is too short to parse an Ethernet header next. Only "
            << data.size() << " bits left, need at least "
-           << kStandardEthernetHeaderBitwidth << ".";
+           << kEthernetHeaderBitwidth << ".";
   }
 
   EthernetHeader header;
   header.set_ethernet_source(ParseMacAddress(data));
   header.set_ethernet_destination(ParseMacAddress(data));
   header.set_ethertype(ParseBits(data, kEthernetEthertypeBitwidth));
-  return std::move(header);
+  return header;
 }
 
 // Parse and return an IPv4 header, or return error if the packet is too small.
@@ -164,16 +171,16 @@ absl::StatusOr<Ipv4Header> ParseIpv4Header(pdpi::BitString& data) {
   header.set_checksum(ParseBits(data, kIpChecksumBitwidth));
   header.set_ipv4_source(ParseIpv4Address(data));
   header.set_ipv4_destination(ParseIpv4Address(data));
-  return std::move(header);
+  return header;
 }
 
 // Parse and return an IPv6 header, or return error if the packet is too small.
 absl::StatusOr<Ipv6Header> ParseIpv6Header(pdpi::BitString& data) {
-  if (data.size() < kStandardIpv6HeaderBitwidth) {
+  if (data.size() < kIpv6HeaderBitwidth) {
     return gutil::InvalidArgumentErrorBuilder()
            << "Packet is too short to parse an IPv6 header next. Only "
-           << data.size() << " bits left, need at least "
-           << kStandardIpv6HeaderBitwidth << ".";
+           << data.size() << " bits left, need at least " << kIpv6HeaderBitwidth
+           << ".";
   }
 
   Ipv6Header header;
@@ -186,7 +193,24 @@ absl::StatusOr<Ipv6Header> ParseIpv6Header(pdpi::BitString& data) {
   header.set_hop_limit(ParseBits(data, kIpHopLimitBitwidth));
   header.set_ipv6_source(ParseIpv6Address(data));
   header.set_ipv6_destination(ParseIpv6Address(data));
-  return std::move(header);
+  return header;
+}
+
+// Parse a UDP header, or return error if the packet is too small.
+absl::StatusOr<UdpHeader> ParseUdpHeader(pdpi::BitString& data) {
+  if (data.size() < kUdpHeaderBitwidth) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "Packet is too short to parse an UDP header next. Only "
+           << data.size() << " bits left, need at least " << kUdpHeaderBitwidth
+           << ".";
+  }
+
+  UdpHeader header;
+  header.set_source_port(ParseBits(data, kUdpPortBitwidth));
+  header.set_destination_port(ParseBits(data, kUdpPortBitwidth));
+  header.set_length(ParseBits(data, kUdpLengthBitwidth));
+  header.set_checksum(ParseBits(data, kUdpChecksumBitwidth));
+  return header;
 }
 
 absl::StatusOr<Header> ParseHeader(Header::HeaderCase header_case,
@@ -204,6 +228,10 @@ absl::StatusOr<Header> ParseHeader(Header::HeaderCase header_case,
     }
     case Header::kIpv6Header: {
       ASSIGN_OR_RETURN(*result.mutable_ipv6_header(), ParseIpv6Header(data));
+      return result;
+    }
+    case Header::kUdpHeader: {
+      ASSIGN_OR_RETURN(*result.mutable_udp_header(), ParseUdpHeader(data));
       return result;
     }
     case Header::HEADER_NOT_SET:
@@ -488,6 +516,69 @@ void Ipv6HeaderInvalidReasons(const Ipv6Header& header,
   }
 }
 
+void UdpHeaderInvalidReasons(const UdpHeader& header,
+                             const std::string& field_prefix,
+                             const Packet& packet, int header_index,
+                             std::vector<std::string>& output) {
+  HexStringInvalidReasons<kUdpPortBitwidth>(
+      header.source_port(), absl::StrCat(field_prefix, "source_port"), output);
+  HexStringInvalidReasons<kUdpPortBitwidth>(
+      header.destination_port(), absl::StrCat(field_prefix, "destination_port"),
+      output);
+  bool length_invalid = HexStringInvalidReasons<kUdpLengthBitwidth>(
+      header.length(), absl::StrCat(field_prefix, "length"), output);
+  bool checksum_invalid = HexStringInvalidReasons<kUdpChecksumBitwidth>(
+      header.checksum(), absl::StrCat(field_prefix, "checksum"), output);
+
+  // Check computed field: length.
+  if (!length_invalid) {
+    if (auto size = PacketSizeInBytes(packet, header_index); !size.ok()) {
+      output.push_back(absl::StrCat(field_prefix,
+                                    "length: Couldn't compute expected size: ",
+                                    size.status().ToString()));
+    } else {
+      std::string expected =
+          pdpi::BitsetToHexString(std::bitset<kUdpLengthBitwidth>(*size));
+      if (header.length() != expected) {
+        output.push_back(absl::StrCat(field_prefix, "length: Must be ",
+                                      expected, ", but was ", header.length(),
+                                      " instead."));
+      }
+    }
+  }
+  // Check computed field: checksum.
+  if (header_index <= 0) {
+    output.push_back(absl::StrCat(
+        field_prefix,
+        "checksum: UDP header must be preceded by IP header for checksum to be "
+        "defined; found no header instead"));
+  } else if (auto previous = packet.headers(header_index - 1).header_case();
+             previous != Header::kIpv4Header &&
+             previous != Header::kIpv6Header) {
+    output.push_back(absl::StrCat(
+        field_prefix,
+        "checksum: UDP header must be preceded by IP header for checksum to be "
+        "defined; found ",
+        HeaderCaseName(previous), " at headers[", (header_index - 1),
+        "] instead"));
+  } else if (!checksum_invalid) {
+    if (auto checksum = UdpHeaderChecksum(packet, header_index);
+        !checksum.ok()) {
+      output.push_back(absl::StrCat(
+          field_prefix, "checksum: Couldn't compute expected checksum: ",
+          checksum.status().ToString()));
+    } else {
+      std::string expected =
+          pdpi::BitsetToHexString(std::bitset<kUdpChecksumBitwidth>(*checksum));
+      if (header.checksum() != expected) {
+        output.push_back(absl::StrCat(field_prefix, "checksum: Must be ",
+                                      expected, ", but was ", header.checksum(),
+                                      " instead."));
+      }
+    }
+  }
+}
+
 }  // namespace
 
 std::string HeaderCaseName(Header::HeaderCase header_case) {
@@ -498,6 +589,8 @@ std::string HeaderCaseName(Header::HeaderCase header_case) {
       return "Ipv4Header";
     case Header::kIpv6Header:
       return "Ipv6Header";
+    case Header::kUdpHeader:
+      return "UdpHeader";
     case Header::HEADER_NOT_SET:
       return "HEADER_NOT_SET";
   }
@@ -538,6 +631,11 @@ std::vector<std::string> PacketInvalidReasons(const Packet& packet) {
         Ipv6HeaderInvalidReasons(header.ipv6_header(), field_prefix, packet,
                                  index, result);
         break;
+      case Header::kUdpHeader: {
+        UdpHeaderInvalidReasons(header.udp_header(), field_prefix, packet,
+                                index, result);
+        break;
+      }
       case Header::HEADER_NOT_SET:
         result.push_back(absl::StrCat(header_prefix, "header uninitialized"));
         continue;  // skip expected_header_case check
@@ -553,7 +651,8 @@ std::vector<std::string> PacketInvalidReasons(const Packet& packet) {
     } else if (header.header_case() != expected_header_case) {
       result.push_back(absl::StrCat(
           header_prefix, "expected ", HeaderCaseName(expected_header_case),
-          ", got ", HeaderCaseName(header.header_case())));
+          " (because the previous header demands it), got ",
+          HeaderCaseName(header.header_case())));
     }
 
     // Update `expected_header_case`.
@@ -657,40 +756,65 @@ absl::Status SerializeIpv6Header(const Ipv6Header& header,
   return absl::OkStatus();
 }
 
+absl::Status SerializeUdpHeader(const UdpHeader& header,
+                                pdpi::BitString& output) {
+  RETURN_IF_ERROR(
+      SerializeBits<kUdpPortBitwidth>(header.source_port(), output));
+  RETURN_IF_ERROR(
+      SerializeBits<kUdpPortBitwidth>(header.destination_port(), output));
+  RETURN_IF_ERROR(SerializeBits<kUdpLengthBitwidth>(header.length(), output));
+  RETURN_IF_ERROR(
+      SerializeBits<kUdpChecksumBitwidth>(header.checksum(), output));
+  return absl::OkStatus();
+}
+
+absl::Status SerializeHeader(const Header& header, pdpi::BitString& output) {
+  switch (header.header_case()) {
+    case Header::kEthernetHeader:
+      return SerializeEthernetHeader(header.ethernet_header(), output);
+    case Header::kIpv4Header:
+      return SerializeIpv4Header(header.ipv4_header(), output);
+    case Header::kIpv6Header:
+      return SerializeIpv6Header(header.ipv6_header(), output);
+    case Header::kUdpHeader:
+      return SerializeUdpHeader(header.udp_header(), output);
+    case Header::HEADER_NOT_SET:
+      return gutil::InvalidArgumentErrorBuilder()
+             << "Found invalid HEADER_NOT_SET in header.";
+  }
+}
+
 }  // namespace
+
+absl::Status RawSerializePacket(const Packet& packet, int start_header_index,
+                                pdpi::BitString& output) {
+  if (start_header_index > packet.headers_size() || start_header_index < 0) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "Invalid header index " << start_header_index
+           << " for a packet with " << packet.headers_size() << " headers.";
+  }
+
+  for (int i = start_header_index; i < packet.headers().size(); ++i) {
+    RETURN_IF_ERROR(SerializeHeader(packet.headers(i), output)).SetPrepend()
+        << "while trying to serialize packet.headers(" << i << "): ";
+  }
+  if (!packet.payload().empty()) {
+    RETURN_IF_ERROR(output.AppendHexString(packet.payload())).SetPrepend()
+        << "while trying to serialze packet.payload: ";
+  }
+  return absl::OkStatus();
+}
+
+absl::StatusOr<std::string> RawSerializePacket(const Packet& packet) {
+  pdpi::BitString bits;
+  RETURN_IF_ERROR(RawSerializePacket(packet, 0, bits));
+  return bits.ToByteString();
+}
 
 absl::StatusOr<std::string> SerializePacket(Packet packet) {
   RETURN_IF_ERROR(UpdateComputedFields(packet).status());
   RETURN_IF_ERROR(ValidatePacket(packet));
   return RawSerializePacket(packet);
-}
-
-absl::StatusOr<std::string> RawSerializePacket(const Packet& packet) {
-  pdpi::BitString result;
-
-  for (const Header& header : packet.headers()) {
-    switch (header.header_case()) {
-      case Header::kEthernetHeader:
-        RETURN_IF_ERROR(
-            SerializeEthernetHeader(header.ethernet_header(), result));
-        break;
-      case Header::kIpv4Header:
-        RETURN_IF_ERROR(SerializeIpv4Header(header.ipv4_header(), result));
-        break;
-      case Header::kIpv6Header:
-        RETURN_IF_ERROR(SerializeIpv6Header(header.ipv6_header(), result));
-        break;
-      case Header::HEADER_NOT_SET:
-        return gutil::InvalidArgumentErrorBuilder()
-               << "Found invalid HEADER_NOT_SET in header.";
-    }
-  }
-  if (!packet.payload().empty()) {
-    ASSIGN_OR_RETURN(auto payload,
-                     pdpi::HexStringToByteString(packet.payload()));
-    result.AppendBytes(payload);
-  }
-  return result.ToByteString();
 }
 
 // ---- Computed field logic ---------------------------------------------------
@@ -714,7 +838,7 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
           changes = true;
         }
         if (ipv4_header.checksum().empty()) {
-          ASSIGN_OR_RETURN(uint16_t checksum, Ipv4HeaderChecksum(ipv4_header));
+          ASSIGN_OR_RETURN(int checksum, Ipv4HeaderChecksum(ipv4_header));
           ipv4_header.set_checksum(pdpi::BitsetToHexString(
               std::bitset<kIpChecksumBitwidth>(checksum)));
           changes = true;
@@ -733,6 +857,23 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
                            PacketSizeInBytes(packet, header_index + 1));
           ipv6_header.set_payload_length(pdpi::BitsetToHexString(
               std::bitset<kIpTotalLengthBitwidth>(size)));
+          changes = true;
+        }
+        break;
+      }
+      case Header::kUdpHeader: {
+        UdpHeader& udp_header = *header.mutable_udp_header();
+        if (udp_header.length().empty()) {
+          ASSIGN_OR_RETURN(int size, PacketSizeInBytes(packet, header_index));
+          udp_header.set_length(
+              pdpi::BitsetToHexString(std::bitset<kUdpLengthBitwidth>(size)));
+          changes = true;
+        }
+        if (udp_header.checksum().empty()) {
+          ASSIGN_OR_RETURN(int checksum,
+                           UdpHeaderChecksum(packet, header_index));
+          udp_header.set_checksum(pdpi::BitsetToHexString(
+              std::bitset<kUdpChecksumBitwidth>(checksum)));
           changes = true;
         }
         break;
@@ -774,14 +915,17 @@ absl::StatusOr<int> PacketSizeInBits(const Packet& packet,
   for (auto* header :
        absl::MakeSpan(packet.headers()).subspan(start_header_index)) {
     switch (header->header_case()) {
+      case Header::kEthernetHeader:
+        size += kEthernetHeaderBitwidth;
+        break;
       case Header::kIpv4Header:
         size += kStandardIpv4HeaderBitwidth;
         break;
       case Header::kIpv6Header:
-        size += kStandardIpv6HeaderBitwidth;
+        size += kIpv6HeaderBitwidth;
         break;
-      case Header::kEthernetHeader:
-        size += kStandardEthernetHeaderBitwidth;
+      case Header::kUdpHeader:
+        size += kUdpHeaderBitwidth;
         break;
       case Header::HEADER_NOT_SET:
         return gutil::InvalidArgumentErrorBuilder()
@@ -797,23 +941,98 @@ absl::StatusOr<int> PacketSizeInBits(const Packet& packet,
   return size;
 }
 
-absl::StatusOr<uint16_t> Ipv4HeaderChecksum(const Ipv4Header& header) {
+// Returns 16-bit ones' complement of the ones' complement sum of all 16-bit
+// words in the given BitString.
+static absl::StatusOr<int> OnesComplementChecksum(pdpi::BitString data) {
+  // Pad string to be 16-bit multiple.
+  while (data.size() % 16 != 0) data.AppendBit(0);
+
+  // Following RFC 1071 and
+  // wikipedia.org/wiki/IPv4_header_checksum#Calculating_the_IPv4_header_checksum
+  int sum = 0;
+  while (data.size() != 0) {
+    ASSIGN_OR_RETURN(std::bitset<16> word, data.ConsumeBitset<16>(),
+                     _.SetCode(absl::StatusCode::kInternal));
+    // This looks wrong because we're not taking the ones' complement, but turns
+    // out to work.
+    sum += word.to_ulong();
+  }
+  // Add carry bits until sum fits into 16 bits.
+  while (sum >> 16 != 0) {
+    sum = (sum & 0xffff) + (sum >> 16);
+  }
+  // Return 16 bit ones' complement.
+  return (~sum) & 0xffff;
+}
+
+absl::StatusOr<int> Ipv4HeaderChecksum(Ipv4Header header) {
   // The checksum field is the 16-bit ones' complement of the ones' complement
   // sum of all 16-bit words in the header. For purposes of computing the
   // checksum, the value of the checksum field is zero.
 
-  // We compute the checksum by setting the checksum to 0, serializing the
+  // We compute the checksum by setting the checksum field to 0, serializing the
   // header, and then going over all 16-bit words.
-  Ipv4Header copy = header;
-  copy.set_checksum("0x0000");
+  header.set_checksum("0x0000");
   pdpi::BitString data;
-  RETURN_IF_ERROR(SerializeIpv4Header(copy, data));
-  uint16_t checksum = 0;
-  while (data.size() >= 16) {
-    ASSIGN_OR_RETURN(std::bitset<16> word, data.ConsumeBitset<16>());
-    checksum += word.to_ulong();
+  RETURN_IF_ERROR(SerializeIpv4Header(header, data));
+  return OnesComplementChecksum(std::move(data));
+}
+
+absl::StatusOr<int> UdpHeaderChecksum(Packet packet, int udp_header_index) {
+  auto invalid_argument = gutil::InvalidArgumentErrorBuilder()
+                          << "UdpHeaderChecksum(packet, udp_header_index = "
+                          << udp_header_index << "): ";
+  if (udp_header_index < 1 || udp_header_index >= packet.headers().size()) {
+    return invalid_argument
+           << "udp_header_index must be in [1, " << packet.headers().size()
+           << ") since the given packet has " << packet.headers().size()
+           << " headers and the UDP header must be preceded by an IP header";
   }
-  return checksum;
+  const Header& preceding_header = packet.headers(udp_header_index - 1);
+  if (auto header_case = packet.headers(udp_header_index).header_case();
+      header_case != Header::kUdpHeader) {
+    return invalid_argument << "packet.headers[" << udp_header_index
+                            << "] is a " << HeaderCaseName(header_case)
+                            << ", expected UdpHeader";
+  }
+  UdpHeader& udp_header =
+      *packet.mutable_headers(udp_header_index)->mutable_udp_header();
+  udp_header.set_checksum("0x0000");
+
+  // Serialize "pseudo header" for checksum calculation, following
+  // https://en.wikipedia.org/wiki/User_Datagram_Protocol#Checksum_computation.
+  pdpi::BitString data;
+  switch (preceding_header.header_case()) {
+    case Header::kIpv4Header: {
+      auto& header = preceding_header.ipv4_header();
+      RETURN_IF_ERROR(SerializeIpv4Address(header.ipv4_source(), data));
+      RETURN_IF_ERROR(SerializeIpv4Address(header.ipv4_destination(), data));
+      data.AppendBits<8>(0);
+      RETURN_IF_ERROR(
+          SerializeBits<kIpProtocolBitwidth>(header.protocol(), data));
+      RETURN_IF_ERROR(
+          SerializeBits<kUdpLengthBitwidth>(udp_header.length(), data));
+      break;
+    }
+    case Header::kIpv6Header: {
+      auto& header = preceding_header.ipv6_header();
+      RETURN_IF_ERROR(SerializeIpv6Address(header.ipv6_source(), data));
+      RETURN_IF_ERROR(SerializeIpv6Address(header.ipv6_destination(), data));
+      data.AppendBits<16>(0);
+      RETURN_IF_ERROR(
+          SerializeBits<kUdpLengthBitwidth>(udp_header.length(), data));
+      data.AppendBits<24>(0);
+      RETURN_IF_ERROR(
+          SerializeBits<kIpNextHeaderBitwidth>(header.next_header(), data));
+      break;
+    }
+    default:
+      return invalid_argument << "expected packet.headers[udp_header_index - "
+                                 "1] to be an IP header, got "
+                              << HeaderCaseName(preceding_header.header_case());
+  }
+  RETURN_IF_ERROR(RawSerializePacket(packet, udp_header_index, data));
+  return OnesComplementChecksum(std::move(data));
 }
 
 }  // namespace packetlib

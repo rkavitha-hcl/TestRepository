@@ -20,8 +20,9 @@ package packetlib;
 message Packet {
   // Headers in order, starting with outermost header. Can be empty.
   repeated Header headers = 1;
-  // Payload is a sequence of uninterpreted bytes.
-  bytes payload = 2;
+  // Payload is a sequence of uninterpreted bytes in hexadecimal format, e.g.
+  // "" or "0x00" or "0xfa0c".
+  string payload = 2;
   // Explanation why parsing has stopped early due to a feature that is not
   // supported. Describes a problem with the first set of bytes in `payload`.
   // Only used in the output of parsing functions, and is ignored during
@@ -52,8 +53,7 @@ message Header {
     EthernetHeader ethernet_header = 1;
     Ipv4Header ipv4_header = 2;
     Ipv6Header ipv6_header = 3;
-    // TcpHeader tcp_header = 4;
-    // UdpHeader udp_header = 5;
+    UdpHeader udp_header = 4;
   }
 }
 
@@ -94,4 +94,12 @@ message Ipv6Header {
   string hop_limit = 7;         // 8 bits
   string ipv6_source = 8;       // Format::IPV6
   string ipv6_destination = 9;  // Format::IPV6
+}
+
+// A UDP header.
+message UdpHeader {
+  string source_port = 1;       // 16 bits
+  string destination_port = 2;  // 16 bits
+  string length = 3;            // 16 bits
+  string checksum = 4;          // 16 bits
 }

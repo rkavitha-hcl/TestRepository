@@ -8,6 +8,7 @@
 namespace pdpi {
 
 using ::gutil::IsOkAndHolds;
+using ::testing::Eq;
 
 // TODO: Consider adding more coverage (though the clients of this
 // library have excellent coverage).
@@ -24,6 +25,12 @@ TEST(ReadableByteStringTest, ConsumeHexStringWorks) {
   EXPECT_THAT(test.ConsumeHexString(1), IsOkAndHolds("0x1"));
   EXPECT_THAT(test.ConsumeHexString(5), IsOkAndHolds("0x1f"));
   EXPECT_THAT(test.ConsumeHexString(9), IsOkAndHolds("0x1ff"));
+}
+
+TEST(ReadableByteStringTest, ConsumeBitsetWorks) {
+  BitString test = BitString::OfByteString("\x12\x34");
+  EXPECT_THAT(test.ConsumeBitset<16>(),
+              IsOkAndHolds(Eq(std::bitset<16>(0x1234))));
 }
 
 }  // namespace pdpi

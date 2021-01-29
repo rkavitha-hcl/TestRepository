@@ -171,11 +171,23 @@ void main() {
     fragment_offset: 0b0000000000000
     ttl: 0x10
     protocol: 0x05  # some unsupported protocol
-    checksum: 0xb2e7
+    checksum: 0xe8a5
     ipv4_source: 0x0a000001
     ipv4_destination: 0x14000003
     # other headers:
     payload: 0x1234
+  )PB");
+  RunPacketParseTest("IPv4 packet (checksum example)", R"PB(
+    # Taken from
+    # wikipedia.org/wiki/IPv4_header_checksum#Calculating_the_IPv4_header_checksum
+    #
+    # ethernet header
+    ethernet_source: 0x112233445566
+    ethernet_destination: 0xaabbccddeeff
+    ether_type: 0x0800
+    # IPv4 header and payload
+    ipv4_header: 0x 4500 0073 0000 4000 4011 b861 c0a8 0001 c0a8 00c7
+    payload: 0x 0035 e97c 005f 279f 1e4b 8180
   )PB");
   RunPacketParseTest("IPv6 packet (invalid)", R"PB(
     # ethernet header
@@ -213,6 +225,67 @@ void main() {
     # other headers:
     payload: 0x12
   )PB");
+  RunPacketParseTest("UDP packet (valid)", R"PB(
+    # Taken from
+    # www.securitynik.com/2015/08/calculating-udp-checksum-with-taste-of.html
+    # --------------------------------------------------------------------------
+    # Ethernet header
+    ethernet_source: 0x112233445566
+    ethernet_destination: 0xaabbccddeeff
+    ether_type: 0x0800
+    # IPv4 header
+    version: 0x4
+    ihl: 0x5
+    dhcp: 0b011011
+    ecn: 0b01
+    total_length: 0x001e
+    identification: 0x0000
+    flags: 0b000
+    fragment_offset: 0b0000000000000
+    ttl: 0x10
+    protocol: 0x11  # UDP
+    checksum: 0x28d5
+    ipv4_source: 0xc0a8001f       # 192.168.0.31
+    ipv4_destination: 0xc0a8001e  # 192.168.0.30
+    # UDP header
+    source_port: 0x0014       # 20
+    destination_port: 0x000a  # 10
+    length: 0x000a            # 10
+    checksum: 0x35c5
+    # Payload
+    payload: 0x4869  # "Hi" in ASCII
+  )PB");
+  RunProtoPacketTest("UDP header not preceded by other header",
+                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                       headers {
+                         udp_header {
+                           source_port: "0x0014"
+                           destination_port: "0x000a"
+                           length: "0x000a"
+                           checksum: "0x35c5"
+                         }
+                       }
+                       payload: "0x4869"
+                     )PB"));
+  RunProtoPacketTest("UDP header not preceded by IP header",
+                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                       headers {
+                         ethernet_header {
+                           ethernet_source: "11:22:33:44:55:66"
+                           ethernet_destination: "aa:bb:cc:dd:ee:ff"
+                           ethertype: "0x000a"
+                         }
+                       }
+                       headers {
+                         udp_header {
+                           source_port: "0x0014"
+                           destination_port: "0x000a"
+                           length: "0x000a"
+                           checksum: "0x35c5"
+                         }
+                       }
+                       payload: "0x4869"
+                     )PB"));
 
   RunProtoPacketTest("IPv4 without computed fields",
                      gutil::ParseProtoOrDie<Packet>(R"PB(
