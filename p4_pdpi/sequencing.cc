@@ -14,6 +14,8 @@
 
 #include "p4_pdpi/sequencing.h"
 
+#include <algorithm>
+
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -258,6 +260,8 @@ absl::StatusOr<std::vector<std::vector<int>>> SequencePiUpdatesInPlace(
   std::vector<std::vector<int>> batches;
   while (!roots.empty()) {
     // The roots have no incoming dependency edges, hence can be batched.
+    // Sort them so order of input is retained in the output.
+    std::sort(roots.begin(), roots.end());
     batches.push_back(roots);
 
     // Remove edges for old roots and add new roots.

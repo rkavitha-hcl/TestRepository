@@ -202,6 +202,41 @@ int main(int argc, char** argv) {
                     }
                   }
                 )PB"});
+  SequenceTest(info,
+               "Test case with 1 entry in the first batch and multiple ones in "
+               "the second batch. Used to verify the API is stable.",
+               {R"PB(
+                  type: DELETE
+                  table_entry {
+                    referring_table_entry {
+                      match { val: "0x001" }
+                      action {
+                        referring_action {
+                          referring_id_1: "key-a"
+                          referring_id_2: "key-b"
+                        }
+                      }
+                    }
+                  }
+                )PB",
+                R"PB(
+                  type: DELETE
+                  table_entry {
+                    referred_table_entry {
+                      match { id: "key-a" }
+                      action { do_thing_4 {} }
+                    }
+                  }
+                )PB",
+                R"PB(
+                  type: DELETE
+                  table_entry {
+                    referred_table_entry {
+                      match { id: "key-b" }
+                      action { do_thing_4 {} }
+                    }
+                  }
+                )PB"});
   SequenceTest(info, "Insert(a), Insert(not-a)",
                {R"PB(
                   type: INSERT

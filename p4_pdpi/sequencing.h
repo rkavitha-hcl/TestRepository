@@ -25,17 +25,21 @@
 
 namespace pdpi {
 
-// Sequencing functionality, see go/p4-sequencing for details.
+// Sequencing functionality, see go/p4-sequencing for details. All APIs are
+// stable, i.e. for entries without constraint that could appear in any order,
+// the input order is preserved.
 
 // Returns a list of write requests, such that updates are sequenced correctly
-// when the write requests are sent in order.
+// when the write requests are sent in order. Order within a write request is
+// stable, i.e. the same as in the input.
 absl::StatusOr<std::vector<p4::v1::WriteRequest>>
 SequencePiUpdatesIntoWriteRequests(const IrP4Info& info,
                                    absl::Span<const p4::v1::Update> updates);
 
 // Returns a vector of batches, where each batch is given by a vector of indices
 // into the input vector, such that updates are sequenced correctly when sent
-// batched in the order indicated.
+// batched in the order indicated. Order within a write request is stable, i.e.
+// the same as in the input.
 absl::StatusOr<std::vector<std::vector<int>>> SequencePiUpdatesInPlace(
     const IrP4Info& info, absl::Span<const p4::v1::Update> updates);
 

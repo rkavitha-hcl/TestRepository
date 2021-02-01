@@ -145,6 +145,101 @@ updates {
 }
 
 =========================================================================
+SequenceTest: Test case with 1 entry in the first batch and multiple ones in the second batch. Used to verify the API is stable.
+=========================================================================
+
+--- PD updates (input):
+type: DELETE
+table_entry {
+  referring_table_entry {
+    match {
+      val: "0x001"
+    }
+    action {
+      referring_action {
+        referring_id_1: "key-a"
+        referring_id_2: "key-b"
+      }
+    }
+  }
+}
+
+type: DELETE
+table_entry {
+  referred_table_entry {
+    match {
+      id: "key-a"
+    }
+    action {
+      do_thing_4 {
+      }
+    }
+  }
+}
+
+type: DELETE
+table_entry {
+  referred_table_entry {
+    match {
+      id: "key-b"
+    }
+    action {
+      do_thing_4 {
+      }
+    }
+  }
+}
+
+--- Write requests (output):
+WriteRequest #0
+updates {
+  type: DELETE
+  table_entry {
+    referring_table_entry {
+      match {
+        val: "0x001"
+      }
+      action {
+        referring_action {
+          referring_id_1: "key-a"
+          referring_id_2: "key-b"
+        }
+      }
+    }
+  }
+}
+
+WriteRequest #1
+updates {
+  type: DELETE
+  table_entry {
+    referred_table_entry {
+      match {
+        id: "key-a"
+      }
+      action {
+        do_thing_4 {
+        }
+      }
+    }
+  }
+}
+updates {
+  type: DELETE
+  table_entry {
+    referred_table_entry {
+      match {
+        id: "key-b"
+      }
+      action {
+        do_thing_4 {
+        }
+      }
+    }
+  }
+}
+
+=========================================================================
 SequenceTest: Insert(a), Insert(not-a)
 =========================================================================
 
@@ -508,7 +603,7 @@ updates {
   table_entry {
     referring_table_entry {
       match {
-        val: "0x002"
+        val: "0x001"
       }
       action {
         referring_action {
@@ -524,7 +619,7 @@ updates {
   table_entry {
     referring_table_entry {
       match {
-        val: "0x001"
+        val: "0x002"
       }
       action {
         referring_action {
