@@ -117,24 +117,26 @@ cc_test(
 
 p4_library(
     name = "sai",
-    src = "sai_main.p4",
+    src = "middleblock.p4",
     # Do not access directly. Use checked in sai.p4info.pb.txt instead.
     p4info_out = "generated/sai.p4info.pb.txt",
     deps = [
         "acl_ingress.p4",
         "acl_linkqual.p4",
         "acl_lookup.p4",
-        "headers.p4",
         "ids.h",
-        "ipv4_checksum.p4",
-        "l3_admit.p4",
-        "metadata.p4",
-        "mirroring.p4",
-        "packet_rewrites.p4",
-        "parser.p4",
         "resource_limits.p4",
-        "routing.p4",
-        "ttl.p4",
+        "//sai_p4/fixed:headers.p4",
+        "//sai_p4/fixed:ids.h",
+        "//sai_p4/fixed:ipv4_checksum.p4",
+        "//sai_p4/fixed:l3_admit.p4",
+        "//sai_p4/fixed:metadata.p4",
+        "//sai_p4/fixed:mirroring.p4",
+        "//sai_p4/fixed:packet_rewrites.p4",
+        "//sai_p4/fixed:parser.p4",
+        "//sai_p4/fixed:resource_limits.p4",
+        "//sai_p4/fixed:routing.p4",
+        "//sai_p4/fixed:ttl.p4",
     ],
 )
 
@@ -144,6 +146,9 @@ cc_library(
     visibility = [
         "//platforms/networking/apes/z3/lib/lego_herc:__pkg__",
     ],
+    deps = [
+        "//sai_p4/fixed:p4_ids",
+    ],
 )
 
 # -- BMv2 ----------------------------------------------------------------------
@@ -151,7 +156,7 @@ cc_library(
 # Like "sai" target, but specialized to BMv2 by setting -D PLATFORM_BMV2.
 p4_library(
     name = "sai_bmv2",
-    src = "sai_main.p4",
+    src = "middleblock.p4",
     extra_args = "-DPLATFORM_BMV2",
     p4info_out = "generated/sai_bmv2.p4info.pb.txt",
     target = "bmv2",
@@ -161,17 +166,19 @@ p4_library(
         "acl_ingress.p4",
         "acl_linkqual.p4",
         "acl_lookup.p4",
-        "headers.p4",
         "ids.h",
-        "ipv4_checksum.p4",
-        "l3_admit.p4",
-        "metadata.p4",
-        "mirroring.p4",
-        "packet_rewrites.p4",
-        "parser.p4",
         "resource_limits.p4",
-        "routing.p4",
-        "ttl.p4",
+        "//sai_p4/fixed:headers.p4",
+        "//sai_p4/fixed:ids.h",
+        "//sai_p4/fixed:ipv4_checksum.p4",
+        "//sai_p4/fixed:l3_admit.p4",
+        "//sai_p4/fixed:metadata.p4",
+        "//sai_p4/fixed:mirroring.p4",
+        "//sai_p4/fixed:packet_rewrites.p4",
+        "//sai_p4/fixed:parser.p4",
+        "//sai_p4/fixed:resource_limits.p4",
+        "//sai_p4/fixed:routing.p4",
+        "//sai_p4/fixed:ttl.p4",
     ],
 )
 

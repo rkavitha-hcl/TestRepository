@@ -2,8 +2,8 @@
 #define SAI_ACL_INGRESS_P4_
 
 #include <v1model.p4>
-#include "headers.p4"
-#include "metadata.p4"
+#include "../../fixed/headers.p4"
+#include "../../fixed/metadata.p4"
 #include "ids.h"
 #include "resource_limits.p4"
 

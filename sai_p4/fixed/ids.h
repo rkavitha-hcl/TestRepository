@@ -1,6 +1,5 @@
-// Rename this for the open source version.
-#ifndef PLATFORMS_NETWORKING_ORION_P4_SAI_IDS_H_
-#define PLATFORMS_NETWORKING_ORION_P4_SAI_IDS_H_
+#ifndef SAI_IDS_H_
+#define SAI_IDS_H_
 
 // All declarations (tables, actions, action profiles, meters, counters) have a
 // stable ID. This list will evolve as new declarations are added. IDs cannot be
@@ -22,13 +21,6 @@
 #define MIRROR_SESSION_TABLE_ID 0x02000046            // 33554502
 #define L3_ADMIT_TABLE_ID 0x02000047                  // 33554503
 
-// IDs of ACL tables (8 most significant bits = 0x02).
-// Since these IDs are user defined, they need to be separate from the fixed SAI
-// table ID space. We achieve this by starting the IDs at 0x100.
-#define ACL_INGRESS_TABLE_ID 0x02000100   // 33554688
-#define ACL_LOOKUP_TABLE_ID 0x02000101    // 33554689
-#define ACL_LINKQUAL_TABLE_ID 0x02000102  // 33554690
-
 // --- Actions -----------------------------------------------------------------
 
 // IDs of fixed SAI actions (8 most significant bits = 0x01).
@@ -40,20 +32,6 @@
 #define ROUTING_DROP_ACTION_ID 0x01000006                     // 16777222
 #define MIRRORING_MIRROR_AS_IPV4_ERSPAN_ACTION_ID 0x01000007  // 16777223
 #define L3_ADMIT_ACTION_ID 0x01000008                         // 16777224
-
-// IDs of ACL actions (8 most significant bits = 0x01).
-// Since these IDs are user defined, they need to be separate from the fixed SAI
-// actions ID space. We achieve this by starting the IDs at 0x100.
-#define ACL_LOOKUP_SET_VRF_ACTION_ID 0x01000100     // 16777472
-#define ACL_INGRESS_COPY_ACTION_ID 0x01000101       // 16777473
-#define ACL_INGRESS_TRAP_ACTION_ID 0x01000102       // 16777474
-#define ACL_INGRESS_FORWARD_ACTION_ID 0x01000103    // 16777475
-#define ACL_INGRESS_MIRROR_ACTION_ID 0x01000104     // 16777476
-#define ACL_LINKQUAL_DROP_ACTION_ID 0x01000105      // 16777477
-#define ACL_LINKQUAL_SET_PORT_ACTION_ID 0x01000106  // 16777478
-
-// --- Meters ------------------------------------------------------------------
-#define ACL_INGRESS_METER_ID 0x15000100  // 352321792
 
 // --- Copy to CPU session -----------------------------------------------------
 
@@ -70,11 +48,6 @@
 // }
 //
 #define COPY_TO_CPU_SESSION_ID 1024
-
-// --- Counters ----------------------------------------------------------------
-#define ACL_LINKQUAL_COUNTER_ID 0x13000100  // 318767360
-#define ACL_LOOKUP_COUNTER_ID 0x13000101    // 318767361
-#define ACL_INGRESS_COUNTER_ID 0x13000102   // 318767362
 
 // --- Packet-IO ---------------------------------------------------------------
 
@@ -96,4 +69,4 @@
 // Mutually exclusive with "egress_port".
 #define PACKET_OUT_SUBMIT_TO_INGRESS_ID 2
 
-#endif  // PLATFORMS_NETWORKING_ORION_P4_SAI_IDS_H_
+#endif  // SAI_IDS_H_

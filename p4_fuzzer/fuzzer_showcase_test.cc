@@ -1,6 +1,5 @@
 #include <memory>
 
-#include "google_sai_p4/sai_p4info.h"
 #include "gtest/gtest.h"
 #include "gutil/proto.h"
 #include "p4_fuzzer/annotation_util.h"
@@ -9,6 +8,7 @@
 #include "p4_fuzzer/mutation.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/pd.h"
+#include "sai_p4/instantiations/google/sai_p4info.h"
 
 namespace p4_fuzzer {
 namespace {

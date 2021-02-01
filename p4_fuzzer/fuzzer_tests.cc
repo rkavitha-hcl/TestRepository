@@ -8,7 +8,6 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "gmock/gmock.h"
-#include "google_sai_p4/sai_p4info.h"
 #include "gutil/status_matchers.h"
 #include "p4_fuzzer/annotation_util.h"
 #include "p4_fuzzer/fuzz_util.h"
@@ -18,6 +17,7 @@
 #include "p4_pdpi/entity_management.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
+#include "sai_p4/instantiations/google/sai_p4info.h"
 
 ABSL_FLAG(int, fuzzer_iterations, 1000,
           "Number of updates the fuzzer should generate.");

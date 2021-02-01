@@ -1,4 +1,4 @@
-#include "google_sai_p4/sai_p4info.h"
+#include "sai_p4/instantiations/google/sai_p4info.h"
 
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"

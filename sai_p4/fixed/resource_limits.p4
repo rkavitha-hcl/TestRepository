@@ -61,11 +61,4 @@
 // log2 of WCMP_GROUP_SELECTOR_MAX_SUM_OF_WEIGHTS_PER_GROUP.
 #define WCMP_SELECTOR_INPUT_BITWIDTH 10
 
-#define ACL_INGRESS_TABLE_SIZE 128
-#define ACL_LOOKUP_TABLE_SIZE 256
-
-// Maximum channelization for current use-cases is 96 ports, and each port may
-// have up to 2 linkqual flows associated with it.
-#define ACL_LINKQUAL_TABLE_SIZE 192
-
 #endif  // SAI_RESOURCE_LIMITS_P4_

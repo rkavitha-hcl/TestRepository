@@ -1,16 +1,16 @@
 #include <v1model.p4>
-#include "headers.p4"
-#include "metadata.p4"
-#include "parser.p4"
-#include "routing.p4"
-#include "ipv4_checksum.p4"
-#include "mirroring.p4"
-#include "l3_admit.p4"
-#include "ttl.p4"
+#include "../../fixed/headers.p4"
+#include "../../fixed/metadata.p4"
+#include "../../fixed/parser.p4"
+#include "../../fixed/routing.p4"
+#include "../../fixed/ipv4_checksum.p4"
+#include "../../fixed/mirroring.p4"
+#include "../../fixed/l3_admit.p4"
+#include "../../fixed/ttl.p4"
+#include "../../fixed/packet_rewrites.p4"
 #include "acl_ingress.p4"
 #include "acl_lookup.p4"
 #include "acl_linkqual.p4"
-#include "packet_rewrites.p4"
 
 control ingress(inout headers_t headers,
                 inout local_metadata_t local_metadata,
