@@ -20,6 +20,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
@@ -121,9 +122,9 @@ void TestGnmiInterfaceConfigSetAdminStatus(thinkit::Switch& sut,
   EXPECT_THAT(state_path_response, HasSubstr(kStateUp));
 }
 
-void TestGnmiPortComponentPaths(thinkit::SSHClient& ssh_client,
-                                thinkit::Switch& sut,
-                                absl::string_view platform_json_path) {
+void TestGnmiPortComponentPaths(
+    thinkit::SSHClient& ssh_client, thinkit::Switch& sut,
+    absl::flat_hash_map<std::string, std::string>& expected_port_index_map) {
   ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
 
   // Configure integrated circuit name on the switch.
@@ -134,26 +135,7 @@ void TestGnmiPortComponentPaths(thinkit::SSHClient& ssh_client,
                               GnmiSetType::kUpdate,
                               ConstructGnmiConfigSetString("name", ic_name)));
 
-  // Fetch platform.json from the switch.
-  const std::string ssh_command =
-      absl::StrCat("cat ", platform_json_path, kPlatformJson);
-  LOG(INFO) << "Fetching " << kPlatformJson
-            << " contents from switch path: " << platform_json_path;
-  ASSERT_OK_AND_ASSIGN(std::string platform_json_contents,
-                       ssh_client.RunCommand(sut.ChassisName(), ssh_command,
-                                             absl::ZeroDuration()));
-  LOG(INFO) << kPlatformJson << " contents: " << platform_json_contents;
-
-  // Fetch interface information from platform.json.
-  const auto platform_json = json::parse(platform_json_contents);
-  const auto interface_json = platform_json.find(kInterfaces);
-  ASSERT_NE(interface_json, platform_json.end());
-
-  for (const auto& interface : interface_json->items()) {
-    const std::string port_name = interface.key();
-    const auto port_info = interface.value();
-    ASSERT_EQ(port_info.count("index"), 1);
-
+  for (const auto& [port_name, port_index] : expected_port_index_map) {
     // Fetch /interfaces/interface[name=<port>]/state/hardware-port.
     const std::string hw_port_state_path = absl::StrCat(
         "interfaces/interface[name=", port_name, "]/state/hardware-port");
@@ -172,7 +154,7 @@ void TestGnmiPortComponentPaths(thinkit::SSHClient& ssh_client,
     const auto separator_location = hw_port.find('/');
     ASSERT_NE(separator_location, std::string::npos);
     const std::string port_number = hw_port.substr(separator_location + 1);
-    ASSERT_EQ(port_info["index"], port_number);
+    ASSERT_EQ(port_index, port_number);
 
     // Verify that hardware-port attribute matches information in path
     // /components/component[name=<port>]/state/name.

@@ -15,6 +15,7 @@
 #ifndef GOOGLE_TESTS_THINKIT_GNMI_INTERFACE_TESTS_H_
 #define GOOGLE_TESTS_THINKIT_GNMI_INTERFACE_TESTS_H_
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/strings/string_view.h"
 #include "thinkit/ssh_client.h"
 #include "thinkit/switch.h"
@@ -26,9 +27,9 @@ void TestGnmiInterfaceConfigSetAdminStatus(thinkit::Switch& sut,
                                            absl::string_view if_name);
 
 // Test GNMI component config and state paths.
-void TestGnmiPortComponentPaths(thinkit::SSHClient& ssh_client,
-                                thinkit::Switch& sut,
-                                absl::string_view platform_json_path);
+void TestGnmiPortComponentPaths(
+    thinkit::SSHClient& ssh_client, thinkit::Switch& sut,
+    absl::flat_hash_map<std::string, std::string>& expected_port_index_map);
 
 // Test port-speed GNMI config and state paths.
 // The test expects that auto-negotiation has been disabled for the given port.
