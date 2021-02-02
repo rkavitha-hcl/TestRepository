@@ -610,10 +610,6 @@ absl::Status ValidateGenericUpdateStatus(google::rpc::Code code,
     return absl::InvalidArgumentError(
         "OK status should not contain error message");
   }
-  if (code != google::rpc::OK && message.empty()) {
-    return absl::InvalidArgumentError(
-        "UpdateStatus with non-ok status must have error message");
-  }
   return absl::OkStatus();
 }
 

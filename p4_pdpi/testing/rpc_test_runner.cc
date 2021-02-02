@@ -634,17 +634,6 @@ static void RunWriteRpcStatusTest() {
         }
       )PB"));
   RunInvalidIrFailToTranslateToGrpcTest(
-      "IR rpc_response has non ok status code but empty message",
-      gutil::ParseProtoOrDie<pdpi::IrWriteRpcStatus>(R"PB(
-        rpc_response: {
-          statuses: { code: OK }
-          statuses: { code: OK }
-          statuses: { code: OK }
-          statuses: { code: UNKNOWN }
-          statuses: { code: UNKNOWN }
-        }
-      )PB"));
-  RunInvalidIrFailToTranslateToGrpcTest(
       "IR rpc_response has status with invalid code",
       gutil::ParseProtoOrDie<pdpi::IrWriteRpcStatus>(R"PB(
         rpc_response: {
@@ -664,12 +653,6 @@ static void RunWriteRpcStatusTest() {
       "IR rpc_wide_error should not have ok status",
       gutil::ParseProtoOrDie<pdpi::IrWriteRpcStatus>(R"PB(
         rpc_wide_error: { code: 0 message: "ok_code" }
-      )PB"));
-
-  RunInvalidIrFailToTranslateToGrpcTest(
-      "IR non ok rpc_wide_error should have non-empty message",
-      gutil::ParseProtoOrDie<pdpi::IrWriteRpcStatus>(R"PB(
-        rpc_wide_error: { code: 2 }
       )PB"));
 
   RunPdWriteRpcStatusTest("PD rpc_wide error has invalid code",
@@ -692,18 +675,6 @@ static void RunWriteRpcStatusTest() {
                           gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"PB(
                             rpc_response: {
                               statuses: { code: 42 }
-                              statuses: { code: OK }
-                              statuses: { code: OK }
-                              statuses: { code: OK }
-                              statuses: { code: UNKNOWN }
-                            }
-                          )PB"),
-                          5, INPUT_IS_INVALID);
-
-  RunPdWriteRpcStatusTest("non-ok status with empty message should fail",
-                          gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"PB(
-                            rpc_response: {
-                              statuses: { code: OK }
                               statuses: { code: OK }
                               statuses: { code: OK }
                               statuses: { code: OK }

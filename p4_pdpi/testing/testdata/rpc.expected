@@ -1006,28 +1006,6 @@ rpc_response {
 INVALID_ARGUMENT: OK status should not contain error message
 
 =========================================================================
-Invalid Ir WriteRpcStatus should fail test: IR rpc_response has non ok status code but empty message
-=========================================================================
-
---- IR (Input):
-rpc_response {
-  statuses {
-  }
-  statuses {
-  }
-  statuses {
-  }
-  statuses {
-    code: UNKNOWN
-  }
-  statuses {
-    code: UNKNOWN
-  }
-}
---- IR is invalid/unsupported:
-INVALID_ARGUMENT: UpdateStatus with non-ok status must have error message
-
-=========================================================================
 Invalid Ir WriteRpcStatus should fail test: IR rpc_response has status with invalid code
 =========================================================================
 
@@ -1071,17 +1049,6 @@ rpc_wide_error {
 }
 --- IR is invalid/unsupported:
 INVALID_ARGUMENT: IR rpc-wide error should not have ok status
-
-=========================================================================
-Invalid Ir WriteRpcStatus should fail test: IR non ok rpc_wide_error should have non-empty message
-=========================================================================
-
---- IR (Input):
-rpc_wide_error {
-  code: 2
-}
---- IR is invalid/unsupported:
-INVALID_ARGUMENT: UpdateStatus with non-ok status must have error message
 
 =========================================================================
 Pd WriteRpcStatus test (INPUT_IS_INVALID): PD rpc_wide error has invalid code
@@ -1165,44 +1132,6 @@ rpc_response {
 
 ---PD is invalid/unsupported:
 INVALID_ARGUMENT: Enum value within code is : 42
-
-
-=========================================================================
-Pd WriteRpcStatus test (INPUT_IS_INVALID): non-ok status with empty message should fail
-=========================================================================
-
---- PD(input):
-rpc_response {
-  statuses {
-  }
-  statuses {
-  }
-  statuses {
-  }
-  statuses {
-  }
-  statuses {
-    code: UNKNOWN
-  }
-}
-
----IR:
-rpc_response {
-  statuses {
-  }
-  statuses {
-  }
-  statuses {
-  }
-  statuses {
-  }
-  statuses {
-    code: UNKNOWN
-  }
-}
-
----PD is invalid/unsupported (detected when translating IR to gRPC.)
-UpdateStatus with non-ok status must have error message
 
 
 =========================================================================
