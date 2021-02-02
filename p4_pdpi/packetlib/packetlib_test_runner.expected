@@ -705,7 +705,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 - headers[1].ihl: invalid format: illegal conversion from hex string '0x6k' to 4 bits; expected between 5 and 8 bits
 - headers[1].total_length: missing
 - headers[1].checksum: missing
-- headers[1].ipv4_source: invalid format: Invalid IPv4 address: ffff:1::
+- headers[1].ipv4_source: invalid format: Invalid IPv4 address: 'ffff:1::'
 - headers[1].version: Must be 0x4, but was 0x3 instead.
 
 UpdateComputedFields(packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].checksum: illegal conversion from hex string '0x6k' to 4 bits; expected between 5 and 8 bits

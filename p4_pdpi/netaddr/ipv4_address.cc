@@ -34,7 +34,7 @@ bool ParseByteInBase10(absl::string_view base10_string, uint8_t& byte) {
 absl::StatusOr<Ipv4Address> Ipv4Address::OfString(absl::string_view address) {
   auto invalid = [=]() {
     return gutil::InvalidArgumentErrorBuilder()
-           << "Invalid IPv4 address: " << address;
+           << "Invalid IPv4 address: '" << address << "'";
   };
 
   std::vector<std::string> bytes = absl::StrSplit(address, '.');

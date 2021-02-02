@@ -43,6 +43,9 @@ class NetworkAddress {
   static constexpr T AllZeros() { return T(std::bitset<num_bits>()); }
   // Returns the address with all bits set to one.
   static constexpr T AllOnes() { return T(~std::bitset<num_bits>()); }
+  // Returns LPM mask for the given prefix length, or error if the prefix length
+  // is not in the interval [0, num_bits].
+  static absl::StatusOr<T> MaskForPrefixLength(int prefix_length);
   // Returns the address encoded by the given bitset.
   static constexpr T OfBitset(std::bitset<num_bits> bits) {
     return T(std::move(bits));
@@ -79,6 +82,12 @@ class NetworkAddress {
   // (Not `virtual` only because that would prevent constexpr addresses.)
   // std::string ToString() const;
 
+  // Returns prefix length if address is an LPM mask, i.e. is of the form
+  // 1...10...0, or error otherwise.
+  // More formally, returns `k` if `*this == *MaskForPrefixLength(k)` for some
+  // `0 <= k <= num_bits`, or error status if no such `k` exists.
+  absl::StatusOr<int> ToLpmPrefixLength() const;
+
   // -- Bit operations --
   void operator&=(const T& other) { bits_ &= other.bits_; }
   void operator|=(const T& other) { bits_ |= other.bits_; }
@@ -95,6 +104,18 @@ class NetworkAddress {
   // -- Comparisons --
   bool operator==(const T& other) const { return bits_ == other.bits_; }
   bool operator!=(const T& other) const { return bits_ != other.bits_; }
+  bool operator<(const T& other) const {
+    return ToPaddedByteString() < other.ToPaddedByteString();
+  }
+  bool operator<=(const T& other) const {
+    return ToPaddedByteString() <= other.ToPaddedByteString();
+  }
+  bool operator>(const T& other) const {
+    return ToPaddedByteString() > other.ToPaddedByteString();
+  }
+  bool operator>=(const T& other) const {
+    return ToPaddedByteString() >= other.ToPaddedByteString();
+  }
 
   // Hashing (https://abseil.io/docs/cpp/guides/hash).
   template <typename H>
@@ -127,6 +148,16 @@ std::ostream& operator<<(std::ostream& os,
 // == END OF PUBLIC INTERFACE ==================================================
 
 template <std::size_t N, typename T>
+absl::StatusOr<T> NetworkAddress<N, T>::MaskForPrefixLength(int prefix_length) {
+  if (prefix_length < 0 || prefix_length > N) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "invalid prefix length " << prefix_length << " for address of "
+           << N << " bits; must be in [0, " << N << "]";
+  }
+  return AllOnes() << (N - prefix_length);
+}
+
+template <std::size_t N, typename T>
 absl::StatusOr<T> NetworkAddress<N, T>::OfHexString(absl::string_view hex_str) {
   ASSIGN_OR_RETURN(auto bits, pdpi::HexStringToBitset<N>(hex_str));
   return T(std::move(bits));
@@ -147,6 +178,14 @@ std::string NetworkAddress<N, T>::ToPaddedByteString() const {
 template <std::size_t N, typename T>
 std::string NetworkAddress<N, T>::ToP4RuntimeByteString() const {
   return pdpi::BitsetToP4RuntimeByteString(bits_);
+}
+
+template <std::size_t N, typename T>
+absl::StatusOr<int> NetworkAddress<N, T>::ToLpmPrefixLength() const {
+  for (int i = 0; i <= N; ++i) {
+    if (*this == AllOnes() << (N - i)) return i;
+  }
+  return gutil::InvalidArgumentErrorBuilder() << "not an LPM mask: " << *this;
 }
 
 }  // namespace netaddr

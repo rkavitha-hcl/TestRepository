@@ -164,5 +164,45 @@ TEST(Ipv4AddressTest, ToP4RuntimeByteStringSuccess) {
   }
 }
 
+// Also tests `ToLpmPrefixLength` for all valid masks.
+TEST(Ipv4AddressTest, MaskForPrefixLength_ValidLengths) {
+  for (int length = 0; length <= 32; ++length) {
+    // Construction of mask succeeds.
+    ASSERT_OK_AND_ASSIGN(auto mask, Ipv4Address::MaskForPrefixLength(length));
+
+    // Rountrip property.
+    EXPECT_THAT(mask.ToLpmPrefixLength(), IsOkAndHolds(Eq(length)));
+
+    // Characteristic properties of mask.
+    for (int i = 0; i < 32 - length; ++i) {
+      EXPECT_FALSE(mask.ToBitset()[i]) << " for i = " << i;
+    }
+    for (int i = 32 - length; i < 32; ++i) {
+      EXPECT_TRUE(mask.ToBitset()[i]) << " for i = " << i;
+    }
+  }
+}
+
+TEST(Ipv4AddressTest, MaskForPrefixLength_InvalidLengths) {
+  std::vector<int> bad_prefix_lengths = {-32, -2, -1, 33, 64, 1000};
+  for (int prefix_length : bad_prefix_lengths) {
+    EXPECT_THAT(Ipv4Address::MaskForPrefixLength(prefix_length), Not(IsOk()))
+        << "for prefix_length = " << prefix_length;
+  }
+}
+
+TEST(Ipv4AddressTest, ToLpmPrefixLength_InvalidMasks) {
+  std::vector<Ipv4Address> bad_masks = {
+      Ipv4Address::OfBitset(0b1111'0000'0000'0000'0000'0000'0000'0001),
+      Ipv4Address::OfBitset(0b1111'0111'1111'1111'1111'1111'1111'1111),
+      Ipv4Address::OfBitset(0b0111'1111'1111'1111'1111'1111'1111'1111),
+      Ipv4Address::OfBitset(0b0000'1111'1111'1111'1111'1111'1111'1111),
+  };
+  for (const Ipv4Address& bad_mask : bad_masks) {
+    EXPECT_THAT(bad_mask.ToLpmPrefixLength(), Not(IsOk()))
+        << "for bad_mask = " << bad_mask;
+  }
+}
+
 }  // namespace
 }  // namespace netaddr

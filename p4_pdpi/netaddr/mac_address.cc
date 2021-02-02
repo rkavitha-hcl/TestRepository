@@ -36,7 +36,7 @@ bool ParseByteInBase16(absl::string_view base16_string, uint8_t& byte) {
 absl::StatusOr<MacAddress> MacAddress::OfString(absl::string_view address) {
   auto invalid = [=]() {
     return gutil::InvalidArgumentErrorBuilder()
-           << "Invalid MAC address: " << address;
+           << "Invalid MAC address: '" << address << "'";
   };
 
   std::vector<std::string> bytes = absl::StrSplit(address, ':');
