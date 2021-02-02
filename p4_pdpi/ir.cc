@@ -277,6 +277,16 @@ StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info &p4_info) {
         }
       }
 
+      switch (match_field.match_type()) {
+        case p4::config::v1::MatchField::OPTIONAL:
+        case p4::config::v1::MatchField::RANGE:
+        case p4::config::v1::MatchField::TERNARY:
+          ir_table_definition.set_requires_priority(true);
+          break;
+        default:
+          break;
+      }
+
       RETURN_IF_ERROR(gutil::InsertIfUnique(
           ir_table_definition.mutable_match_fields_by_id(), match_field.id(),
           ir_match_definition,
@@ -989,7 +999,7 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
            << " instead";
   }
 
-  if (RequiresPriority(table)) {
+  if (table.requires_priority()) {
     if (pi.priority() <= 0) {
       return InvalidArgumentErrorBuilder()
              << "Table entries with ternary or optional matches require a "
@@ -1105,7 +1115,7 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
            << " instead";
   }
 
-  if (RequiresPriority(table)) {
+  if (table.requires_priority()) {
     if (ir.priority() <= 0) {
       return InvalidArgumentErrorBuilder()
              << "Table entries with ternary or optional matches require a "

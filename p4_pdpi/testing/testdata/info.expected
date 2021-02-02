@@ -1425,6 +1425,7 @@ tables_by_id {
       }
     }
     size: 1024
+    requires_priority: true
     const_default_action {
       preamble {
         id: 21257015
@@ -2116,6 +2117,7 @@ tables_by_id {
       }
     }
     size: 1024
+    requires_priority: true
     const_default_action {
       preamble {
         id: 21257015
@@ -3195,6 +3197,7 @@ tables_by_name {
       }
     }
     size: 1024
+    requires_priority: true
     const_default_action {
       preamble {
         id: 21257015
@@ -3687,6 +3690,7 @@ tables_by_name {
       }
     }
     size: 1024
+    requires_priority: true
     const_default_action {
       preamble {
         id: 21257015

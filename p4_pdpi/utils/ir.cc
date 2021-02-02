@@ -596,20 +596,6 @@ absl::StatusOr<std::string> PrefixLenToMask(int prefix_len, int bitwidth) {
   return result;
 }
 
-bool RequiresPriority(const IrTableDefinition &ir_table_definition) {
-  const auto &matches = ir_table_definition.match_fields_by_name();
-  for (auto it = matches.begin(); it != matches.end(); it++) {
-    switch (it->second.match_field().match_type()) {
-      case p4::config::v1::MatchField::OPTIONAL:
-      case p4::config::v1::MatchField::RANGE:
-      case p4::config::v1::MatchField::TERNARY:
-        return true;
-      default:
-        break;
-    }
-  }
-  return false;
-}
 absl::Status IsGoogleRpcCode(int rpc_code) {
   if (rpc_code < 0 || rpc_code > 15) {
     return gutil::InvalidArgumentErrorBuilder()

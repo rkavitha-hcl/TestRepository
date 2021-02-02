@@ -139,8 +139,6 @@ absl::StatusOr<std::string> Intersection(const std::string &left,
 // Returns the (normalized) mask for a given prefix length.
 absl::StatusOr<std::string> PrefixLenToMask(int prefix_len, int bitwidth);
 
-bool RequiresPriority(const IrTableDefinition &ir_table_definition);
-
 absl::Status IsGoogleRpcCode(int rpc_code);
 // Checks if the rpc code and message satisfy the condition of UpdateStatus.
 // 1: If `code` is ok, `message` should be empty.
