@@ -8,7 +8,11 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "gmock/gmock.h"
+#include "gtest/gtest.h"
+#include "gutil/collections.h"
+#include "gutil/status.h"
 #include "gutil/status_matchers.h"
+#include "p4/v1/p4runtime.pb.h"
 #include "p4_fuzzer/annotation_util.h"
 #include "p4_fuzzer/fuzz_util.h"
 #include "p4_fuzzer/fuzzer.pb.h"
@@ -19,7 +23,7 @@
 #include "p4_pdpi/ir.pb.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 
-ABSL_FLAG(int, fuzzer_iterations, 1000,
+ABSL_FLAG(int, fuzzer_iterations, 10000,
           "Number of updates the fuzzer should generate.");
 
 namespace p4_fuzzer {
@@ -88,8 +92,11 @@ void FuzzP4rtWriteAndCheckNoInternalErrors(thinkit::MirrorTestbed& testbed,
           << "Expected proper response, but got: " << response.DebugString();
     }
     if (response.has_rpc_response()) {
-      for (const pdpi::IrUpdateStatus& status :
-           response.rpc_response().statuses()) {
+      for (int i = 0; i < response.rpc_response().statuses().size(); i++) {
+        const pdpi::IrUpdateStatus& status =
+            response.rpc_response().statuses(i);
+        const p4::v1::Update& update = request.updates(i);
+
         // TODO: enable this once the switch stops returning INTERNAL
         // errors.
         if (!mask_known_failures) {
@@ -97,9 +104,33 @@ void FuzzP4rtWriteAndCheckNoInternalErrors(thinkit::MirrorTestbed& testbed,
               << "Fuzzing should never cause an INTERNAL error, but got: "
               << status.DebugString();
         }
+        // Check resource exhaustion.
+        if (status.code() == google::rpc::Code::RESOURCE_EXHAUSTED) {
+          int table_id = update.entity().table_entry().table_id();
+          ASSERT_OK_AND_ASSIGN(
+              const pdpi::IrTableDefinition& table,
+              gutil::FindOrStatus(info.tables_by_id(), table_id));
+          // TODO: re-enable this check once the switch is fixed.
+          if (!(mask_known_failures &&
+                table.preamble().alias() == "acl_lookup_table")) {
+            // Check that table was full before this status.
+            EXPECT_TRUE(state.IsTableFull(table_id))
+                << "Switch reported RESOURCE_EXHAUSTED for "
+                << table.preamble().alias() << ". The table currently has "
+                << state.GetNumTableEntries(table_id)
+                << " entries, but is supposed to support at least "
+                << table.size() << " entries. Update = " << update.DebugString()
+                << "\nState = " << state.SwitchStateSummary();
+          }
+        }
+        // Collect error messages and update state.
         if (status.code() != google::rpc::Code::OK) {
-          error_messages.insert(absl::StrCat(status.code(), status.message()));
+          error_messages.insert(absl::StrCat(
+              google::rpc::Code_Name(status.code()), ": ", status.message()));
         } else {
+          // TODO: check using ASSERT_OK in the future once the switch no
+          // longer fails this.
+          state.ApplyUpdate(update).IgnoreError();
           num_ok_statuses += 1;
         }
       }
@@ -110,7 +141,13 @@ void FuzzP4rtWriteAndCheckNoInternalErrors(thinkit::MirrorTestbed& testbed,
   LOG(INFO) << "  num_updates:     " << num_updates;
   LOG(INFO) << "  num_ok_statuses: " << num_ok_statuses;
 
-  ASSERT_OK(testbed.Environment().StoreTestArtifact(
+  LOG(INFO) << "Final state:";
+  LOG(INFO) << state.SwitchStateSummary();
+
+  EXPECT_OK(testbed.Environment().StoreTestArtifact(
+      "final_switch_state.txt", state.SwitchStateSummary()));
+
+  EXPECT_OK(testbed.Environment().StoreTestArtifact(
       "error_messages.txt", absl::StrJoin(error_messages, "\n")));
 
   // Leave the switch in a clean state.
