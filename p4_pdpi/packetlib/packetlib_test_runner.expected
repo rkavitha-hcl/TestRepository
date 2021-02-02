@@ -802,8 +802,8 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 - headers[1].flow_label: invalid format: illegal conversion from hex string '0x1234' to 20 bits; expected between 13 and 16 bits
 - headers[1].next_header: invalid format: illegal conversion from hex string '0x050' to 8 bits; expected between 9 and 12 bits
 - headers[1].hop_limit: invalid format: illegal conversion from hex string '0x1' to 8 bits; expected between 1 and 4 bits
-- headers[1].ipv6_source: invalid format: On input '20.0.0.3': Invalid IPv6 address: '20.0.0.3'
-- headers[1].ipv6_destination: invalid format: On input ':': Invalid IPv6 address: ':'
+- headers[1].ipv6_source: invalid format: invalid IPv6 address: '20.0.0.3'
+- headers[1].ipv6_destination: invalid format: invalid IPv6 address: ':'
 - headers[1].version: Must be 0x6, but was 0x4 instead.
 - headers[1].payload_length: Must be 0x0002, but was 0x0000 instead.
 
@@ -814,8 +814,8 @@ Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - headers[1].flow_label: invalid format: illegal conversion from hex string '0x1234' to 20 bits; expected between 13 and 16 bits
 - headers[1].next_header: invalid format: illegal conversion from hex string '0x050' to 8 bits; expected between 9 and 12 bits
 - headers[1].hop_limit: invalid format: illegal conversion from hex string '0x1' to 8 bits; expected between 1 and 4 bits
-- headers[1].ipv6_source: invalid format: On input '20.0.0.3': Invalid IPv6 address: '20.0.0.3'
-- headers[1].ipv6_destination: invalid format: On input ':': Invalid IPv6 address: ':'
+- headers[1].ipv6_source: invalid format: invalid IPv6 address: '20.0.0.3'
+- headers[1].ipv6_destination: invalid format: invalid IPv6 address: ':'
 - headers[1].version: Must be 0x6, but was 0x4 instead.
 - headers[1].payload_length: Must be 0x0002, but was 0x0000 instead.
 

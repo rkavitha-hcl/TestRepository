@@ -4,9 +4,10 @@
 #include <bitset>
 #include <cstddef>
 #include <iosfwd>
+#include <ostream>
 #include <string>
+#include <utility>
 
-#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "gutil/status.h"

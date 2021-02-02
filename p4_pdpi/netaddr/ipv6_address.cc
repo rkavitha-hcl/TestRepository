@@ -1,16 +1,47 @@
 #include "p4_pdpi/netaddr/ipv6_address.h"
 
-#include <string>
-#include <type_traits>
+#include <arpa/inet.h>
+#include <resolv.h>
+#include <sys/socket.h>
 
+#include <bitset>
+#include <cstdint>
+#include <string>
+#include <utility>
+
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
+#include "glog/logging.h"
 #include "gutil/status.h"
 #include "p4_pdpi/netaddr/network_address.h"
+#include "p4_pdpi/utils/hex_string.h"
 #include "p4_pdpi/utils/ir.h"
 
 namespace netaddr {
+
+absl::StatusOr<Ipv6Address> Ipv6Address::OfString(absl::string_view address) {
+  std::string bytes = std::string(128 / 8, '\x0');
+  if (inet_pton(AF_INET6, address.data(), bytes.data()) == 1) {
+    auto ip = Ipv6Address::OfByteString(bytes);
+    if (ip.ok()) return ip;
+    LOG(DFATAL) << "failed to parse IPv6 byte string produced by inet_pton: "
+                << ip.status();
+  }
+  return gutil::InvalidArgumentErrorBuilder()
+         << "invalid IPv6 address: '" << address << "'";
+}
+
+std::string Ipv6Address::ToString() const {
+  char result[INET6_ADDRSTRLEN];
+  std::string bytes = ToPaddedByteString();
+  if (inet_ntop(AF_INET6, bytes.c_str(), result, sizeof(result)) != nullptr) {
+    return std::string(std::move(result));
+  }
+  LOG(DFATAL) << "inet_ntop failed to convert IPv6 address " << ToHexString()
+              << " to readable string";
+  return "::";
+}
 
 Ipv6Address::Ipv6Address(uint16_t hextet8, uint16_t hextet7, uint16_t hextet6,
                          uint16_t hextet5, uint16_t hextet4, uint16_t hextet3,
@@ -23,21 +54,5 @@ Ipv6Address::Ipv6Address(uint16_t hextet8, uint16_t hextet7, uint16_t hextet6,
                      (std::bitset<128>(hextet3) << 32) |
                      (std::bitset<128>(hextet2) << 16) |
                      (std::bitset<128>(hextet1) << 0)} {};
-
-// TODO: Instead of having this module rely on utils/ir, put the
-// implementations here and make the dependency the other way around.
-
-absl::StatusOr<Ipv6Address> Ipv6Address::OfString(absl::string_view address) {
-  std::string lower{address.data()};
-  absl::AsciiStrToLower(&lower);
-  ASSIGN_OR_RETURN(std::string bytes, pdpi::Ipv6ToNormalizedByteString(lower),
-                   _.SetPrepend() << "On input '" << address << "': ");
-  return Ipv6Address::OfByteString(bytes);
-}
-
-std::string Ipv6Address::ToString() const {
-  // TODO: Replace this with safe code.
-  return pdpi::NormalizedByteStringToIpv6(this->ToPaddedByteString()).value();
-}
 
 }  // namespace netaddr

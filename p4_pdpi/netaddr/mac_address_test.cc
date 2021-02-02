@@ -1,16 +1,10 @@
 #include "p4_pdpi/netaddr/mac_address.h"
 
-#include <bitset>
 #include <cstdint>
-#include <cstring>
 #include <string>
-#include <type_traits>
-#include <utility>
 #include <vector>
 
-#include "absl/container/flat_hash_map.h"
-#include "absl/strings/escaping.h"
-#include "absl/strings/string_view.h"
+#include "absl/strings/ascii.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/status.h"

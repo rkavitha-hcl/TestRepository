@@ -1,8 +1,6 @@
 #include "p4_pdpi/netaddr/ipv6_address.h"
 
 #include <cstdint>
-#include <cstring>
-#include <optional>
 #include <string>
 #include <vector>
 
@@ -87,6 +85,14 @@ std::vector<IpTriple> CorrectIpTriples() {
       .ip = Ipv6Address(0x1, 0, 0, 0, 0, 0, 0, 0xf),
   });
 
+  triples.push_back(IpTriple{
+      // Zero-compression is not used for single zeros in canonical notation.
+      .canonical_notation = "1:2:3:0:5:6:7:8",
+      .alternative_notations = {"1:2:3::5:6:7:8"},
+      .byte_string = Ipv6ByteString({0x1, 0x2, 0x3, 0, 0x5, 0x6, 0x7, 0x8}),
+      .ip = Ipv6Address(0x1, 0x2, 0x3, 0, 0x5, 0x6, 0x7, 0x8),
+  });
+
   return triples;
 }
 
@@ -114,6 +120,8 @@ std::vector<std::string> IncorrectIpStrings() {
       // More than one '::'.
       "a::b::c",
       "1::2::3::4::5::6::7::8",
+      // Too many chars in hextet.
+      "1:2:3:4:5:6:7:12345",
       // Too short.
       "1",
       "1:2",
