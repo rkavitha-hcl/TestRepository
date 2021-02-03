@@ -3,190 +3,97 @@
 #include <utility>
 
 #include "absl/status/status.h"
-#include "devtools/build/runtime/get_runfiles_dir.h"
-#include "file/base/helpers.h"
-#include "file/base/options.h"
+#include "absl/strings/str_cat.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "gutil/collections.h"
 #include "gutil/status.h"
-#include "net/google::protobuf/contrib/parse_proto/parse_text_proto.h"
-#include "platforms/networking/orion/core/sfe/sfe.pb.h"
-#include "util/task/canonical_errors.h"
+#include "gutil/status_matchers.h"
+#include "gutil/testing.h"
+#include "p4/v1/p4runtime.pb.h"
+#include "p4_pdpi/ir.h"
+#include "p4_pdpi/ir.pb.h"
+#include "p4_pdpi/netaddr/ipv4_address.h"
+#include "p4_pdpi/pd.h"
+#include "sai_p4/instantiations/google/sai_p4info.h"
+#include "sai_p4/instantiations/google/sai_pd.pb.h"
 
-namespace switchstack {
-namespace testing {
-namespace hercules {
+namespace p4_fuzzer {
 namespace {
 
 using ::absl::StatusCode;
-using ::google::protobuf::contrib::parse_proto::ParseTextProtoOrDie;
-using ::orion::core::sfe::P4Entity;
-using ::orion::core::sfe::P4Update;
-using ::orion::p4::test::PdToPiUpdate;
+using ::p4::v1::TableEntry;
 using ::p4::v1::Update;
 using ::p4::v1::WriteRequest;
-using ::testing::Not;
-using ::testing::status::IsOk;
 
-constexpr char kDecapFlow[] = R"(
-type: INSERT
-entity {
-  flow_entry {
-    priority: 900
-    table_entry {
-      decap_table_entry {
-        match {
-          hdr_ethernet_ether_type {
-            mask: 0xffff
-            value: 2048
-          }
-          hdr_ipv4_base_src_addr {
-            mask: 4294967295
-            value: 1869573999
-          }
-          hdr_ipv4_base_dst_addr {
-            mask: 4294967295
-            value: 170408329
+int AclIngressTableSize() {
+  auto table = gutil::FindOrStatus(sai::GetIrP4Info().tables_by_name(),
+                                   "acl_ingress_table");
+  CHECK(table.ok());  // Crash ok
+  return table->size();
+}
+
+SwitchState EmptyState() { return SwitchState(sai::GetIrP4Info()); }
+
+// Returns a ingress ACL table entry. Use integer arguments to vary match or
+// action arguments.
+TableEntry GetIngressAclTableEntry(int match, int action) {
+  pdpi::IrTableEntry ir_table_entry =
+      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+        table_name: "acl_ingress_table"
+        matches {
+          name: "is_ipv4"
+          optional { value { hex_str: "0x1" } }
+        }
+        matches {
+          name: "dst_ip"
+          ternary {
+            value { ipv4: "0.0.0.0" }
+            mask { ipv4: "255.255.255.255" }
           }
         }
+        priority: 10
         action {
-          ip_decap {
+          name: "mirror"
+          params {
+            name: "mirror_session_id"
+            value { str: "session" }
           }
         }
-      }
-    }
-  }
-}
-)";
-
-util::Status CheckWellformed(P4Update pd) {
-  ASSIGN_OR_RETURN(Update pi, PdToPiUpdate(pd));
-  return IsWellformedUpdate(pi);
-}
-
-TEST(OracleUtilTest, IsWellformedUpdate) {
-  // Starting with PD because it's easier to read and write.
-  P4Update pd = ParseTextProtoOrDie(kDecapFlow);
-
-  // Regular update is fine
-  EXPECT_OK(CheckWellformed(pd));
-
-  // Wrong eth type (but still matching on IPv4 fields)
-  pd.mutable_entity()
-      ->mutable_flow_entry()
-      ->mutable_table_entry()
-      ->mutable_decap_table_entry()
-      ->mutable_match()
-      ->mutable_hdr_ethernet_ether_type()
-      ->set_value(1234);
-  EXPECT_THAT(CheckWellformed(pd), Not(IsOk()));
-
-  // Missing eth_type (but still matching on IPv4 fields)
-  pd.mutable_entity()
-      ->mutable_flow_entry()
-      ->mutable_table_entry()
-      ->mutable_decap_table_entry()
-      ->mutable_match()
-      ->clear_hdr_ethernet_ether_type();
-  EXPECT_THAT(CheckWellformed(pd), Not(IsOk()));
-}
-
-TEST(OracleUtilTest, IsWellformedLackOfPriority) {
-  P4Update pd = ParseTextProtoOrDie(R"(
-    type: INSERT
-    entity {
-      flow_entry {
-        priority: 0
-        cookie: 9223372036855300096
-        table_entry {
-          punt_table_entry {
-            match {
-              hdr_ethernet_ether_type { mask: 65535 value: 34525 }
-              hdr_ipv6_base_dst_addr {
-                mask: "\377\377\377\377\377\377\377\377\000\000\000\000\000\000\000\000"
-                value: "&\007\370\260\321\001P\004\000\000\000\000\000\000\000\000"
-              }
-            }
-            action { set_queue_and_send_to_cpu { queue_id: 2 } }
-          }
-        }
-        meter_config { cir: 28672 cburst: 57344 pir: 28672 pburst: 57344 }
-      }
-    }
-  )");
-
-  // Priority cannot be 0 if there are ternary matches
-  EXPECT_THAT(CheckWellformed(pd), Not(IsOk()));
-}
-
-constexpr char kVrfClassifierFlow[] = R"(
-flow_entry {
-  priority: 1134
-  cookie: 9223372036854841344
-  table_entry {
-    vrf_classifier_table_entry {
-      match {
-        hdr_ethernet_ether_type {
-          mask: 65535
-          value: 2048
-        }
-        standard_metadata_ingress_port {
-          mask: 4294967295
-          value: 1025
-        }
-      }
-      action {
-        set_vrf {
-          vrf_id: 117
-        }
-      }
-    }
-  }
-}
-)";
-
-SwitchState EmptyState() { return {}; }
-
-// Add a flow to a state.
-void AddFlow(const P4Entity& flow, SwitchState* state) {
-  P4Update update;
-  update.set_type(orion::core::sfe::P4Update::INSERT);
-  *update.mutable_entity() = flow;
-  CHECK_OK(state->ApplyUpdate(PdToPiUpdate(update).value()));
-}
-
-// Get a VRF classifier flow (n can be varied to get different flows).
-P4Entity GetVrfClassifierFlow(int n) {
-  P4Entity flow = ParseTextProtoOrDie(kVrfClassifierFlow);
-  flow.mutable_flow_entry()
-      ->mutable_table_entry()
-      ->mutable_vrf_classifier_table_entry()
-      ->mutable_match()
-      ->mutable_hdr_ethernet_ether_type()
-      ->set_value(n);
-  return flow;
+      )PB");
+  *ir_table_entry.mutable_action()
+       ->mutable_params(0)
+       ->mutable_value()
+       ->mutable_str() = absl::StrCat("session-", action);
+  *ir_table_entry.mutable_matches(1)
+       ->mutable_ternary()
+       ->mutable_value()
+       ->mutable_ipv4() =
+      netaddr::Ipv4Address::OfBitset(std::bitset<32>(match)).ToString();
+  auto result = pdpi::IrTableEntryToPi(sai::GetIrP4Info(), ir_table_entry);
+  CHECK(result.ok()) << result.status();  // Crash OK
+  return *result;
 }
 
 // An update and it's corresponding status.
-struct PdUpdateStatus {
-  P4Update update;
+struct UpdateStatus {
+  p4::v1::Update update;
   StatusCode status;
 };
 
 // Checks whether the update+state combo is plausible or not
-util::Status Check(const std::vector<PdUpdateStatus>& updates,
+absl::Status Check(const std::vector<UpdateStatus>& updates,
                    const SwitchState& state, bool valid) {
   WriteRequest request;
-  std::vector<::p4::v1::Error> statuses;
-  for (const auto& update : updates) {
-    ASSIGN_OR_RETURN(Update pi, PdToPiUpdate(update.update));
-    *request.add_updates() = pi;
-    ::p4::v1::Error status;
-    status.set_canonical_code(static_cast<int32>(update.status));
-    statuses.push_back(status);
+  std::vector<p4::v1::Error> statuses;
+  for (const auto& [update, status] : updates) {
+    *request.add_updates() = update;
+    p4::v1::Error p4_error;
+    p4_error.set_canonical_code(static_cast<int32_t>(status));
+    statuses.push_back(p4_error);
   }
   absl::optional<std::vector<std::string>> oracle =
-      WriteRequestOracle(request, statuses, state);
+      WriteRequestOracle(sai::GetIrP4Info(), request, statuses, state);
   if (valid) {
     if (oracle.has_value()) {
       std::string explanation = absl::StrCat(
@@ -196,112 +103,114 @@ util::Status Check(const std::vector<PdUpdateStatus>& updates,
       for (const auto& error : oracle.value()) {
         explanation += absl::StrCat("\n", error);
       }
-      return util::InvalidArgumentError(explanation);
+      return gutil::InvalidArgumentErrorBuilder() << explanation;
     }
   } else {
     if (!oracle.has_value()) {
-      return util::InvalidArgumentError(
-          "Expected the write request and statuses to not be a valid "
-          "combination, "
-          "but they are according to the oracle.");
+      return gutil::InvalidArgumentErrorBuilder()
+             << "Expected the write request and statuses to not be a valid "
+                "combination, "
+                "but they are according to the oracle.";
     }
   }
-  return util::OkStatus();
+  return absl::OkStatus();
 }
 
-PdUpdateStatus MakeInsert(const P4Entity& entity, StatusCode status) {
-  P4Update update;
-  update.set_type(orion::core::sfe::P4Update::INSERT);
-  *update.mutable_entity() = entity;
+UpdateStatus MakeInsert(const TableEntry& table_entry, StatusCode status) {
+  p4::v1::Update update;
+  update.set_type(p4::v1::Update::INSERT);
+  *update.mutable_entity()->mutable_table_entry() = table_entry;
   return {update, status};
 }
 
-PdUpdateStatus MakeDelete(const P4Entity& entity, StatusCode status) {
-  P4Update update;
-  update.set_type(orion::core::sfe::P4Update::DELETE);
-  *update.mutable_entity() = entity;
+UpdateStatus MakeDelete(const TableEntry& table_entry, StatusCode status) {
+  p4::v1::Update update;
+  update.set_type(p4::v1::Update::DELETE);
+  *update.mutable_entity()->mutable_table_entry() = table_entry;
   return {update, status};
 }
 
-TEST(OracleUtilTest, BatchInsertDelete) {
-  P4Entity flow = ParseTextProtoOrDie(kVrfClassifierFlow);
-
-  // Insert/delete is fine in either order.
-  EXPECT_OK(Check(
-      {MakeInsert(flow, StatusCode::kOk), MakeDelete(flow, StatusCode::kOk)},
-      EmptyState(), /*valid=*/true));
-  EXPECT_OK(Check(
-      {MakeDelete(flow, StatusCode::kOk), MakeInsert(flow, StatusCode::kOk)},
-      EmptyState(), /*valid=*/true));
-
-  // It is also fine for the delete to fail (in either order).
-  EXPECT_OK(Check({MakeDelete(flow, StatusCode::kNotFound),
-                   MakeInsert(flow, StatusCode::kOk)},
-                  EmptyState(), /*valid=*/true));
-  EXPECT_OK(Check({MakeInsert(flow, StatusCode::kOk),
-                   MakeDelete(flow, StatusCode::kNotFound)},
-                  EmptyState(), /*valid=*/true));
+// Add a table entry to a state.
+void AddTableEntry(const TableEntry& table_entry, SwitchState* state) {
+  auto status =
+      state->ApplyUpdate(MakeInsert(table_entry, absl::StatusCode::kOk).update);
+  CHECK(status.ok());
 }
 
-TEST(OracleUtilTest, BatchDoubleInsert) {
-  P4Entity flow = ParseTextProtoOrDie(kVrfClassifierFlow);
+TEST(OracleUtilTest, DISABLED_SameKeyInBatch) {
+  // Two entries, same key but different values/actions.
+  TableEntry table_entry_1 = GetIngressAclTableEntry(/*match=*/0, /*action=*/1);
+  TableEntry table_entry_2 = GetIngressAclTableEntry(/*match=*/0, /*action=*/2);
 
-  // Double insert is not okay.
-  EXPECT_OK(Check(
-      {MakeInsert(flow, StatusCode::kOk), MakeInsert(flow, StatusCode::kOk)},
-      EmptyState(), /*valid=*/false));
+  // Same key should be rejected.
+  EXPECT_OK(
+      Check({MakeInsert(table_entry_1, absl::StatusCode::kOk),
+             MakeInsert(table_entry_2, absl::StatusCode::kInvalidArgument)},
+            EmptyState(), /*valid=*/false));
+  EXPECT_OK(
+      Check({MakeInsert(table_entry_1, absl::StatusCode::kInvalidArgument),
+             MakeInsert(table_entry_2, absl::StatusCode::kOk)},
+            EmptyState(), /*valid=*/false));
+  EXPECT_OK(
+      Check({MakeInsert(table_entry_1, absl::StatusCode::kInvalidArgument),
+             MakeInsert(table_entry_2, absl::StatusCode::kInvalidArgument)},
+            EmptyState(), /*valid=*/true));
 
-  // If one is rejected, it's fine.
-  EXPECT_OK(Check({MakeInsert(flow, StatusCode::kAlreadyExists),
-                   MakeInsert(flow, StatusCode::kOk)},
-                  EmptyState(), /*valid=*/true));
-  EXPECT_OK(Check({MakeInsert(flow, StatusCode::kOk),
-                   MakeInsert(flow, StatusCode::kAlreadyExists)},
-                  EmptyState(), /*valid=*/true));
+  // Even if some are insert and some are delete
+  EXPECT_OK(
+      Check({MakeDelete(table_entry_1, absl::StatusCode::kInvalidArgument),
+             MakeInsert(table_entry_2, absl::StatusCode::kInvalidArgument)},
+            EmptyState(), /*valid=*/true));
 }
 
 TEST(OracleUtilTest, BatchResources) {
   // Create a state that's full.
-  SwitchState full;
-  for (int i = 1; i <= 512; i++) {
-    AddFlow(GetVrfClassifierFlow(i), &full);
+  SwitchState full(sai::GetIrP4Info());
+  for (int i = 1; i <= AclIngressTableSize(); i++) {
+    AddTableEntry(GetIngressAclTableEntry(/*match=*/i, /*action=*/0), &full);
   }
 
-  P4Entity new_flow = GetVrfClassifierFlow(513);
+  TableEntry next = GetIngressAclTableEntry(
+      /*match=*/AclIngressTableSize() + 1, /*action=*/0);
 
   // Inserting into full table is okay.
   EXPECT_OK(
-      Check({MakeInsert(new_flow, StatusCode::kOk)}, full, /*valid=*/true));
+      Check({MakeInsert(next, absl::StatusCode::kOk)}, full, /*valid=*/true));
 
   // Resource exhasted is okay too.
-  EXPECT_OK(Check({MakeInsert(new_flow, StatusCode::kResourceExhausted)}, full,
+  EXPECT_OK(Check({MakeInsert(next, absl::StatusCode::kResourceExhausted)},
+                  full,
                   /*valid=*/true));
 }
 
 TEST(OracleUtilTest, BatchResourcesAlmostFull) {
   // Create a state that's almost full (1 entry remaining).
-  SwitchState almost_full;
-  for (int i = 1; i <= 511; i++) {
-    AddFlow(GetVrfClassifierFlow(i), &almost_full);
+  SwitchState almost_full(sai::GetIrP4Info());
+  for (int i = 1; i <= AclIngressTableSize() - 1; i++) {
+    AddTableEntry(GetIngressAclTableEntry(/*match=*/i, /*action=*/0),
+                  &almost_full);
   }
 
-  P4Entity new_flow1 = GetVrfClassifierFlow(513);
-  P4Entity new_flow2 = GetVrfClassifierFlow(514);
+  TableEntry next1 = GetIngressAclTableEntry(
+      /*match=*/AclIngressTableSize() + 1, /*action=*/0);
+  TableEntry next2 = GetIngressAclTableEntry(
+      /*match=*/AclIngressTableSize() + 2, /*action=*/0);
 
   // Resource exhasted is not okay.
-  EXPECT_OK(Check({MakeInsert(new_flow1, StatusCode::kResourceExhausted)},
+  EXPECT_OK(Check({MakeInsert(next1, absl::StatusCode::kResourceExhausted)},
                   almost_full, /*valid=*/false));
 
   // Inserting two flows, one of them can fail.
-  EXPECT_OK(Check({MakeInsert(new_flow1, StatusCode::kOk),
-                   MakeInsert(new_flow2, StatusCode::kResourceExhausted)},
+  EXPECT_OK(Check({MakeInsert(next1, absl::StatusCode::kOk),
+                   MakeInsert(next2, absl::StatusCode::kResourceExhausted)},
                   almost_full, /*valid=*/true));
-  EXPECT_OK(Check({MakeInsert(new_flow1, StatusCode::kResourceExhausted),
-                   MakeInsert(new_flow2, StatusCode::kOk)},
+  EXPECT_OK(Check({MakeInsert(next1, absl::StatusCode::kResourceExhausted),
+                   MakeInsert(next2, absl::StatusCode::kOk)},
+                  almost_full, /*valid=*/true));
+  EXPECT_OK(Check({MakeInsert(next1, absl::StatusCode::kOk),
+                   MakeInsert(next2, absl::StatusCode::kOk)},
                   almost_full, /*valid=*/true));
 }
 
 }  // namespace
-}  // namespace hercules
-}  // namespace testing
-}  // namespace switchstack
+}  // namespace p4_fuzzer
