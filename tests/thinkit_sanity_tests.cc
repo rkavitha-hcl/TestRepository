@@ -1,4 +1,4 @@
-// Copyright 2020 Google LLC
+// Copyright 2021 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,29 +14,34 @@
 
 #include "tests/thinkit_sanity_tests.h"
 
-#include <stdint.h>
-
 #include <cstdlib>
+#include <map>
+#include <memory>
 #include <string>
 #include <utility>
+#include <valarray>
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/match.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
+#include "grpcpp/impl/codegen/client_context.h"
+#include "grpcpp/impl/codegen/status.h"
 #include "gtest/gtest.h"
+#include "gutil/status.h"
 #include "gutil/status_matchers.h"
 #include "lib/gnmi/gnmi_helper.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4_pdpi/connection_management.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
+#include "proto/gnmi/gnmi.pb.h"
 #include "single_include/nlohmann/json.hpp"
+#include "system/system.grpc.pb.h"
 #include "system/system.pb.h"
 #include "tests/thinkit_util.h"
 #include "thinkit/ssh_client.h"
@@ -50,7 +55,6 @@ using ::std::abs;
 using ::testing::Eq;
 using ::testing::HasSubstr;
 
-}  // namespace
 constexpr int kEpochMarginalError = 2;
 constexpr absl::Duration kColdRebootDelayTime = absl::Seconds(1);
 constexpr absl::Duration kColdRebootTotalWaitTime = absl::Seconds(30);
@@ -121,6 +125,8 @@ constexpr char kV3ReleaseConfigBlob[] = R"({
    }
 })";
 
+}  // namespace
+
 void TestSSHCommand(thinkit::SSHClient& ssh_client, thinkit::Switch& sut) {
   ASSERT_OK_AND_ASSIGN(std::string output,
                        ssh_client.RunCommand(sut.ChassisName(), "echo foo",
@@ -129,12 +135,9 @@ void TestSSHCommand(thinkit::SSHClient& ssh_client, thinkit::Switch& sut) {
 }
 
 void TestP4Session(thinkit::Switch& sut) {
-  // TODO: Remove kDeviceId once device ID is set through gNMI in
-  // P4RT app.
-  static constexpr uint64_t kDeviceId = 183807201;
   ASSERT_OK_AND_ASSIGN(auto sut_p4runtime_stub, sut.CreateP4RuntimeStub());
-  EXPECT_OK(
-      pdpi::P4RuntimeSession::Create(std::move(sut_p4runtime_stub), kDeviceId));
+  EXPECT_OK(pdpi::P4RuntimeSession::Create(std::move(sut_p4runtime_stub),
+                                           sut.DeviceId()));
 }
 
 // This test sets the config blob and verifies corresponding state paths.
@@ -347,6 +350,7 @@ void TestGnmiCheckInterfaceStateOperation(thinkit::Switch& sut) {
     }
   }
 }
+
 void TestGnmiGetInterfaceOperation(thinkit::Switch& sut) {
   ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
   ASSERT_OK_AND_ASSIGN(gnmi::GetRequest req,
@@ -368,6 +372,7 @@ void TestGnmiGetAllOperation(thinkit::Switch& sut) {
   ASSERT_OK(sut_gnmi_stub->Get(&context, req, &resp));
   LOG(INFO) << "Received GET response: " << resp.ShortDebugString();
 }
+
 //  Returns last boot time of SUT.
 absl::StatusOr<int> GetGnmiSystemBootTime(thinkit::Switch& sut,
                                           gnmi::gNMI::Stub* sut_gnmi_stub) {
@@ -394,6 +399,7 @@ absl::StatusOr<int> GetGnmiSystemBootTime(thinkit::Switch& sut,
   LOG(INFO) << "Boot Time: " << boot_time;
   return boot_time;
 }
+
 void TestGnoiSystemColdReboot(thinkit::Switch& sut) {
   ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
   ASSERT_OK_AND_ASSIGN(auto first_boot_time,
@@ -421,4 +427,5 @@ void TestGnoiSystemColdReboot(thinkit::Switch& sut) {
   }
   EXPECT_GT(abs(latest_boot_time - first_boot_time), kEpochMarginalError);
 }
+
 }  // namespace pins_test
