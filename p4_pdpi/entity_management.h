@@ -63,6 +63,10 @@ absl::Status InstallPiTableEntries(
     P4RuntimeSession* session, const IrP4Info& info,
     absl::Span<const p4::v1::TableEntry> pi_entries);
 
+// Sends the given PI updates to the switch.
+absl::Status SendPiUpdates(P4RuntimeSession* session,
+                           absl::Span<const p4::v1::Update> pi_updates);
+
 // Sets the forwarding pipeline from the given p4 info.
 absl::Status SetForwardingPipelineConfig(P4RuntimeSession* session,
                                          const p4::config::v1::P4Info& p4info);

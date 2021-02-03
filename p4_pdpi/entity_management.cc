@@ -104,9 +104,11 @@ absl::Status SetIdsAndSendPiWriteRequest(P4RuntimeSession* session,
   grpc::ClientContext context;
   // Empty message; intentionally discarded.
   WriteResponse pi_response;
-  return WriteRpcGrpcStatusToAbslStatus(
+  RETURN_IF_ERROR(WriteRpcGrpcStatusToAbslStatus(
       session->Stub().Write(&context, write_request, &pi_response),
-      write_request.updates_size());
+      write_request.updates_size()))
+      << "Failed write request: " << write_request.DebugString();
+  return absl::OkStatus();
 }
 
 absl::Status SetIdsAndSendPiWriteRequests(
@@ -160,6 +162,15 @@ absl::Status InstallPiTableEntry(P4RuntimeSession* session,
   update.set_type(Update::INSERT);
   *update.mutable_entity()->mutable_table_entry() = pi_entry;
 
+  return SetIdsAndSendPiWriteRequest(session, request);
+}
+
+absl::Status SendPiUpdates(P4RuntimeSession* session,
+                           absl::Span<const p4::v1::Update> updates) {
+  WriteRequest request;
+  for (const p4::v1::Update& update : updates) {
+    *request.add_updates() = update;
+  }
   return SetIdsAndSendPiWriteRequest(session, request);
 }
 

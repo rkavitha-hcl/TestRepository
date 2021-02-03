@@ -51,7 +51,7 @@ build_test(
 
 # Ensures that the checked in and compile-time generated SAI PDs match.
 # To update the checked in PD:
-#   blaze run //platforms/networking/orion/p4/sai:sai_pd_up_to_date_test -- --update
+#   blaze run :sai_pd_up_to_date_test -- --update
 
 # Only for testing and updating the PD proto when the P4 program changes.
 p4_pd_proto(
@@ -84,7 +84,7 @@ cc_library(
 
 # Ensures that the checked in and compile-time generated P4Infos match.
 # To update the checked in P4Info:
-#   blaze run //platforms/networking/orion/p4/sai:sai_p4info_up_to_date_test -- --update
+#   blaze run :sai_p4info_up_to_date_test -- --update
 diff_test(
     name = "sai_p4info_up_to_date_test",
     actual = "generated/sai.p4info.pb.txt",  # Generated.
@@ -131,7 +131,8 @@ p4_library(
         "//sai_p4/fixed:ipv4_checksum.p4",
         "//sai_p4/fixed:l3_admit.p4",
         "//sai_p4/fixed:metadata.p4",
-        "//sai_p4/fixed:mirroring.p4",
+        "//sai_p4/fixed:mirroring_clone.p4",
+        "//sai_p4/fixed:mirroring_encap.p4",
         "//sai_p4/fixed:packet_rewrites.p4",
         "//sai_p4/fixed:parser.p4",
         "//sai_p4/fixed:resource_limits.p4",
@@ -173,7 +174,8 @@ p4_library(
         "//sai_p4/fixed:ipv4_checksum.p4",
         "//sai_p4/fixed:l3_admit.p4",
         "//sai_p4/fixed:metadata.p4",
-        "//sai_p4/fixed:mirroring.p4",
+        "//sai_p4/fixed:mirroring_clone.p4",
+        "//sai_p4/fixed:mirroring_encap.p4",
         "//sai_p4/fixed:packet_rewrites.p4",
         "//sai_p4/fixed:parser.p4",
         "//sai_p4/fixed:resource_limits.p4",

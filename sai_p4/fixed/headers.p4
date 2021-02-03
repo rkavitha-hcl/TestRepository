@@ -39,7 +39,9 @@ header ipv4_t {
   bit<2> ecn;   // The 2 least significant bits of the diff_serv field.
   bit<16> total_len;
   bit<16> identification;
-  bit<3> flags;
+  bit<1> reserved;
+  bit<1> do_not_fragment;
+  bit<1> more_fragments;
   bit<13> frag_offset;
   bit<8> ttl;
   bit<8> protocol;
@@ -100,7 +102,7 @@ header arp_t {
   bit<32> target_proto_addr;
 }
 
-#define GRE_HEADER_BYTES 8
+#define GRE_HEADER_BYTES 4
 
 header gre_t {
   bit<1> checksum_present;
@@ -113,7 +115,6 @@ header gre_t {
   bit<4> flags;
   bit<3> version;
   bit<16> protocol;
-  bit<32> seq_no;
 }
 
 #define ERSPAN2_HEADER_BYTES 8

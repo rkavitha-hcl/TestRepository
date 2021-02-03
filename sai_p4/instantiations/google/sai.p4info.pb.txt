@@ -510,7 +510,7 @@ tables {
 tables {
   preamble {
     id: 33554502
-    name: "ingress.mirroring.mirror_session_table"
+    name: "ingress.mirroring_clone.mirror_session_table"
     alias: "mirror_session_table"
     annotations: "@proto_package(\"sai\")"
   }
@@ -524,6 +524,34 @@ tables {
   }
   action_refs {
     id: 16777223
+    annotations: "@proto_id(1)"
+  }
+  action_refs {
+    id: 21257015
+    annotations: "@defaultonly"
+    scope: DEFAULT_ONLY
+  }
+  const_default_action_id: 21257015
+  size: 1024
+}
+tables {
+  preamble {
+    id: 33554504
+    name: "ingress.mirroring_clone.mirror_port_to_pre_session_table"
+    alias: "mirror_port_to_pre_session_table"
+    annotations: "@proto_package(\"sai\")"
+  }
+  match_fields {
+    id: 1
+    name: "mirror_port"
+    bitwidth: 9
+    match_type: EXACT
+    type_name {
+      name: "port_id_t"
+    }
+  }
+  action_refs {
+    id: 16777225
     annotations: "@proto_id(1)"
   }
   action_refs {
@@ -745,8 +773,9 @@ actions {
 actions {
   preamble {
     id: 16777223
-    name: "ingress.mirroring.mirror_as_ipv4_erspan"
+    name: "ingress.mirroring_clone.mirror_as_ipv4_erspan"
     alias: "mirror_as_ipv4_erspan"
+    annotations: "@proto_package(\"sai\")"
   }
   params {
     id: 1
@@ -789,6 +818,19 @@ actions {
     id: 7
     name: "tos"
     bitwidth: 8
+  }
+}
+actions {
+  preamble {
+    id: 16777225
+    name: "ingress.mirroring_clone.set_pre_session"
+    alias: "set_pre_session"
+    annotations: "@proto_package(\"sai\")"
+  }
+  params {
+    id: 1
+    name: "id"
+    bitwidth: 32
   }
 }
 action_profiles {

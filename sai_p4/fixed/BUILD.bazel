@@ -28,7 +28,8 @@ exports_files(
         "ipv4_checksum.p4",
         "l3_admit.p4",
         "metadata.p4",
-        "mirroring.p4",
+        "mirroring_clone.p4",
+        "mirroring_encap.p4",
         "packet_rewrites.p4",
         "parser.p4",
         "resource_limits.p4",
@@ -44,6 +45,7 @@ cc_library(
     name = "p4_ids",
     hdrs = ["ids.h"],
     visibility = [
+        "//platforms/networking/gpins/testing/blackbox/p4:__pkg__",
         "//sai_p4/instantiations/google:__pkg__",
     ],
 )

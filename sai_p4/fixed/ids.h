@@ -12,14 +12,15 @@
 // --- Tables ------------------------------------------------------------------
 
 // IDs of fixed SAI tables (8 most significant bits = 0x02).
-#define ROUTING_NEIGHBOR_TABLE_ID 0x02000040          // 33554496
-#define ROUTING_ROUTER_INTERFACE_TABLE_ID 0x02000041  // 33554497
-#define ROUTING_NEXTHOP_TABLE_ID 0x02000042           // 33554498
-#define ROUTING_WCMP_GROUP_TABLE_ID 0x02000043        // 33554499
-#define ROUTING_IPV4_TABLE_ID 0x02000044              // 33554500
-#define ROUTING_IPV6_TABLE_ID 0x02000045              // 33554501
-#define MIRROR_SESSION_TABLE_ID 0x02000046            // 33554502
-#define L3_ADMIT_TABLE_ID 0x02000047                  // 33554503
+#define ROUTING_NEIGHBOR_TABLE_ID 0x02000040            // 33554496
+#define ROUTING_ROUTER_INTERFACE_TABLE_ID 0x02000041    // 33554497
+#define ROUTING_NEXTHOP_TABLE_ID 0x02000042             // 33554498
+#define ROUTING_WCMP_GROUP_TABLE_ID 0x02000043          // 33554499
+#define ROUTING_IPV4_TABLE_ID 0x02000044                // 33554500
+#define ROUTING_IPV6_TABLE_ID 0x02000045                // 33554501
+#define MIRROR_SESSION_TABLE_ID 0x02000046              // 33554502
+#define L3_ADMIT_TABLE_ID 0x02000047                    // 33554503
+#define MIRROR_PORT_TO_PRE_SESSION_TABLE_ID 0x02000048  // 33554504
 
 // --- Actions -----------------------------------------------------------------
 
@@ -32,6 +33,7 @@
 #define ROUTING_DROP_ACTION_ID 0x01000006                     // 16777222
 #define MIRRORING_MIRROR_AS_IPV4_ERSPAN_ACTION_ID 0x01000007  // 16777223
 #define L3_ADMIT_ACTION_ID 0x01000008                         // 16777224
+#define MIRRORING_SET_PRE_SESSION_ACTION_ID 0x01000009        // 16777225
 
 // --- Copy to CPU session -----------------------------------------------------
 
@@ -68,5 +70,14 @@
 // through the ingress pipeline to determine which port to take (if any).
 // Mutually exclusive with "egress_port".
 #define PACKET_OUT_SUBMIT_TO_INGRESS_ID 2
+
+//--- Packet Replication Engine Instances --------------------------------------
+
+// Egress instance type definitions.
+// The egress instance is a 32-bit standard metadata set by the packet
+// replication engine (PRE) in the V1Model architecture. However, the values are
+// not defined by the P4 specification. Here we define our own values; these may
+// be changed when we adopt another architecture.
+#define CLONE_REPLICA_INSTANCE 1
 
 #endif  // SAI_IDS_H_

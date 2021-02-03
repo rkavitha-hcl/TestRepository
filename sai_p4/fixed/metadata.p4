@@ -85,8 +85,16 @@ struct local_metadata_t {
   packet_rewrites_t packet_rewrites;
   bit<16> l4_src_port;
   bit<16> l4_dst_port;
+  // mirroring data, we can't group the into a struct, because BMv2 doesn't
+  // support passing structs in clone3.
   bool mirror_session_id_valid;
   mirror_session_id_t mirror_session_id_value;
+  ipv4_addr_t mirroring_src_ip;
+  ipv4_addr_t mirroring_dst_ip;
+  ethernet_addr_t mirroring_src_mac;
+  ethernet_addr_t mirroring_dst_mac;
+  bit<8> mirroring_ttl;
+  bit<8> mirroring_tos;
   // TODO: consider modeling metering beyond control plane API.
   MeterColor_t color;
 }
