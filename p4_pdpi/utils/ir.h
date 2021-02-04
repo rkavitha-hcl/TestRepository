@@ -63,15 +63,14 @@ absl::StatusOr<Format> GetFormat(const std::vector<std::string> &annotations,
 
 // Checks if the IrValue in the IR table entry is in the same format as
 // specified in the P4Info.
-absl::Status ValidateIrValueFormat(const IrValue &ir_value,
-                                   const Format &format);
+absl::Status ValidateIrValueFormat(const IrValue &ir_value, Format format);
 
 // Converts the IR value to a PI byte string and returns it.
 absl::StatusOr<std::string> IrValueToNormalizedByteString(
     const IrValue &ir_value, const int bitwidth);
 
 // Converts the PI value to an IR value and returns it.
-absl::StatusOr<IrValue> ArbitraryByteStringToIrValue(const Format &format,
+absl::StatusOr<IrValue> ArbitraryByteStringToIrValue(Format format,
                                                      const int bitwidth,
                                                      const std::string &bytes);
 
@@ -101,29 +100,6 @@ absl::StatusOr<uint64_t> ArbitraryByteStringToUint(const std::string &bytes,
 // Convert the given uint to byte string.
 absl::StatusOr<std::string> UintToNormalizedByteString(uint64_t value,
                                                        int bitwidth);
-
-// Convert the given byte string into a : separated MAC representation.
-// Input string should be 6 bytes long.
-absl::StatusOr<std::string> NormalizedByteStringToMac(const std::string &bytes);
-
-// Convert the given : separated MAC representation into a byte string.
-absl::StatusOr<std::string> MacToNormalizedByteString(const std::string &mac);
-
-// Convert the given byte string into a . separated IPv4 representation.
-// Input should be 4 bytes long.
-absl::StatusOr<std::string> NormalizedByteStringToIpv4(
-    const std::string &bytes);
-
-// Convert the given . separated IPv4 representation into a byte string.
-absl::StatusOr<std::string> Ipv4ToNormalizedByteString(const std::string &ipv4);
-
-// Convert the given byte string into a : separated IPv6 representation.
-// Input should be 16 bytes long.
-absl::StatusOr<std::string> NormalizedByteStringToIpv6(
-    const std::string &bytes);
-
-// Convert the given : separated IPv6 representation into a byte string.
-absl::StatusOr<std::string> Ipv6ToNormalizedByteString(const std::string &ipv6);
 
 // Returns the number of bits used by the PI byte string interpreted as an
 // unsigned integer.

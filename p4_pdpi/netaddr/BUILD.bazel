@@ -56,7 +56,6 @@ cc_library(
         ":network_address",
         "//gutil:status",
         "//p4_pdpi/utils:hex_string",
-        "//p4_pdpi/utils:ir",
         "@com_github_google_glog//:glog",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",

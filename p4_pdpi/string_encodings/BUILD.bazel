@@ -10,10 +10,10 @@ package(
 
 cc_library(
     name = "byte_string",
+    srcs = ["byte_string.cc"],
     hdrs = ["byte_string.h"],
     deps = [
         "//gutil:status",
-        "//p4_pdpi/utils:ir",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
     ],

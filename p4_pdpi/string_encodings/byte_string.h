@@ -26,7 +26,6 @@
 #include "absl/strings/escaping.h"
 #include "absl/strings/string_view.h"
 #include "gutil/status.h"
-#include "p4_pdpi/utils/ir.h"
 
 namespace pdpi {
 
@@ -44,6 +43,9 @@ std::string BitsetToPaddedByteString(std::bitset<num_bits> bits);
 // Writes the given bits to a canonical P4Runtime binary string.
 template <std::size_t num_bits>
 std::string BitsetToP4RuntimeByteString(std::bitset<num_bits> bits);
+
+// Converts byte string to P4Runtime byte string.
+std::string ByteStringToP4runtimeByteString(std::string bytes);
 
 // == END OF PUBLIC INTERFACE ==================================================
 
@@ -75,10 +77,11 @@ absl::StatusOr<std::bitset<num_bits>> ByteStringToBitset(
     return absl::InvalidArgumentError("byte string must be nonempty");
   }
 
-  auto invalid = [&] {
+  auto invalid = [=] {
     return gutil::InvalidArgumentErrorBuilder()
-           << "cannot fit given byte string into " << num_bits
-           << " bits: " << absl::BytesToHexString(byte_string);
+           << "cannot fit given byte string of " << (byte_string.size() * 8)
+           << " bits into " << num_bits << " bits: '"
+           << absl::BytesToHexString(byte_string) << "'";
   };
   constexpr int kNumRelevantBytes = internal::NumBitsToNumBytes(num_bits);
   const int num_extra_bytes =
@@ -114,7 +117,7 @@ std::string BitsetToPaddedByteString(std::bitset<num_bits> bits) {
 
 template <std::size_t num_bits>
 std::string BitsetToP4RuntimeByteString(std::bitset<num_bits> bits) {
-  return ArbitraryToCanonicalByteString(BitsetToPaddedByteString(bits));
+  return ByteStringToP4runtimeByteString(BitsetToPaddedByteString(bits));
 }
 
 }  // namespace pdpi

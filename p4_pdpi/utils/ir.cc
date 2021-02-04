@@ -47,45 +47,17 @@
 #include "p4/config/v1/p4types.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
+#include "p4_pdpi/netaddr/ipv4_address.h"
+#include "p4_pdpi/netaddr/ipv6_address.h"
+#include "p4_pdpi/netaddr/mac_address.h"
 
 namespace pdpi {
 
+using ::netaddr::Ipv4Address;
+using ::netaddr::Ipv6Address;
+using ::netaddr::MacAddress;
 using ::pdpi::Format;
 using ::pdpi::IrValue;
-
-namespace {
-
-bool IsValidMac(std::string s) {
-  for (auto i = 0; i < 17; ++i) {
-    if (i % 3 != 2 && (!isxdigit(s[i]) || absl::ascii_isupper(s[i]))) {
-      return false;
-    }
-    if (i % 3 == 2 && s[i] != ':') {
-      return false;
-    }
-  }
-  return s.size() == 17;
-}
-
-bool IsValidIpv6(std::string s) {
-  // This function checks extra requirements that are not covered by inet_ntop.
-  for (int i = 0; i < s.size(); ++i) {
-    if (s[i] == '.') {
-      // TODO: Remove this when we find a way to get the inet_pton
-      // library to ignore mixed mode IPv6 addresses
-      continue;
-    }
-    if (s[i] == ':') {
-      continue;
-    }
-    if (!isxdigit(s[i]) || absl::ascii_isupper(s[i])) {
-      return false;
-    }
-  }
-  return true;
-}
-
-}  // namespace
 
 absl::StatusOr<std::string> ArbitraryToNormalizedByteString(
     const std::string &bytes, int expected_bitwidth) {
@@ -157,103 +129,6 @@ absl::StatusOr<std::string> UintToNormalizedByteString(uint64_t value,
   return normalized_str;
 }
 
-absl::StatusOr<std::string> NormalizedByteStringToMac(
-    const std::string &bytes) {
-  if (bytes.size() != kNumBytesInMac) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "Expected length of input string to be " << kNumBytesInMac
-           << ", but got " << bytes.size() << " instead";
-  }
-  struct ether_addr byte_string;
-  for (int i = 0; i < bytes.size(); ++i) {
-    byte_string.ether_addr_octet[i] = bytes[i] & 0xFF;
-  }
-  // (2 chars per byte * 6) + (1 char for : * 5) + (1 char for \0) = 18
-  char mac[18];
-  ether_ntoa_r(&byte_string, mac);
-  std::vector<std::string> parts = absl::StrSplit(std::string(mac), ':');
-  // ether_ntoa returns a string that is not zero padded. Add zero padding.
-  for (int i = 0; i < parts.size(); ++i) {
-    if (parts[i].size() == 1) {
-      parts[i] = absl::StrCat("0", parts[i]);
-    }
-  }
-  return absl::StrJoin(parts, ":");
-}
-
-absl::StatusOr<std::string> MacToNormalizedByteString(const std::string &mac) {
-  if (!IsValidMac(mac)) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "String cannot be parsed as MAC address: '" << mac
-           << "'. It must be of the format xx:xx:xx:xx:xx:xx where x is a lower"
-              " case hexadecimal character";
-  }
-  struct ether_addr byte_string;
-  ether_aton_r(mac.c_str(), &byte_string);
-  return std::string((const char *)byte_string.ether_addr_octet,
-                     sizeof(byte_string.ether_addr_octet));
-}
-
-absl::StatusOr<std::string> NormalizedByteStringToIpv4(
-    const std::string &bytes) {
-  if (bytes.size() != kNumBytesInIpv4) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "Expected length of input string to be " << kNumBytesInIpv4
-           << ", but got " << bytes.size() << " instead";
-  }
-  char result[INET_ADDRSTRLEN];
-  auto result_valid = inet_ntop(AF_INET, bytes.c_str(), result, sizeof(result));
-  if (!result_valid) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "Conversion of IPv4 address to string failed with error code: "
-           << errno;
-  }
-  return std::string(result);
-}
-
-absl::StatusOr<std::string> Ipv4ToNormalizedByteString(
-    const std::string &ipv4) {
-  char ip_addr[kNumBytesInIpv4];
-  if (inet_pton(AF_INET, ipv4.c_str(), &ip_addr) == 0) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "Invalid IPv4 address: '" << ipv4 << "'";
-  }
-  return std::string(ip_addr, kNumBytesInIpv4);
-}
-
-absl::StatusOr<std::string> NormalizedByteStringToIpv6(
-    const std::string &bytes) {
-  if (bytes.size() != kNumBytesInIpv6) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "Expected length of input string to be " << kNumBytesInIpv6
-           << ", but got " << bytes.size() << " instead";
-  }
-  char result[INET6_ADDRSTRLEN];
-  auto result_valid =
-      inet_ntop(AF_INET6, bytes.c_str(), result, sizeof(result));
-  if (!result_valid) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "Conversion of IPv6 address to string failed with error code: "
-           << errno;
-  }
-  return std::string(result);
-}
-
-absl::StatusOr<std::string> Ipv6ToNormalizedByteString(
-    const std::string &ipv6) {
-  if (!IsValidIpv6(ipv6)) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "String cannot be parsed as an IPv6 address. It must contain "
-              "lower case hexadecimal characters";
-  }
-  char ip6_addr[kNumBytesInIpv6];
-  if (inet_pton(AF_INET6, ipv6.c_str(), &ip6_addr) == 0) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "Invalid IPv6 address: '" << ipv6 << "'";
-  }
-  return std::string(ip6_addr, kNumBytesInIpv6);
-}
-
 std::string ArbitraryToCanonicalByteString(std::string bytes) {
   // Remove leading zeros.
   bytes.erase(0, std::min(bytes.find_first_not_of('\x00'), bytes.size() - 1));
@@ -316,37 +191,34 @@ absl::StatusOr<Format> GetFormat(const std::vector<std::string> &annotations,
   return format;
 }
 
-absl::StatusOr<IrValue> ArbitraryByteStringToIrValue(const Format &format,
+absl::StatusOr<IrValue> ArbitraryByteStringToIrValue(Format format,
                                                      const int bitwidth,
                                                      const std::string &bytes) {
   IrValue result;
-  std::string normalized_bytes;
-  if (format != Format::STRING) {
-    ASSIGN_OR_RETURN(normalized_bytes,
-                     ArbitraryToNormalizedByteString(bytes, bitwidth));
-  }
   switch (format) {
     case Format::MAC: {
-      ASSIGN_OR_RETURN(auto mac, NormalizedByteStringToMac(normalized_bytes));
-      result.set_mac(mac);
-      break;
+      ASSIGN_OR_RETURN(auto mac, MacAddress::OfByteString(bytes));
+      result.set_mac(mac.ToString());
+      return result;
     }
     case Format::IPV4: {
-      ASSIGN_OR_RETURN(auto ipv4, NormalizedByteStringToIpv4(normalized_bytes));
-      result.set_ipv4(ipv4);
-      break;
+      ASSIGN_OR_RETURN(auto ipv4, Ipv4Address::OfByteString(bytes));
+      result.set_ipv4(ipv4.ToString());
+      return result;
     }
     case Format::IPV6: {
-      ASSIGN_OR_RETURN(auto ipv6, NormalizedByteStringToIpv6(normalized_bytes));
-      result.set_ipv6(ipv6);
-      break;
+      ASSIGN_OR_RETURN(auto ipv6, Ipv6Address::OfByteString(bytes));
+      result.set_ipv6(ipv6.ToString());
+      return result;
     }
     case Format::STRING: {
       result.set_str(bytes);
-      break;
+      return result;
     }
     case Format::HEX_STRING: {
-      auto hex_string = absl::BytesToHexString(normalized_bytes);
+      ASSIGN_OR_RETURN(std::string normalized_bytes,
+                       ArbitraryToNormalizedByteString(bytes, bitwidth));
+      std::string hex_string = absl::BytesToHexString(normalized_bytes);
       const int expected_num_hex_chars =
           bitwidth / 4 + (bitwidth % 4 != 0 ? 1 : 0);
       if (expected_num_hex_chars != hex_string.size()) {
@@ -355,17 +227,15 @@ absl::StatusOr<IrValue> ArbitraryByteStringToIrValue(const Format &format,
         hex_string = hex_string.substr(1);
       }
       result.set_hex_str(absl::StrCat("0x", hex_string));
-      break;
+      return result;
     }
     default:
       return gutil::InvalidArgumentErrorBuilder()
              << "Unexpected format: " << Format_Name(format);
   }
-  return result;
 }
 
-absl::Status ValidateIrValueFormat(const IrValue &ir_value,
-                                   const Format &format) {
+absl::Status ValidateIrValueFormat(const IrValue &ir_value, Format format) {
   const auto &format_case = ir_value.format_case();
   ASSIGN_OR_RETURN(const std::string format_case_name,
                    gutil::GetOneOfFieldName(ir_value, std::string("format")));
@@ -424,29 +294,21 @@ absl::Status ValidateIrValueFormat(const IrValue &ir_value,
 
 absl::StatusOr<std::string> IrValueToNormalizedByteString(
     const IrValue &ir_value, const int bitwidth) {
-  std::string byte_string;
-  const auto &format_case = ir_value.format_case();
-  ASSIGN_OR_RETURN(const std::string format_case_name,
-                   gutil::GetOneOfFieldName(ir_value, std::string("format")));
-  switch (format_case) {
+  switch (ir_value.format_case()) {
     case IrValue::kMac: {
-      ASSIGN_OR_RETURN(byte_string, MacToNormalizedByteString(ir_value.mac()));
-      break;
+      ASSIGN_OR_RETURN(auto mac, MacAddress::OfString(ir_value.mac()));
+      return mac.ToPaddedByteString();
     }
     case IrValue::kIpv4: {
-      ASSIGN_OR_RETURN(byte_string,
-                       Ipv4ToNormalizedByteString(ir_value.ipv4()));
-      break;
+      ASSIGN_OR_RETURN(auto ipv4, Ipv4Address::OfString(ir_value.ipv4()));
+      return ipv4.ToPaddedByteString();
     }
     case IrValue::kIpv6: {
-      ASSIGN_OR_RETURN(byte_string,
-                       Ipv6ToNormalizedByteString(ir_value.ipv6()));
-      break;
+      ASSIGN_OR_RETURN(auto ipv6, Ipv6Address::OfString(ir_value.ipv6()));
+      return ipv6.ToPaddedByteString();
     }
-    case IrValue::kStr: {
-      byte_string = ir_value.str();
-      break;
-    }
+    case IrValue::kStr:
+      return ir_value.str();
     case IrValue::kHexStr: {
       const std::string &hex_str = ir_value.hex_str();
       const int expected_num_hex_chars =
@@ -473,24 +335,15 @@ absl::StatusOr<std::string> IrValueToNormalizedByteString(
                << "\" contains non-hexadecimal characters";
       }
 
-      if (stripped_hex.size() % 2) {
-        byte_string = absl::HexStringToBytes(absl::StrCat("0", stripped_hex));
-      } else {
-        byte_string = absl::HexStringToBytes(stripped_hex);
-      }
-      break;
+      std::string byte_string = absl::HexStringToBytes(
+          absl::StrCat(stripped_hex.size() % 2 == 0 ? "" : "0", stripped_hex));
+      return ArbitraryToNormalizedByteString(byte_string, bitwidth);
     }
-    default:
-      return gutil::InvalidArgumentErrorBuilder()
-             << "Unexpected format: " << format_case_name;
+    case IrValue::FORMAT_NOT_SET:
+      break;
   }
-
-  std::string result = byte_string;
-  if (format_case != IrValue::kStr) {
-    ASSIGN_OR_RETURN(result,
-                     ArbitraryToNormalizedByteString(byte_string, bitwidth));
-  }
-  return result;
+  return gutil::InvalidArgumentErrorBuilder()
+         << "Uninitialized value: " << ir_value.DebugString();
 }
 
 absl::StatusOr<IrValue> FormattedStringToIrValue(const std::string &value,

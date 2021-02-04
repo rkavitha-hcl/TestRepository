@@ -125,7 +125,7 @@ match {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Bytestring of length 40 bits does not fit in 32 bits
+INVALID_ARGUMENT: cannot fit given byte string of 40 bits into 32 bits: 'ff22434532'
 
 =========================================================================
 invalid prefix length
