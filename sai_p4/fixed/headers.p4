@@ -117,19 +117,4 @@ header gre_t {
   bit<16> protocol;
 }
 
-#define ERSPAN2_HEADER_BYTES 8
-
-// Type 2 ERSPAN header
-// Reference: https://tools.ietf.org/html/draft-foschiano-erspan-00
-header erspan2_t {
-  bit<4>  version;
-  bit<12> vlan;
-  bit<3>  cos;
-  bit<2>  trunk_encap;
-  bit<1>  truncate;
-  bit<10> session_id;
-  bit<12> reserved;
-  bit<20> index;
-}
-
 #endif  // SAI_HEADERS_P4_

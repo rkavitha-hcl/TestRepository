@@ -29,10 +29,8 @@ control mirroring_encap(inout headers_t headers,
       headers.erspan_ipv4.ttl = local_metadata.mirroring_ttl;
       headers.erspan_ipv4.dscp = local_metadata.mirroring_tos[7:2];
       headers.erspan_ipv4.ecn = local_metadata.mirroring_tos[1:0];
-      // TODO: reenable ERSPAN2
-      headers.erspan_ipv4.total_len =
-        IPV4_HEADER_BYTES + GRE_HEADER_BYTES + // ERSPAN2_HEADER_BYTES +
-        (bit<16>)standard_metadata.packet_length;
+      headers.erspan_ipv4.total_len = IPV4_HEADER_BYTES + GRE_HEADER_BYTES +
+                                      (bit<16>)standard_metadata.packet_length;
       headers.erspan_ipv4.identification = 0;
       headers.erspan_ipv4.reserved = 0;
       headers.erspan_ipv4.do_not_fragment = 1;
@@ -51,16 +49,6 @@ control mirroring_encap(inout headers_t headers,
       headers.erspan_gre.flags = 0;
       headers.erspan_gre.version = 0;
       headers.erspan_gre.protocol = GRE_PROTOCOL_ERSPAN;
-
-      headers.erspan_type2.setValid();
-      headers.erspan_type2.version = ERSPAN_VERSION_TYPE_II;
-      headers.erspan_type2.vlan = 0;
-      headers.erspan_type2.cos = 0;
-      headers.erspan_type2.trunk_encap = 0;
-      headers.erspan_type2.truncate = 0;
-      headers.erspan_type2.session_id = 0;
-      headers.erspan_type2.reserved = 0;
-      headers.erspan_type2.index = 0;
     }
   }
 }  // control mirroring_encap

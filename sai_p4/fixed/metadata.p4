@@ -59,7 +59,6 @@ struct headers_t {
   ethernet_t erspan_ethernet;
   ipv4_t erspan_ipv4;
   gre_t erspan_gre;
-  erspan2_t erspan_type2;
 
   ethernet_t ethernet;
   ipv4_t ipv4;

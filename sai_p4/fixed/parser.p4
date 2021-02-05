@@ -86,8 +86,6 @@ control packet_deparser(packet_out packet, in headers_t headers) {
     packet.emit(headers.erspan_ethernet);
     packet.emit(headers.erspan_ipv4);
     packet.emit(headers.erspan_gre);
-    // TODO: figure out whether we should enable this.
-    // packet.emit(headers.erspan_type2);
     packet.emit(headers.ethernet);
     packet.emit(headers.ipv4);
     packet.emit(headers.ipv6);
