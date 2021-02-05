@@ -5,6 +5,7 @@
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
 #include "absl/random/random.h"
+#include "absl/random/seed_sequences.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "gmock/gmock.h"
@@ -44,11 +45,12 @@ void FuzzP4rtWriteAndCheckNoInternalErrors(thinkit::MirrorTestbed& testbed,
   pdpi::IrP4Info info = sai::GetIrP4Info();
   ASSERT_OK(pdpi::ClearTableEntries(session.get(), info));
 
+  absl::BitGen gen;
+
   // Run fuzzer.
   int num_updates = 0;
   int num_ok_statuses = 0;
   std::set<std::string> error_messages;
-  absl::BitGen gen;
   SwitchState state(info);
   int num_iterations = absl::GetFlag(FLAGS_fuzzer_iterations);
   for (int i = 0; i < num_iterations; i++) {
