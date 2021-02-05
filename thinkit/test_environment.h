@@ -35,6 +35,9 @@ class TestEnvironment {
   // Creates a new file if it doesn't exist.
   virtual absl::Status AppendToTestArtifact(absl::string_view filename,
                                             absl::string_view contents) = 0;
+
+  // Should known failures be masked, or should the test fail instead?
+  virtual bool MaskKnownFailures() = 0;
 };
 
 }  // namespace thinkit
