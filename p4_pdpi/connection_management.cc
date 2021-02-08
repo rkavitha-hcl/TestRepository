@@ -87,8 +87,12 @@ absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
            << response.ShortDebugString();
   }
 
-  // Move is needed to make the older compiler happy.
-  // See: go/totw/labs/should-i-return-std-move.
+  // When object returned doesn't have the same type as the function's return
+  // type (i.e. unique_ptr vs StatusOr in this case), certain old compilers
+  // won't implicitly wrap the return expressions in std::move(). Then, the case
+  // here will trigger the copy of the unique_ptr, which is invalid. Thus, we
+  // need to explicitly std::move the returned object here.
+  // See:go/totw/labs/should-i-return-std-move.
   return std::move(session);
 }
 
