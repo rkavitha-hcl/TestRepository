@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "p4_pdpi/utils/hex_string.h"
+#include "p4_pdpi/string_encodings/hex_string.h"
 
 #include <bitset>
 #include <cstdint>

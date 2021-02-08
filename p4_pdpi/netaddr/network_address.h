@@ -12,7 +12,7 @@
 #include "absl/strings/string_view.h"
 #include "gutil/status.h"
 #include "p4_pdpi/string_encodings/byte_string.h"
-#include "p4_pdpi/utils/hex_string.h"
+#include "p4_pdpi/string_encodings/hex_string.h"
 
 namespace netaddr {
 

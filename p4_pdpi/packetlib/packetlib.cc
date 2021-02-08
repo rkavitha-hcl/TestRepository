@@ -22,7 +22,7 @@
 #include "p4_pdpi/packetlib/bit_widths.h"
 #include "p4_pdpi/packetlib/packetlib.pb.h"
 #include "p4_pdpi/string_encodings/bit_string.h"
-#include "p4_pdpi/utils/hex_string.h"
+#include "p4_pdpi/string_encodings/hex_string.h"
 
 namespace packetlib {
 

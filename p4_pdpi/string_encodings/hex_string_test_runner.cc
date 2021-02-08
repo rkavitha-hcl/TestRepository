@@ -15,7 +15,7 @@
 #include <iostream>
 #include <limits>
 
-#include "p4_pdpi/utils/hex_string.h"
+#include "p4_pdpi/string_encodings/hex_string.h"
 
 #define TEST_PURE(function_call)                                       \
   do {                                                                 \
