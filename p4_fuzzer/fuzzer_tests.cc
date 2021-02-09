@@ -23,6 +23,8 @@
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
+#include "thinkit/mirror_testbed_fixture.h"
+#include "thinkit/test_environment.h"
 
 ABSL_FLAG(int, fuzzer_iterations, 10000,
           "Number of updates the fuzzer should generate.");
@@ -31,10 +33,13 @@ namespace p4_fuzzer {
 
 using ::p4::v1::WriteRequest;
 
-void FuzzP4rtWriteAndCheckNoInternalErrors(thinkit::MirrorTestbed& testbed,
-                                           bool mask_known_failures) {
+TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
+  thinkit::Switch& sut = GetMirrorTestbed().Sut();
+  thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
+
+  bool mask_known_failures = environment.MaskKnownFailures();
+
   // Initialize connection.
-  thinkit::Switch& sut = testbed.Sut();
   ASSERT_OK_AND_ASSIGN(auto stub, sut.CreateP4RuntimeStub());
   ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<pdpi::P4RuntimeSession> session,
@@ -66,12 +71,12 @@ void FuzzP4rtWriteAndCheckNoInternalErrors(thinkit::MirrorTestbed& testbed,
     request.set_device_id(session->DeviceId());
     *request.mutable_election_id() = session->ElectionId();
 
-    ASSERT_OK(testbed.Environment().AppendToTestArtifact(
+    ASSERT_OK(environment.AppendToTestArtifact(
         "requests_and_responses.txt",
         absl::StrCat("# Write request number ", i + 1, "\n",
                      annotated_request.DebugString())));
-    ASSERT_OK(testbed.Environment().AppendToTestArtifact(
-        "pi_write_request_trace.txt", request.DebugString()));
+    ASSERT_OK(environment.AppendToTestArtifact("pi_write_request_trace.txt",
+                                               request.DebugString()));
 
     // Send to switch.
     grpc::ClientContext context;
@@ -82,7 +87,7 @@ void FuzzP4rtWriteAndCheckNoInternalErrors(thinkit::MirrorTestbed& testbed,
             session->Stub().Write(&context, request, &pi_response),
             request.updates_size()));
 
-    ASSERT_OK(testbed.Environment().AppendToTestArtifact(
+    ASSERT_OK(environment.AppendToTestArtifact(
         "requests_and_responses.txt",
         absl::StrCat("# Response to request number ", i + 1, "\n",
                      response.DebugString())));
@@ -130,8 +135,8 @@ void FuzzP4rtWriteAndCheckNoInternalErrors(thinkit::MirrorTestbed& testbed,
           error_messages.insert(absl::StrCat(
               google::rpc::Code_Name(status.code()), ": ", status.message()));
         } else {
-          // TODO: check using ASSERT_OK in the future once the switch no
-          // longer fails this.
+          // TODO: check using ASSERT_OK in the future once the switch
+          // no longer fails this.
           state.ApplyUpdate(update).IgnoreError();
           num_ok_statuses += 1;
         }
@@ -146,11 +151,11 @@ void FuzzP4rtWriteAndCheckNoInternalErrors(thinkit::MirrorTestbed& testbed,
   LOG(INFO) << "Final state:";
   LOG(INFO) << state.SwitchStateSummary();
 
-  EXPECT_OK(testbed.Environment().StoreTestArtifact(
-      "final_switch_state.txt", state.SwitchStateSummary()));
+  EXPECT_OK(environment.StoreTestArtifact("final_switch_state.txt",
+                                          state.SwitchStateSummary()));
 
-  EXPECT_OK(testbed.Environment().StoreTestArtifact(
-      "error_messages.txt", absl::StrJoin(error_messages, "\n")));
+  EXPECT_OK(environment.StoreTestArtifact("error_messages.txt",
+                                          absl::StrJoin(error_messages, "\n")));
 
   // Leave the switch in a clean state.
   ASSERT_OK(pdpi::ClearTableEntries(session.get(), info));
