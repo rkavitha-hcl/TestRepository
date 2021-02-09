@@ -1,0 +1,20 @@
+cc_library(
+           name = "json",
+           hdrs = glob([
+                "include/json/*.h",
+                "src/lib_json/json_tool.h",
+           ]),
+           textual_hdrs = [
+                       "src/lib_json/json_valueiterator.inl",
+           ],
+           srcs = [
+               "src/lib_json/json_reader.cpp",
+               "src/lib_json/json_value.cpp",
+               "src/lib_json/json_writer.cpp",
+           ],
+           includes = [
+                   "include"
+           ],
+           visibility = ["//visibility:public"],
+           alwayslink = 1,
+          )

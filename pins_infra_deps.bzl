@@ -114,6 +114,13 @@ def pins_infra_deps():
                                                hdrs=["single_include/nlohmann/json.hpp"]
                                               )""",
         )
+    if not native.existing_rule("com_jsoncpp"):
+        http_archive(
+            name = "com_jsoncpp",
+            url = "https://github.com/open-source-parsers/jsoncpp/archive/1.9.4.zip",
+            strip_prefix = "jsoncpp-1.9.4",
+            build_file = "@//:bazel/BUILD.jsoncpp.bazel",
+        )
     if not native.existing_rule("com_github_ivmai_cudd"):
         http_archive(
             name = "com_github_ivmai_cudd",
