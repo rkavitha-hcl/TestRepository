@@ -22,6 +22,7 @@
 #include "gutil/status.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "thinkit/switch.h"
 
 namespace pdpi {
 using ::p4::v1::P4Runtime;
@@ -104,6 +105,12 @@ absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
     uint32_t device_id, absl::uint128 election_id) {
   return Create(CreateP4RuntimeStub(address, credentials), device_id,
                 election_id);
+}
+
+absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
+    thinkit::Switch& thinkit_switch, absl::uint128 election_id) {
+  ASSIGN_OR_RETURN(auto stub, thinkit_switch.CreateP4RuntimeStub());
+  return Create(std::move(stub), thinkit_switch.DeviceId(), election_id);
 }
 
 // Create the default session with the switch.

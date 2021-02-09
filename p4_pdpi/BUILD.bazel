@@ -182,6 +182,7 @@ cc_library(
     visibility = ["//visibility:public"],
     deps = [
         "//gutil:status",
+        "//thinkit:switch",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_grpc_grpc//:grpc++_public_hdrs",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",

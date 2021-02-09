@@ -29,6 +29,7 @@
 #include "grpcpp/security/credentials.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "thinkit/switch.h"
 
 namespace pdpi {
 // The maximum metadata size that a P4Runtime client should accept.  This is
@@ -68,6 +69,12 @@ class P4RuntimeSession {
       const std::string& address,
       const std::shared_ptr<grpc::ChannelCredentials>& credentials,
       uint32_t device_id, absl::uint128 election_id = TimeBasedElectionId());
+
+  // Creates a session with the switch, which lasts until the session object is
+  // destructed.
+  static absl::StatusOr<std::unique_ptr<P4RuntimeSession>> Create(
+      thinkit::Switch& thinkit_switch,
+      absl::uint128 election_id = TimeBasedElectionId());
 
   // Connects to the default session on the switch, which has no election_id
   // and which cannot be terminated. This should only be used for testing.
