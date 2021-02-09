@@ -117,6 +117,10 @@ void RunGenericPdTest(
         ir_to_pi,
     const std::function<absl::StatusOr<IR>(const pdpi::IrP4Info&, const PI&)>&
         pi_to_ir,
+    const std::function<absl::StatusOr<PI>(const pdpi::IrP4Info&, const PD&)>&
+        pd_to_pi,
+    const std::function<absl::Status(const pdpi::IrP4Info&, const PI&,
+                                     google::protobuf::Message*)>& pi_to_pd,
     const InputValidity& validity) {
   // Input and header.
   std::cout << TestHeader(test_name) << std::endl << std::endl;
@@ -175,6 +179,10 @@ void RunGenericPdTest(
     std::cout << status_or_pi.status().message() << std::endl;
     return;
   }
+
+  const auto& status_or_pi2 = pd_to_pi(info, pd);
+  if (!status_or_pi2.ok()) Fail("pd_to_pi failed.");
+
   const auto& pi = status_or_pi.value();
   std::cout << "--- PI:" << std::endl;
   std::cout << pi.DebugString() << std::endl;
@@ -209,6 +217,11 @@ void RunGenericPdTest(
               << pd2.DebugString() << std::endl;
     return;
   }
+
+  PD pd3;
+  const auto& status_pd3 = pi_to_pd(info, pi, &pd3);
+  if (!status_pd3.ok()) Fail("pi_to_pd failed.");
+
   std::cout << std::endl;
 }
 

@@ -45,7 +45,8 @@ static void RunPdPacketInTest(const pdpi::IrP4Info& info,
   RunGenericPdTest<pdpi::PacketIn, pdpi::IrPacketIn, p4::v1::PacketIn>(
       info, absl::StrCat("PacketIn test: ", test_name), pd,
       pdpi::PdPacketInToIr, pdpi::IrPacketInToPd, pdpi::IrPacketInToPi,
-      pdpi::PiPacketInToIr, validity);
+      pdpi::PiPacketInToIr, pdpi::PdPacketInToPi, pdpi::PiPacketInToPd,
+      validity);
 }
 
 static void RunPiPacketOutTest(const pdpi::IrP4Info& info,
@@ -63,7 +64,8 @@ static void RunPdPacketOutTest(const pdpi::IrP4Info& info,
   RunGenericPdTest<pdpi::PacketOut, pdpi::IrPacketOut, p4::v1::PacketOut>(
       info, absl::StrCat("PacketOut test: ", test_name), pd,
       pdpi::PdPacketOutToIr, pdpi::IrPacketOutToPd, pdpi::IrPacketOutToPi,
-      pdpi::PiPacketOutToIr, validity);
+      pdpi::PiPacketOutToIr, pdpi::PdPacketOutToPi, pdpi::PiPacketOutToPd,
+      validity);
 }
 
 static void RunPacketInTests(pdpi::IrP4Info info) {

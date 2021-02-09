@@ -60,7 +60,8 @@ static void RunPdReadRequestTest(const pdpi::IrP4Info& info,
   RunGenericPdTest<pdpi::ReadRequest, pdpi::IrReadRequest, p4::v1::ReadRequest>(
       info, absl::StrCat("ReadRequest test: ", test_name), pd,
       pdpi::PdReadRequestToIr, pdpi::IrReadRequestToPd, pdpi::IrReadRequestToPi,
-      pdpi::PiReadRequestToIr, validity);
+      pdpi::PiReadRequestToIr, pdpi::PdReadRequestToPi, pdpi::PiReadRequestToPd,
+      validity);
 }
 
 static void RunPiReadResponseTest(const pdpi::IrP4Info& info,
@@ -79,7 +80,8 @@ static void RunPdReadResponseTest(const pdpi::IrP4Info& info,
                    p4::v1::ReadResponse>(
       info, absl::StrCat("ReadResponse test: ", test_name), pd,
       pdpi::PdReadResponseToIr, pdpi::IrReadResponseToPd,
-      pdpi::IrReadResponseToPi, pdpi::PiReadResponseToIr, validity);
+      pdpi::IrReadResponseToPi, pdpi::PiReadResponseToIr,
+      pdpi::PdReadResponseToPi, pdpi::PiReadResponseToPd, validity);
 }
 
 static void RunPiUpdateTest(const pdpi::IrP4Info& info,
@@ -95,7 +97,8 @@ static void RunPdUpdateTest(const pdpi::IrP4Info& info,
                             const InputValidity validity) {
   RunGenericPdTest<pdpi::Update, pdpi::IrUpdate, p4::v1::Update>(
       info, absl::StrCat("Update test: ", test_name), pd, pdpi::PdUpdateToIr,
-      pdpi::IrUpdateToPd, pdpi::IrUpdateToPi, pdpi::PiUpdateToIr, validity);
+      pdpi::IrUpdateToPd, pdpi::IrUpdateToPi, pdpi::PiUpdateToIr,
+      pdpi::PdUpdateToPi, pdpi::PiUpdateToPd, validity);
 }
 
 static void RunPiWriteRequestTest(const pdpi::IrP4Info& info,
@@ -114,7 +117,8 @@ static void RunPdWriteRequestTest(const pdpi::IrP4Info& info,
                    p4::v1::WriteRequest>(
       info, absl::StrCat("WriteRequest test: ", test_name), pd,
       pdpi::PdWriteRequestToIr, pdpi::IrWriteRequestToPd,
-      pdpi::IrWriteRequestToPi, pdpi::PiWriteRequestToIr, validity);
+      pdpi::IrWriteRequestToPi, pdpi::PiWriteRequestToIr,
+      pdpi::PdWriteRequestToPi, pdpi::PiWriteRequestToPd, validity);
 }
 
 static void RunInvalidGrpcFailToTranslateToIrTest(
@@ -298,6 +302,7 @@ static void RunPdStreamMessageRequestTest(const pdpi::IrP4Info& info,
       info, absl::StrCat("StreamMessageRequest test: ", test_name), pd,
       pdpi::PdStreamMessageRequestToIr, pdpi::IrStreamMessageRequestToPd,
       pdpi::IrStreamMessageRequestToPi, pdpi::PiStreamMessageRequestToIr,
+      pdpi::PdStreamMessageRequestToPi, pdpi::PiStreamMessageRequestToPd,
       validity);
 }
 
@@ -318,6 +323,7 @@ static void RunPdStreamMessageResponseTest(
       info, absl::StrCat("StreamMessageResponse test: ", test_name), pd,
       pdpi::PdStreamMessageResponseToIr, pdpi::IrStreamMessageResponseToPd,
       pdpi::IrStreamMessageResponseToPi, pdpi::PiStreamMessageResponseToIr,
+      pdpi::PdStreamMessageResponseToPi, pdpi::PiStreamMessageResponseToPd,
       validity);
 }
 

@@ -49,7 +49,8 @@ static void RunPdTableEntryTest(const pdpi::IrP4Info& info,
                                 InputValidity validity) {
   RunGenericPdTest<pdpi::TableEntry, pdpi::IrTableEntry, p4::v1::TableEntry>(
       info, test_name, pd, pdpi::PdTableEntryToIr, pdpi::IrTableEntryToPd,
-      pdpi::IrTableEntryToPi, pdpi::PiTableEntryToIr, validity);
+      pdpi::IrTableEntryToPi, pdpi::PiTableEntryToIr, pdpi::PdTableEntryToPi,
+      pdpi::PiTableEntryToPd, validity);
 }
 
 static void RunPiTests(const pdpi::IrP4Info info) {

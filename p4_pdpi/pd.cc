@@ -408,11 +408,27 @@ absl::Status PiStreamMessageRequestToPd(const IrP4Info &info,
   return IrStreamMessageRequestToPd(info, ir, pd);
 }
 
+absl::StatusOr<p4::v1::StreamMessageRequest> PdStreamMessageRequestToPi(
+    const IrP4Info &info,
+    const google::protobuf::Message &stream_message_request) {
+  ASSIGN_OR_RETURN(const auto ir,
+                   PdStreamMessageRequestToIr(info, stream_message_request));
+  return IrStreamMessageRequestToPi(info, ir);
+}
+
 absl::Status PiStreamMessageResponseToPd(
     const IrP4Info &info, const p4::v1::StreamMessageResponse &pi,
     google::protobuf::Message *pd) {
   ASSIGN_OR_RETURN(const auto ir, PiStreamMessageResponseToIr(info, pi));
   return IrStreamMessageResponseToPd(info, ir, pd);
+}
+
+absl::StatusOr<p4::v1::StreamMessageResponse> PdStreamMessageResponseToPi(
+    const IrP4Info &info,
+    const google::protobuf::Message &stream_message_response) {
+  ASSIGN_OR_RETURN(const auto ir,
+                   PdStreamMessageResponseToIr(info, stream_message_response));
+  return IrStreamMessageResponseToPi(info, ir);
 }
 
 absl::Status GrpcStatusToPd(const grpc::Status &status,

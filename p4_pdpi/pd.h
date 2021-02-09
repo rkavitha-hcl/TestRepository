@@ -87,9 +87,17 @@ absl::Status PiStreamMessageRequestToPd(const IrP4Info &info,
                                         const p4::v1::StreamMessageRequest &pi,
                                         google::protobuf::Message *pd);
 
+absl::StatusOr<p4::v1::StreamMessageRequest> PdStreamMessageRequestToPi(
+    const IrP4Info &info,
+    const google::protobuf::Message &stream_message_request);
+
 absl::Status PiStreamMessageResponseToPd(
     const IrP4Info &info, const p4::v1::StreamMessageResponse &pi,
     google::protobuf::Message *pd);
+
+absl::StatusOr<p4::v1::StreamMessageResponse> PdStreamMessageResponseToPi(
+    const IrP4Info &info,
+    const google::protobuf::Message &stream_message_response);
 
 // -- Conversions to and from grpc::Status -------------------------------------
 
