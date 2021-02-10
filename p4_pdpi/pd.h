@@ -33,6 +33,25 @@ namespace pdpi {
 // a generic google::protobuf::Message and use GetReflection() to access the PD
 // proto.
 
+// The kinds of entities that can be declared in P4, e.g. tables and actions.
+enum P4EntityKind {
+  kP4Table,
+  kP4Action,
+  kP4Parameter,
+  kP4MatchField,
+  kP4MetaField,
+};
+
+// Given a P4 name for a given entity kind, returns the name of the
+// corresponding protobuf message name.
+absl::StatusOr<std::string> P4NameToProtobufMessageName(
+    absl::string_view p4_name, P4EntityKind entity_kind);
+
+// Given a P4 name for a given entity kind, returns the name of the
+// corresponding protobuf field name.
+absl::StatusOr<std::string> P4NameToProtobufFieldName(absl::string_view p4_name,
+                                                      P4EntityKind entity_kind);
+
 // -- Conversions to and from PI -----------------------------------------------
 
 absl::Status PiTableEntryToPd(const IrP4Info &info,

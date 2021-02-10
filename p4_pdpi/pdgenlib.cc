@@ -36,7 +36,7 @@
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_pdpi/internal/ordered_protobuf_map.h"
 #include "p4_pdpi/ir.pb.h"
-#include "p4_pdpi/utils/pd.h"
+#include "p4_pdpi/pd.h"
 
 using ::absl::StatusOr;
 using ::gutil::InvalidArgumentErrorBuilder;

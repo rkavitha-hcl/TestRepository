@@ -94,20 +94,3 @@ cc_test(
         "@com_google_protobuf//:protobuf",
     ],
 )
-
-cc_library(
-    name = "pd",
-    srcs = [
-        "pd.cc",
-    ],
-    hdrs = [
-        "pd.h",
-    ],
-    visibility = ["//visibility:public"],
-    deps = [
-        "//gutil:proto",
-        "//gutil:status",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
-    ],
-)

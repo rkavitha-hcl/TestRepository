@@ -21,6 +21,7 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/strip.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/map.h"
 #include "google/protobuf/message.h"
@@ -35,7 +36,6 @@
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/utils/ir.h"
-#include "p4_pdpi/utils/pd.h"
 
 namespace pdpi {
 
@@ -48,6 +48,59 @@ namespace {
 
 constexpr char kPdProtoAndP4InfoOutOfSync[] =
     "The PD proto and P4Info file are out of sync";
+
+constexpr absl::string_view kTableMessageSuffix = "Entry";
+constexpr absl::string_view kActionMessageSuffix = "Action";
+constexpr absl::string_view kTableFieldSuffix = "_entry";
+
+constexpr absl::string_view ProtoMessageSuffix(P4EntityKind entity_kind) {
+  switch (entity_kind) {
+    case kP4Table:
+      return kTableMessageSuffix;
+    case kP4Action:
+      return kActionMessageSuffix;
+    default:
+      return absl::string_view();
+  }
+}
+
+constexpr absl::string_view ProtoFieldSuffix(P4EntityKind entity_kind) {
+  switch (entity_kind) {
+    case kP4Table:
+      return kTableFieldSuffix;
+    case kP4Action:  // Intentionally no suffix.
+    default:
+      return absl::string_view();
+  }
+}
+
+std::string SnakeCaseToPascalCase(absl::string_view input) {
+  std::string output;
+  for (unsigned i = 0; i < input.size(); i += 1) {
+    if (input[i] == '_') {
+      i += 1;
+      if (i < input.size()) {
+        absl::StrAppend(&output, std::string(1, std::toupper(input[i])));
+      }
+    } else if (i == 0) {
+      absl::StrAppend(&output, std::string(1, std::toupper(input[i])));
+    } else {
+      absl::StrAppend(&output, std::string(1, input[i]));
+    }
+  }
+  return output;
+}
+
+absl::StatusOr<std::string> ProtobufFieldNameToP4Name(
+    absl::string_view proto_field_name, P4EntityKind entity_kind) {
+  // TODO: validate the name is in snake case.
+  if (absl::ConsumeSuffix(&proto_field_name, ProtoFieldSuffix(entity_kind))) {
+    return std::string(proto_field_name);
+  }
+  return gutil::InvalidArgumentErrorBuilder()
+         << "expected field name '" << proto_field_name << "' to end in suffix "
+         << ProtoFieldSuffix(entity_kind);
+}
 
 absl::StatusOr<const google::protobuf::FieldDescriptor *> GetFieldDescriptor(
     const google::protobuf::Message &parent_message,
@@ -282,6 +335,21 @@ std::vector<std::string> GetAllFieldNames(
   return field_names;
 }
 }  // namespace
+
+absl::StatusOr<std::string> P4NameToProtobufMessageName(
+    absl::string_view p4_name, P4EntityKind entity_kind) {
+  // TODO: validate the name is in snake case.
+  const absl::string_view suffix = ProtoMessageSuffix(entity_kind);
+  // Append suffix, unless it is redundant.
+  return absl::StrCat(absl::StripSuffix(SnakeCaseToPascalCase(p4_name), suffix),
+                      suffix);
+}
+
+absl::StatusOr<std::string> P4NameToProtobufFieldName(
+    absl::string_view p4_name, P4EntityKind entity_kind) {
+  // TODO: validate the name is in snake case.
+  return absl::StrCat(p4_name, ProtoFieldSuffix(entity_kind));
+}
 
 absl::StatusOr<int> GetEnumField(const google::protobuf::Message &message,
                                  const std::string &field_name) {
