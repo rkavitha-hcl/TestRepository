@@ -42,6 +42,9 @@ constexpr int kUdpChecksumBitwidth = 16;
 // TCP constants.
 constexpr int kTcpPortBitwidth = 16;
 
+// Minimum packet sizes, in bytes.
+constexpr int kMinNumBytesInEthernetPayload = 46;
+
 }  // namespace packetlib
 
 #endif  // GOOGLE_P4_PDPI_PACKETLIB_BIT_WIDTHS_H_

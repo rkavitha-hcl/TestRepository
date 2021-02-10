@@ -456,6 +456,17 @@ void EthernetHeaderInvalidReasons(const EthernetHeader& header,
       }
     }
   }
+
+  // Check minimum payload size.
+  if (auto size = PacketSizeInBytes(packet, header_index + 1); !size.ok()) {
+    output.push_back(absl::StrCat(
+        field_prefix,
+        ": couldn't compute payload size: ", size.status().ToString()));
+  } else if (*size < kMinNumBytesInEthernetPayload) {
+    output.push_back(absl::StrCat(
+        field_prefix, ": expected at least ", kMinNumBytesInEthernetPayload,
+        " bytes of Ethernet payload, but got only ", *size));
+  }
 }
 
 void Ipv4HeaderInvalidReasons(const Ipv4Header& header,
@@ -699,6 +710,11 @@ std::string HeaderCaseName(Header::HeaderCase header_case) {
 std::vector<std::string> PacketInvalidReasons(const Packet& packet) {
   std::vector<std::string> result;
 
+  if (packet.ByteSize() == 0) {
+    result.push_back("Packet is empty.");
+    return result;
+  }
+
   if (auto bitsize = PacketSizeInBits(packet); !bitsize.ok()) {
     result.push_back(absl::StrCat("Unable to determine total packet size: ",
                                   bitsize.status().ToString()));
@@ -929,6 +945,7 @@ absl::StatusOr<std::string> RawSerializePacket(const Packet& packet) {
 }
 
 absl::StatusOr<std::string> SerializePacket(Packet packet) {
+  RETURN_IF_ERROR(PadPacketToMinimumSize(packet).status());
   RETURN_IF_ERROR(UpdateComputedFields(packet).status());
   RETURN_IF_ERROR(ValidatePacket(packet));
   return RawSerializePacket(packet);
@@ -1033,6 +1050,37 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
   }
 
   return changes;
+}
+
+absl::StatusOr<bool> PadPacketToMinimumSize(Packet& packet) {
+  if (packet.headers().empty()) return false;
+  switch (packet.headers(0).header_case()) {
+    case Header::kEthernetHeader: {
+      if (auto size = PacketSizeInBytes(packet, 1); !size.ok()) {
+        return gutil::InvalidArgumentErrorBuilder()
+               << "couldn't compute packet size: " << size.status();
+      } else if (*size >= kMinNumBytesInEthernetPayload) {
+        return false;
+      } else {
+        std::string padding =
+            std::string(2 * (kMinNumBytesInEthernetPayload - *size), '0');
+        if (packet.payload().empty()) {
+          packet.set_payload(absl::StrCat("0x", padding));
+        } else {
+          absl::StrAppend(packet.mutable_payload(), padding);
+        }
+        return true;
+      }
+    }
+    case Header::kIpv4Header:
+    case Header::kIpv6Header:
+    case Header::kUdpHeader:
+    case Header::kTcpHeaderPrefix:
+    case Header::HEADER_NOT_SET:
+      return false;
+  }
+  LOG(DFATAL) << "exhaustive switch statement failed: " << packet.DebugString();
+  return false;
 }
 
 absl::StatusOr<int> PacketSizeInBytes(const Packet& packet,

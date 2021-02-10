@@ -75,6 +75,16 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
   std::cout << "ValidatePacket(packet) = " << valid << std::endl;
 
   if (!valid.ok()) {
+    std::cout << std::endl << "PadPacketToMinimumSize(packet) = ";
+    if (auto padded = PadPacketToMinimumSize(packet); padded.ok()) {
+      std::cout << (*padded ? "true" : "false") << std::endl;
+      if (*padded) {
+        std::cout << "new payload: \"" << packet.payload() << "\"" << std::endl;
+      }
+    } else {
+      std::cout << padded.status() << std::endl;
+    }
+
     std::cout << std::endl << "UpdateComputedFields(packet) = ";
     if (auto updated = UpdateComputedFields(packet); updated.ok()) {
       std::cout << (*updated ? "true" : "false") << std::endl;
@@ -92,7 +102,7 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
 
   // Try serializing (valid or invalid) packet.
   absl::StatusOr<std::string> bytes = SerializePacket(packet);
-  std::cout << "Serialize(Packet) = " << bytes.status() << "\n\n";
+  std::cout << std::endl << "Serialize(Packet) = " << bytes.status() << "\n\n";
   if (!bytes.ok()) return;
 
   // Test if the packet can be parsed back.
@@ -115,9 +125,11 @@ void main() {
     # ethernet header
     ethernet_destination: 0xaabbccddeeff
     ethernet_source: 0x112233445566
-    ether_type: 0x0001  # This means size(payload) = 1 byte.
+    ether_type: 0x002e  # This means size(payload) = 0x2e bytes = 46 bytes.
     # payload
-    payload: 0x01
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd
   )PB");
   RunPacketParseTest("Ethernet packet (invalid)", R"PB(
     # ethernet header
@@ -125,7 +137,7 @@ void main() {
     ethernet_source: 0x112233445566
     ether_type: 0x0001  # This means size(payload) = 1 byte.
     # payload
-    pqyload: 0x0102  # 2 bytes, but ether_type says 1 byte.
+    pqyload: 0x0102  # 2 bytes, but ether_type says 1 byte & minimum size is 46.
   )PB");
   RunPacketParseTest("Ethernet packet (unsupported EtherType)", R"PB(
     # ethernet header
@@ -165,17 +177,18 @@ void main() {
     ihl: 0x5
     dhcp: 0b011011
     ecn: 0b01
-    total_length: 0x0016
+    total_length: 0x0034
     identification: 0xa3cd
     flags: 0b000
     fragment_offset: 0b0000000000000
     ttl: 0x10
     protocol: 0x05  # some unsupported protocol
-    checksum: 0xe8a5
+    checksum: 0xe887
     ipv4_source: 0x0a000001
     ipv4_destination: 0x14000003
-    # other headers:
-    payload: 0x1234
+    # payload:
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
   )PB");
   RunPacketParseTest("IPv4 packet (checksum example)", R"PB(
     # Taken from
@@ -199,18 +212,19 @@ void main() {
     ihl: 0x6  # 5 + 1 x 32-bit suffix
     dhcp: 0b011011
     ecn: 0b01
-    total_length: 0x001c
+    total_length: 0x0038
     identification: 0xa3cd
     flags: 0b000
     fragment_offset: 0b0000000000000
     ttl: 0x10
     protocol: 0x05  # some unsupported protocol
-    checksum: 0xa339
+    checksum: 0xa31d
     ipv4_source: 0x0a000001
     ipv4_destination: 0x14000003
     uninterpreted_suffix: 0x11223344
     # Payload
-    payload: 0x55667788
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
   )PB");
   RunPacketParseTest("IPv4 packet with options (too short)", R"PB(
     # Ethernet header
@@ -261,13 +275,14 @@ void main() {
     dhcp: 0b011011
     ecn: 0b01
     flow_label: 0x12345
-    payload_length: 0x0001
+    payload_length: 0x0020
     next_header: 0x90  # some unassigned protocol
     hop_limit: 0x03
     ipv6_source: 0x00001111222233334444555566667777
     ipv6_destination: 0x88889999aaaabbbbccccddddeeeeffff
     # other headers:
-    payload: 0x12
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
   )PB");
   RunPacketParseTest("UDP packet (valid)", R"PB(
     # Taken from
@@ -282,22 +297,23 @@ void main() {
     ihl: 0x5
     dhcp: 0b011011
     ecn: 0b01
-    total_length: 0x001e
+    total_length: 0x002e
     identification: 0x0000
     flags: 0b000
     fragment_offset: 0b0000000000000
     ttl: 0x10
     protocol: 0x11  # UDP
-    checksum: 0x28d5
+    checksum: 0x28c5
     ipv4_source: 0xc0a8001f       # 192.168.0.31
     ipv4_destination: 0xc0a8001e  # 192.168.0.30
     # UDP header
     source_port: 0x0014       # 20
     destination_port: 0x000a  # 10
-    length: 0x000a            # 10
-    checksum: 0x35c5
+    length: 0x001a            # 26
+    checksum: 0x7961
     # Payload
-    payload: 0x4869  # "Hi" in ASCII
+    payload: 0x4869                                             # "Hi" in ASCII
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff  # Padding
   )PB");
   RunProtoPacketTest("UDP header not preceded by other header",
                      gutil::ParseProtoOrDie<Packet>(R"PB(
@@ -343,13 +359,13 @@ void main() {
     ihl: 0x5
     dhcp: 0b000000
     ecn: 0b00
-    total_length: 0x002c
+    total_length: 0x002e
     identification: 0x08b8
     flags: 0b010
     fragment_offset: 0b0000000000000
     ttl: 0xff
     protocol: 0x06  # TCP
-    checksum: 0x9997
+    checksum: 0x9995
     ipv4_source: 0x8b85d96e       # 139.133.217.110
     ipv4_destination: 0x8b85e902  # 139.133.233.2
     # TCP header
@@ -364,6 +380,8 @@ void main() {
     checksum: 0xa92c
     urgent_pointer: 0x0000
     options: 0x 0204 05b4
+    # Payload
+    payload: 0x 11 22
   )PB");
 
   RunProtoPacketTest("IPv4 without computed fields",
@@ -501,6 +519,9 @@ void main() {
                        }
                        payload: "0xabcd"
                      )PB"));
+
+  RunProtoPacketTest("Uninitialized (empty packet) - should be invalid",
+                     gutil::ParseProtoOrDie<Packet>(R"PB()PB"));
 }
 
 }  // namespace packetlib

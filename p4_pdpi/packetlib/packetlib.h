@@ -34,11 +34,12 @@ Packet ParsePacket(absl::string_view input,
                    Header::HeaderCase first_header = Header::kEthernetHeader);
 
 // Validates packets by checking that:
-// 1. Headers appear in a valid order, and that fields indicating the next
-//    header match the actual next header for all supported header types.
+// 1. Headers appear in a valid order, and fields indicating the next header
+//    match the actual next header for all supported header types.
 // 2. Each field is specified, and of the correct format.
-// 3. That computed fields have the right value.
-// 4. The packet has the required minimum size.
+// 3. Computed fields have the right value.
+// 4. The packet has the minimum size required by its headers.
+// 5. The packet is non-empty (not uninitialized).
 absl::Status ValidatePacket(const Packet& packet);
 
 // Same as ValidatePacket, but returns a list of reasons why the packet isn't
@@ -48,8 +49,8 @@ std::vector<std::string> PacketInvalidReasons(const Packet& packet);
 // Seralizes a given packet. The packet may miss computed fields, which will be
 // filled in automatically when missing (but not changed if they are present).
 // Serialization succeeds iff `ValidatePacket(packet).ok()` after
-// calling `UpdateComputedFields(packet)`; an error status is returned
-// otherwise.
+// calling `PadPacketToMinimumSize(packet); UpdateComputedFields(packet)`.
+// An error status is returned otherwise.
 absl::StatusOr<std::string> SerializePacket(Packet packet);
 
 // Seralizes a given packet without checking header invariants. All fields must
@@ -64,6 +65,17 @@ absl::StatusOr<std::string> RawSerializePacket(const Packet& packet);
 // Fails if fields that are required for determining computed fields are missing
 // or invalid.
 absl::StatusOr<bool> UpdateComputedFields(Packet& packet);
+
+// If the given packet must have a minimum size based on its headers (e.g., an
+// Ethernet payload can be no smaller than 46 bytes), and if the packet size can
+// be computed, appends the minimum number  of additional zeros needed to the
+// payload and returns true. If the packet size cannot be computed, returns
+// error status.
+// If no padding is required, leaves the packet unmodified and returns false.
+//
+// Note: This function may invalidate computed fields (e.g., checksum and length
+// fields) and should be called prior to `UpdateComputedFields`.
+absl::StatusOr<bool> PadPacketToMinimumSize(Packet& packet);
 
 // Returns the size of the given packet in bits, starting at the nth header and
 // ignoring all headers before that. Works even when computed fields are
