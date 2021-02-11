@@ -52,67 +52,68 @@ absl::StatusOr<std::string> P4NameToProtobufMessageName(
 absl::StatusOr<std::string> P4NameToProtobufFieldName(absl::string_view p4_name,
                                                       P4EntityKind entity_kind);
 
-// -- Conversions to and from PI -----------------------------------------------
+// -- Conversions from PI to PD ------------------------------------------------
 
 absl::Status PiTableEntryToPd(const IrP4Info &info,
                               const p4::v1::TableEntry &pi,
                               google::protobuf::Message *pd);
 
-absl::StatusOr<p4::v1::TableEntry> PdTableEntryToPi(
-    const IrP4Info &info, const google::protobuf::Message &pd);
-
-absl::Status PiUpdateToPd(const IrP4Info &info, const p4::v1::Update &pi,
-                          google::protobuf::Message *pd);
-
-absl::StatusOr<p4::v1::Update> PdUpdateToPi(
-    const IrP4Info &info, const google::protobuf::Message &pd);
-
-absl::Status PiWriteRequestToPd(const IrP4Info &info,
-                                const p4::v1::WriteRequest &pi,
-                                google::protobuf::Message *pd);
-
-absl::StatusOr<p4::v1::WriteRequest> PdWriteRequestToPi(
-    const IrP4Info &info, const google::protobuf::Message &pd);
-
-absl::Status PiReadRequestToPd(const IrP4Info &info,
-                               const p4::v1::ReadRequest &pi,
-                               google::protobuf::Message *pd);
-
-absl::StatusOr<p4::v1::ReadRequest> PdReadRequestToPi(
-    const IrP4Info &info, const google::protobuf::Message &pd);
-
-absl::Status PiReadResponseToPd(const IrP4Info &info,
-                                const p4::v1::ReadResponse &pi,
-                                google::protobuf::Message *pd);
-
-absl::StatusOr<p4::v1::ReadResponse> PdReadResponseToPi(
-    const IrP4Info &info, const google::protobuf::Message &pd);
-
 absl::Status PiPacketInToPd(const IrP4Info &info,
                             const p4::v1::PacketIn &pi_packet,
                             google::protobuf::Message *pd_packet);
-
-absl::StatusOr<p4::v1::PacketIn> PdPacketInToPi(
-    const IrP4Info &info, const google::protobuf::Message &packet);
 
 absl::Status PiPacketOutToPd(const IrP4Info &info,
                              const p4::v1::PacketOut &pi_packet,
                              google::protobuf::Message *pd_packet);
 
-absl::StatusOr<p4::v1::PacketOut> PdPacketOutToPi(
-    const IrP4Info &info, const google::protobuf::Message &packet);
+absl::Status PiReadRequestToPd(const IrP4Info &info,
+                               const p4::v1::ReadRequest &pi,
+                               google::protobuf::Message *pd);
+
+absl::Status PiReadResponseToPd(const IrP4Info &info,
+                                const p4::v1::ReadResponse &pi,
+                                google::protobuf::Message *pd);
+
+absl::Status PiUpdateToPd(const IrP4Info &info, const p4::v1::Update &pi,
+                          google::protobuf::Message *pd);
+
+absl::Status PiWriteRequestToPd(const IrP4Info &info,
+                                const p4::v1::WriteRequest &pi,
+                                google::protobuf::Message *pd);
 
 absl::Status PiStreamMessageRequestToPd(const IrP4Info &info,
                                         const p4::v1::StreamMessageRequest &pi,
                                         google::protobuf::Message *pd);
 
-absl::StatusOr<p4::v1::StreamMessageRequest> PdStreamMessageRequestToPi(
-    const IrP4Info &info,
-    const google::protobuf::Message &stream_message_request);
-
 absl::Status PiStreamMessageResponseToPd(
     const IrP4Info &info, const p4::v1::StreamMessageResponse &pi,
     google::protobuf::Message *pd);
+
+// -- Conversions from PD to PI ------------------------------------------------
+absl::StatusOr<p4::v1::TableEntry> PdTableEntryToPi(
+    const IrP4Info &info, const google::protobuf::Message &pd);
+
+absl::StatusOr<p4::v1::PacketIn> PdPacketInToPi(
+    const IrP4Info &info, const google::protobuf::Message &packet);
+
+absl::StatusOr<p4::v1::PacketOut> PdPacketOutToPi(
+    const IrP4Info &info, const google::protobuf::Message &packet);
+
+absl::StatusOr<p4::v1::ReadRequest> PdReadRequestToPi(
+    const IrP4Info &info, const google::protobuf::Message &pd);
+
+absl::StatusOr<p4::v1::ReadResponse> PdReadResponseToPi(
+    const IrP4Info &info, const google::protobuf::Message &pd);
+
+absl::StatusOr<p4::v1::Update> PdUpdateToPi(
+    const IrP4Info &info, const google::protobuf::Message &pd);
+
+absl::StatusOr<p4::v1::WriteRequest> PdWriteRequestToPi(
+    const IrP4Info &info, const google::protobuf::Message &pd);
+
+absl::StatusOr<p4::v1::StreamMessageRequest> PdStreamMessageRequestToPi(
+    const IrP4Info &info,
+    const google::protobuf::Message &stream_message_request);
 
 absl::StatusOr<p4::v1::StreamMessageResponse> PdStreamMessageResponseToPi(
     const IrP4Info &info,
@@ -127,65 +128,74 @@ absl::Status GrpcStatusToPd(const grpc::Status &status,
 absl::StatusOr<grpc::Status> PdWriteRpcStatusToGrpcStatus(
     const google::protobuf::Message &pd);
 
-// -- Conversions to and from the IR (intermediate representation) -------------
+// -- Conversions from IR (intermediate representation) to PD ------------------
 
-absl::Status IrReadRequestToPd(const IrP4Info &info, const IrReadRequest &ir,
-                               google::protobuf::Message *pd);
-absl::StatusOr<IrReadRequest> PdReadRequestToIr(
-    const IrP4Info &info, const google::protobuf::Message &read_request);
-
-absl::Status IrReadResponseToPd(const IrP4Info &info, const IrReadResponse &ir,
-                                google::protobuf::Message *read_response);
-absl::StatusOr<IrReadResponse> PdReadResponseToIr(
-    const IrP4Info &info, const google::protobuf::Message &read_response);
-
-absl::Status IrUpdateToPd(const IrP4Info &info, const IrUpdate &ir,
-                          google::protobuf::Message *update);
-absl::StatusOr<IrUpdate> PdUpdateToIr(const IrP4Info &info,
-                                      const google::protobuf::Message &update);
-
-absl::Status IrWriteRequestToPd(const IrP4Info &info, const IrWriteRequest &ir,
-                                google::protobuf::Message *write_request);
-absl::StatusOr<IrWriteRequest> PdWriteRequestToIr(
-    const IrP4Info &info, const google::protobuf::Message &write_request);
-
-// Converts a PD table entry to the IR table entry.
-absl::StatusOr<IrTableEntry> PdTableEntryToIr(
-    const IrP4Info &ir_p4info, const google::protobuf::Message &pd);
-
-// Converts an IR table entry to the PD table entry.
 absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
                               google::protobuf::Message *pd);
 
-// Converts an IR write response to PD write response.
-absl::Status IrRpcResponseToPd(const IrWriteResponse &ir_rpc_response,
-                               google::protobuf::Message *pd_rpc_response);
-// Converts an IR write status to PD write status.
-absl::Status IrWriteRpcStatusToPd(const IrWriteRpcStatus &ir_write_status,
-                                  google::protobuf::Message *pd);
-
-// Converts a PD write status to IR write status.
-absl::StatusOr<IrWriteRpcStatus> PdWriteRpcStatusToIr(
-    const google::protobuf::Message &pd);
-
-absl::StatusOr<IrPacketIn> PdPacketInToIr(
-    const IrP4Info &info, const google::protobuf::Message &packet);
-absl::StatusOr<IrPacketOut> PdPacketOutToIr(
-    const IrP4Info &info, const google::protobuf::Message &packet);
 absl::Status IrPacketInToPd(const IrP4Info &info, const IrPacketIn &packet,
                             google::protobuf::Message *pd_packet);
+
 absl::Status IrPacketOutToPd(const IrP4Info &info, const IrPacketOut &packet,
                              google::protobuf::Message *pd_packet);
-absl::StatusOr<IrStreamMessageRequest> PdStreamMessageRequestToIr(
-    const IrP4Info &info, const google::protobuf::Message &stream_message);
+
+absl::Status IrReadRequestToPd(const IrP4Info &info, const IrReadRequest &ir,
+                               google::protobuf::Message *pd);
+
+absl::Status IrReadResponseToPd(const IrP4Info &info, const IrReadResponse &ir,
+                                google::protobuf::Message *read_response);
+
+absl::Status IrUpdateToPd(const IrP4Info &info, const IrUpdate &ir,
+                          google::protobuf::Message *update);
+
+absl::Status IrWriteRequestToPd(const IrP4Info &info, const IrWriteRequest &ir,
+                                google::protobuf::Message *write_request);
+
 absl::Status IrStreamMessageRequestToPd(
     const IrP4Info &info, const IrStreamMessageRequest &ir,
     google::protobuf::Message *stream_message);
-absl::StatusOr<IrStreamMessageResponse> PdStreamMessageResponseToIr(
-    const IrP4Info &info, const google::protobuf::Message &stream_message);
+
 absl::Status IrStreamMessageResponseToPd(
     const IrP4Info &info, const IrStreamMessageResponse &ir,
     google::protobuf::Message *stream_message);
+
+absl::Status IrRpcResponseToPd(const IrWriteResponse &ir_rpc_response,
+                               google::protobuf::Message *pd_rpc_response);
+
+absl::Status IrWriteRpcStatusToPd(const IrWriteRpcStatus &ir_write_status,
+                                  google::protobuf::Message *pd);
+
+// -- Conversions from PD to IR (intermediate representation) ------------------
+
+absl::StatusOr<IrTableEntry> PdTableEntryToIr(
+    const IrP4Info &ir_p4info, const google::protobuf::Message &pd);
+
+absl::StatusOr<IrPacketIn> PdPacketInToIr(
+    const IrP4Info &info, const google::protobuf::Message &packet);
+
+absl::StatusOr<IrPacketOut> PdPacketOutToIr(
+    const IrP4Info &info, const google::protobuf::Message &packet);
+
+absl::StatusOr<IrReadRequest> PdReadRequestToIr(
+    const IrP4Info &info, const google::protobuf::Message &read_request);
+
+absl::StatusOr<IrReadResponse> PdReadResponseToIr(
+    const IrP4Info &info, const google::protobuf::Message &read_response);
+
+absl::StatusOr<IrUpdate> PdUpdateToIr(const IrP4Info &info,
+                                      const google::protobuf::Message &update);
+
+absl::StatusOr<IrWriteRequest> PdWriteRequestToIr(
+    const IrP4Info &info, const google::protobuf::Message &write_request);
+
+absl::StatusOr<IrStreamMessageRequest> PdStreamMessageRequestToIr(
+    const IrP4Info &info, const google::protobuf::Message &stream_message);
+
+absl::StatusOr<IrStreamMessageResponse> PdStreamMessageResponseToIr(
+    const IrP4Info &info, const google::protobuf::Message &stream_message);
+
+absl::StatusOr<IrWriteRpcStatus> PdWriteRpcStatusToIr(
+    const google::protobuf::Message &pd);
 
 // -- PD getters/setters -------------------------------------------------------
 

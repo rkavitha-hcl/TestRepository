@@ -32,70 +32,65 @@ namespace pdpi {
 // Creates IrP4Info and validates that the p4_info has no errors.
 absl::StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info& p4_info);
 
-// Converts a PI table entry to the IR table entry.
+// -- Conversions from PI to IR ------------------------------------------------
 absl::StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info& info,
                                               const p4::v1::TableEntry& pi);
 
-// Converts an IR table entry to the PI representation.
-absl::StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info& info,
-                                                    const IrTableEntry& ir);
-
-// Returns the IR of a packet-io packet.
 absl::StatusOr<IrPacketIn> PiPacketInToIr(const IrP4Info& info,
                                           const p4::v1::PacketIn& packet);
+
 absl::StatusOr<IrPacketOut> PiPacketOutToIr(const IrP4Info& info,
                                             const p4::v1::PacketOut& packet);
 
-// Returns the PI of a packet-io packet.
-absl::StatusOr<p4::v1::PacketIn> IrPacketInToPi(const IrP4Info& info,
-                                                const IrPacketIn& packet);
-absl::StatusOr<p4::v1::PacketOut> IrPacketOutToPi(const IrP4Info& info,
-                                                  const IrPacketOut& packet);
-
-// RPC-level conversion functions for read request.
 absl::StatusOr<IrReadRequest> PiReadRequestToIr(
     const IrP4Info& info, const p4::v1::ReadRequest& read_request);
-absl::StatusOr<p4::v1::ReadRequest> IrReadRequestToPi(
-    const IrP4Info& info, const IrReadRequest& read_request);
 
-// RPC-level conversion functions for read response.
 absl::StatusOr<IrReadResponse> PiReadResponseToIr(
     const IrP4Info& info, const p4::v1::ReadResponse& read_response);
-absl::StatusOr<p4::v1::ReadResponse> IrReadResponseToPi(
-    const IrP4Info& info, const IrReadResponse& read_response);
 
-// RPC-level conversion functions for update.
 absl::StatusOr<IrUpdate> PiUpdateToIr(const IrP4Info& info,
                                       const p4::v1::Update& update);
-absl::StatusOr<p4::v1::Update> IrUpdateToPi(const IrP4Info& info,
-                                            const IrUpdate& update);
-// RPC-level conversion functions for update.
-absl::StatusOr<IrUpdate> PiUpdateToIr(const IrP4Info& info,
-                                      const p4::v1::Update& update);
-absl::StatusOr<p4::v1::Update> IrUpdateToPi(const IrP4Info& info,
-                                            const IrUpdate& update);
 
-// RPC-level conversion functions for StreamMessageRequest
-absl::StatusOr<p4::v1::StreamMessageRequest> IrStreamMessageRequestToPi(
-    const IrP4Info& info,
-    const IrStreamMessageRequest& ir_stream_message_request);
+absl::StatusOr<IrWriteRequest> PiWriteRequestToIr(
+    const IrP4Info& info, const p4::v1::WriteRequest& write_request);
+
 absl::StatusOr<IrStreamMessageRequest> PiStreamMessageRequestToIr(
     const IrP4Info& info,
     const p4::v1::StreamMessageRequest& stream_message_request);
 
-// RPC-level conversion functions for StreamMessageResponse
-absl::StatusOr<p4::v1::StreamMessageResponse> IrStreamMessageResponseToPi(
-    const IrP4Info& info,
-    const IrStreamMessageResponse& ir_stream_message_response);
 absl::StatusOr<IrStreamMessageResponse> PiStreamMessageResponseToIr(
     const IrP4Info& info,
     const p4::v1::StreamMessageResponse& stream_message_response);
 
-// RPC-level conversion functions for write request.
-absl::StatusOr<IrWriteRequest> PiWriteRequestToIr(
-    const IrP4Info& info, const p4::v1::WriteRequest& write_request);
+// -- Conversions from IR to PI ------------------------------------------------
+absl::StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info& info,
+                                                    const IrTableEntry& ir);
+
+absl::StatusOr<p4::v1::PacketIn> IrPacketInToPi(const IrP4Info& info,
+                                                const IrPacketIn& packet);
+
+absl::StatusOr<p4::v1::PacketOut> IrPacketOutToPi(const IrP4Info& info,
+                                                  const IrPacketOut& packet);
+
+absl::StatusOr<p4::v1::ReadRequest> IrReadRequestToPi(
+    const IrP4Info& info, const IrReadRequest& read_request);
+
+absl::StatusOr<p4::v1::ReadResponse> IrReadResponseToPi(
+    const IrP4Info& info, const IrReadResponse& read_response);
+
+absl::StatusOr<p4::v1::Update> IrUpdateToPi(const IrP4Info& info,
+                                            const IrUpdate& update);
+
 absl::StatusOr<p4::v1::WriteRequest> IrWriteRequestToPi(
     const IrP4Info& info, const IrWriteRequest& write_request);
+
+absl::StatusOr<p4::v1::StreamMessageRequest> IrStreamMessageRequestToPi(
+    const IrP4Info& info,
+    const IrStreamMessageRequest& ir_stream_message_request);
+
+absl::StatusOr<p4::v1::StreamMessageResponse> IrStreamMessageResponseToPi(
+    const IrP4Info& info,
+    const IrStreamMessageResponse& ir_stream_message_response);
 
 // Formats a grpc status about write request into a readible string.
 std::string WriteRequestGrpcStatusToString(const grpc::Status& grpc_status);
@@ -103,6 +98,7 @@ std::string WriteRequestGrpcStatusToString(const grpc::Status& grpc_status);
 // RPC-level conversion functions for write response.
 absl::StatusOr<IrWriteRpcStatus> GrpcStatusToIrWriteRpcStatus(
     const grpc::Status& status, int number_of_updates_in_write_request);
+
 absl::StatusOr<grpc::Status> IrWriteRpcStatusToGrpcStatus(
     const IrWriteRpcStatus& ir_write_status);
 

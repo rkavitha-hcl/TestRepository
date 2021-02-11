@@ -351,96 +351,11 @@ absl::StatusOr<std::string> P4NameToProtobufFieldName(
   return absl::StrCat(p4_name, ProtoFieldSuffix(entity_kind));
 }
 
-absl::StatusOr<int> GetEnumField(const google::protobuf::Message &message,
-                                 const std::string &field_name) {
-  ASSIGN_OR_RETURN(auto *field_descriptor,
-                   GetFieldDescriptor(message, field_name));
-  RETURN_IF_ERROR(ValidateFieldDescriptorType(field_descriptor,
-                                              FieldDescriptor::TYPE_ENUM));
-  int enum_value =
-      message.GetReflection()->GetEnumValue(message, field_descriptor);
-  if (field_descriptor->enum_type()->FindValueByNumber(enum_value) == nullptr) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "Enum value within " << field_name << " is : " << enum_value;
-  }
-  return enum_value;
-}
-absl::Status SetEnumField(google::protobuf::Message *message,
-                          const std::string &enum_field_name, int enum_value) {
-  ASSIGN_OR_RETURN(auto *field_descriptor,
-                   GetFieldDescriptor(*message, enum_field_name));
-  RETURN_IF_ERROR(ValidateFieldDescriptorType(field_descriptor,
-                                              FieldDescriptor::TYPE_ENUM));
-  if (field_descriptor->enum_type()->FindValueByNumber(enum_value) == nullptr) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "enum_value: " << enum_value << " is not a valid enum value ";
-  }
-  message->GetReflection()->SetEnumValue(message, field_descriptor, enum_value);
-  return absl::OkStatus();
-}
-
 absl::Status PiTableEntryToPd(const IrP4Info &info,
                               const p4::v1::TableEntry &pi,
                               google::protobuf::Message *pd) {
   ASSIGN_OR_RETURN(const auto ir_entry, PiTableEntryToIr(info, pi));
   return IrTableEntryToPd(info, ir_entry, pd);
-}
-
-absl::StatusOr<p4::v1::TableEntry> PdTableEntryToPi(
-    const IrP4Info &info, const google::protobuf::Message &pd) {
-  ASSIGN_OR_RETURN(const auto ir_entry, PdTableEntryToIr(info, pd));
-  return IrTableEntryToPi(info, ir_entry);
-}
-
-absl::Status PiUpdateToPd(const IrP4Info &info, const p4::v1::Update &pi,
-                          google::protobuf::Message *pd) {
-  ASSIGN_OR_RETURN(const auto ir_entry, PiUpdateToIr(info, pi));
-  return IrUpdateToPd(info, ir_entry, pd);
-}
-
-absl::StatusOr<p4::v1::Update> PdUpdateToPi(
-    const IrP4Info &info, const google::protobuf::Message &pd) {
-  ASSIGN_OR_RETURN(const auto ir_entry, PdUpdateToIr(info, pd));
-  return IrUpdateToPi(info, ir_entry);
-}
-
-absl::Status PiWriteRequestToPd(const IrP4Info &info,
-                                const p4::v1::WriteRequest &pi,
-                                google::protobuf::Message *pd) {
-  ASSIGN_OR_RETURN(const auto ir_entry, PiWriteRequestToIr(info, pi));
-  return IrWriteRequestToPd(info, ir_entry, pd);
-}
-
-absl::StatusOr<p4::v1::WriteRequest> PdWriteRequestToPi(
-    const IrP4Info &info, const google::protobuf::Message &pd) {
-  ASSIGN_OR_RETURN(const auto ir_entry, PdWriteRequestToIr(info, pd));
-  return IrWriteRequestToPi(info, ir_entry);
-}
-
-absl::Status PiReadRequestToPd(const IrP4Info &info,
-                               const p4::v1::ReadRequest &pi,
-                               google::protobuf::Message *pd) {
-  ASSIGN_OR_RETURN(const auto ir_entry, PiReadRequestToIr(info, pi));
-  return IrReadRequestToPd(info, ir_entry, pd);
-}
-
-absl::StatusOr<p4::v1::ReadRequest> PdReadRequestToPi(
-    const IrP4Info &info, const google::protobuf::Message &pd) {
-  ASSIGN_OR_RETURN(const auto ir_entry, PdReadRequestToIr(info, pd));
-  return IrReadRequestToPi(info, ir_entry);
-}
-
-absl::Status PiReadResponseToPd(const IrP4Info &info,
-                                const p4::v1::ReadResponse &pi,
-                                google::protobuf::Message *pd) {
-  ASSIGN_OR_RETURN(const auto ir_entry, PiReadResponseToIr(info, pi));
-  return IrReadResponseToPd(info, ir_entry, pd);
-}
-
-absl::StatusOr<p4::v1::ReadResponse> PdReadResponseToPi(
-    const IrP4Info &info, const google::protobuf::Message &pd) {
-  ASSIGN_OR_RETURN(const auto ir_entry, PdReadResponseToIr(info, pd));
-  return IrReadResponseToPi(info, ir_entry);
 }
 
 absl::Status PiPacketInToPd(const IrP4Info &info,
@@ -450,12 +365,6 @@ absl::Status PiPacketInToPd(const IrP4Info &info,
   return IrPacketInToPd(info, ir, pd_packet);
 }
 
-absl::StatusOr<p4::v1::PacketIn> PdPacketInToPi(
-    const IrP4Info &info, const google::protobuf::Message &packet) {
-  ASSIGN_OR_RETURN(const auto ir, PdPacketInToIr(info, packet));
-  return IrPacketInToPi(info, ir);
-}
-
 absl::Status PiPacketOutToPd(const IrP4Info &info,
                              const p4::v1::PacketOut &pi_packet,
                              google::protobuf::Message *pd_packet) {
@@ -463,10 +372,31 @@ absl::Status PiPacketOutToPd(const IrP4Info &info,
   return IrPacketOutToPd(info, ir, pd_packet);
 }
 
-absl::StatusOr<p4::v1::PacketOut> PdPacketOutToPi(
-    const IrP4Info &info, const google::protobuf::Message &packet) {
-  ASSIGN_OR_RETURN(const auto ir, PdPacketOutToIr(info, packet));
-  return IrPacketOutToPi(info, ir);
+absl::Status PiReadRequestToPd(const IrP4Info &info,
+                               const p4::v1::ReadRequest &pi,
+                               google::protobuf::Message *pd) {
+  ASSIGN_OR_RETURN(const auto ir_entry, PiReadRequestToIr(info, pi));
+  return IrReadRequestToPd(info, ir_entry, pd);
+}
+
+absl::Status PiReadResponseToPd(const IrP4Info &info,
+                                const p4::v1::ReadResponse &pi,
+                                google::protobuf::Message *pd) {
+  ASSIGN_OR_RETURN(const auto ir_entry, PiReadResponseToIr(info, pi));
+  return IrReadResponseToPd(info, ir_entry, pd);
+}
+
+absl::Status PiUpdateToPd(const IrP4Info &info, const p4::v1::Update &pi,
+                          google::protobuf::Message *pd) {
+  ASSIGN_OR_RETURN(const auto ir_entry, PiUpdateToIr(info, pi));
+  return IrUpdateToPd(info, ir_entry, pd);
+}
+
+absl::Status PiWriteRequestToPd(const IrP4Info &info,
+                                const p4::v1::WriteRequest &pi,
+                                google::protobuf::Message *pd) {
+  ASSIGN_OR_RETURN(const auto ir_entry, PiWriteRequestToIr(info, pi));
+  return IrWriteRequestToPd(info, ir_entry, pd);
 }
 
 absl::Status PiStreamMessageRequestToPd(const IrP4Info &info,
@@ -476,19 +406,61 @@ absl::Status PiStreamMessageRequestToPd(const IrP4Info &info,
   return IrStreamMessageRequestToPd(info, ir, pd);
 }
 
+absl::Status PiStreamMessageResponseToPd(
+    const IrP4Info &info, const p4::v1::StreamMessageResponse &pi,
+    google::protobuf::Message *pd) {
+  ASSIGN_OR_RETURN(const auto ir, PiStreamMessageResponseToIr(info, pi));
+  return IrStreamMessageResponseToPd(info, ir, pd);
+}
+
+absl::StatusOr<p4::v1::TableEntry> PdTableEntryToPi(
+    const IrP4Info &info, const google::protobuf::Message &pd) {
+  ASSIGN_OR_RETURN(const auto ir_entry, PdTableEntryToIr(info, pd));
+  return IrTableEntryToPi(info, ir_entry);
+}
+
+absl::StatusOr<p4::v1::PacketIn> PdPacketInToPi(
+    const IrP4Info &info, const google::protobuf::Message &packet) {
+  ASSIGN_OR_RETURN(const auto ir, PdPacketInToIr(info, packet));
+  return IrPacketInToPi(info, ir);
+}
+
+absl::StatusOr<p4::v1::PacketOut> PdPacketOutToPi(
+    const IrP4Info &info, const google::protobuf::Message &packet) {
+  ASSIGN_OR_RETURN(const auto ir, PdPacketOutToIr(info, packet));
+  return IrPacketOutToPi(info, ir);
+}
+
+absl::StatusOr<p4::v1::ReadRequest> PdReadRequestToPi(
+    const IrP4Info &info, const google::protobuf::Message &pd) {
+  ASSIGN_OR_RETURN(const auto ir_entry, PdReadRequestToIr(info, pd));
+  return IrReadRequestToPi(info, ir_entry);
+}
+
+absl::StatusOr<p4::v1::ReadResponse> PdReadResponseToPi(
+    const IrP4Info &info, const google::protobuf::Message &pd) {
+  ASSIGN_OR_RETURN(const auto ir_entry, PdReadResponseToIr(info, pd));
+  return IrReadResponseToPi(info, ir_entry);
+}
+
+absl::StatusOr<p4::v1::Update> PdUpdateToPi(
+    const IrP4Info &info, const google::protobuf::Message &pd) {
+  ASSIGN_OR_RETURN(const auto ir_entry, PdUpdateToIr(info, pd));
+  return IrUpdateToPi(info, ir_entry);
+}
+
+absl::StatusOr<p4::v1::WriteRequest> PdWriteRequestToPi(
+    const IrP4Info &info, const google::protobuf::Message &pd) {
+  ASSIGN_OR_RETURN(const auto ir_entry, PdWriteRequestToIr(info, pd));
+  return IrWriteRequestToPi(info, ir_entry);
+}
+
 absl::StatusOr<p4::v1::StreamMessageRequest> PdStreamMessageRequestToPi(
     const IrP4Info &info,
     const google::protobuf::Message &stream_message_request) {
   ASSIGN_OR_RETURN(const auto ir,
                    PdStreamMessageRequestToIr(info, stream_message_request));
   return IrStreamMessageRequestToPi(info, ir);
-}
-
-absl::Status PiStreamMessageResponseToPd(
-    const IrP4Info &info, const p4::v1::StreamMessageResponse &pi,
-    google::protobuf::Message *pd) {
-  ASSIGN_OR_RETURN(const auto ir, PiStreamMessageResponseToIr(info, pi));
-  return IrStreamMessageResponseToPd(info, ir, pd);
 }
 
 absl::StatusOr<p4::v1::StreamMessageResponse> PdStreamMessageResponseToPi(
@@ -513,158 +485,6 @@ absl::StatusOr<grpc::Status> PdWriteRpcStatusToGrpcStatus(
   ASSIGN_OR_RETURN(const auto ir_write_rpc_status,
                    pdpi::PdWriteRpcStatusToIr(pd));
   return IrWriteRpcStatusToGrpcStatus(ir_write_rpc_status);
-}
-
-absl::Status IrReadRequestToPd(const IrP4Info &info, const IrReadRequest &ir,
-                               google::protobuf::Message *pd) {
-  if (ir.device_id() == 0) {
-    return UnimplementedErrorBuilder() << "Device ID missing";
-  }
-  RETURN_IF_ERROR(SetUint64Field(pd, "device_id", ir.device_id()));
-  if (ir.read_counter_data()) {
-    RETURN_IF_ERROR(
-        SetBoolField(pd, "read_counter_data", ir.read_counter_data()));
-  }
-  if (ir.read_meter_configs()) {
-    RETURN_IF_ERROR(
-        SetBoolField(pd, "read_meter_configs", ir.read_meter_configs()));
-  }
-  return absl::OkStatus();
-}
-
-absl::StatusOr<IrReadRequest> PdReadRequestToIr(
-    const IrP4Info &info, const google::protobuf::Message &read_request) {
-  IrReadRequest result;
-  ASSIGN_OR_RETURN(auto device_id, GetUint64Field(read_request, "device_id"));
-  if (device_id == 0) {
-    return InvalidArgumentErrorBuilder() << "Device ID missing";
-  }
-  result.set_device_id(device_id);
-  ASSIGN_OR_RETURN(auto read_counter_data,
-                   GetBoolField(read_request, "read_counter_data"));
-  result.set_read_counter_data(read_counter_data);
-  ASSIGN_OR_RETURN(auto read_meter_configs,
-                   GetBoolField(read_request, "read_meter_configs"));
-  result.set_read_meter_configs(read_meter_configs);
-
-  return result;
-}
-
-absl::Status IrReadResponseToPd(const IrP4Info &info, const IrReadResponse &ir,
-                                google::protobuf::Message *read_response) {
-  for (const auto &ir_table_entry : ir.table_entries()) {
-    ASSIGN_OR_RETURN(const auto *table_entries_descriptor,
-                     GetFieldDescriptor(*read_response, "table_entries"));
-    RETURN_IF_ERROR(
-        IrTableEntryToPd(info, ir_table_entry,
-                         read_response->GetReflection()->AddMessage(
-                             read_response, table_entries_descriptor)));
-  }
-  return absl::OkStatus();
-}
-
-absl::StatusOr<IrReadResponse> PdReadResponseToIr(
-    const IrP4Info &info, const google::protobuf::Message &read_response) {
-  IrReadResponse ir_response;
-  ASSIGN_OR_RETURN(const auto table_entries_descriptor,
-                   GetFieldDescriptor(read_response, "table_entries"));
-  for (auto i = 0; i < read_response.GetReflection()->FieldSize(
-                           read_response, table_entries_descriptor);
-       ++i) {
-    ASSIGN_OR_RETURN(
-        *ir_response.add_table_entries(),
-        PdTableEntryToIr(info,
-                         read_response.GetReflection()->GetRepeatedMessage(
-                             read_response, table_entries_descriptor, i)));
-  }
-  return ir_response;
-}
-
-absl::Status IrUpdateToPd(const IrP4Info &info, const IrUpdate &ir,
-                          google::protobuf::Message *update) {
-  ASSIGN_OR_RETURN(const auto *type_descriptor,
-                   GetFieldDescriptor(*update, "type"));
-  RETURN_IF_ERROR(
-      ValidateFieldDescriptorType(type_descriptor, FieldDescriptor::TYPE_ENUM));
-  update->GetReflection()->SetEnumValue(update, type_descriptor, ir.type());
-
-  ASSIGN_OR_RETURN(auto *pd_table_entry,
-                   GetMutableMessage(update, "table_entry"));
-  RETURN_IF_ERROR(IrTableEntryToPd(info, ir.table_entry(), pd_table_entry));
-  return absl::OkStatus();
-}
-
-absl::StatusOr<IrUpdate> PdUpdateToIr(const IrP4Info &info,
-                                      const google::protobuf::Message &update) {
-  IrUpdate ir_update;
-  ASSIGN_OR_RETURN(const auto *type_descriptor,
-                   GetFieldDescriptor(update, "type"));
-  const auto &type_value =
-      update.GetReflection()->GetEnumValue(update, type_descriptor);
-
-  if (!p4::v1::Update_Type_IsValid(type_value)) {
-    return InvalidArgumentErrorBuilder()
-           << "Invalid value for type: " << type_value;
-  }
-  ir_update.set_type((p4::v1::Update_Type)type_value);
-
-  ASSIGN_OR_RETURN(const auto *table_entry,
-                   GetMessageField(update, "table_entry"));
-  ASSIGN_OR_RETURN(*ir_update.mutable_table_entry(),
-                   PdTableEntryToIr(info, *table_entry));
-  return ir_update;
-}
-
-absl::Status IrWriteRequestToPd(const IrP4Info &info, const IrWriteRequest &ir,
-                                google::protobuf::Message *write_request) {
-  RETURN_IF_ERROR(SetUint64Field(write_request, "device_id", ir.device_id()));
-  if (ir.election_id().high() > 0 || ir.election_id().low() > 0) {
-    ASSIGN_OR_RETURN(auto *election_id,
-                     GetMutableMessage(write_request, "election_id"));
-    RETURN_IF_ERROR(
-        SetUint64Field(election_id, "high", ir.election_id().high()));
-    RETURN_IF_ERROR(SetUint64Field(election_id, "low", ir.election_id().low()));
-  }
-
-  ASSIGN_OR_RETURN(const auto updates_descriptor,
-                   GetFieldDescriptor(*write_request, "updates"));
-  for (const auto &ir_update : ir.updates()) {
-    RETURN_IF_ERROR(IrUpdateToPd(info, ir_update,
-                                 write_request->GetReflection()->AddMessage(
-                                     write_request, updates_descriptor)));
-  }
-  return absl::OkStatus();
-}
-
-absl::StatusOr<IrWriteRequest> PdWriteRequestToIr(
-    const IrP4Info &info, const google::protobuf::Message &write_request) {
-  IrWriteRequest ir_write_request;
-  ASSIGN_OR_RETURN(const auto &device_id,
-                   GetUint64Field(write_request, "device_id"));
-  ir_write_request.set_device_id(device_id);
-
-  ASSIGN_OR_RETURN(const auto *election_id,
-                   GetMessageField(write_request, "election_id"));
-  ASSIGN_OR_RETURN(const auto &high, GetUint64Field(*election_id, "high"));
-  ASSIGN_OR_RETURN(const auto &low, GetUint64Field(*election_id, "low"));
-  if (high > 0 || low > 0) {
-    auto *ir_election_id = ir_write_request.mutable_election_id();
-    ir_election_id->set_high(high);
-    ir_election_id->set_low(low);
-  }
-
-  ASSIGN_OR_RETURN(const auto updates_descriptor,
-                   GetFieldDescriptor(write_request, "updates"));
-  for (auto i = 0; i < write_request.GetReflection()->FieldSize(
-                           write_request, updates_descriptor);
-       ++i) {
-    ASSIGN_OR_RETURN(
-        *ir_write_request.add_updates(),
-        PdUpdateToIr(info, write_request.GetReflection()->GetRepeatedMessage(
-                               write_request, updates_descriptor, i)));
-  }
-
-  return ir_write_request;
 }
 
 // Converts all IR matches to their PD form and stores them in the match field
@@ -732,92 +552,6 @@ static absl::Status IrMatchEntryToPd(const IrTableDefinition &ir_table_info,
   return absl::OkStatus();
 }
 
-// Converts all PD matches to their IR form and stores them in the matches field
-// of ir_table_entry.
-static absl::Status PdMatchEntryToIr(const IrTableDefinition &ir_table_info,
-                                     const google::protobuf::Message &pd_match,
-                                     IrTableEntry *ir_table_entry) {
-  for (const auto &pd_match_name : GetAllFieldNames(pd_match)) {
-    auto *ir_match = ir_table_entry->add_matches();
-    ir_match->set_name(pd_match_name);
-    ASSIGN_OR_RETURN(
-        const auto &ir_match_info,
-        gutil::FindOrStatus(ir_table_info.match_fields_by_name(),
-                            pd_match_name),
-        _ << "P4Info for table \"" << ir_table_info.preamble().name()
-          << "\" does not contain match with name \"" << pd_match_name << "\"");
-    switch (ir_match_info.match_field().match_type()) {
-      case MatchField::EXACT: {
-        ASSIGN_OR_RETURN(const auto &pd_value,
-                         GetStringField(pd_match, pd_match_name));
-        ASSIGN_OR_RETURN(
-            *ir_match->mutable_exact(),
-            FormattedStringToIrValue(pd_value, ir_match_info.format()));
-        break;
-      }
-      case MatchField::LPM: {
-        auto *ir_lpm = ir_match->mutable_lpm();
-        ASSIGN_OR_RETURN(const auto *pd_lpm,
-                         GetMessageField(pd_match, pd_match_name));
-
-        ASSIGN_OR_RETURN(const auto &pd_value,
-                         GetStringField(*pd_lpm, "value"));
-        ASSIGN_OR_RETURN(
-            *ir_lpm->mutable_value(),
-            FormattedStringToIrValue(pd_value, ir_match_info.format()));
-
-        ASSIGN_OR_RETURN(const auto &pd_prefix_len,
-                         GetInt32Field(*pd_lpm, "prefix_length"));
-        if (pd_prefix_len < 0 ||
-            pd_prefix_len > ir_match_info.match_field().bitwidth()) {
-          return InvalidArgumentErrorBuilder()
-                 << "Prefix length (" << pd_prefix_len << ") for match field \""
-                 << ir_match->name() << "\" is out of bounds";
-        }
-        ir_lpm->set_prefix_length(pd_prefix_len);
-        break;
-      }
-      case MatchField::TERNARY: {
-        auto *ir_ternary = ir_match->mutable_ternary();
-        ASSIGN_OR_RETURN(const auto *pd_ternary,
-                         GetMessageField(pd_match, pd_match_name));
-
-        ASSIGN_OR_RETURN(const auto &pd_value,
-                         GetStringField(*pd_ternary, "value"));
-        ASSIGN_OR_RETURN(
-            *ir_ternary->mutable_value(),
-            FormattedStringToIrValue(pd_value, ir_match_info.format()));
-
-        ASSIGN_OR_RETURN(const auto &pd_mask,
-                         GetStringField(*pd_ternary, "mask"));
-        ASSIGN_OR_RETURN(
-            *ir_ternary->mutable_mask(),
-            FormattedStringToIrValue(pd_mask, ir_match_info.format()));
-        break;
-      }
-      case MatchField::OPTIONAL: {
-        auto *ir_optional = ir_match->mutable_optional();
-        ASSIGN_OR_RETURN(const auto *pd_optional,
-                         GetMessageField(pd_match, pd_match_name));
-
-        ASSIGN_OR_RETURN(const auto &pd_value,
-                         GetStringField(*pd_optional, "value"));
-        ASSIGN_OR_RETURN(
-            *ir_optional->mutable_value(),
-            FormattedStringToIrValue(pd_value, ir_match_info.format()));
-        break;
-      }
-      default:
-        return gutil::InvalidArgumentErrorBuilder()
-               << "Unsupported match type \""
-               << MatchField_MatchType_Name(
-                      ir_match_info.match_field().match_type())
-               << "\" in \"" << pd_match_name << "\"";
-    }
-  }
-  return absl::OkStatus();
-}
-
 // Converts an IR action invocation to its PD form and stores it in the parent
 // message.
 static absl::Status IrActionInvocationToPd(
@@ -844,44 +578,6 @@ static absl::Status IrActionInvocationToPd(
   return absl::OkStatus();
 }
 
-// Converts a PD action invocation to its IR form and returns it.
-static absl::StatusOr<IrActionInvocation> PdActionInvocationToIr(
-    const IrP4Info &ir_p4info,
-    const google::protobuf::Message &pd_action_invocation) {
-  const std::vector<std::string> all_fields =
-      GetAllFieldNames(pd_action_invocation);
-  if (all_fields.empty()) {
-    return gutil::InvalidArgumentErrorBuilder() << "No action set.";
-  }
-  if (all_fields.size() > 1) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "Invalid PD proto, expected exactly one action.";
-  }
-  const std::string &action_name = all_fields[0];
-  ASSIGN_OR_RETURN(const auto *pd_action,
-                   GetMessageField(pd_action_invocation, action_name));
-
-  ASSIGN_OR_RETURN(
-      const auto &ir_action_info,
-      gutil::FindOrStatus(ir_p4info.actions_by_name(), action_name),
-      _ << "P4Info does not contain action with name \"" << action_name
-        << "\"");
-  IrActionInvocation ir_action;
-  ir_action.set_name(action_name);
-  for (const auto &pd_arg_name : GetAllFieldNames(*pd_action)) {
-    ASSIGN_OR_RETURN(
-        const auto &param_info,
-        gutil::FindOrStatus(ir_action_info.params_by_name(), pd_arg_name));
-    ASSIGN_OR_RETURN(const auto &pd_arg,
-                     GetStringField(*pd_action, pd_arg_name));
-    auto *ir_param = ir_action.add_params();
-    ir_param->set_name(pd_arg_name);
-    ASSIGN_OR_RETURN(*ir_param->mutable_value(),
-                     FormattedStringToIrValue(pd_arg, param_info.format()));
-  }
-  return ir_action;
-}
-
 // Converts an IR action set to its PD form and stores it in the
 // PD table entry.
 static absl::Status IrActionSetToPd(const IrP4Info &ir_p4info,
@@ -903,30 +599,6 @@ static absl::Status IrActionSetToPd(const IrP4Info &ir_p4info,
                                    ir_action_set_invocation.watch_port()));
   }
   return absl::OkStatus();
-}
-
-// Converts a PD action set to its IR form and stores it in the
-// ir_table_entry.
-static absl::StatusOr<IrActionSetInvocation> PdActionSetToIr(
-    const IrP4Info &ir_p4info, const google::protobuf::Message &pd_action_set) {
-  IrActionSetInvocation ir_action_set_invocation;
-  {
-    ASSIGN_OR_RETURN(const auto &pd_weight,
-                     GetInt32Field(pd_action_set, "weight"));
-    ir_action_set_invocation.set_weight(pd_weight);
-  }
-  {
-    ASSIGN_OR_RETURN(const auto &pd_watch_port,
-                     GetStringField(pd_action_set, "watch_port"));
-    ir_action_set_invocation.set_watch_port(pd_watch_port);
-  }
-  {
-    ASSIGN_OR_RETURN(const auto *pd_action,
-                     GetMessageField(pd_action_set, "action"));
-    ASSIGN_OR_RETURN(*ir_action_set_invocation.mutable_action(),
-                     PdActionInvocationToIr(ir_p4info, *pd_action));
-  }
-  return ir_action_set_invocation;
 }
 
 absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
@@ -1017,6 +689,401 @@ absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
   }
 
   return absl::OkStatus();
+}
+
+template <typename T>
+absl::Status IrPacketIoToPd(const IrP4Info &info, const std::string &kind,
+                            const T &packet,
+                            google::protobuf::Message *pd_packet) {
+  ASSIGN_OR_RETURN(auto *field_descriptor,
+                   GetFieldDescriptor(*pd_packet, "payload"));
+  RETURN_IF_ERROR(ValidateFieldDescriptorType(field_descriptor,
+                                              FieldDescriptor::TYPE_BYTES));
+  pd_packet->GetReflection()->SetString(pd_packet, field_descriptor,
+                                        packet.payload());
+
+  google::protobuf::Map<std::string, IrPacketIoMetadataDefinition>
+      metadata_by_name;
+  if (kind == "packet-in") {
+    metadata_by_name = info.packet_in_metadata_by_name();
+  } else if (kind == "packet-out") {
+    metadata_by_name = info.packet_out_metadata_by_name();
+  } else {
+    return InvalidArgumentErrorBuilder() << "Invalid PacketIo type " << kind;
+  }
+
+  for (const auto &metadata : packet.metadata()) {
+    const std::string &name = metadata.name();
+
+    ASSIGN_OR_RETURN(const auto &metadata_definition,
+                     gutil::FindOrStatus(metadata_by_name, name),
+                     _ << "\"" << kind << "\" metadata with name \"" << name
+                       << "\" not defined");
+    ASSIGN_OR_RETURN(const auto &raw_value,
+                     IrValueToFormattedString(metadata.value(),
+                                              metadata_definition.format()));
+    ASSIGN_OR_RETURN(auto *pd_metadata,
+                     GetMutableMessage(pd_packet, "metadata"));
+    RETURN_IF_ERROR(SetStringField(pd_metadata, name, raw_value));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status IrPacketInToPd(const IrP4Info &info, const IrPacketIn &packet,
+                            google::protobuf::Message *pd_packet) {
+  return IrPacketIoToPd<IrPacketIn>(info, "packet-in", packet, pd_packet);
+}
+absl::Status IrPacketOutToPd(const IrP4Info &info, const IrPacketOut &packet,
+                             google::protobuf::Message *pd_packet) {
+  return IrPacketIoToPd<IrPacketOut>(info, "packet-out", packet, pd_packet);
+}
+
+absl::Status IrReadRequestToPd(const IrP4Info &info, const IrReadRequest &ir,
+                               google::protobuf::Message *pd) {
+  if (ir.device_id() == 0) {
+    return UnimplementedErrorBuilder() << "Device ID missing";
+  }
+  RETURN_IF_ERROR(SetUint64Field(pd, "device_id", ir.device_id()));
+  if (ir.read_counter_data()) {
+    RETURN_IF_ERROR(
+        SetBoolField(pd, "read_counter_data", ir.read_counter_data()));
+  }
+  if (ir.read_meter_configs()) {
+    RETURN_IF_ERROR(
+        SetBoolField(pd, "read_meter_configs", ir.read_meter_configs()));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status IrReadResponseToPd(const IrP4Info &info, const IrReadResponse &ir,
+                                google::protobuf::Message *read_response) {
+  for (const auto &ir_table_entry : ir.table_entries()) {
+    ASSIGN_OR_RETURN(const auto *table_entries_descriptor,
+                     GetFieldDescriptor(*read_response, "table_entries"));
+    RETURN_IF_ERROR(
+        IrTableEntryToPd(info, ir_table_entry,
+                         read_response->GetReflection()->AddMessage(
+                             read_response, table_entries_descriptor)));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status IrUpdateToPd(const IrP4Info &info, const IrUpdate &ir,
+                          google::protobuf::Message *update) {
+  ASSIGN_OR_RETURN(const auto *type_descriptor,
+                   GetFieldDescriptor(*update, "type"));
+  RETURN_IF_ERROR(
+      ValidateFieldDescriptorType(type_descriptor, FieldDescriptor::TYPE_ENUM));
+  update->GetReflection()->SetEnumValue(update, type_descriptor, ir.type());
+
+  ASSIGN_OR_RETURN(auto *pd_table_entry,
+                   GetMutableMessage(update, "table_entry"));
+  RETURN_IF_ERROR(IrTableEntryToPd(info, ir.table_entry(), pd_table_entry));
+  return absl::OkStatus();
+}
+
+absl::Status IrWriteRequestToPd(const IrP4Info &info, const IrWriteRequest &ir,
+                                google::protobuf::Message *write_request) {
+  RETURN_IF_ERROR(SetUint64Field(write_request, "device_id", ir.device_id()));
+  if (ir.election_id().high() > 0 || ir.election_id().low() > 0) {
+    ASSIGN_OR_RETURN(auto *election_id,
+                     GetMutableMessage(write_request, "election_id"));
+    RETURN_IF_ERROR(
+        SetUint64Field(election_id, "high", ir.election_id().high()));
+    RETURN_IF_ERROR(SetUint64Field(election_id, "low", ir.election_id().low()));
+  }
+
+  ASSIGN_OR_RETURN(const auto updates_descriptor,
+                   GetFieldDescriptor(*write_request, "updates"));
+  for (const auto &ir_update : ir.updates()) {
+    RETURN_IF_ERROR(IrUpdateToPd(info, ir_update,
+                                 write_request->GetReflection()->AddMessage(
+                                     write_request, updates_descriptor)));
+  }
+  return absl::OkStatus();
+}
+
+static absl::Status IrArbitrationToPd(
+    const p4::v1::MasterArbitrationUpdate &ir_arbitration,
+    google::protobuf::Message *stream_message) {
+  ASSIGN_OR_RETURN(auto *arbitration,
+                   GetMutableMessage(stream_message, "arbitration"));
+
+  RETURN_IF_ERROR(
+      SetUint64Field(arbitration, "device_id", ir_arbitration.device_id()));
+
+  ASSIGN_OR_RETURN(auto *election_id,
+                   GetMutableMessage(arbitration, "election_id"));
+  RETURN_IF_ERROR(
+      SetUint64Field(election_id, "high", ir_arbitration.election_id().high()));
+  RETURN_IF_ERROR(
+      SetUint64Field(election_id, "low", ir_arbitration.election_id().low()));
+
+  ASSIGN_OR_RETURN(auto *pd_status, GetMutableMessage(arbitration, "status"));
+  RETURN_IF_ERROR(
+      SetInt32Field(pd_status, "code", ir_arbitration.status().code()));
+  RETURN_IF_ERROR(
+      SetStringField(pd_status, "message", ir_arbitration.status().message()));
+  return absl::OkStatus();
+}
+
+absl::Status IrStreamMessageRequestToPd(
+    const IrP4Info &info, const IrStreamMessageRequest &ir,
+    google::protobuf::Message *stream_message) {
+  switch (ir.update_case()) {
+    case IrStreamMessageRequest::kArbitration: {
+      RETURN_IF_ERROR(IrArbitrationToPd(ir.arbitration(), stream_message));
+      break;
+    }
+    case IrStreamMessageRequest::kPacket: {
+      ASSIGN_OR_RETURN(auto *packet_out,
+                       GetMutableMessage(stream_message, "packet"));
+      RETURN_IF_ERROR(IrPacketOutToPd(info, ir.packet(), packet_out));
+      break;
+    }
+    default:
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Unsupported update: ",
+          ir.GetDescriptor()->FindFieldByNumber(ir.update_case())->name(),
+          "."));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status IrStreamMessageResponseToPd(
+    const IrP4Info &info, const IrStreamMessageResponse &ir,
+    google::protobuf::Message *stream_message) {
+  switch (ir.update_case()) {
+    case IrStreamMessageResponse::kArbitration: {
+      RETURN_IF_ERROR(IrArbitrationToPd(ir.arbitration(), stream_message));
+      break;
+    }
+    case IrStreamMessageResponse::kPacket: {
+      ASSIGN_OR_RETURN(auto *packet,
+                       GetMutableMessage(stream_message, "packet"));
+      RETURN_IF_ERROR(IrPacketInToPd(info, ir.packet(), packet));
+      break;
+    }
+    case IrStreamMessageResponse::kError: {
+      IrStreamError ir_error = ir.error();
+      ASSIGN_OR_RETURN(auto *error, GetMutableMessage(stream_message, "error"));
+
+      ASSIGN_OR_RETURN(auto *pd_status, GetMutableMessage(error, "status"));
+      RETURN_IF_ERROR(
+          SetInt32Field(pd_status, "code", ir_error.status().code()));
+
+      RETURN_IF_ERROR(
+          SetStringField(pd_status, "message", ir_error.status().message()));
+
+      ASSIGN_OR_RETURN(auto *packet_out,
+                       GetMutableMessage(error, "packet_out"));
+      RETURN_IF_ERROR(
+          IrPacketOutToPd(info, ir.error().packet_out(), packet_out));
+      break;
+    }
+    default:
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Unsupported update: ",
+          ir.GetDescriptor()->FindFieldByNumber(ir.update_case())->name(),
+          "."));
+  }
+  return absl::OkStatus();
+}
+
+static absl::Status IrUpdateStatusToPd(
+    const IrUpdateStatus &ir_update_status,
+    google::protobuf::Message *pd_update_status) {
+  RETURN_IF_ERROR(
+      SetEnumField(pd_update_status, "code", ir_update_status.code()));
+  RETURN_IF_ERROR(
+      SetStringField(pd_update_status, "message", ir_update_status.message()));
+  return absl::OkStatus();
+}
+
+static absl::Status IrWriteResponseToPd(
+    const IrWriteResponse &ir_write_response,
+    google::protobuf::Message *pd_rpc_response) {
+  // Iterates through each ir update status and add message to pd via
+  // AddRepeatedMutableMessage
+  for (const IrUpdateStatus &ir_update_status : ir_write_response.statuses()) {
+    ASSIGN_OR_RETURN(auto *pd_update_status,
+                     AddRepeatedMutableMessage(pd_rpc_response, "statuses"));
+    RETURN_IF_ERROR(IrUpdateStatusToPd(ir_update_status, pd_update_status));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status IrWriteRpcStatusToPd(const IrWriteRpcStatus &ir_write_status,
+                                  google::protobuf::Message *pd) {
+  switch (ir_write_status.status_case()) {
+    case IrWriteRpcStatus::kRpcResponse: {
+      ASSIGN_OR_RETURN(auto *pd_rpc_response,
+                       GetMutableMessage(pd, "rpc_response"));
+      return IrWriteResponseToPd(ir_write_status.rpc_response(),
+                                 pd_rpc_response);
+    }
+    case IrWriteRpcStatus::kRpcWideError: {
+      ASSIGN_OR_RETURN(auto *pd_rpc_wide_error,
+                       GetMutableMessage(pd, "rpc_wide_error"));
+      RETURN_IF_ERROR(SetInt32Field(pd_rpc_wide_error, "code",
+                                    ir_write_status.rpc_wide_error().code()));
+      RETURN_IF_ERROR(
+          SetStringField(pd_rpc_wide_error, "message",
+                         ir_write_status.rpc_wide_error().message()));
+      break;
+    }
+    default:
+      return absl::UnknownError("Unknown IrWriteRpcStatus case");
+  }
+  return absl::OkStatus();
+}
+
+// Converts all PD matches to their IR form and stores them in the matches field
+// of ir_table_entry.
+static absl::Status PdMatchEntryToIr(const IrTableDefinition &ir_table_info,
+                                     const google::protobuf::Message &pd_match,
+                                     IrTableEntry *ir_table_entry) {
+  for (const auto &pd_match_name : GetAllFieldNames(pd_match)) {
+    auto *ir_match = ir_table_entry->add_matches();
+    ir_match->set_name(pd_match_name);
+    ASSIGN_OR_RETURN(
+        const auto &ir_match_info,
+        gutil::FindOrStatus(ir_table_info.match_fields_by_name(),
+                            pd_match_name),
+        _ << "P4Info for table \"" << ir_table_info.preamble().name()
+          << "\" does not contain match with name \"" << pd_match_name << "\"");
+    switch (ir_match_info.match_field().match_type()) {
+      case MatchField::EXACT: {
+        ASSIGN_OR_RETURN(const auto &pd_value,
+                         GetStringField(pd_match, pd_match_name));
+        ASSIGN_OR_RETURN(
+            *ir_match->mutable_exact(),
+            FormattedStringToIrValue(pd_value, ir_match_info.format()));
+        break;
+      }
+      case MatchField::LPM: {
+        auto *ir_lpm = ir_match->mutable_lpm();
+        ASSIGN_OR_RETURN(const auto *pd_lpm,
+                         GetMessageField(pd_match, pd_match_name));
+
+        ASSIGN_OR_RETURN(const auto &pd_value,
+                         GetStringField(*pd_lpm, "value"));
+        ASSIGN_OR_RETURN(
+            *ir_lpm->mutable_value(),
+            FormattedStringToIrValue(pd_value, ir_match_info.format()));
+
+        ASSIGN_OR_RETURN(const auto &pd_prefix_len,
+                         GetInt32Field(*pd_lpm, "prefix_length"));
+        if (pd_prefix_len < 0 ||
+            pd_prefix_len > ir_match_info.match_field().bitwidth()) {
+          return InvalidArgumentErrorBuilder()
+                 << "Prefix length (" << pd_prefix_len << ") for match field \""
+                 << ir_match->name() << "\" is out of bounds";
+        }
+        ir_lpm->set_prefix_length(pd_prefix_len);
+        break;
+      }
+      case MatchField::TERNARY: {
+        auto *ir_ternary = ir_match->mutable_ternary();
+        ASSIGN_OR_RETURN(const auto *pd_ternary,
+                         GetMessageField(pd_match, pd_match_name));
+
+        ASSIGN_OR_RETURN(const auto &pd_value,
+                         GetStringField(*pd_ternary, "value"));
+        ASSIGN_OR_RETURN(
+            *ir_ternary->mutable_value(),
+            FormattedStringToIrValue(pd_value, ir_match_info.format()));
+
+        ASSIGN_OR_RETURN(const auto &pd_mask,
+                         GetStringField(*pd_ternary, "mask"));
+        ASSIGN_OR_RETURN(
+            *ir_ternary->mutable_mask(),
+            FormattedStringToIrValue(pd_mask, ir_match_info.format()));
+        break;
+      }
+      case MatchField::OPTIONAL: {
+        auto *ir_optional = ir_match->mutable_optional();
+        ASSIGN_OR_RETURN(const auto *pd_optional,
+                         GetMessageField(pd_match, pd_match_name));
+
+        ASSIGN_OR_RETURN(const auto &pd_value,
+                         GetStringField(*pd_optional, "value"));
+        ASSIGN_OR_RETURN(
+            *ir_optional->mutable_value(),
+            FormattedStringToIrValue(pd_value, ir_match_info.format()));
+        break;
+      }
+      default:
+        return gutil::InvalidArgumentErrorBuilder()
+               << "Unsupported match type \""
+               << MatchField_MatchType_Name(
+                      ir_match_info.match_field().match_type())
+               << "\" in \"" << pd_match_name << "\"";
+    }
+  }
+  return absl::OkStatus();
+}
+
+// Converts a PD action invocation to its IR form and returns it.
+static absl::StatusOr<IrActionInvocation> PdActionInvocationToIr(
+    const IrP4Info &ir_p4info,
+    const google::protobuf::Message &pd_action_invocation) {
+  const std::vector<std::string> all_fields =
+      GetAllFieldNames(pd_action_invocation);
+  if (all_fields.empty()) {
+    return gutil::InvalidArgumentErrorBuilder() << "No action set.";
+  }
+  if (all_fields.size() > 1) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "Invalid PD proto, expected exactly one action.";
+  }
+  const std::string &action_name = all_fields[0];
+  ASSIGN_OR_RETURN(const auto *pd_action,
+                   GetMessageField(pd_action_invocation, action_name));
+
+  ASSIGN_OR_RETURN(
+      const auto &ir_action_info,
+      gutil::FindOrStatus(ir_p4info.actions_by_name(), action_name),
+      _ << "P4Info does not contain action with name \"" << action_name
+        << "\"");
+  IrActionInvocation ir_action;
+  ir_action.set_name(action_name);
+  for (const auto &pd_arg_name : GetAllFieldNames(*pd_action)) {
+    ASSIGN_OR_RETURN(
+        const auto &param_info,
+        gutil::FindOrStatus(ir_action_info.params_by_name(), pd_arg_name));
+    ASSIGN_OR_RETURN(const auto &pd_arg,
+                     GetStringField(*pd_action, pd_arg_name));
+    auto *ir_param = ir_action.add_params();
+    ir_param->set_name(pd_arg_name);
+    ASSIGN_OR_RETURN(*ir_param->mutable_value(),
+                     FormattedStringToIrValue(pd_arg, param_info.format()));
+  }
+  return ir_action;
+}
+
+// Converts a PD action set to its IR form and stores it in the
+// ir_table_entry.
+static absl::StatusOr<IrActionSetInvocation> PdActionSetToIr(
+    const IrP4Info &ir_p4info, const google::protobuf::Message &pd_action_set) {
+  IrActionSetInvocation ir_action_set_invocation;
+  {
+    ASSIGN_OR_RETURN(const auto &pd_weight,
+                     GetInt32Field(pd_action_set, "weight"));
+    ir_action_set_invocation.set_weight(pd_weight);
+  }
+  {
+    ASSIGN_OR_RETURN(const auto &pd_watch_port,
+                     GetStringField(pd_action_set, "watch_port"));
+    ir_action_set_invocation.set_watch_port(pd_watch_port);
+  }
+  {
+    ASSIGN_OR_RETURN(const auto *pd_action,
+                     GetMessageField(pd_action_set, "action"));
+    ASSIGN_OR_RETURN(*ir_action_set_invocation.mutable_action(),
+                     PdActionInvocationToIr(ir_p4info, *pd_action));
+  }
+  return ir_action_set_invocation;
 }
 
 absl::StatusOr<IrTableEntry> PdTableEntryToIr(
@@ -1178,44 +1245,6 @@ absl::StatusOr<T> PdPacketIoToIr(const IrP4Info &info, const std::string &kind,
   return result;
 }
 
-template <typename T>
-absl::Status IrPacketIoToPd(const IrP4Info &info, const std::string &kind,
-                            const T &packet,
-                            google::protobuf::Message *pd_packet) {
-  ASSIGN_OR_RETURN(auto *field_descriptor,
-                   GetFieldDescriptor(*pd_packet, "payload"));
-  RETURN_IF_ERROR(ValidateFieldDescriptorType(field_descriptor,
-                                              FieldDescriptor::TYPE_BYTES));
-  pd_packet->GetReflection()->SetString(pd_packet, field_descriptor,
-                                        packet.payload());
-
-  google::protobuf::Map<std::string, IrPacketIoMetadataDefinition>
-      metadata_by_name;
-  if (kind == "packet-in") {
-    metadata_by_name = info.packet_in_metadata_by_name();
-  } else if (kind == "packet-out") {
-    metadata_by_name = info.packet_out_metadata_by_name();
-  } else {
-    return InvalidArgumentErrorBuilder() << "Invalid PacketIo type " << kind;
-  }
-
-  for (const auto &metadata : packet.metadata()) {
-    const std::string &name = metadata.name();
-
-    ASSIGN_OR_RETURN(const auto &metadata_definition,
-                     gutil::FindOrStatus(metadata_by_name, name),
-                     _ << "\"" << kind << "\" metadata with name \"" << name
-                       << "\" not defined");
-    ASSIGN_OR_RETURN(const auto &raw_value,
-                     IrValueToFormattedString(metadata.value(),
-                                              metadata_definition.format()));
-    ASSIGN_OR_RETURN(auto *pd_metadata,
-                     GetMutableMessage(pd_packet, "metadata"));
-    RETURN_IF_ERROR(SetStringField(pd_metadata, name, raw_value));
-  }
-  return absl::OkStatus();
-}
-
 absl::StatusOr<IrPacketIn> PdPacketInToIr(
     const IrP4Info &info, const google::protobuf::Message &packet) {
   return PdPacketIoToIr<IrPacketIn>(info, "packet-in", packet);
@@ -1225,61 +1254,174 @@ absl::StatusOr<IrPacketOut> PdPacketOutToIr(
   return PdPacketIoToIr<IrPacketOut>(info, "packet-out", packet);
 }
 
-absl::Status IrPacketInToPd(const IrP4Info &info, const IrPacketIn &packet,
-                            google::protobuf::Message *pd_packet) {
-  return IrPacketIoToPd<IrPacketIn>(info, "packet-in", packet, pd_packet);
-}
-absl::Status IrPacketOutToPd(const IrP4Info &info, const IrPacketOut &packet,
-                             google::protobuf::Message *pd_packet) {
-  return IrPacketIoToPd<IrPacketOut>(info, "packet-out", packet, pd_packet);
-}
-
-static absl::Status IrUpdateStatusToPd(
-    const IrUpdateStatus &ir_update_status,
-    google::protobuf::Message *pd_update_status) {
-  RETURN_IF_ERROR(
-      SetEnumField(pd_update_status, "code", ir_update_status.code()));
-  RETURN_IF_ERROR(
-      SetStringField(pd_update_status, "message", ir_update_status.message()));
-  return absl::OkStatus();
-}
-
-static absl::Status IrWriteResponseToPd(
-    const IrWriteResponse &ir_write_response,
-    google::protobuf::Message *pd_rpc_response) {
-  // Iterates through each ir update status and add message to pd via
-  // AddRepeatedMutableMessage
-  for (const IrUpdateStatus &ir_update_status : ir_write_response.statuses()) {
-    ASSIGN_OR_RETURN(auto *pd_update_status,
-                     AddRepeatedMutableMessage(pd_rpc_response, "statuses"));
-    RETURN_IF_ERROR(IrUpdateStatusToPd(ir_update_status, pd_update_status));
+absl::StatusOr<IrReadRequest> PdReadRequestToIr(
+    const IrP4Info &info, const google::protobuf::Message &read_request) {
+  IrReadRequest result;
+  ASSIGN_OR_RETURN(auto device_id, GetUint64Field(read_request, "device_id"));
+  if (device_id == 0) {
+    return InvalidArgumentErrorBuilder() << "Device ID missing";
   }
-  return absl::OkStatus();
+  result.set_device_id(device_id);
+  ASSIGN_OR_RETURN(auto read_counter_data,
+                   GetBoolField(read_request, "read_counter_data"));
+  result.set_read_counter_data(read_counter_data);
+  ASSIGN_OR_RETURN(auto read_meter_configs,
+                   GetBoolField(read_request, "read_meter_configs"));
+  result.set_read_meter_configs(read_meter_configs);
+
+  return result;
 }
 
-absl::Status IrWriteRpcStatusToPd(const IrWriteRpcStatus &ir_write_status,
-                                  google::protobuf::Message *pd) {
-  switch (ir_write_status.status_case()) {
-    case IrWriteRpcStatus::kRpcResponse: {
-      ASSIGN_OR_RETURN(auto *pd_rpc_response,
-                       GetMutableMessage(pd, "rpc_response"));
-      return IrWriteResponseToPd(ir_write_status.rpc_response(),
-                                 pd_rpc_response);
-    }
-    case IrWriteRpcStatus::kRpcWideError: {
-      ASSIGN_OR_RETURN(auto *pd_rpc_wide_error,
-                       GetMutableMessage(pd, "rpc_wide_error"));
-      RETURN_IF_ERROR(SetInt32Field(pd_rpc_wide_error, "code",
-                                    ir_write_status.rpc_wide_error().code()));
-      RETURN_IF_ERROR(
-          SetStringField(pd_rpc_wide_error, "message",
-                         ir_write_status.rpc_wide_error().message()));
-      break;
-    }
-    default:
-      return absl::UnknownError("Unknown IrWriteRpcStatus case");
+absl::StatusOr<IrReadResponse> PdReadResponseToIr(
+    const IrP4Info &info, const google::protobuf::Message &read_response) {
+  IrReadResponse ir_response;
+  ASSIGN_OR_RETURN(const auto table_entries_descriptor,
+                   GetFieldDescriptor(read_response, "table_entries"));
+  for (auto i = 0; i < read_response.GetReflection()->FieldSize(
+                           read_response, table_entries_descriptor);
+       ++i) {
+    ASSIGN_OR_RETURN(
+        *ir_response.add_table_entries(),
+        PdTableEntryToIr(info,
+                         read_response.GetReflection()->GetRepeatedMessage(
+                             read_response, table_entries_descriptor, i)));
   }
-  return absl::OkStatus();
+  return ir_response;
+}
+
+absl::StatusOr<IrUpdate> PdUpdateToIr(const IrP4Info &info,
+                                      const google::protobuf::Message &update) {
+  IrUpdate ir_update;
+  ASSIGN_OR_RETURN(const auto *type_descriptor,
+                   GetFieldDescriptor(update, "type"));
+  const auto &type_value =
+      update.GetReflection()->GetEnumValue(update, type_descriptor);
+
+  if (!p4::v1::Update_Type_IsValid(type_value)) {
+    return InvalidArgumentErrorBuilder()
+           << "Invalid value for type: " << type_value;
+  }
+  ir_update.set_type((p4::v1::Update_Type)type_value);
+
+  ASSIGN_OR_RETURN(const auto *table_entry,
+                   GetMessageField(update, "table_entry"));
+  ASSIGN_OR_RETURN(*ir_update.mutable_table_entry(),
+                   PdTableEntryToIr(info, *table_entry));
+  return ir_update;
+}
+
+absl::StatusOr<IrWriteRequest> PdWriteRequestToIr(
+    const IrP4Info &info, const google::protobuf::Message &write_request) {
+  IrWriteRequest ir_write_request;
+  ASSIGN_OR_RETURN(const auto &device_id,
+                   GetUint64Field(write_request, "device_id"));
+  ir_write_request.set_device_id(device_id);
+
+  ASSIGN_OR_RETURN(const auto *election_id,
+                   GetMessageField(write_request, "election_id"));
+  ASSIGN_OR_RETURN(const auto &high, GetUint64Field(*election_id, "high"));
+  ASSIGN_OR_RETURN(const auto &low, GetUint64Field(*election_id, "low"));
+  if (high > 0 || low > 0) {
+    auto *ir_election_id = ir_write_request.mutable_election_id();
+    ir_election_id->set_high(high);
+    ir_election_id->set_low(low);
+  }
+
+  ASSIGN_OR_RETURN(const auto updates_descriptor,
+                   GetFieldDescriptor(write_request, "updates"));
+  for (auto i = 0; i < write_request.GetReflection()->FieldSize(
+                           write_request, updates_descriptor);
+       ++i) {
+    ASSIGN_OR_RETURN(
+        *ir_write_request.add_updates(),
+        PdUpdateToIr(info, write_request.GetReflection()->GetRepeatedMessage(
+                               write_request, updates_descriptor, i)));
+  }
+
+  return ir_write_request;
+}
+
+static absl::StatusOr<p4::v1::MasterArbitrationUpdate> PdArbitrationToIr(
+    const google::protobuf::Message &stream_message) {
+  p4::v1::MasterArbitrationUpdate ir_arbitration;
+  ASSIGN_OR_RETURN(const auto *arbitration,
+                   GetMessageField(stream_message, "arbitration"));
+
+  ASSIGN_OR_RETURN(const auto device_id,
+                   GetUint64Field(*arbitration, "device_id"));
+  ir_arbitration.set_device_id(device_id);
+
+  ASSIGN_OR_RETURN(const auto *election_id,
+                   GetMessageField(*arbitration, "election_id"));
+  ASSIGN_OR_RETURN(const auto high, GetUint64Field(*election_id, "high"));
+  ir_arbitration.mutable_election_id()->set_high(high);
+  ASSIGN_OR_RETURN(const auto low, GetUint64Field(*election_id, "low"));
+  ir_arbitration.mutable_election_id()->set_low(low);
+
+  ASSIGN_OR_RETURN(const auto *status, GetMessageField(*arbitration, "status"));
+  ASSIGN_OR_RETURN(const auto code, GetInt32Field(*status, "code"));
+  ir_arbitration.mutable_status()->set_code(code);
+  ASSIGN_OR_RETURN(const auto message, GetStringField(*status, "message"));
+  ir_arbitration.mutable_status()->set_message(message);
+
+  return ir_arbitration;
+}
+
+absl::StatusOr<IrStreamMessageRequest> PdStreamMessageRequestToIr(
+    const IrP4Info &info, const google::protobuf::Message &stream_message) {
+  IrStreamMessageRequest ir_stream_message;
+  ASSIGN_OR_RETURN(const std::string update_one_of_name,
+                   gutil::GetOneOfFieldName(stream_message, "update"));
+  if (update_one_of_name == "arbitration") {
+    ASSIGN_OR_RETURN(*ir_stream_message.mutable_arbitration(),
+                     PdArbitrationToIr(stream_message));
+  } else if (update_one_of_name == "packet") {
+    ASSIGN_OR_RETURN(const auto *packet,
+                     GetMessageField(stream_message, "packet"));
+    ASSIGN_OR_RETURN(*ir_stream_message.mutable_packet(),
+                     PdPacketOutToIr(info, *packet));
+  } else {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Unsupported update: ", update_one_of_name, "."));
+  }
+  return ir_stream_message;
+}
+
+absl::StatusOr<IrStreamMessageResponse> PdStreamMessageResponseToIr(
+    const IrP4Info &info, const google::protobuf::Message &stream_message) {
+  IrStreamMessageResponse ir_stream_message;
+  ASSIGN_OR_RETURN(const std::string update_one_of_name,
+                   gutil::GetOneOfFieldName(stream_message, "update"));
+  if (update_one_of_name == "arbitration") {
+    ASSIGN_OR_RETURN(*ir_stream_message.mutable_arbitration(),
+                     PdArbitrationToIr(stream_message));
+  } else if (update_one_of_name == "packet") {
+    ASSIGN_OR_RETURN(const auto *packet,
+                     GetMessageField(stream_message, "packet"));
+    ASSIGN_OR_RETURN(*ir_stream_message.mutable_packet(),
+                     PdPacketInToIr(info, *packet));
+  } else if (update_one_of_name == "error") {
+    auto *ir_error = ir_stream_message.mutable_error();
+    ASSIGN_OR_RETURN(const auto *error,
+                     GetMessageField(stream_message, "error"));
+
+    ASSIGN_OR_RETURN(const auto *status, GetMessageField(*error, "status"));
+    auto *ir_status = ir_error->mutable_status();
+    ASSIGN_OR_RETURN(const auto code, GetInt32Field(*status, "code"));
+    ir_status->set_code(code);
+
+    ASSIGN_OR_RETURN(const auto message, GetStringField(*status, "message"));
+    ir_status->set_message(message);
+
+    ASSIGN_OR_RETURN(const auto *packet_out,
+                     GetMessageField(*error, "packet_out"));
+    ASSIGN_OR_RETURN(*ir_error->mutable_packet_out(),
+                     PdPacketOutToIr(info, *packet_out));
+  } else {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Unsupported update: ", update_one_of_name, "."));
+  }
+  return ir_stream_message;
 }
 
 static absl::StatusOr<IrUpdateStatus> PdUpdateStatusToIr(
@@ -1342,174 +1484,33 @@ absl::StatusOr<IrWriteRpcStatus> PdWriteRpcStatusToIr(
   return ir_write_rpc_status;
 }
 
-absl::Status IrArbitrationToPd(
-    const p4::v1::MasterArbitrationUpdate &ir_arbitration,
-    google::protobuf::Message *stream_message) {
-  ASSIGN_OR_RETURN(auto *arbitration,
-                   GetMutableMessage(stream_message, "arbitration"));
+absl::StatusOr<int> GetEnumField(const google::protobuf::Message &message,
+                                 const std::string &field_name) {
+  ASSIGN_OR_RETURN(auto *field_descriptor,
+                   GetFieldDescriptor(message, field_name));
+  RETURN_IF_ERROR(ValidateFieldDescriptorType(field_descriptor,
+                                              FieldDescriptor::TYPE_ENUM));
+  int enum_value =
+      message.GetReflection()->GetEnumValue(message, field_descriptor);
+  if (field_descriptor->enum_type()->FindValueByNumber(enum_value) == nullptr) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "Enum value within " << field_name << " is : " << enum_value;
+  }
+  return enum_value;
+}
 
-  RETURN_IF_ERROR(
-      SetUint64Field(arbitration, "device_id", ir_arbitration.device_id()));
-
-  ASSIGN_OR_RETURN(auto *election_id,
-                   GetMutableMessage(arbitration, "election_id"));
-  RETURN_IF_ERROR(
-      SetUint64Field(election_id, "high", ir_arbitration.election_id().high()));
-  RETURN_IF_ERROR(
-      SetUint64Field(election_id, "low", ir_arbitration.election_id().low()));
-
-  ASSIGN_OR_RETURN(auto *pd_status, GetMutableMessage(arbitration, "status"));
-  RETURN_IF_ERROR(
-      SetInt32Field(pd_status, "code", ir_arbitration.status().code()));
-  RETURN_IF_ERROR(
-      SetStringField(pd_status, "message", ir_arbitration.status().message()));
+absl::Status SetEnumField(google::protobuf::Message *message,
+                          const std::string &enum_field_name, int enum_value) {
+  ASSIGN_OR_RETURN(auto *field_descriptor,
+                   GetFieldDescriptor(*message, enum_field_name));
+  RETURN_IF_ERROR(ValidateFieldDescriptorType(field_descriptor,
+                                              FieldDescriptor::TYPE_ENUM));
+  if (field_descriptor->enum_type()->FindValueByNumber(enum_value) == nullptr) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "enum_value: " << enum_value << " is not a valid enum value ";
+  }
+  message->GetReflection()->SetEnumValue(message, field_descriptor, enum_value);
   return absl::OkStatus();
-}
-
-absl::StatusOr<p4::v1::MasterArbitrationUpdate> PdArbitrationToIr(
-    const google::protobuf::Message &stream_message) {
-  p4::v1::MasterArbitrationUpdate ir_arbitration;
-  ASSIGN_OR_RETURN(const auto *arbitration,
-                   GetMessageField(stream_message, "arbitration"));
-
-  ASSIGN_OR_RETURN(const auto device_id,
-                   GetUint64Field(*arbitration, "device_id"));
-  ir_arbitration.set_device_id(device_id);
-
-  ASSIGN_OR_RETURN(const auto *election_id,
-                   GetMessageField(*arbitration, "election_id"));
-  ASSIGN_OR_RETURN(const auto high, GetUint64Field(*election_id, "high"));
-  ir_arbitration.mutable_election_id()->set_high(high);
-  ASSIGN_OR_RETURN(const auto low, GetUint64Field(*election_id, "low"));
-  ir_arbitration.mutable_election_id()->set_low(low);
-
-  ASSIGN_OR_RETURN(const auto *status, GetMessageField(*arbitration, "status"));
-  ASSIGN_OR_RETURN(const auto code, GetInt32Field(*status, "code"));
-  ir_arbitration.mutable_status()->set_code(code);
-  ASSIGN_OR_RETURN(const auto message, GetStringField(*status, "message"));
-  ir_arbitration.mutable_status()->set_message(message);
-
-  return ir_arbitration;
-}
-
-absl::Status IrStreamMessageRequestToPd(
-    const IrP4Info &info, const IrStreamMessageRequest &ir,
-    google::protobuf::Message *stream_message) {
-  switch (ir.update_case()) {
-    case IrStreamMessageRequest::kArbitration: {
-      RETURN_IF_ERROR(IrArbitrationToPd(ir.arbitration(), stream_message));
-      break;
-    }
-    case IrStreamMessageRequest::kPacket: {
-      ASSIGN_OR_RETURN(auto *packet_out,
-                       GetMutableMessage(stream_message, "packet"));
-      RETURN_IF_ERROR(IrPacketOutToPd(info, ir.packet(), packet_out));
-      break;
-    }
-    default:
-      return absl::InvalidArgumentError(absl::StrCat(
-          "Unsupported update: ",
-          ir.GetDescriptor()->FindFieldByNumber(ir.update_case())->name(),
-          "."));
-  }
-  return absl::OkStatus();
-}
-
-absl::StatusOr<IrStreamMessageRequest> PdStreamMessageRequestToIr(
-    const IrP4Info &info, const google::protobuf::Message &stream_message) {
-  IrStreamMessageRequest ir_stream_message;
-  ASSIGN_OR_RETURN(const std::string update_one_of_name,
-                   gutil::GetOneOfFieldName(stream_message, "update"));
-  if (update_one_of_name == "arbitration") {
-    ASSIGN_OR_RETURN(*ir_stream_message.mutable_arbitration(),
-                     PdArbitrationToIr(stream_message));
-  } else if (update_one_of_name == "packet") {
-    ASSIGN_OR_RETURN(const auto *packet,
-                     GetMessageField(stream_message, "packet"));
-    ASSIGN_OR_RETURN(*ir_stream_message.mutable_packet(),
-                     PdPacketOutToIr(info, *packet));
-  } else {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Unsupported update: ", update_one_of_name, "."));
-  }
-  return ir_stream_message;
-}
-
-absl::Status IrStreamMessageResponseToPd(
-    const IrP4Info &info, const IrStreamMessageResponse &ir,
-    google::protobuf::Message *stream_message) {
-  switch (ir.update_case()) {
-    case IrStreamMessageResponse::kArbitration: {
-      RETURN_IF_ERROR(IrArbitrationToPd(ir.arbitration(), stream_message));
-      break;
-    }
-    case IrStreamMessageResponse::kPacket: {
-      ASSIGN_OR_RETURN(auto *packet,
-                       GetMutableMessage(stream_message, "packet"));
-      RETURN_IF_ERROR(IrPacketInToPd(info, ir.packet(), packet));
-      break;
-    }
-    case IrStreamMessageResponse::kError: {
-      IrStreamError ir_error = ir.error();
-      ASSIGN_OR_RETURN(auto *error, GetMutableMessage(stream_message, "error"));
-
-      ASSIGN_OR_RETURN(auto *pd_status, GetMutableMessage(error, "status"));
-      RETURN_IF_ERROR(
-          SetInt32Field(pd_status, "code", ir_error.status().code()));
-
-      RETURN_IF_ERROR(
-          SetStringField(pd_status, "message", ir_error.status().message()));
-
-      ASSIGN_OR_RETURN(auto *packet_out,
-                       GetMutableMessage(error, "packet_out"));
-      RETURN_IF_ERROR(
-          IrPacketOutToPd(info, ir.error().packet_out(), packet_out));
-      break;
-    }
-    default:
-      return absl::InvalidArgumentError(absl::StrCat(
-          "Unsupported update: ",
-          ir.GetDescriptor()->FindFieldByNumber(ir.update_case())->name(),
-          "."));
-  }
-  return absl::OkStatus();
-}
-
-absl::StatusOr<IrStreamMessageResponse> PdStreamMessageResponseToIr(
-    const IrP4Info &info, const google::protobuf::Message &stream_message) {
-  IrStreamMessageResponse ir_stream_message;
-  ASSIGN_OR_RETURN(const std::string update_one_of_name,
-                   gutil::GetOneOfFieldName(stream_message, "update"));
-  if (update_one_of_name == "arbitration") {
-    ASSIGN_OR_RETURN(*ir_stream_message.mutable_arbitration(),
-                     PdArbitrationToIr(stream_message));
-  } else if (update_one_of_name == "packet") {
-    ASSIGN_OR_RETURN(const auto *packet,
-                     GetMessageField(stream_message, "packet"));
-    ASSIGN_OR_RETURN(*ir_stream_message.mutable_packet(),
-                     PdPacketInToIr(info, *packet));
-  } else if (update_one_of_name == "error") {
-    auto *ir_error = ir_stream_message.mutable_error();
-    ASSIGN_OR_RETURN(const auto *error,
-                     GetMessageField(stream_message, "error"));
-
-    ASSIGN_OR_RETURN(const auto *status, GetMessageField(*error, "status"));
-    auto *ir_status = ir_error->mutable_status();
-    ASSIGN_OR_RETURN(const auto code, GetInt32Field(*status, "code"));
-    ir_status->set_code(code);
-
-    ASSIGN_OR_RETURN(const auto message, GetStringField(*status, "message"));
-    ir_status->set_message(message);
-
-    ASSIGN_OR_RETURN(const auto *packet_out,
-                     GetMessageField(*error, "packet_out"));
-    ASSIGN_OR_RETURN(*ir_error->mutable_packet_out(),
-                     PdPacketOutToIr(info, *packet_out));
-  } else {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Unsupported update: ", update_one_of_name, "."));
-  }
-  return ir_stream_message;
 }
 
 }  // namespace pdpi

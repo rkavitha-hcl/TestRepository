@@ -208,6 +208,508 @@ absl::StatusOr<std::vector<IrMatchFieldReference>> GetRefersToAnnotations(
   return result;
 }
 
+// Verifies the contents of the PI representation and translates to the IR
+// message
+StatusOr<IrMatch> PiMatchFieldToIr(
+    const IrP4Info &info, const IrMatchFieldDefinition &ir_match_definition,
+    const p4::v1::FieldMatch &pi_match) {
+  IrMatch match_entry;
+  const MatchField &match_field = ir_match_definition.match_field();
+  uint32_t bitwidth = match_field.bitwidth();
+
+  switch (match_field.match_type()) {
+    case MatchField::EXACT: {
+      if (!pi_match.has_exact()) {
+        return InvalidArgumentErrorBuilder()
+               << "Expected exact match type in PI";
+      }
+
+      match_entry.set_name(match_field.name());
+      ASSIGN_OR_RETURN(
+          *match_entry.mutable_exact(),
+          ArbitraryByteStringToIrValue(ir_match_definition.format(), bitwidth,
+                                       pi_match.exact().value()));
+      break;
+    }
+    case MatchField::LPM: {
+      if (!pi_match.has_lpm()) {
+        return InvalidArgumentErrorBuilder() << "Expected LPM match type in PI";
+      }
+
+      uint32_t prefix_len = pi_match.lpm().prefix_len();
+      if (prefix_len > bitwidth) {
+        return InvalidArgumentErrorBuilder()
+               << "Prefix length " << prefix_len << " is greater than bitwidth "
+               << bitwidth << " in LPM";
+      }
+
+      if (prefix_len == 0) {
+        return InvalidArgumentErrorBuilder()
+               << "A wild-card LPM match (i.e., prefix length of 0) must be "
+                  "represented by omitting the match altogether";
+      }
+      match_entry.set_name(match_field.name());
+      ASSIGN_OR_RETURN(const auto mask, PrefixLenToMask(prefix_len, bitwidth));
+      ASSIGN_OR_RETURN(const auto value, ArbitraryToNormalizedByteString(
+                                             pi_match.lpm().value(), bitwidth));
+      ASSIGN_OR_RETURN(const auto intersection, Intersection(value, mask));
+      if (value != intersection) {
+        return InvalidArgumentErrorBuilder()
+               << "LPM value has masked bits that are set. Value: \""
+               << absl::CEscape(value) << "\" Prefix Length: " << prefix_len;
+      }
+      match_entry.mutable_lpm()->set_prefix_length(prefix_len);
+      ASSIGN_OR_RETURN(*match_entry.mutable_lpm()->mutable_value(),
+                       ArbitraryByteStringToIrValue(
+                           ir_match_definition.format(), bitwidth, value));
+      break;
+    }
+    case MatchField::TERNARY: {
+      if (!pi_match.has_ternary()) {
+        return InvalidArgumentErrorBuilder()
+               << "Expected ternary match type in PI";
+      }
+
+      ASSIGN_OR_RETURN(const auto &value,
+                       ArbitraryToNormalizedByteString(
+                           pi_match.ternary().value(), bitwidth));
+      ASSIGN_OR_RETURN(
+          const auto &mask,
+          ArbitraryToNormalizedByteString(pi_match.ternary().mask(), bitwidth));
+
+      if (IsAllZeros(mask)) {
+        return InvalidArgumentErrorBuilder()
+               << "A wild-card ternary match (i.e., mask of 0) must be "
+                  "represented by omitting the match altogether";
+      }
+      match_entry.set_name(match_field.name());
+      ASSIGN_OR_RETURN(const auto intersection, Intersection(value, mask));
+      if (value != intersection) {
+        return InvalidArgumentErrorBuilder()
+               << "Ternary value has masked bits that are set.\nValue: "
+               << absl::CEscape(value) << " Mask: " << absl::CEscape(mask);
+      }
+      ASSIGN_OR_RETURN(*match_entry.mutable_ternary()->mutable_value(),
+                       ArbitraryByteStringToIrValue(
+                           ir_match_definition.format(), bitwidth, value));
+      ASSIGN_OR_RETURN(*match_entry.mutable_ternary()->mutable_mask(),
+                       ArbitraryByteStringToIrValue(
+                           ir_match_definition.format(), bitwidth, mask));
+      break;
+    }
+    case MatchField::OPTIONAL: {
+      if (!pi_match.has_optional()) {
+        return InvalidArgumentErrorBuilder()
+               << "Expected optional match type in PI";
+      }
+
+      match_entry.set_name(match_field.name());
+      ASSIGN_OR_RETURN(
+          *match_entry.mutable_optional()->mutable_value(),
+          ArbitraryByteStringToIrValue(ir_match_definition.format(), bitwidth,
+                                       pi_match.optional().value()));
+      break;
+    }
+    default:
+      return InvalidArgumentErrorBuilder()
+             << "Unsupported match type \""
+             << MatchField_MatchType_Name(match_field.match_type())
+             << "\" in \"" << match_entry.name() << "\"";
+  }
+  return match_entry;
+}
+
+// Translates the action invocation from its PI form to IR.
+StatusOr<IrActionInvocation> PiActionToIr(
+    const IrP4Info &info, const p4::v1::Action &pi_action,
+    const google::protobuf::RepeatedPtrField<IrActionReference>
+        &valid_actions) {
+  IrActionInvocation action_entry;
+  uint32_t action_id = pi_action.action_id();
+
+  ASSIGN_OR_RETURN(
+      const auto &ir_action_definition,
+      gutil::FindOrStatus(info.actions_by_id(), action_id),
+      _ << "Action ID " << action_id << " does not exist in P4Info");
+
+  if (absl::c_find_if(valid_actions,
+                      [action_id](const IrActionReference &action) {
+                        return action.action().preamble().id() == action_id;
+                      }) == valid_actions.end()) {
+    return InvalidArgumentErrorBuilder()
+           << "Action ID " << action_id
+           << " is not a valid action for this table";
+  }
+
+  int action_params_size = ir_action_definition.params_by_id().size();
+  if (action_params_size != pi_action.params().size()) {
+    return InvalidArgumentErrorBuilder()
+           << "Expected " << action_params_size << " parameters, but got "
+           << pi_action.params().size() << " instead in action with ID "
+           << action_id;
+  }
+  action_entry.set_name(ir_action_definition.preamble().alias());
+  absl::flat_hash_set<uint32_t> used_params;
+  for (const auto &param : pi_action.params()) {
+    RETURN_IF_ERROR(gutil::InsertIfUnique(
+        used_params, param.param_id(),
+        absl::StrCat("Duplicate param field found with ID ",
+                     param.param_id())));
+
+    ASSIGN_OR_RETURN(const auto &ir_param_definition,
+                     gutil::FindOrStatus(ir_action_definition.params_by_id(),
+                                         param.param_id()),
+                     _ << "Unable to find param ID " << param.param_id()
+                       << " in action with ID " << action_id);
+    IrActionInvocation::IrActionParam *param_entry = action_entry.add_params();
+    param_entry->set_name(ir_param_definition.param().name());
+    ASSIGN_OR_RETURN(
+        *param_entry->mutable_value(),
+        ArbitraryByteStringToIrValue(ir_param_definition.format(),
+                                     ir_param_definition.param().bitwidth(),
+                                     param.value()));
+  }
+  return action_entry;
+}
+
+// Translates the action set from its PI form to IR.
+StatusOr<IrActionSet> PiActionSetToIr(
+    const IrP4Info &info, const p4::v1::ActionProfileActionSet &pi_action_set,
+    const google::protobuf::RepeatedPtrField<IrActionReference>
+        &valid_actions) {
+  IrActionSet ir_action_set;
+  for (const auto &pi_profile_action : pi_action_set.action_profile_actions()) {
+    auto *ir_action = ir_action_set.add_actions();
+    ASSIGN_OR_RETURN(
+        *ir_action->mutable_action(),
+        PiActionToIr(info, pi_profile_action.action(), valid_actions));
+
+    // A action set weight that is not positive does not make sense on a switch.
+    if (pi_profile_action.weight() < 1) {
+      return InvalidArgumentErrorBuilder()
+             << "Expected positive action set weight, but got "
+             << pi_profile_action.weight() << " instead";
+    }
+    ir_action->set_weight(pi_profile_action.weight());
+    if (!pi_profile_action.watch_port().empty()) {
+      ir_action->set_watch_port(pi_profile_action.watch_port());
+    }
+  }
+  return ir_action_set;
+}
+
+// Generic helper that works for both packet-in and packet-out. For both, I is
+// one of p4::v1::{PacketIn, PacketOut} and O is one of {IrPacketIn,
+// IrPacketOut}.
+template <typename I, typename O>
+StatusOr<O> PiPacketIoToIr(const IrP4Info &info, const std::string &kind,
+                           const I &packet) {
+  O result;
+  result.set_payload(packet.payload());
+  absl::flat_hash_set<uint32_t> used_metadata_ids;
+
+  google::protobuf::Map<uint32_t, IrPacketIoMetadataDefinition> metadata_by_id;
+  if (kind == "packet-in") {
+    metadata_by_id = info.packet_in_metadata_by_id();
+  } else if (kind == "packet-out") {
+    metadata_by_id = info.packet_out_metadata_by_id();
+  } else {
+    return InvalidArgumentErrorBuilder() << "Invalid PacketIo type " << kind;
+  }
+
+  for (const auto &metadata : packet.metadata()) {
+    uint32_t id = metadata.metadata_id();
+    RETURN_IF_ERROR(gutil::InsertIfUnique(
+        used_metadata_ids, id,
+        absl::StrCat("Duplicate \"", kind, "\" metadata found with ID ", id)));
+
+    ASSIGN_OR_RETURN(const auto &metadata_definition,
+                     gutil::FindOrStatus(metadata_by_id, id),
+                     _ << kind << " metadata with ID " << id << " not defined");
+
+    IrPacketMetadata ir_metadata;
+    ir_metadata.set_name(metadata_definition.metadata().name());
+    ASSIGN_OR_RETURN(
+        *ir_metadata.mutable_value(),
+        ArbitraryByteStringToIrValue(metadata_definition.format(),
+                                     metadata_definition.metadata().bitwidth(),
+                                     metadata.value()));
+    *result.add_metadata() = ir_metadata;
+  }
+  // Check for missing metadata
+  for (const auto &item : metadata_by_id) {
+    const auto &id = item.first;
+    const auto &meta = item.second;
+    if (!used_metadata_ids.contains(id)) {
+      return InvalidArgumentErrorBuilder()
+             << "\"" << kind << "\" metadata \"" << meta.metadata().name()
+             << "\" with ID " << id << " is missing";
+    }
+  }
+
+  return result;
+}
+
+// Verifies the contents of the IR representation and translates to the PI
+// message
+StatusOr<p4::v1::FieldMatch> IrMatchFieldToPi(
+    const IrP4Info &info, const IrMatchFieldDefinition &ir_match_definition,
+    const IrMatch &ir_match) {
+  p4::v1::FieldMatch match_entry;
+  const MatchField &match_field = ir_match_definition.match_field();
+  uint32_t bitwidth = match_field.bitwidth();
+
+  switch (match_field.match_type()) {
+    case MatchField::EXACT: {
+      if (!ir_match.has_exact()) {
+        return InvalidArgumentErrorBuilder()
+               << "Expected exact match type in IR table entry";
+      }
+
+      match_entry.set_field_id(match_field.id());
+      RETURN_IF_ERROR(ValidateIrValueFormat(ir_match.exact(),
+                                            ir_match_definition.format()));
+      ASSIGN_OR_RETURN(
+          const auto &value,
+          IrValueToNormalizedByteString(
+              ir_match.exact(), ir_match_definition.match_field().bitwidth()));
+      match_entry.mutable_exact()->set_value(
+          ArbitraryToCanonicalByteString(value));
+      break;
+    }
+    case MatchField::LPM: {
+      if (!ir_match.has_lpm()) {
+        return InvalidArgumentErrorBuilder()
+               << "Expected LPM match type in IR table entry";
+      }
+
+      uint32_t prefix_len = ir_match.lpm().prefix_length();
+      if (prefix_len > bitwidth) {
+        return InvalidArgumentErrorBuilder()
+               << "Prefix length " << prefix_len << " is greater than bitwidth "
+               << bitwidth << " in LPM";
+      }
+
+      RETURN_IF_ERROR(ValidateIrValueFormat(ir_match.lpm().value(),
+                                            ir_match_definition.format()));
+      ASSIGN_OR_RETURN(const auto &value,
+                       IrValueToNormalizedByteString(
+                           ir_match.lpm().value(),
+                           ir_match_definition.match_field().bitwidth()));
+      if (prefix_len == 0) {
+        return InvalidArgumentErrorBuilder()
+               << "A wild-card LPM match (i.e., prefix length of 0) must be "
+                  "represented by omitting the match altogether";
+      }
+      match_entry.set_field_id(match_field.id());
+      ASSIGN_OR_RETURN(const auto mask, PrefixLenToMask(prefix_len, bitwidth));
+      ASSIGN_OR_RETURN(const auto intersection, Intersection(value, mask));
+      if (value != intersection) {
+        return InvalidArgumentErrorBuilder()
+               << "LPM value has masked bits that are set.\nValue: "
+               << ir_match.lpm().value().DebugString()
+               << "Prefix Length: " << prefix_len;
+      }
+      match_entry.mutable_lpm()->set_prefix_len(prefix_len);
+      match_entry.mutable_lpm()->set_value(
+          ArbitraryToCanonicalByteString(value));
+      break;
+    }
+    case MatchField::TERNARY: {
+      if (!ir_match.has_ternary()) {
+        return InvalidArgumentErrorBuilder()
+               << "Expected ternary match type in IR table entry";
+      }
+
+      RETURN_IF_ERROR(ValidateIrValueFormat(ir_match.ternary().value(),
+                                            ir_match_definition.format()));
+      RETURN_IF_ERROR(ValidateIrValueFormat(ir_match.ternary().mask(),
+                                            ir_match_definition.format()));
+      ASSIGN_OR_RETURN(const auto &value,
+                       IrValueToNormalizedByteString(
+                           ir_match.ternary().value(),
+                           ir_match_definition.match_field().bitwidth()));
+      ASSIGN_OR_RETURN(const auto &mask,
+                       IrValueToNormalizedByteString(
+                           ir_match.ternary().mask(),
+                           ir_match_definition.match_field().bitwidth()));
+      if (IsAllZeros(mask)) {
+        return InvalidArgumentErrorBuilder()
+               << "A wild-card ternary match (i.e., mask of 0) must be "
+                  "represented by omitting the match altogether";
+      }
+      match_entry.set_field_id(match_field.id());
+      ASSIGN_OR_RETURN(const auto intersection, Intersection(value, mask));
+      if (value != intersection) {
+        return InvalidArgumentErrorBuilder()
+               << "Ternary value has masked bits that are set.\nValue: "
+               << ir_match.ternary().value().DebugString()
+               << "Mask : " << ir_match.ternary().mask().DebugString();
+      }
+      match_entry.mutable_ternary()->set_value(
+          ArbitraryToCanonicalByteString(value));
+      match_entry.mutable_ternary()->set_mask(
+          ArbitraryToCanonicalByteString(mask));
+      break;
+    }
+    case MatchField::OPTIONAL: {
+      if (!ir_match.has_optional()) {
+        return InvalidArgumentErrorBuilder()
+               << "Expected optional match type in IR table entry";
+      }
+
+      match_entry.set_field_id(match_field.id());
+      RETURN_IF_ERROR(ValidateIrValueFormat(ir_match.optional().value(),
+                                            ir_match_definition.format()));
+      ASSIGN_OR_RETURN(const auto &value,
+                       IrValueToNormalizedByteString(
+                           ir_match.optional().value(),
+                           ir_match_definition.match_field().bitwidth()));
+      match_entry.mutable_optional()->set_value(
+          ArbitraryToCanonicalByteString(value));
+      break;
+    }
+    default:
+      return InvalidArgumentErrorBuilder()
+             << "Unsupported match type \""
+             << MatchField_MatchType_Name(match_field.match_type()) << "\" in "
+             << "match field with id " << match_entry.field_id();
+  }
+  return match_entry;
+}
+
+// Translates the action invocation from its IR form to PI.
+StatusOr<p4::v1::Action> IrActionInvocationToPi(
+    const IrP4Info &info, const IrActionInvocation &ir_table_action,
+    const google::protobuf::RepeatedPtrField<IrActionReference>
+        &valid_actions) {
+  const std::string &action_name = ir_table_action.name();
+
+  ASSIGN_OR_RETURN(
+      const auto &ir_action_definition,
+      gutil::FindOrStatus(info.actions_by_name(), action_name),
+      _ << "Action \"" << action_name << "\" does not exist in P4Info");
+
+  if (absl::c_find_if(
+          valid_actions, [action_name](const IrActionReference &action) {
+            return action.action().preamble().alias() == action_name;
+          }) == valid_actions.end()) {
+    return InvalidArgumentErrorBuilder()
+           << "Action \"" << action_name
+           << "\" is not a valid action for this table";
+  }
+
+  int action_params_size = ir_action_definition.params_by_name().size();
+  if (action_params_size != ir_table_action.params().size()) {
+    return InvalidArgumentErrorBuilder()
+           << "Expected " << action_params_size << " parameters, but got "
+           << ir_table_action.params().size() << " instead in action \""
+           << action_name << "\"";
+  }
+
+  p4::v1::Action action;
+  action.set_action_id(ir_action_definition.preamble().id());
+  absl::flat_hash_set<std::string> used_params;
+  for (const auto &param : ir_table_action.params()) {
+    RETURN_IF_ERROR(gutil::InsertIfUnique(
+        used_params, param.name(),
+        absl::StrCat("Duplicate param field found with name \"", param.name(),
+                     "\"")));
+
+    ASSIGN_OR_RETURN(const auto &ir_param_definition,
+                     gutil::FindOrStatus(ir_action_definition.params_by_name(),
+                                         param.name()),
+                     _ << "Unable to find param \"" << param.name()
+                       << "\" in action \"" << action_name << "\"");
+    p4::v1::Action_Param *param_entry = action.add_params();
+    param_entry->set_param_id(ir_param_definition.param().id());
+    RETURN_IF_ERROR(
+        ValidateIrValueFormat(param.value(), ir_param_definition.format()));
+    ASSIGN_OR_RETURN(
+        const auto &value,
+        IrValueToNormalizedByteString(param.value(),
+                                      ir_param_definition.param().bitwidth()));
+    param_entry->set_value(ArbitraryToCanonicalByteString(value));
+  }
+  return action;
+}
+
+// Translates the action set from its IR form to PI.
+StatusOr<p4::v1::ActionProfileActionSet> IrActionSetToPi(
+    const IrP4Info &info, const IrActionSet &ir_action_set,
+    const google::protobuf::RepeatedPtrField<IrActionReference>
+        &valid_actions) {
+  p4::v1::ActionProfileActionSet pi;
+  for (const auto &ir_action : ir_action_set.actions()) {
+    auto *pi_action = pi.add_action_profile_actions();
+    ASSIGN_OR_RETURN(
+        *pi_action->mutable_action(),
+        IrActionInvocationToPi(info, ir_action.action(), valid_actions));
+    if (ir_action.weight() < 1) {
+      return InvalidArgumentErrorBuilder()
+             << "Expected positive action set weight, but got "
+             << ir_action.weight() << " instead";
+    }
+    pi_action->set_weight(ir_action.weight());
+    if (!ir_action.watch_port().empty()) {
+      pi_action->set_watch_port(ir_action.watch_port());
+    }
+  }
+  return pi;
+}
+
+template <typename I, typename O>
+StatusOr<I> IrPacketIoToPi(const IrP4Info &info, const std::string &kind,
+                           const O &packet) {
+  I result;
+  result.set_payload(packet.payload());
+  absl::flat_hash_set<std::string> used_metadata_names;
+  google::protobuf::Map<std::string, IrPacketIoMetadataDefinition>
+      metadata_by_name;
+  if (kind == "packet-in") {
+    metadata_by_name = info.packet_in_metadata_by_name();
+  } else if (kind == "packet-out") {
+    metadata_by_name = info.packet_out_metadata_by_name();
+  } else {
+    return InvalidArgumentErrorBuilder() << "Invalid PacketIo type " << kind;
+  }
+
+  for (const auto &metadata : packet.metadata()) {
+    const std::string &name = metadata.name();
+    RETURN_IF_ERROR(gutil::InsertIfUnique(
+        used_metadata_names, name,
+        absl::StrCat("Duplicate \"", kind, "\" metadata found with name \"",
+                     name, "\"")));
+
+    ASSIGN_OR_RETURN(const auto &metadata_definition,
+                     gutil::FindOrStatus(metadata_by_name, name),
+                     _ << "\"" << kind << "\" metadata with name \"" << name
+                       << "\" not defined");
+    p4::v1::PacketMetadata pi_metadata;
+    pi_metadata.set_metadata_id(metadata_definition.metadata().id());
+    RETURN_IF_ERROR(
+        ValidateIrValueFormat(metadata.value(), metadata_definition.format()));
+    ASSIGN_OR_RETURN(
+        auto value,
+        IrValueToNormalizedByteString(
+            metadata.value(), metadata_definition.metadata().bitwidth()));
+    pi_metadata.set_value(ArbitraryToCanonicalByteString(value));
+    *result.add_metadata() = pi_metadata;
+  }
+  // Check for missing metadata
+  for (const auto &item : metadata_by_name) {
+    const auto &name = item.first;
+    const auto &meta = item.second;
+    if (!used_metadata_names.contains(name)) {
+      return InvalidArgumentErrorBuilder()
+             << "\"" << kind << "\" metadata \"" << meta.metadata().name()
+             << "\" with id " << meta.metadata().id() << " is missing";
+    }
+  }
+
+  return result;
+}
+
 }  // namespace
 
 StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info &p4_info) {
@@ -453,512 +955,6 @@ StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info &p4_info) {
   return info;
 }
 
-namespace {
-
-// Verifies the contents of the PI representation and translates to the IR
-// message
-StatusOr<IrMatch> PiMatchFieldToIr(
-    const IrP4Info &info, const IrMatchFieldDefinition &ir_match_definition,
-    const p4::v1::FieldMatch &pi_match) {
-  IrMatch match_entry;
-  const MatchField &match_field = ir_match_definition.match_field();
-  uint32_t bitwidth = match_field.bitwidth();
-
-  switch (match_field.match_type()) {
-    case MatchField::EXACT: {
-      if (!pi_match.has_exact()) {
-        return InvalidArgumentErrorBuilder()
-               << "Expected exact match type in PI";
-      }
-
-      match_entry.set_name(match_field.name());
-      ASSIGN_OR_RETURN(
-          *match_entry.mutable_exact(),
-          ArbitraryByteStringToIrValue(ir_match_definition.format(), bitwidth,
-                                       pi_match.exact().value()));
-      break;
-    }
-    case MatchField::LPM: {
-      if (!pi_match.has_lpm()) {
-        return InvalidArgumentErrorBuilder() << "Expected LPM match type in PI";
-      }
-
-      uint32_t prefix_len = pi_match.lpm().prefix_len();
-      if (prefix_len > bitwidth) {
-        return InvalidArgumentErrorBuilder()
-               << "Prefix length " << prefix_len << " is greater than bitwidth "
-               << bitwidth << " in LPM";
-      }
-
-      if (prefix_len == 0) {
-        return InvalidArgumentErrorBuilder()
-               << "A wild-card LPM match (i.e., prefix length of 0) must be "
-                  "represented by omitting the match altogether";
-      }
-      match_entry.set_name(match_field.name());
-      ASSIGN_OR_RETURN(const auto mask, PrefixLenToMask(prefix_len, bitwidth));
-      ASSIGN_OR_RETURN(const auto value, ArbitraryToNormalizedByteString(
-                                             pi_match.lpm().value(), bitwidth));
-      ASSIGN_OR_RETURN(const auto intersection, Intersection(value, mask));
-      if (value != intersection) {
-        return InvalidArgumentErrorBuilder()
-               << "LPM value has masked bits that are set. Value: \""
-               << absl::CEscape(value) << "\" Prefix Length: " << prefix_len;
-      }
-      match_entry.mutable_lpm()->set_prefix_length(prefix_len);
-      ASSIGN_OR_RETURN(*match_entry.mutable_lpm()->mutable_value(),
-                       ArbitraryByteStringToIrValue(
-                           ir_match_definition.format(), bitwidth, value));
-      break;
-    }
-    case MatchField::TERNARY: {
-      if (!pi_match.has_ternary()) {
-        return InvalidArgumentErrorBuilder()
-               << "Expected ternary match type in PI";
-      }
-
-      ASSIGN_OR_RETURN(const auto &value,
-                       ArbitraryToNormalizedByteString(
-                           pi_match.ternary().value(), bitwidth));
-      ASSIGN_OR_RETURN(
-          const auto &mask,
-          ArbitraryToNormalizedByteString(pi_match.ternary().mask(), bitwidth));
-
-      if (IsAllZeros(mask)) {
-        return InvalidArgumentErrorBuilder()
-               << "A wild-card ternary match (i.e., mask of 0) must be "
-                  "represented by omitting the match altogether";
-      }
-      match_entry.set_name(match_field.name());
-      ASSIGN_OR_RETURN(const auto intersection, Intersection(value, mask));
-      if (value != intersection) {
-        return InvalidArgumentErrorBuilder()
-               << "Ternary value has masked bits that are set.\nValue: "
-               << absl::CEscape(value) << " Mask: " << absl::CEscape(mask);
-      }
-      ASSIGN_OR_RETURN(*match_entry.mutable_ternary()->mutable_value(),
-                       ArbitraryByteStringToIrValue(
-                           ir_match_definition.format(), bitwidth, value));
-      ASSIGN_OR_RETURN(*match_entry.mutable_ternary()->mutable_mask(),
-                       ArbitraryByteStringToIrValue(
-                           ir_match_definition.format(), bitwidth, mask));
-      break;
-    }
-    case MatchField::OPTIONAL: {
-      if (!pi_match.has_optional()) {
-        return InvalidArgumentErrorBuilder()
-               << "Expected optional match type in PI";
-      }
-
-      match_entry.set_name(match_field.name());
-      ASSIGN_OR_RETURN(
-          *match_entry.mutable_optional()->mutable_value(),
-          ArbitraryByteStringToIrValue(ir_match_definition.format(), bitwidth,
-                                       pi_match.optional().value()));
-      break;
-    }
-    default:
-      return InvalidArgumentErrorBuilder()
-             << "Unsupported match type \""
-             << MatchField_MatchType_Name(match_field.match_type())
-             << "\" in \"" << match_entry.name() << "\"";
-  }
-  return match_entry;
-}
-
-// Verifies the contents of the IR representation and translates to the PI
-// message
-StatusOr<p4::v1::FieldMatch> IrMatchFieldToPi(
-    const IrP4Info &info, const IrMatchFieldDefinition &ir_match_definition,
-    const IrMatch &ir_match) {
-  p4::v1::FieldMatch match_entry;
-  const MatchField &match_field = ir_match_definition.match_field();
-  uint32_t bitwidth = match_field.bitwidth();
-
-  switch (match_field.match_type()) {
-    case MatchField::EXACT: {
-      if (!ir_match.has_exact()) {
-        return InvalidArgumentErrorBuilder()
-               << "Expected exact match type in IR table entry";
-      }
-
-      match_entry.set_field_id(match_field.id());
-      RETURN_IF_ERROR(ValidateIrValueFormat(ir_match.exact(),
-                                            ir_match_definition.format()));
-      ASSIGN_OR_RETURN(
-          const auto &value,
-          IrValueToNormalizedByteString(
-              ir_match.exact(), ir_match_definition.match_field().bitwidth()));
-      match_entry.mutable_exact()->set_value(
-          ArbitraryToCanonicalByteString(value));
-      break;
-    }
-    case MatchField::LPM: {
-      if (!ir_match.has_lpm()) {
-        return InvalidArgumentErrorBuilder()
-               << "Expected LPM match type in IR table entry";
-      }
-
-      uint32_t prefix_len = ir_match.lpm().prefix_length();
-      if (prefix_len > bitwidth) {
-        return InvalidArgumentErrorBuilder()
-               << "Prefix length " << prefix_len << " is greater than bitwidth "
-               << bitwidth << " in LPM";
-      }
-
-      RETURN_IF_ERROR(ValidateIrValueFormat(ir_match.lpm().value(),
-                                            ir_match_definition.format()));
-      ASSIGN_OR_RETURN(const auto &value,
-                       IrValueToNormalizedByteString(
-                           ir_match.lpm().value(),
-                           ir_match_definition.match_field().bitwidth()));
-      if (prefix_len == 0) {
-        return InvalidArgumentErrorBuilder()
-               << "A wild-card LPM match (i.e., prefix length of 0) must be "
-                  "represented by omitting the match altogether";
-      }
-      match_entry.set_field_id(match_field.id());
-      ASSIGN_OR_RETURN(const auto mask, PrefixLenToMask(prefix_len, bitwidth));
-      ASSIGN_OR_RETURN(const auto intersection, Intersection(value, mask));
-      if (value != intersection) {
-        return InvalidArgumentErrorBuilder()
-               << "LPM value has masked bits that are set.\nValue: "
-               << ir_match.lpm().value().DebugString()
-               << "Prefix Length: " << prefix_len;
-      }
-      match_entry.mutable_lpm()->set_prefix_len(prefix_len);
-      match_entry.mutable_lpm()->set_value(
-          ArbitraryToCanonicalByteString(value));
-      break;
-    }
-    case MatchField::TERNARY: {
-      if (!ir_match.has_ternary()) {
-        return InvalidArgumentErrorBuilder()
-               << "Expected ternary match type in IR table entry";
-      }
-
-      RETURN_IF_ERROR(ValidateIrValueFormat(ir_match.ternary().value(),
-                                            ir_match_definition.format()));
-      RETURN_IF_ERROR(ValidateIrValueFormat(ir_match.ternary().mask(),
-                                            ir_match_definition.format()));
-      ASSIGN_OR_RETURN(const auto &value,
-                       IrValueToNormalizedByteString(
-                           ir_match.ternary().value(),
-                           ir_match_definition.match_field().bitwidth()));
-      ASSIGN_OR_RETURN(const auto &mask,
-                       IrValueToNormalizedByteString(
-                           ir_match.ternary().mask(),
-                           ir_match_definition.match_field().bitwidth()));
-      if (IsAllZeros(mask)) {
-        return InvalidArgumentErrorBuilder()
-               << "A wild-card ternary match (i.e., mask of 0) must be "
-                  "represented by omitting the match altogether";
-      }
-      match_entry.set_field_id(match_field.id());
-      ASSIGN_OR_RETURN(const auto intersection, Intersection(value, mask));
-      if (value != intersection) {
-        return InvalidArgumentErrorBuilder()
-               << "Ternary value has masked bits that are set.\nValue: "
-               << ir_match.ternary().value().DebugString()
-               << "Mask : " << ir_match.ternary().mask().DebugString();
-      }
-      match_entry.mutable_ternary()->set_value(
-          ArbitraryToCanonicalByteString(value));
-      match_entry.mutable_ternary()->set_mask(
-          ArbitraryToCanonicalByteString(mask));
-      break;
-    }
-    case MatchField::OPTIONAL: {
-      if (!ir_match.has_optional()) {
-        return InvalidArgumentErrorBuilder()
-               << "Expected optional match type in IR table entry";
-      }
-
-      match_entry.set_field_id(match_field.id());
-      RETURN_IF_ERROR(ValidateIrValueFormat(ir_match.optional().value(),
-                                            ir_match_definition.format()));
-      ASSIGN_OR_RETURN(const auto &value,
-                       IrValueToNormalizedByteString(
-                           ir_match.optional().value(),
-                           ir_match_definition.match_field().bitwidth()));
-      match_entry.mutable_optional()->set_value(
-          ArbitraryToCanonicalByteString(value));
-      break;
-    }
-    default:
-      return InvalidArgumentErrorBuilder()
-             << "Unsupported match type \""
-             << MatchField_MatchType_Name(match_field.match_type()) << "\" in "
-             << "match field with id " << match_entry.field_id();
-  }
-  return match_entry;
-}
-
-// Translates the action invocation from its PI form to IR.
-StatusOr<IrActionInvocation> PiActionToIr(
-    const IrP4Info &info, const p4::v1::Action &pi_action,
-    const google::protobuf::RepeatedPtrField<IrActionReference>
-        &valid_actions) {
-  IrActionInvocation action_entry;
-  uint32_t action_id = pi_action.action_id();
-
-  ASSIGN_OR_RETURN(
-      const auto &ir_action_definition,
-      gutil::FindOrStatus(info.actions_by_id(), action_id),
-      _ << "Action ID " << action_id << " does not exist in P4Info");
-
-  if (absl::c_find_if(valid_actions,
-                      [action_id](const IrActionReference &action) {
-                        return action.action().preamble().id() == action_id;
-                      }) == valid_actions.end()) {
-    return InvalidArgumentErrorBuilder()
-           << "Action ID " << action_id
-           << " is not a valid action for this table";
-  }
-
-  int action_params_size = ir_action_definition.params_by_id().size();
-  if (action_params_size != pi_action.params().size()) {
-    return InvalidArgumentErrorBuilder()
-           << "Expected " << action_params_size << " parameters, but got "
-           << pi_action.params().size() << " instead in action with ID "
-           << action_id;
-  }
-  action_entry.set_name(ir_action_definition.preamble().alias());
-  absl::flat_hash_set<uint32_t> used_params;
-  for (const auto &param : pi_action.params()) {
-    RETURN_IF_ERROR(gutil::InsertIfUnique(
-        used_params, param.param_id(),
-        absl::StrCat("Duplicate param field found with ID ",
-                     param.param_id())));
-
-    ASSIGN_OR_RETURN(const auto &ir_param_definition,
-                     gutil::FindOrStatus(ir_action_definition.params_by_id(),
-                                         param.param_id()),
-                     _ << "Unable to find param ID " << param.param_id()
-                       << " in action with ID " << action_id);
-    IrActionInvocation::IrActionParam *param_entry = action_entry.add_params();
-    param_entry->set_name(ir_param_definition.param().name());
-    ASSIGN_OR_RETURN(
-        *param_entry->mutable_value(),
-        ArbitraryByteStringToIrValue(ir_param_definition.format(),
-                                     ir_param_definition.param().bitwidth(),
-                                     param.value()));
-  }
-  return action_entry;
-}
-
-// Translates the action invocation from its IR form to PI.
-StatusOr<p4::v1::Action> IrActionInvocationToPi(
-    const IrP4Info &info, const IrActionInvocation &ir_table_action,
-    const google::protobuf::RepeatedPtrField<IrActionReference>
-        &valid_actions) {
-  const std::string &action_name = ir_table_action.name();
-
-  ASSIGN_OR_RETURN(
-      const auto &ir_action_definition,
-      gutil::FindOrStatus(info.actions_by_name(), action_name),
-      _ << "Action \"" << action_name << "\" does not exist in P4Info");
-
-  if (absl::c_find_if(
-          valid_actions, [action_name](const IrActionReference &action) {
-            return action.action().preamble().alias() == action_name;
-          }) == valid_actions.end()) {
-    return InvalidArgumentErrorBuilder()
-           << "Action \"" << action_name
-           << "\" is not a valid action for this table";
-  }
-
-  int action_params_size = ir_action_definition.params_by_name().size();
-  if (action_params_size != ir_table_action.params().size()) {
-    return InvalidArgumentErrorBuilder()
-           << "Expected " << action_params_size << " parameters, but got "
-           << ir_table_action.params().size() << " instead in action \""
-           << action_name << "\"";
-  }
-
-  p4::v1::Action action;
-  action.set_action_id(ir_action_definition.preamble().id());
-  absl::flat_hash_set<std::string> used_params;
-  for (const auto &param : ir_table_action.params()) {
-    RETURN_IF_ERROR(gutil::InsertIfUnique(
-        used_params, param.name(),
-        absl::StrCat("Duplicate param field found with name \"", param.name(),
-                     "\"")));
-
-    ASSIGN_OR_RETURN(const auto &ir_param_definition,
-                     gutil::FindOrStatus(ir_action_definition.params_by_name(),
-                                         param.name()),
-                     _ << "Unable to find param \"" << param.name()
-                       << "\" in action \"" << action_name << "\"");
-    p4::v1::Action_Param *param_entry = action.add_params();
-    param_entry->set_param_id(ir_param_definition.param().id());
-    RETURN_IF_ERROR(
-        ValidateIrValueFormat(param.value(), ir_param_definition.format()));
-    ASSIGN_OR_RETURN(
-        const auto &value,
-        IrValueToNormalizedByteString(param.value(),
-                                      ir_param_definition.param().bitwidth()));
-    param_entry->set_value(ArbitraryToCanonicalByteString(value));
-  }
-  return action;
-}
-
-// Translates the action set from its PI form to IR.
-StatusOr<IrActionSet> PiActionSetToIr(
-    const IrP4Info &info, const p4::v1::ActionProfileActionSet &pi_action_set,
-    const google::protobuf::RepeatedPtrField<IrActionReference>
-        &valid_actions) {
-  IrActionSet ir_action_set;
-  for (const auto &pi_profile_action : pi_action_set.action_profile_actions()) {
-    auto *ir_action = ir_action_set.add_actions();
-    ASSIGN_OR_RETURN(
-        *ir_action->mutable_action(),
-        PiActionToIr(info, pi_profile_action.action(), valid_actions));
-
-    // A action set weight that is not positive does not make sense on a switch.
-    if (pi_profile_action.weight() < 1) {
-      return InvalidArgumentErrorBuilder()
-             << "Expected positive action set weight, but got "
-             << pi_profile_action.weight() << " instead";
-    }
-    ir_action->set_weight(pi_profile_action.weight());
-    if (!pi_profile_action.watch_port().empty()) {
-      ir_action->set_watch_port(pi_profile_action.watch_port());
-    }
-  }
-  return ir_action_set;
-}
-
-// Translates the action set from its IR form to PI.
-StatusOr<p4::v1::ActionProfileActionSet> IrActionSetToPi(
-    const IrP4Info &info, const IrActionSet &ir_action_set,
-    const google::protobuf::RepeatedPtrField<IrActionReference>
-        &valid_actions) {
-  p4::v1::ActionProfileActionSet pi;
-  for (const auto &ir_action : ir_action_set.actions()) {
-    auto *pi_action = pi.add_action_profile_actions();
-    ASSIGN_OR_RETURN(
-        *pi_action->mutable_action(),
-        IrActionInvocationToPi(info, ir_action.action(), valid_actions));
-    if (ir_action.weight() < 1) {
-      return InvalidArgumentErrorBuilder()
-             << "Expected positive action set weight, but got "
-             << ir_action.weight() << " instead";
-    }
-    pi_action->set_weight(ir_action.weight());
-    if (!ir_action.watch_port().empty()) {
-      pi_action->set_watch_port(ir_action.watch_port());
-    }
-  }
-  return pi;
-}
-
-// Generic helper that works for both packet-in and packet-out. For both, I is
-// one of p4::v1::{PacketIn, PacketOut} and O is one of {IrPacketIn,
-// IrPacketOut}.
-template <typename I, typename O>
-StatusOr<O> PiPacketIoToIr(const IrP4Info &info, const std::string &kind,
-                           const I &packet) {
-  O result;
-  result.set_payload(packet.payload());
-  absl::flat_hash_set<uint32_t> used_metadata_ids;
-
-  google::protobuf::Map<uint32_t, IrPacketIoMetadataDefinition> metadata_by_id;
-  if (kind == "packet-in") {
-    metadata_by_id = info.packet_in_metadata_by_id();
-  } else if (kind == "packet-out") {
-    metadata_by_id = info.packet_out_metadata_by_id();
-  } else {
-    return InvalidArgumentErrorBuilder() << "Invalid PacketIo type " << kind;
-  }
-
-  for (const auto &metadata : packet.metadata()) {
-    uint32_t id = metadata.metadata_id();
-    RETURN_IF_ERROR(gutil::InsertIfUnique(
-        used_metadata_ids, id,
-        absl::StrCat("Duplicate \"", kind, "\" metadata found with ID ", id)));
-
-    ASSIGN_OR_RETURN(const auto &metadata_definition,
-                     gutil::FindOrStatus(metadata_by_id, id),
-                     _ << kind << " metadata with ID " << id << " not defined");
-
-    IrPacketMetadata ir_metadata;
-    ir_metadata.set_name(metadata_definition.metadata().name());
-    ASSIGN_OR_RETURN(
-        *ir_metadata.mutable_value(),
-        ArbitraryByteStringToIrValue(metadata_definition.format(),
-                                     metadata_definition.metadata().bitwidth(),
-                                     metadata.value()));
-    *result.add_metadata() = ir_metadata;
-  }
-  // Check for missing metadata
-  for (const auto &item : metadata_by_id) {
-    const auto &id = item.first;
-    const auto &meta = item.second;
-    if (!used_metadata_ids.contains(id)) {
-      return InvalidArgumentErrorBuilder()
-             << "\"" << kind << "\" metadata \"" << meta.metadata().name()
-             << "\" with ID " << id << " is missing";
-    }
-  }
-
-  return result;
-}
-
-template <typename I, typename O>
-StatusOr<I> IrPacketIoToPi(const IrP4Info &info, const std::string &kind,
-                           const O &packet) {
-  I result;
-  result.set_payload(packet.payload());
-  absl::flat_hash_set<std::string> used_metadata_names;
-  google::protobuf::Map<std::string, IrPacketIoMetadataDefinition>
-      metadata_by_name;
-  if (kind == "packet-in") {
-    metadata_by_name = info.packet_in_metadata_by_name();
-  } else if (kind == "packet-out") {
-    metadata_by_name = info.packet_out_metadata_by_name();
-  } else {
-    return InvalidArgumentErrorBuilder() << "Invalid PacketIo type " << kind;
-  }
-
-  for (const auto &metadata : packet.metadata()) {
-    const std::string &name = metadata.name();
-    RETURN_IF_ERROR(gutil::InsertIfUnique(
-        used_metadata_names, name,
-        absl::StrCat("Duplicate \"", kind, "\" metadata found with name \"",
-                     name, "\"")));
-
-    ASSIGN_OR_RETURN(const auto &metadata_definition,
-                     gutil::FindOrStatus(metadata_by_name, name),
-                     _ << "\"" << kind << "\" metadata with name \"" << name
-                       << "\" not defined");
-    p4::v1::PacketMetadata pi_metadata;
-    pi_metadata.set_metadata_id(metadata_definition.metadata().id());
-    RETURN_IF_ERROR(
-        ValidateIrValueFormat(metadata.value(), metadata_definition.format()));
-    ASSIGN_OR_RETURN(
-        auto value,
-        IrValueToNormalizedByteString(
-            metadata.value(), metadata_definition.metadata().bitwidth()));
-    pi_metadata.set_value(ArbitraryToCanonicalByteString(value));
-    *result.add_metadata() = pi_metadata;
-  }
-  // Check for missing metadata
-  for (const auto &item : metadata_by_name) {
-    const auto &name = item.first;
-    const auto &meta = item.second;
-    if (!used_metadata_names.contains(name)) {
-      return InvalidArgumentErrorBuilder()
-             << "\"" << kind << "\" metadata \"" << meta.metadata().name()
-             << "\" with id " << meta.metadata().id() << " is missing";
-    }
-  }
-
-  return result;
-}
-
-}  // namespace
-
 StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
                                         const p4::v1::TableEntry &pi) {
   IrTableEntry ir;
@@ -1073,6 +1069,201 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
   return ir;
 }
 
+StatusOr<IrPacketIn> PiPacketInToIr(const IrP4Info &info,
+                                    const p4::v1::PacketIn &packet) {
+  return PiPacketIoToIr<p4::v1::PacketIn, IrPacketIn>(info, "packet-in",
+                                                      packet);
+}
+StatusOr<IrPacketOut> PiPacketOutToIr(const IrP4Info &info,
+                                      const p4::v1::PacketOut &packet) {
+  return PiPacketIoToIr<p4::v1::PacketOut, IrPacketOut>(info, "packet-out",
+                                                        packet);
+}
+
+StatusOr<IrReadRequest> PiReadRequestToIr(
+    const IrP4Info &info, const p4::v1::ReadRequest &read_request) {
+  IrReadRequest result;
+  if (read_request.device_id() == 0) {
+    return InvalidArgumentErrorBuilder() << "Device ID missing";
+  }
+  result.set_device_id(read_request.device_id());
+  std::string base = "Only wildcard reads of all table entries are supported. ";
+  if (read_request.entities().size() != 1) {
+    return UnimplementedErrorBuilder()
+           << base << "Only 1 entity is supported. Found "
+           << read_request.entities().size() << " entities in read request";
+  }
+  if (!read_request.entities(0).has_table_entry()) {
+    return UnimplementedErrorBuilder()
+           << base << "Found an entity that is not a table entry";
+  }
+  const p4::v1::TableEntry entry = read_request.entities(0).table_entry();
+  if (entry.table_id() != 0 || entry.priority() != 0 ||
+      entry.controller_metadata() != 0 || entry.idle_timeout_ns() != 0 ||
+      entry.is_default_action() || !entry.metadata().empty() ||
+      entry.has_action() || entry.has_time_since_last_hit() ||
+      !entry.match().empty()) {
+    return UnimplementedErrorBuilder()
+           << base
+           << "At least one field (other than counter_data and meter_config is "
+              "set in the table entry";
+  }
+  if (entry.has_meter_config()) {
+    if (entry.meter_config().ByteSizeLong() != 0) {
+      return UnimplementedErrorBuilder()
+             << base << "Found a non-empty meter_config in table entry";
+    }
+    result.set_read_meter_configs(true);
+  }
+  if (entry.has_counter_data()) {
+    if (entry.counter_data().ByteSizeLong() != 0) {
+      return UnimplementedErrorBuilder()
+             << base << "Found a non-empty counter_data in table entry";
+    }
+    result.set_read_counter_data(true);
+  }
+  return result;
+}
+
+StatusOr<IrReadResponse> PiReadResponseToIr(
+    const IrP4Info &info, const p4::v1::ReadResponse &read_response) {
+  IrReadResponse result;
+  for (const auto &entity : read_response.entities()) {
+    if (!entity.has_table_entry()) {
+      return UnimplementedErrorBuilder()
+             << "Only table entries are supported in ReadResponse";
+    }
+    ASSIGN_OR_RETURN(*result.add_table_entries(),
+                     PiTableEntryToIr(info, entity.table_entry()));
+  }
+  return result;
+}
+
+StatusOr<IrUpdate> PiUpdateToIr(const IrP4Info &info,
+                                const p4::v1::Update &update) {
+  IrUpdate ir_update;
+  if (!update.entity().has_table_entry()) {
+    return UnimplementedErrorBuilder()
+           << "Only table entries are supported in Update";
+  }
+  if (update.type() == p4::v1::Update_Type_UNSPECIFIED) {
+    return InvalidArgumentErrorBuilder() << "Update type should be specified";
+  }
+  ir_update.set_type(update.type());
+  ASSIGN_OR_RETURN(*ir_update.mutable_table_entry(),
+                   PiTableEntryToIr(info, update.entity().table_entry()));
+  return ir_update;
+}
+
+StatusOr<IrWriteRequest> PiWriteRequestToIr(
+    const IrP4Info &info, const p4::v1::WriteRequest &write_request) {
+  IrWriteRequest ir_write_request;
+
+  if (write_request.role_id() != 0) {
+    return InvalidArgumentErrorBuilder()
+           << "Only the default role is supported, but got role ID "
+           << write_request.role_id() << " instead";
+  }
+
+  if (write_request.atomicity() !=
+      p4::v1::WriteRequest_Atomicity_CONTINUE_ON_ERROR) {
+    return InvalidArgumentErrorBuilder()
+           << "Only CONTINUE_ON_ERROR is supported for atomicity";
+  }
+
+  ir_write_request.set_device_id(write_request.device_id());
+  if (write_request.election_id().high() > 0 ||
+      write_request.election_id().low() > 0) {
+    *ir_write_request.mutable_election_id() = write_request.election_id();
+  }
+
+  for (const auto &update : write_request.updates()) {
+    ASSIGN_OR_RETURN(*ir_write_request.add_updates(),
+                     PiUpdateToIr(info, update));
+  }
+  return ir_write_request;
+}
+
+StatusOr<IrStreamMessageRequest> PiStreamMessageRequestToIr(
+    const IrP4Info &info,
+    const p4::v1::StreamMessageRequest &stream_message_request) {
+  IrStreamMessageRequest ir_stream_message_request;
+
+  switch (stream_message_request.update_case()) {
+    case p4::v1::StreamMessageRequest::kArbitration: {
+      *ir_stream_message_request.mutable_arbitration() =
+          stream_message_request.arbitration();
+      break;
+    }
+    case p4::v1::StreamMessageRequest::kPacket: {
+      ASSIGN_OR_RETURN(*ir_stream_message_request.mutable_packet(),
+                       PiPacketOutToIr(info, stream_message_request.packet()));
+      break;
+    }
+    default: {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Unsupported update: ",
+          stream_message_request.GetDescriptor()
+              ->FindFieldByNumber(stream_message_request.update_case())
+              ->name(),
+          "."));
+    }
+  }
+  return ir_stream_message_request;
+}
+
+StatusOr<IrStreamMessageResponse> PiStreamMessageResponseToIr(
+    const IrP4Info &info,
+    const p4::v1::StreamMessageResponse &stream_message_response) {
+  IrStreamMessageResponse ir_stream_message_response;
+
+  switch (stream_message_response.update_case()) {
+    case p4::v1::StreamMessageResponse::kArbitration: {
+      *ir_stream_message_response.mutable_arbitration() =
+          stream_message_response.arbitration();
+      break;
+    }
+    case p4::v1::StreamMessageResponse::kPacket: {
+      ASSIGN_OR_RETURN(*ir_stream_message_response.mutable_packet(),
+                       PiPacketInToIr(info, stream_message_response.packet()));
+      break;
+    }
+    case p4::v1::StreamMessageResponse::kError: {
+      auto pi_error = stream_message_response.error();
+      auto *ir_error = ir_stream_message_response.mutable_error();
+      auto *ir_status = ir_error->mutable_status();
+      ir_status->set_code(pi_error.canonical_code());
+      ir_status->set_message(pi_error.message());
+      switch (pi_error.details_case()) {
+        case p4::v1::StreamError::kPacketOut: {
+          ASSIGN_OR_RETURN(
+              *ir_error->mutable_packet_out(),
+              PiPacketOutToIr(info, pi_error.packet_out().packet_out()));
+          break;
+        }
+        default: {
+          return absl::InvalidArgumentError(
+              absl::StrCat("Unsupported error detail: ",
+                           pi_error.GetDescriptor()
+                               ->FindFieldByNumber(pi_error.details_case())
+                               ->name(),
+                           "."));
+        }
+      }
+      break;
+    }
+    default: {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Unsupported update: ",
+          stream_message_response.GetDescriptor()
+              ->FindFieldByNumber(stream_message_response.update_case())
+              ->name(),
+          "."));
+    }
+  }
+  return ir_stream_message_response;
+}
+
 StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
                                               const IrTableEntry &ir) {
   p4::v1::TableEntry pi;
@@ -1185,17 +1376,6 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
   return pi;
 }
 
-StatusOr<IrPacketIn> PiPacketInToIr(const IrP4Info &info,
-                                    const p4::v1::PacketIn &packet) {
-  return PiPacketIoToIr<p4::v1::PacketIn, IrPacketIn>(info, "packet-in",
-                                                      packet);
-}
-StatusOr<IrPacketOut> PiPacketOutToIr(const IrP4Info &info,
-                                      const p4::v1::PacketOut &packet) {
-  return PiPacketIoToIr<p4::v1::PacketOut, IrPacketOut>(info, "packet-out",
-                                                        packet);
-}
-
 StatusOr<p4::v1::PacketIn> IrPacketInToPi(const IrP4Info &info,
                                           const IrPacketIn &packet) {
   return IrPacketIoToPi<p4::v1::PacketIn, IrPacketIn>(info, "packet-in",
@@ -1205,51 +1385,6 @@ StatusOr<p4::v1::PacketOut> IrPacketOutToPi(const IrP4Info &info,
                                             const IrPacketOut &packet) {
   return IrPacketIoToPi<p4::v1::PacketOut, IrPacketOut>(info, "packet-out",
                                                         packet);
-}
-
-StatusOr<IrReadRequest> PiReadRequestToIr(
-    const IrP4Info &info, const p4::v1::ReadRequest &read_request) {
-  IrReadRequest result;
-  if (read_request.device_id() == 0) {
-    return InvalidArgumentErrorBuilder() << "Device ID missing";
-  }
-  result.set_device_id(read_request.device_id());
-  std::string base = "Only wildcard reads of all table entries are supported. ";
-  if (read_request.entities().size() != 1) {
-    return UnimplementedErrorBuilder()
-           << base << "Only 1 entity is supported. Found "
-           << read_request.entities().size() << " entities in read request";
-  }
-  if (!read_request.entities(0).has_table_entry()) {
-    return UnimplementedErrorBuilder()
-           << base << "Found an entity that is not a table entry";
-  }
-  const p4::v1::TableEntry entry = read_request.entities(0).table_entry();
-  if (entry.table_id() != 0 || entry.priority() != 0 ||
-      entry.controller_metadata() != 0 || entry.idle_timeout_ns() != 0 ||
-      entry.is_default_action() || !entry.metadata().empty() ||
-      entry.has_action() || entry.has_time_since_last_hit() ||
-      !entry.match().empty()) {
-    return UnimplementedErrorBuilder()
-           << base
-           << "At least one field (other than counter_data and meter_config is "
-              "set in the table entry";
-  }
-  if (entry.has_meter_config()) {
-    if (entry.meter_config().ByteSizeLong() != 0) {
-      return UnimplementedErrorBuilder()
-             << base << "Found a non-empty meter_config in table entry";
-    }
-    result.set_read_meter_configs(true);
-  }
-  if (entry.has_counter_data()) {
-    if (entry.counter_data().ByteSizeLong() != 0) {
-      return UnimplementedErrorBuilder()
-             << base << "Found a non-empty counter_data in table entry";
-    }
-    result.set_read_counter_data(true);
-  }
-  return result;
 }
 
 StatusOr<p4::v1::ReadRequest> IrReadRequestToPi(
@@ -1269,20 +1404,6 @@ StatusOr<p4::v1::ReadRequest> IrReadRequestToPi(
   return result;
 }
 
-StatusOr<IrReadResponse> PiReadResponseToIr(
-    const IrP4Info &info, const p4::v1::ReadResponse &read_response) {
-  IrReadResponse result;
-  for (const auto &entity : read_response.entities()) {
-    if (!entity.has_table_entry()) {
-      return UnimplementedErrorBuilder()
-             << "Only table entries are supported in ReadResponse";
-    }
-    ASSIGN_OR_RETURN(*result.add_table_entries(),
-                     PiTableEntryToIr(info, entity.table_entry()));
-  }
-  return result;
-}
-
 StatusOr<p4::v1::ReadResponse> IrReadResponseToPi(
     const IrP4Info &info, const IrReadResponse &read_response) {
   p4::v1::ReadResponse result;
@@ -1291,22 +1412,6 @@ StatusOr<p4::v1::ReadResponse> IrReadResponseToPi(
                      IrTableEntryToPi(info, entity));
   }
   return result;
-}
-
-StatusOr<IrUpdate> PiUpdateToIr(const IrP4Info &info,
-                                const p4::v1::Update &update) {
-  IrUpdate ir_update;
-  if (!update.entity().has_table_entry()) {
-    return UnimplementedErrorBuilder()
-           << "Only table entries are supported in Update";
-  }
-  if (update.type() == p4::v1::Update_Type_UNSPECIFIED) {
-    return InvalidArgumentErrorBuilder() << "Update type should be specified";
-  }
-  ir_update.set_type(update.type());
-  ASSIGN_OR_RETURN(*ir_update.mutable_table_entry(),
-                   PiTableEntryToIr(info, update.entity().table_entry()));
-  return ir_update;
 }
 
 StatusOr<p4::v1::Update> IrUpdateToPi(const IrP4Info &info,
@@ -1324,35 +1429,6 @@ StatusOr<p4::v1::Update> IrUpdateToPi(const IrP4Info &info,
   ASSIGN_OR_RETURN(*pi_update.mutable_entity()->mutable_table_entry(),
                    IrTableEntryToPi(info, update.table_entry()));
   return pi_update;
-}
-
-StatusOr<IrWriteRequest> PiWriteRequestToIr(
-    const IrP4Info &info, const p4::v1::WriteRequest &write_request) {
-  IrWriteRequest ir_write_request;
-
-  if (write_request.role_id() != 0) {
-    return InvalidArgumentErrorBuilder()
-           << "Only the default role is supported, but got role ID "
-           << write_request.role_id() << " instead";
-  }
-
-  if (write_request.atomicity() !=
-      p4::v1::WriteRequest_Atomicity_CONTINUE_ON_ERROR) {
-    return InvalidArgumentErrorBuilder()
-           << "Only CONTINUE_ON_ERROR is supported for atomicity";
-  }
-
-  ir_write_request.set_device_id(write_request.device_id());
-  if (write_request.election_id().high() > 0 ||
-      write_request.election_id().low() > 0) {
-    *ir_write_request.mutable_election_id() = write_request.election_id();
-  }
-
-  for (const auto &update : write_request.updates()) {
-    ASSIGN_OR_RETURN(*ir_write_request.add_updates(),
-                     PiUpdateToIr(info, update));
-  }
-  return ir_write_request;
 }
 
 StatusOr<p4::v1::WriteRequest> IrWriteRequestToPi(
@@ -1374,6 +1450,76 @@ StatusOr<p4::v1::WriteRequest> IrWriteRequestToPi(
   }
   return pi_write_request;
 }
+
+StatusOr<p4::v1::StreamMessageRequest> IrStreamMessageRequestToPi(
+    const IrP4Info &info,
+    const IrStreamMessageRequest &ir_stream_message_request) {
+  p4::v1::StreamMessageRequest pi_stream_message_request;
+
+  switch (ir_stream_message_request.update_case()) {
+    case IrStreamMessageRequest::kArbitration: {
+      *pi_stream_message_request.mutable_arbitration() =
+          ir_stream_message_request.arbitration();
+      break;
+    }
+    case IrStreamMessageRequest::kPacket: {
+      ASSIGN_OR_RETURN(
+          *pi_stream_message_request.mutable_packet(),
+          IrPacketOutToPi(info, ir_stream_message_request.packet()));
+      break;
+    }
+    default: {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Unsupported update: ",
+          ir_stream_message_request.GetDescriptor()
+              ->FindFieldByNumber(ir_stream_message_request.update_case())
+              ->name(),
+          "."));
+    }
+  }
+  return pi_stream_message_request;
+}
+
+StatusOr<p4::v1::StreamMessageResponse> IrStreamMessageResponseToPi(
+    const IrP4Info &info,
+    const IrStreamMessageResponse &ir_stream_message_response) {
+  p4::v1::StreamMessageResponse pi_stream_message_response;
+
+  switch (ir_stream_message_response.update_case()) {
+    case IrStreamMessageResponse::kArbitration: {
+      *pi_stream_message_response.mutable_arbitration() =
+          ir_stream_message_response.arbitration();
+      break;
+    }
+    case IrStreamMessageResponse::kPacket: {
+      ASSIGN_OR_RETURN(
+          *pi_stream_message_response.mutable_packet(),
+          IrPacketInToPi(info, ir_stream_message_response.packet()));
+      break;
+    }
+    case IrStreamMessageResponse::kError: {
+      auto *pi_error = pi_stream_message_response.mutable_error();
+      auto ir_error = ir_stream_message_response.error();
+
+      pi_error->set_canonical_code(ir_error.status().code());
+      pi_error->set_message(ir_error.status().message());
+
+      ASSIGN_OR_RETURN(*pi_error->mutable_packet_out()->mutable_packet_out(),
+                       IrPacketOutToPi(info, ir_error.packet_out()));
+      break;
+    }
+    default: {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Unsupported update: ",
+          ir_stream_message_response.GetDescriptor()
+              ->FindFieldByNumber(ir_stream_message_response.update_case())
+              ->name(),
+          "."));
+    }
+  }
+  return pi_stream_message_response;
+}
+
 // Formats a grpc status about write request into a readible string.
 std::string WriteRequestGrpcStatusToString(const grpc::Status &status) {
   std::string readable_status = absl::StrCat(
@@ -1594,155 +1740,6 @@ absl::Status WriteRpcGrpcStatusToAbslStatus(
   return gutil::InternalErrorBuilder()
          << "GrpcStatusToIrWriteRpcStatus returned invalid IrWriteRpcStatus: "
          << write_rpc_status.DebugString();
-}
-
-StatusOr<IrStreamMessageRequest> PiStreamMessageRequestToIr(
-    const IrP4Info &info,
-    const p4::v1::StreamMessageRequest &stream_message_request) {
-  IrStreamMessageRequest ir_stream_message_request;
-
-  switch (stream_message_request.update_case()) {
-    case p4::v1::StreamMessageRequest::kArbitration: {
-      *ir_stream_message_request.mutable_arbitration() =
-          stream_message_request.arbitration();
-      break;
-    }
-    case p4::v1::StreamMessageRequest::kPacket: {
-      ASSIGN_OR_RETURN(*ir_stream_message_request.mutable_packet(),
-                       PiPacketOutToIr(info, stream_message_request.packet()));
-      break;
-    }
-    default: {
-      return absl::InvalidArgumentError(absl::StrCat(
-          "Unsupported update: ",
-          stream_message_request.GetDescriptor()
-              ->FindFieldByNumber(stream_message_request.update_case())
-              ->name(),
-          "."));
-    }
-  }
-  return ir_stream_message_request;
-}
-
-StatusOr<p4::v1::StreamMessageRequest> IrStreamMessageRequestToPi(
-    const IrP4Info &info,
-    const IrStreamMessageRequest &ir_stream_message_request) {
-  p4::v1::StreamMessageRequest pi_stream_message_request;
-
-  switch (ir_stream_message_request.update_case()) {
-    case IrStreamMessageRequest::kArbitration: {
-      *pi_stream_message_request.mutable_arbitration() =
-          ir_stream_message_request.arbitration();
-      break;
-    }
-    case IrStreamMessageRequest::kPacket: {
-      ASSIGN_OR_RETURN(
-          *pi_stream_message_request.mutable_packet(),
-          IrPacketOutToPi(info, ir_stream_message_request.packet()));
-      break;
-    }
-    default: {
-      return absl::InvalidArgumentError(absl::StrCat(
-          "Unsupported update: ",
-          ir_stream_message_request.GetDescriptor()
-              ->FindFieldByNumber(ir_stream_message_request.update_case())
-              ->name(),
-          "."));
-    }
-  }
-  return pi_stream_message_request;
-}
-
-StatusOr<IrStreamMessageResponse> PiStreamMessageResponseToIr(
-    const IrP4Info &info,
-    const p4::v1::StreamMessageResponse &stream_message_response) {
-  IrStreamMessageResponse ir_stream_message_response;
-
-  switch (stream_message_response.update_case()) {
-    case p4::v1::StreamMessageResponse::kArbitration: {
-      *ir_stream_message_response.mutable_arbitration() =
-          stream_message_response.arbitration();
-      break;
-    }
-    case p4::v1::StreamMessageResponse::kPacket: {
-      ASSIGN_OR_RETURN(*ir_stream_message_response.mutable_packet(),
-                       PiPacketInToIr(info, stream_message_response.packet()));
-      break;
-    }
-    case p4::v1::StreamMessageResponse::kError: {
-      auto pi_error = stream_message_response.error();
-      auto *ir_error = ir_stream_message_response.mutable_error();
-      auto *ir_status = ir_error->mutable_status();
-      ir_status->set_code(pi_error.canonical_code());
-      ir_status->set_message(pi_error.message());
-      switch (pi_error.details_case()) {
-        case p4::v1::StreamError::kPacketOut: {
-          ASSIGN_OR_RETURN(
-              *ir_error->mutable_packet_out(),
-              PiPacketOutToIr(info, pi_error.packet_out().packet_out()));
-          break;
-        }
-        default: {
-          return absl::InvalidArgumentError(
-              absl::StrCat("Unsupported error detail: ",
-                           pi_error.GetDescriptor()
-                               ->FindFieldByNumber(pi_error.details_case())
-                               ->name(),
-                           "."));
-        }
-      }
-      break;
-    }
-    default: {
-      return absl::InvalidArgumentError(absl::StrCat(
-          "Unsupported update: ",
-          stream_message_response.GetDescriptor()
-              ->FindFieldByNumber(stream_message_response.update_case())
-              ->name(),
-          "."));
-    }
-  }
-  return ir_stream_message_response;
-}
-
-StatusOr<p4::v1::StreamMessageResponse> IrStreamMessageResponseToPi(
-    const IrP4Info &info,
-    const IrStreamMessageResponse &ir_stream_message_response) {
-  p4::v1::StreamMessageResponse pi_stream_message_response;
-
-  switch (ir_stream_message_response.update_case()) {
-    case IrStreamMessageResponse::kArbitration: {
-      *pi_stream_message_response.mutable_arbitration() =
-          ir_stream_message_response.arbitration();
-      break;
-    }
-    case IrStreamMessageResponse::kPacket: {
-      ASSIGN_OR_RETURN(
-          *pi_stream_message_response.mutable_packet(),
-          IrPacketInToPi(info, ir_stream_message_response.packet()));
-      break;
-    }
-    case IrStreamMessageResponse::kError: {
-      auto *pi_error = pi_stream_message_response.mutable_error();
-      auto ir_error = ir_stream_message_response.error();
-
-      pi_error->set_canonical_code(ir_error.status().code());
-      pi_error->set_message(ir_error.status().message());
-
-      ASSIGN_OR_RETURN(*pi_error->mutable_packet_out()->mutable_packet_out(),
-                       IrPacketOutToPi(info, ir_error.packet_out()));
-      break;
-    }
-    default: {
-      return absl::InvalidArgumentError(absl::StrCat(
-          "Unsupported update: ",
-          ir_stream_message_response.GetDescriptor()
-              ->FindFieldByNumber(ir_stream_message_response.update_case())
-              ->name(),
-          "."));
-    }
-  }
-  return pi_stream_message_response;
 }
 
 }  // namespace pdpi
