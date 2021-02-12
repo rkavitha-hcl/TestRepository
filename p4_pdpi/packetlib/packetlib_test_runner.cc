@@ -120,7 +120,7 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
   }
 }
 
-void main() {
+void RunPacketParseTests() {
   RunPacketParseTest("Ethernet packet (valid)", R"PB(
     # ethernet header
     ethernet_destination: 0xaabbccddeeff
@@ -131,6 +131,7 @@ void main() {
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd
   )PB");
+
   RunPacketParseTest("Ethernet packet (invalid)", R"PB(
     # ethernet header
     ethernet_destination: 0xaabbccddeeff
@@ -139,12 +140,14 @@ void main() {
     # payload
     pqyload: 0x0102  # 2 bytes, but ether_type says 1 byte & minimum size is 46.
   )PB");
+
   RunPacketParseTest("Ethernet packet (unsupported EtherType)", R"PB(
     # ethernet header
     ethernet_destination: 0xaabbccddeeff
     ethernet_source: 0x112233445566
     ether_type: 0x0842  # Wake-on-LAN
   )PB");
+
   RunPacketParseTest("IPv4 packet (invalid)", R"PB(
     # ethernet header
     ethernet_destination: 0xaabbccddeeff
@@ -167,6 +170,7 @@ void main() {
     # other headers:
     payload: 0x1234
   )PB");
+
   RunPacketParseTest("IPv4 packet (valid)", R"PB(
     # ethernet header
     ethernet_destination: 0xaabbccddeeff
@@ -190,6 +194,7 @@ void main() {
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
   )PB");
+
   RunPacketParseTest("IPv4 packet (checksum example)", R"PB(
     # Taken from
     # wikipedia.org/wiki/IPv4_header_checksum#Calculating_the_IPv4_header_checksum
@@ -202,6 +207,7 @@ void main() {
     ipv4_header: 0x 4500 0073 0000 4000 4011 b861 c0a8 0001 c0a8 00c7
     payload: 0x 0035 e97c 005f 279f 1e4b 8180
   )PB");
+
   RunPacketParseTest("IPv4 packet with options (valid)", R"PB(
     # Ethernet header
     ethernet_destination: 0xaabbccddeeff
@@ -226,6 +232,7 @@ void main() {
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
   )PB");
+
   RunPacketParseTest("IPv4 packet with options (too short)", R"PB(
     # Ethernet header
     ethernet_destination: 0xaabbccddeeff
@@ -247,6 +254,7 @@ void main() {
     ipv4_destination: 0x14000003
     uninterpreted_suffix: 0x11  # Should be 32 bits, but is only 8 bits.
   )PB");
+
   RunPacketParseTest("IPv6 packet (invalid)", R"PB(
     # ethernet header
     ethernet_destination: 0xffeeddccbbaa
@@ -265,6 +273,7 @@ void main() {
     # other headers:
     payload: 0x12
   )PB");
+
   RunPacketParseTest("IPv6 packet (valid)", R"PB(
     # ethernet header
     ethernet_destination: 0xffeeddccbbaa
@@ -284,6 +293,7 @@ void main() {
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
   )PB");
+
   RunPacketParseTest("UDP packet (valid)", R"PB(
     # Taken from
     # www.securitynik.com/2015/08/calculating-udp-checksum-with-taste-of.html
@@ -315,37 +325,7 @@ void main() {
     payload: 0x4869                                             # "Hi" in ASCII
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff  # Padding
   )PB");
-  RunProtoPacketTest("UDP header not preceded by other header",
-                     gutil::ParseProtoOrDie<Packet>(R"PB(
-                       headers {
-                         udp_header {
-                           source_port: "0x0014"
-                           destination_port: "0x000a"
-                           length: "0x000a"
-                           checksum: "0x35c5"
-                         }
-                       }
-                       payload: "0x4869"
-                     )PB"));
-  RunProtoPacketTest("UDP header not preceded by IP header",
-                     gutil::ParseProtoOrDie<Packet>(R"PB(
-                       headers {
-                         ethernet_header {
-                           ethernet_destination: "aa:bb:cc:dd:ee:ff"
-                           ethernet_source: "11:22:33:44:55:66"
-                           ethertype: "0x000a"
-                         }
-                       }
-                       headers {
-                         udp_header {
-                           source_port: "0x0014"
-                           destination_port: "0x000a"
-                           length: "0x000a"
-                           checksum: "0x35c5"
-                         }
-                       }
-                       payload: "0x4869"
-                     )PB"));
+
   RunPacketParseTest("TCP packet (valid)", R"PB(
     # Taken from
     # www.erg.abdn.ac.uk/users/gorry/course/inet-pages/packet-decode3.html
@@ -383,6 +363,41 @@ void main() {
     # Payload
     payload: 0x 11 22
   )PB");
+}
+
+void RunProtoPacketTests() {
+  RunProtoPacketTest("UDP header not preceded by other header",
+                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                       headers {
+                         udp_header {
+                           source_port: "0x0014"
+                           destination_port: "0x000a"
+                           length: "0x000a"
+                           checksum: "0x35c5"
+                         }
+                       }
+                       payload: "0x4869"
+                     )PB"));
+
+  RunProtoPacketTest("UDP header not preceded by IP header",
+                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                       headers {
+                         ethernet_header {
+                           ethernet_destination: "aa:bb:cc:dd:ee:ff"
+                           ethernet_source: "11:22:33:44:55:66"
+                           ethertype: "0x000a"
+                         }
+                       }
+                       headers {
+                         udp_header {
+                           source_port: "0x0014"
+                           destination_port: "0x000a"
+                           length: "0x000a"
+                           checksum: "0x35c5"
+                         }
+                       }
+                       payload: "0x4869"
+                     )PB"));
 
   RunProtoPacketTest("IPv4 without computed fields",
                      gutil::ParseProtoOrDie<Packet>(R"PB(
@@ -522,6 +537,11 @@ void main() {
 
   RunProtoPacketTest("Uninitialized (empty packet) - should be invalid",
                      gutil::ParseProtoOrDie<Packet>(R"PB()PB"));
+}
+
+void main() {
+  RunPacketParseTests();
+  RunProtoPacketTests();
 }
 
 }  // namespace packetlib
