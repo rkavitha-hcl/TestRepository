@@ -156,7 +156,7 @@ void RunPacketParseTests() {
     # IPv4 header:
     version: 0x4
     ihl: 0x5
-    dhcp: 0b011011
+    dscp: 0b011011
     ecn: 0b01
     total_length: 0x6fc6
     identification: 0xa3cd
@@ -179,7 +179,7 @@ void RunPacketParseTests() {
     # IPv4 header:
     version: 0x4
     ihl: 0x5
-    dhcp: 0b011011
+    dscp: 0b011011
     ecn: 0b01
     total_length: 0x0034
     identification: 0xa3cd
@@ -216,7 +216,7 @@ void RunPacketParseTests() {
     # IPv4 header:
     version: 0x4
     ihl: 0x6  # 5 + 1 x 32-bit suffix
-    dhcp: 0b011011
+    dscp: 0b011011
     ecn: 0b01
     total_length: 0x0038
     identification: 0xa3cd
@@ -241,7 +241,7 @@ void RunPacketParseTests() {
     # IPv4 header:
     version: 0x4
     ihl: 0x6  # 5 + 1 x 32-bit suffix
-    dhcp: 0b011011
+    dscp: 0b011011
     ecn: 0b01
     total_length: 0x0018
     identification: 0xa3cd
@@ -262,7 +262,7 @@ void RunPacketParseTests() {
     ether_type: 0x86DD
     # IPv6 header:
     version: 0x4
-    dhcp: 0b011011
+    dscp: 0b011011
     ecn: 0b01
     flow_label: 0x12345
     payload_length: 0x0000
@@ -281,7 +281,7 @@ void RunPacketParseTests() {
     ether_type: 0x86DD
     # IPv6 header:
     version: 0x6
-    dhcp: 0b011011
+    dscp: 0b011011
     ecn: 0b01
     flow_label: 0x12345
     payload_length: 0x0020
@@ -305,7 +305,7 @@ void RunPacketParseTests() {
     # IPv4 header
     version: 0x4
     ihl: 0x5
-    dhcp: 0b011011
+    dscp: 0b011011
     ecn: 0b01
     total_length: 0x002e
     identification: 0x0000
@@ -337,7 +337,7 @@ void RunPacketParseTests() {
     # IPv4 header
     version: 0x4
     ihl: 0x5
-    dhcp: 0b000000
+    dscp: 0b000000
     ecn: 0b00
     total_length: 0x002e
     identification: 0x08b8
