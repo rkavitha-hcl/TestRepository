@@ -74,7 +74,8 @@ absl::StatusOr<std::string> HexStringToByteString(
     absl::string_view hex_string) {
   if (!absl::ConsumePrefix(&hex_string, "0x")) {
     return gutil::InvalidArgumentErrorBuilder()
-           << "missing '0x'-prefix in hexadecimal string: " << hex_string;
+           << "missing '0x'-prefix in hexadecimal string: '" << hex_string
+           << "'";
   }
   if (hex_string.size() % 2 != 0) {
     return gutil::InvalidArgumentErrorBuilder()
