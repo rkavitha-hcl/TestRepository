@@ -399,6 +399,67 @@ void RunProtoPacketTests() {
                        payload: "0x4869"
                      )PB"));
 
+  RunProtoPacketTest(
+      "UDP header empty length and checksum",
+      gutil::ParseProtoOrDie<Packet>(R"PB(
+        headers {
+          ethernet_header {
+            ethernet_destination: "aa:bb:cc:dd:ee:ff"
+            ethernet_source: "11:22:33:44:55:66"
+            ethertype: "0x0800"
+          }
+        }
+        headers {
+          ipv4_header {
+            version: "0x4"
+            ihl: "0x5"
+            dscp: "0x1b"
+            ecn: "0x1"
+            identification: "0x0000"
+            flags: "0x0"
+            fragment_offset: "0x0000"
+            ttl: "0x10"
+            protocol: "0x11"  # UDP
+            ipv4_source: "192.168.0.31"
+            ipv4_destination: "192.168.0.30"
+          }
+        }
+        headers {
+          udp_header { source_port: "0x0014" destination_port: "0x000a" }
+        }
+        payload: "0x4869"
+      )PB"));
+
+  RunProtoPacketTest(
+      "UDP header illegally succeeding IPv6 header whose next_header is not "
+      "UDP",
+      gutil::ParseProtoOrDie<Packet>(R"PB(
+        headers {
+          ethernet_header {
+            ethernet_destination: "aa:bb:cc:dd:ee:ff"
+            ethernet_source: "11:22:33:44:55:66"
+            ethertype: "0x86dd"
+          }
+        }
+        headers {
+          ipv6_header {
+            version: "0x6"
+            dscp: "0x1b"
+            ecn: "0x1"
+            flow_label: "0x12345"
+            payload_length: "0x000a"
+            next_header: "0x90"  # some unassigned protocol
+            hop_limit: "0x03"
+            ipv6_source: "0000:1111:2222:3333:4444:5555:6666:7777"
+            ipv6_destination: "8888:9999:aaaa:bbbb:cccc:dddd:eeee:ffff"
+          }
+        }
+        headers {
+          udp_header { source_port: "0x0014" destination_port: "0x000a" }
+        }
+        payload: "0x4869"
+      )PB"));
+
   RunProtoPacketTest("IPv4 without computed fields",
                      gutil::ParseProtoOrDie<Packet>(R"PB(
                        headers {
@@ -410,7 +471,6 @@ void RunProtoPacketTests() {
                        }
                        headers {
                          ipv4_header {
-                           ihl: "0x5"
                            dscp: "0x1b"
                            ecn: "0x1"
                            identification: "0xa3cd"
@@ -423,6 +483,64 @@ void RunProtoPacketTests() {
                          }
                        }
                        payload: "0xabcd"
+                     )PB"));
+
+  RunProtoPacketTest("Ipv4 empty ihl, invalid options",
+                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                       headers {
+                         ethernet_header {
+                           ethernet_destination: "aa:bb:cc:dd:ee:ff"
+                           ethernet_source: "11:22:33:44:55:66"
+                           ethertype: "0x0800"
+                         }
+                       }
+                       headers {
+                         ipv4_header {
+                           version: "0x4"
+                           dscp: "0x1b"
+                           ecn: "0x1"
+                           total_length: "0x0025"
+                           identification: "0xa3cd"
+                           flags: "0x0"
+                           fragment_offset: "0x0000"
+                           ttl: "0x10"
+                           protocol: "0x05"  # some unsupported protocol
+                           checksum: "0xe887"
+                           ipv4_source: "10.0.0.1"
+                           ipv4_destination: "20.0.0.3"
+                           uninterpreted_options: "0x12"
+                         }
+                       }
+                       payload: "0x00112233445566778899aabbccddeeff"
+                     )PB"));
+
+  RunProtoPacketTest("Ipv4 empty ihl, valid options",
+                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                       headers {
+                         ethernet_header {
+                           ethernet_destination: "aa:bb:cc:dd:ee:ff"
+                           ethernet_source: "11:22:33:44:55:66"
+                           ethertype: "0x0800"
+                         }
+                       }
+                       headers {
+                         ipv4_header {
+                           version: "0x4"
+                           dscp: "0x011011"
+                           ecn: "0x01"
+                           total_length: "0x0034"
+                           identification: "0xa3cd"
+                           flags: "0x000"
+                           fragment_offset: "0x0000000000000"
+                           ttl: "0x10"
+                           protocol: "0x05"  # some unsupported protocol
+                           checksum: "0xe887"
+                           ipv4_source: "0x0a000001"
+                           ipv4_destination: "0x14000003"
+                           uninterpreted_options: "0x12345678"
+                         }
+                       }
+                       payload: "0x00112233445566778899aabbccddeeff"
                      )PB"));
 
   RunProtoPacketTest("IPv4 with various invalid fields",

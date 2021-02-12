@@ -631,6 +631,171 @@ Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - headers[1]: expected no header (because the previous header demands either no header or an unsupported header), got UdpHeader
 
 ================================================================================
+Proto packet test: UDP header empty length and checksum
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+packet =
+headers {
+  ethernet_header {
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
+    ethertype: "0x0800"
+  }
+}
+headers {
+  ipv4_header {
+    version: "0x4"
+    ihl: "0x5"
+    dscp: "0x1b"
+    ecn: "0x1"
+    identification: "0x0000"
+    flags: "0x0"
+    fragment_offset: "0x0000"
+    ttl: "0x10"
+    protocol: "0x11"
+    ipv4_source: "192.168.0.31"
+    ipv4_destination: "192.168.0.30"
+  }
+}
+headers {
+  udp_header {
+    source_port: "0x0014"
+    destination_port: "0x000a"
+  }
+}
+payload: "0x4869"
+
+-- OUTPUT ----------------------------------------------------------------------
+ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[0].: expected at least 46 bytes of Ethernet payload, but got only 30
+- headers[1].total_length: missing
+- headers[1].checksum: missing
+- headers[2].length: missing
+- headers[2].checksum: missing
+
+PadPacketToMinimumSize(packet) = true
+new payload: "0x486900000000000000000000000000000000"
+
+UpdateComputedFields(packet) = true
+packet =
+headers {
+  ethernet_header {
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
+    ethertype: "0x0800"
+  }
+}
+headers {
+  ipv4_header {
+    version: "0x4"
+    ihl: "0x5"
+    dscp: "0x1b"
+    ecn: "0x1"
+    total_length: "0x002e"
+    identification: "0x0000"
+    flags: "0x0"
+    fragment_offset: "0x0000"
+    ttl: "0x10"
+    protocol: "0x11"
+    checksum: "0x28c5"
+    ipv4_source: "192.168.0.31"
+    ipv4_destination: "192.168.0.30"
+  }
+}
+headers {
+  udp_header {
+    source_port: "0x0014"
+    destination_port: "0x000a"
+    length: "0x001a"
+    checksum: "0x35a5"
+  }
+}
+payload: "0x486900000000000000000000000000000000"
+
+ValidatePacket(packet) = OK
+
+Serialize(Packet) = OK
+
+================================================================================
+Proto packet test: UDP header illegally succeeding IPv6 header whose next_header is not UDP
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+packet =
+headers {
+  ethernet_header {
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
+    ethertype: "0x86dd"
+  }
+}
+headers {
+  ipv6_header {
+    version: "0x6"
+    dscp: "0x1b"
+    ecn: "0x1"
+    flow_label: "0x12345"
+    payload_length: "0x000a"
+    next_header: "0x90"
+    hop_limit: "0x03"
+    ipv6_source: "0000:1111:2222:3333:4444:5555:6666:7777"
+    ipv6_destination: "8888:9999:aaaa:bbbb:cccc:dddd:eeee:ffff"
+  }
+}
+headers {
+  udp_header {
+    source_port: "0x0014"
+    destination_port: "0x000a"
+  }
+}
+payload: "0x4869"
+
+-- OUTPUT ----------------------------------------------------------------------
+ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[2].length: missing
+- headers[2].checksum: missing
+- headers[2]: expected no header (because the previous header demands either no header or an unsupported header), got UdpHeader
+
+PadPacketToMinimumSize(packet) = false
+
+UpdateComputedFields(packet) = true
+packet =
+headers {
+  ethernet_header {
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
+    ethertype: "0x86dd"
+  }
+}
+headers {
+  ipv6_header {
+    version: "0x6"
+    dscp: "0x1b"
+    ecn: "0x1"
+    flow_label: "0x12345"
+    payload_length: "0x000a"
+    next_header: "0x90"
+    hop_limit: "0x03"
+    ipv6_source: "0000:1111:2222:3333:4444:5555:6666:7777"
+    ipv6_destination: "8888:9999:aaaa:bbbb:cccc:dddd:eeee:ffff"
+  }
+}
+headers {
+  udp_header {
+    source_port: "0x0014"
+    destination_port: "0x000a"
+    length: "0x000a"
+    checksum: "0xb6d4"
+  }
+}
+payload: "0x4869"
+
+ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[2]: expected no header (because the previous header demands either no header or an unsupported header), got UdpHeader
+
+Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[2]: expected no header (because the previous header demands either no header or an unsupported header), got UdpHeader
+
+================================================================================
 Proto packet test: IPv4 without computed fields
 ================================================================================
 -- INPUT -----------------------------------------------------------------------
@@ -644,7 +809,6 @@ headers {
 }
 headers {
   ipv4_header {
-    ihl: "0x5"
     dscp: "0x1b"
     ecn: "0x1"
     identification: "0xa3cd"
@@ -662,6 +826,7 @@ payload: "0xabcd"
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - headers[0].: expected at least 46 bytes of Ethernet payload, but got only 22
 - headers[1].version: missing
+- headers[1].ihl: missing
 - headers[1].total_length: missing
 - headers[1].checksum: missing
 
@@ -699,6 +864,147 @@ payload: "0xabcd000000000000000000000000000000000000000000000000"
 ValidatePacket(packet) = OK
 
 Serialize(Packet) = OK
+
+================================================================================
+Proto packet test: Ipv4 empty ihl, invalid options
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+packet =
+headers {
+  ethernet_header {
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
+    ethertype: "0x0800"
+  }
+}
+headers {
+  ipv4_header {
+    version: "0x4"
+    dscp: "0x1b"
+    ecn: "0x1"
+    total_length: "0x0025"
+    identification: "0xa3cd"
+    flags: "0x0"
+    fragment_offset: "0x0000"
+    ttl: "0x10"
+    protocol: "0x05"
+    checksum: "0xe887"
+    ipv4_source: "10.0.0.1"
+    ipv4_destination: "20.0.0.3"
+    uninterpreted_options: "0x12"
+  }
+}
+payload: "0x00112233445566778899aabbccddeeff"
+
+-- OUTPUT ----------------------------------------------------------------------
+ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[0].: expected at least 46 bytes of Ethernet payload, but got only 37
+- headers[1].ihl: missing
+- headers[1].uninterpreted_options: found 8 bits, but expected multiple of 32 bits
+- headers[1].checksum: Couldn't compute expected checksum: INVALID_ARGUMENT: missing '0x'-prefix in hexadecimal string:
+
+PadPacketToMinimumSize(packet) = true
+new payload: "0x00112233445566778899aabbccddeeff000000000000000000"
+
+UpdateComputedFields(packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].ihl: uninterpreted_options field is invalid
+
+Serialize(Packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].ihl: uninterpreted_options field is invalid
+
+================================================================================
+Proto packet test: Ipv4 empty ihl, valid options
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+packet =
+headers {
+  ethernet_header {
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
+    ethertype: "0x0800"
+  }
+}
+headers {
+  ipv4_header {
+    version: "0x4"
+    dscp: "0x011011"
+    ecn: "0x01"
+    total_length: "0x0034"
+    identification: "0xa3cd"
+    flags: "0x000"
+    fragment_offset: "0x0000000000000"
+    ttl: "0x10"
+    protocol: "0x05"
+    checksum: "0xe887"
+    ipv4_source: "0x0a000001"
+    ipv4_destination: "0x14000003"
+    uninterpreted_options: "0x12345678"
+  }
+}
+payload: "0x00112233445566778899aabbccddeeff"
+
+-- OUTPUT ----------------------------------------------------------------------
+ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[0].: expected at least 46 bytes of Ethernet payload, but got only 40
+- headers[1].ihl: missing
+- headers[1].dscp: invalid format: illegal conversion from hex string '0x011011' to 6 bits; expected between 21 and 24 bits
+- headers[1].ecn: invalid format: illegal conversion from hex string '0x01' to 2 bits; expected between 5 and 8 bits
+- headers[1].flags: invalid format: illegal conversion from hex string '0x000' to 3 bits; expected between 9 and 12 bits
+- headers[1].fragment_offset: invalid format: illegal conversion from hex string '0x0000000000000' to 13 bits; expected between 49 and 52 bits
+- headers[1].ipv4_source: invalid format: Invalid IPv4 address: '0x0a000001'
+- headers[1].ipv4_destination: invalid format: Invalid IPv4 address: '0x14000003'
+- headers[1].total_length: Must be 0x0028, but was 0x0034 instead.
+- headers[1].checksum: Couldn't compute expected checksum: INVALID_ARGUMENT: missing '0x'-prefix in hexadecimal string:
+
+PadPacketToMinimumSize(packet) = true
+new payload: "0x00112233445566778899aabbccddeeff000000000000"
+
+UpdateComputedFields(packet) = true
+packet =
+headers {
+  ethernet_header {
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
+    ethertype: "0x0800"
+  }
+}
+headers {
+  ipv4_header {
+    version: "0x4"
+    ihl: "0x6"
+    dscp: "0x011011"
+    ecn: "0x01"
+    total_length: "0x0034"
+    identification: "0xa3cd"
+    flags: "0x000"
+    fragment_offset: "0x0000000000000"
+    ttl: "0x10"
+    protocol: "0x05"
+    checksum: "0xe887"
+    ipv4_source: "0x0a000001"
+    ipv4_destination: "0x14000003"
+    uninterpreted_options: "0x12345678"
+  }
+}
+payload: "0x00112233445566778899aabbccddeeff000000000000"
+
+ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[1].dscp: invalid format: illegal conversion from hex string '0x011011' to 6 bits; expected between 21 and 24 bits
+- headers[1].ecn: invalid format: illegal conversion from hex string '0x01' to 2 bits; expected between 5 and 8 bits
+- headers[1].flags: invalid format: illegal conversion from hex string '0x000' to 3 bits; expected between 9 and 12 bits
+- headers[1].fragment_offset: invalid format: illegal conversion from hex string '0x0000000000000' to 13 bits; expected between 49 and 52 bits
+- headers[1].ipv4_source: invalid format: Invalid IPv4 address: '0x0a000001'
+- headers[1].ipv4_destination: invalid format: Invalid IPv4 address: '0x14000003'
+- headers[1].total_length: Must be 0x002e, but was 0x0034 instead.
+- headers[1].checksum: Couldn't compute expected checksum: INVALID_ARGUMENT: illegal conversion from hex string '0x011011' to 6 bits; expected between 21 and 24 bits
+
+Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[1].dscp: invalid format: illegal conversion from hex string '0x011011' to 6 bits; expected between 21 and 24 bits
+- headers[1].ecn: invalid format: illegal conversion from hex string '0x01' to 2 bits; expected between 5 and 8 bits
+- headers[1].flags: invalid format: illegal conversion from hex string '0x000' to 3 bits; expected between 9 and 12 bits
+- headers[1].fragment_offset: invalid format: illegal conversion from hex string '0x0000000000000' to 13 bits; expected between 49 and 52 bits
+- headers[1].ipv4_source: invalid format: Invalid IPv4 address: '0x0a000001'
+- headers[1].ipv4_destination: invalid format: Invalid IPv4 address: '0x14000003'
+- headers[1].total_length: Must be 0x002e, but was 0x0034 instead.
+- headers[1].checksum: Couldn't compute expected checksum: INVALID_ARGUMENT: illegal conversion from hex string '0x011011' to 6 bits; expected between 21 and 24 bits
 
 ================================================================================
 Proto packet test: IPv4 with various invalid fields
@@ -837,8 +1143,8 @@ payload: "0xabcd"
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - headers[0].: expected at least 46 bytes of Ethernet payload, but got only 42
-- headers[1].dscp: invalid format: missing '0x'-prefix in hexadecimal string: 1b
-- headers[1].ecn: invalid format: missing '0x'-prefix in hexadecimal string: 0b01
+- headers[1].dscp: invalid format: missing '0x'-prefix in hexadecimal string:1b
+- headers[1].ecn: invalid format: missing '0x'-prefix in hexadecimal string:0b01
 - headers[1].flow_label: invalid format: illegal conversion from hex string '0x1234' to 20 bits; expected between 13 and 16 bits
 - headers[1].next_header: invalid format: illegal conversion from hex string '0x050' to 8 bits; expected between 9 and 12 bits
 - headers[1].hop_limit: invalid format: illegal conversion from hex string '0x1' to 8 bits; expected between 1 and 4 bits
@@ -853,8 +1159,8 @@ new payload: "0xabcd00000000"
 UpdateComputedFields(packet) = false
 
 Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
-- headers[1].dscp: invalid format: missing '0x'-prefix in hexadecimal string: 1b
-- headers[1].ecn: invalid format: missing '0x'-prefix in hexadecimal string: 0b01
+- headers[1].dscp: invalid format: missing '0x'-prefix in hexadecimal string:1b
+- headers[1].ecn: invalid format: missing '0x'-prefix in hexadecimal string:0b01
 - headers[1].flow_label: invalid format: illegal conversion from hex string '0x1234' to 20 bits; expected between 13 and 16 bits
 - headers[1].next_header: invalid format: illegal conversion from hex string '0x050' to 8 bits; expected between 9 and 12 bits
 - headers[1].hop_limit: invalid format: illegal conversion from hex string '0x1' to 8 bits; expected between 1 and 4 bits
