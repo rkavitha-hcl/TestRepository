@@ -12,15 +12,18 @@ namespace p4_fuzzer {
 // Returns an AnnotatedTableEntry.
 AnnotatedTableEntry GetAnnotatedTableEntry(
     const pdpi::IrP4Info& ir_p4_info, const p4::v1::TableEntry& entry,
-    const std::vector<Mutation> mutations);
+    const std::vector<Mutation>& mutations);
 
 // Returns an AnnotatedUpdate.
 AnnotatedUpdate GetAnnotatedUpdate(const pdpi::IrP4Info& ir_p4_info,
                                    const p4::v1::Update& pi_update,
-                                   const std::vector<Mutation> mutations);
+                                   const std::vector<Mutation>& mutations);
 
 // Creates a P4Runtime WriteRequest from an AnnotatedWriteRequest.
 p4::v1::WriteRequest RemoveAnnotations(const AnnotatedWriteRequest& request);
+
+// Returns a more readable version of AnnotatedWriteRequest.
+AnnotatedWriteRequest MakeReadable(AnnotatedWriteRequest request);
 
 }  // namespace p4_fuzzer
 

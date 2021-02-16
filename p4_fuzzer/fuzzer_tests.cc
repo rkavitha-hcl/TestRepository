@@ -55,6 +55,7 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
   // Run fuzzer.
   int num_updates = 0;
   int num_ok_statuses = 0;
+  int num_notok_without_mutations = 0;
   std::set<std::string> error_messages;
   SwitchState state(info);
   int num_iterations = absl::GetFlag(FLAGS_fuzzer_iterations);
@@ -74,7 +75,7 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
     ASSERT_OK(environment.AppendToTestArtifact(
         "requests_and_responses.txt",
         absl::StrCat("# Write request number ", i + 1, "\n",
-                     annotated_request.DebugString())));
+                     MakeReadable(annotated_request).DebugString())));
     ASSERT_OK(environment.AppendToTestArtifact("pi_write_request_trace.txt",
                                                request.DebugString()));
 
@@ -140,13 +141,31 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
           state.ApplyUpdate(update).IgnoreError();
           num_ok_statuses += 1;
         }
+
+        bool is_mutated = annotated_request.updates(i).mutations_size() > 0;
+        if (status.code() != google::rpc::Code::OK &&
+            status.code() != google::rpc::Code::RESOURCE_EXHAUSTED) {
+          if (!is_mutated) {
+            LOG(WARNING) << "Switch considered update not OK, but fuzzer did "
+                            "not use a mutation."
+                         << std::endl
+                         << "update = "
+                         << annotated_request.updates(i).DebugString()
+                         << std::endl
+                         << "status = " << status.DebugString();
+            num_notok_without_mutations += 1;
+          }
+        }
       }
     }
   }
 
   LOG(INFO) << "Finished " << num_iterations << " iterations.";
-  LOG(INFO) << "  num_updates:     " << num_updates;
-  LOG(INFO) << "  num_ok_statuses: " << num_ok_statuses;
+  LOG(INFO) << "  num_updates:                 " << num_updates;
+  LOG(INFO) << "  num_ok_statuses:             " << num_ok_statuses;
+
+  // This should be 0 if the fuzzer works correctly
+  LOG(INFO) << "  num_notok_without_mutations: " << num_notok_without_mutations;
 
   LOG(INFO) << "Final state:";
   LOG(INFO) << state.SwitchStateSummary();

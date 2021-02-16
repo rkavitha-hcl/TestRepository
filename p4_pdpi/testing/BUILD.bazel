@@ -16,6 +16,7 @@ load("@bazel_skylib//rules:build_test.bzl", "build_test")
 load("//p4_pdpi:pdgen.bzl", "p4_pd_proto")
 load("@com_github_p4lang_p4c//:bazel/p4_library.bzl", "p4_library")
 load("//p4_pdpi/testing:diff_test.bzl", "cmd_diff_test", "diff_test")
+load("//gutil/embed_data:build_defs.bzl", "cc_embed_data")
 
 package(
     licenses = ["notice"],
@@ -35,6 +36,32 @@ p4_pd_proto(
     package = "pdpi",
 )
 
+cc_library(
+    name = "test_p4info_cc",
+    srcs = ["test_p4info.cc"],
+    hdrs = ["test_p4info.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":test_p4info_embed",
+        "//p4_pdpi:ir",
+        "//p4_pdpi:ir_cc_proto",
+        "@com_github_google_glog//:glog",
+        "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+# Auxiliary target, see go/totw/128.
+cc_embed_data(
+    name = "test_p4info_embed",
+    srcs = ["main-p4info.pb.txt"],
+    cc_file_output = "test_p4info_embed.cc",
+    cpp_namespace = "pdpi",
+    h_file_output = "test_p4info_embed.h",
+)
+
 proto_library(
     name = "main_p4_pd_proto",
     srcs = ["main_p4_pd.proto"],
@@ -47,6 +74,7 @@ proto_library(
 
 cc_proto_library(
     name = "main_p4_pd_cc_proto",
+    visibility = ["//p4_fuzzer:__pkg__"],
     deps = [":main_p4_pd_proto"],
 )
 

@@ -11,6 +11,7 @@
 #include "glog/logging.h"
 #include "gutil/collections.h"
 #include "gutil/status.h"
+#include "p4_pdpi/ir.pb.h"
 
 namespace p4_fuzzer {
 
@@ -151,6 +152,27 @@ std::string SwitchState::SwitchStateSummary() const {
 
   return StrCat("State(", "\n  ", StrFormat("% 10d", total),
                 " total number of flows", res, "\n", ")");
+}
+
+std::vector<std::string> SwitchState::GetIdsForMatchField(
+    const pdpi::IrMatchFieldReference& field) {
+  std::vector<std::string> result;
+  const auto& table_definition =
+      FindOrDie(ir_p4info_.tables_by_name(), field.table());
+  const auto& match_definition =
+      FindOrDie(table_definition.match_fields_by_name(), field.match_field());
+  // Loop over all table entries in this table and collect IDs.
+  for (const auto& [key, entry] :
+       FindOrDie(tables_, table_definition.preamble().id())) {
+    // Find the correct match field.
+    for (const auto& match : entry.match()) {
+      if (match.field_id() == match_definition.match_field().id()) {
+        result.push_back(match.exact().value());
+        break;
+      }
+    }
+  }
+  return result;
 }
 
 }  // namespace p4_fuzzer

@@ -3,6 +3,7 @@
 #include "absl/algorithm/container.h"
 #include "absl/base/casts.h"
 #include "absl/base/internal/endian.h"
+#include "absl/random/distributions.h"
 #include "gutil/collections.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_fuzzer/annotation_util.h"
@@ -98,6 +99,19 @@ std::vector<uint32_t> GetMandatoryMatchTableIds(
   }
 
   return table_ids;
+}
+
+// Returns a random ID.
+std::string FuzzRandomId(absl::BitGen* gen) {
+  // Only sample from printable/readable characters, to make debugging easier.
+  // There is a smoke test that uses crazy characters.
+  static constexpr char kIdChars[] = "abcdefghijklmnopqrstuvwxyz0123456789-";
+  int num_chars = absl::Uniform(*gen, 0, 10);
+  std::string id;
+  for (int i = 0; i < num_chars; i++) {
+    id += kIdChars[absl::Uniform<int>(*gen, 0, sizeof(kIdChars))];
+  }
+  return id;
 }
 
 // Randomly generates an update type.
