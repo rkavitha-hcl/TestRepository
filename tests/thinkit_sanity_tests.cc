@@ -308,9 +308,10 @@ void TestGnmiCheckSpecificInterfaceStateOperation(thinkit::Switch& sut,
   EXPECT_THAT(oper_response, HasSubstr(kStateUp));
 }
 
-void TestGnmiCheckInterfaceStateOperation(thinkit::Switch& sut) {
+void TestGnmiCheckInterfaceStateOperation(thinkit::MirrorTestbed& testbed) {
   const absl::flat_hash_set<std::string> k1Ethernet10GBInterfaces = {
       "\"Ethernet256\"", "\"Ethernet260\""};
+  thinkit::Switch& sut = testbed.Sut();
   ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
   ASSERT_OK_AND_ASSIGN(
       gnmi::GetRequest req,
@@ -329,6 +330,10 @@ void TestGnmiCheckInterfaceStateOperation(thinkit::Switch& sut) {
   ASSERT_NE(oc_intf_json, resp_json.end());
   const auto oc_intf_list_json = oc_intf_json->find("interface");
   ASSERT_NE(oc_intf_list_json, oc_intf_json->end());
+  // TODO: enable this after b/176249806 is fixed.
+  if (testbed.Environment().MaskKnownFailures()) {
+    return;
+  }
   for (auto const& element : oc_intf_list_json->items()) {
     auto const element_name_json = element.value().find("name");
     ASSERT_NE(element_name_json, element.value().end());
