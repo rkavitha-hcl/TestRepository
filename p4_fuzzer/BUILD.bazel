@@ -12,7 +12,7 @@ cc_library(
     testonly = True,
     srcs = ["fuzzer_tests.cc"],
     hdrs = ["fuzzer_tests.h"],
-    visibility = ["//platforms/networking/gpins/testing/blackbox/p4:__pkg__"],
+    visibility = ["//visibility:public"],
     deps = [
         ":annotation_util",
         ":fuzzer_cc_proto",
