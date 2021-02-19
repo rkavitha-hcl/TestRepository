@@ -63,13 +63,6 @@ def pins_infra_deps():
             # TODO: Upstream changes from this private repo to official gnmi repo.
             remote = "https://github.com/vamsipunati/gnmi.git",
         )
-    if not native.existing_rule("rules_cc"):
-        git_repository(
-            name = "rules_cc",
-            commit = "1477dbab59b401daa94acedbeaefe79bf9112167",
-            remote = "https://github.com/bazelbuild/rules_cc.git",
-            shallow_since = "1595949469 -0700",
-        )
     if not native.existing_rule("rules_proto"):
         http_archive(
             name = "rules_proto",
