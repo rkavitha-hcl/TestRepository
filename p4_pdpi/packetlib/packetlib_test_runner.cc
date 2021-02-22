@@ -138,7 +138,7 @@ void RunPacketParseTests() {
     ethernet_source: 0x112233445566
     ether_type: 0x0001  # This means size(payload) = 1 byte.
     # payload
-    pqyload: 0x0102  # 2 bytes, but ether_type says 1 byte & minimum size is 46.
+    payload: 0x0102  # 2 bytes, but ether_type says 1 byte & minimum size is 46.
   )PB");
 
   RunPacketParseTest("Ethernet packet (unsupported EtherType)", R"PB(
@@ -362,6 +362,25 @@ void RunPacketParseTests() {
     options: 0x 0204 05b4
     # Payload
     payload: 0x 11 22
+  )PB");
+
+  RunPacketParseTest("ARP Packet (Valid)", R"PB(
+    # Ethernet header
+    ethernet_destination: 0x ff ff ff ff ff ff
+    ethernet_source: 0x 00 11 22 33 44 55
+    ether_type: 0x0806
+    # ARP header
+    hardware_type: 0x0001  # Ethernet
+    protocol_type: 0x0800  # IPv4
+    hardware_length: 0x06
+    protocol_length: 0x04
+    operation: 0x0001  # Request
+    sender_hardware_address: 0x 00 11 22 33 44 55
+    sender_protocol_address: 0x 0a 00 00 01
+    target_hardware_address: 0x 00 00 00 00 00 00
+    target_protocol_address: 0x 0a 00 00 02
+    # Payload
+    payload: 0x 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
   )PB");
 }
 
@@ -652,6 +671,51 @@ void RunProtoPacketTests() {
                        }
                        payload: "0xabcd"
                      )PB"));
+
+  RunProtoPacketTest("ARP packet without computed fields",
+                     gutil::ParseProtoOrDie<Packet>(
+                         R"PB(
+                           headers {
+                             ethernet_header {
+                               ethernet_destination: "ff:ff:ff:ff:ff:ff"
+                               ethernet_source: "11:22:33:44:55:66"
+                               ethertype: "0x0806"
+                             }
+                           }
+                           headers {
+                             arp_header {
+                               operation: "0x0001"
+                               sender_hardware_address: "11:22:33:44:55:66"
+                               sender_protocol_address: "1.2.3.4"
+                               target_hardware_address: "00:00:00:00:00:00"
+                               target_protocol_address: "1.2.3.5"
+                             }
+                           }
+                         )PB"));
+  RunProtoPacketTest("ARP packet with unsupported computed field values",
+                     gutil::ParseProtoOrDie<Packet>(
+                         R"PB(
+                           headers {
+                             ethernet_header {
+                               ethernet_destination: "ff:ff:ff:ff:ff:ff"
+                               ethernet_source: "11:22:33:44:55:66"
+                               ethertype: "0x0806"
+                             }
+                           }
+                           headers {
+                             arp_header {
+                               hardware_type: "0x0002"
+                               protocol_type: "0x0801"
+                               hardware_length: "0x07"
+                               protocol_length: "0x05"
+                               operation: "0x0001"
+                               sender_hardware_address: "11:22:33:44:55:66"
+                               sender_protocol_address: "1.2.3.4"
+                               target_hardware_address: "00:00:00:00:00:00"
+                               target_protocol_address: "1.2.3.5"
+                             }
+                           }
+                         )PB"));
 
   RunProtoPacketTest("Uninitialized (empty packet) - should be invalid",
                      gutil::ParseProtoOrDie<Packet>(R"PB()PB"));

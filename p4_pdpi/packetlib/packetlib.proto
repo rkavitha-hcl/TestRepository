@@ -55,6 +55,7 @@ message Header {
     Ipv6Header ipv6_header = 3;
     UdpHeader udp_header = 4;
     TcpHeaderPrefix tcp_header_prefix = 5;
+    ArpHeader arp_header = 6;
   }
 }
 
@@ -64,6 +65,20 @@ message EthernetHeader {
   string ethernet_destination = 1;  // Format::MAC
   string ethernet_source = 2;       // Format::MAC
   string ethertype = 3;             // 8 bits
+}
+
+// An ARP header.
+// It is assumed to be used with Ethernet and IPv4.
+message ArpHeader {
+  string hardware_type = 1;  // 16 bits (computed field, constant 1 (Ethernet))
+  string protocol_type = 2;  // 16 bits (computed field, constant 0x800 (IPv4))
+  string hardware_length = 3;          // 8 bits (computed field, constant 6)
+  string protocol_length = 4;          // 8 bits (computed field, constant 4)
+  string operation = 5;                // 16 bits
+  string sender_hardware_address = 6;  // Format::MAC
+  string sender_protocol_address = 7;  // Format::IPV4
+  string target_hardware_address = 8;  // Format::MAC
+  string target_protocol_address = 9;  // Format::IPV4
 }
 
 // An IPv4 header.

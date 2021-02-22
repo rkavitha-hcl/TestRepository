@@ -56,6 +56,7 @@ absl::StatusOr<NextHeader> GetNextHeader(const EthernetHeader& header) {
   if (ethertype <= 1535) return Header::HEADER_NOT_SET;
   if (ethertype == 0x0800) return Header::kIpv4Header;
   if (ethertype == 0x86dd) return Header::kIpv6Header;
+  if (ethertype == 0x0806) return Header::kArpHeader;
   return UnsupportedNextHeader{
       .reason = absl::StrFormat("ethernet_header.ethertype %s: unsupported",
                                 header.ethertype())};
@@ -82,6 +83,9 @@ absl::StatusOr<NextHeader> GetNextHeader(const TcpHeaderPrefix& header) {
                                    "TCP only partially supported -- parsing "
                                    "prefix of header containing ports only"};
 }
+absl::StatusOr<NextHeader> GetNextHeader(const ArpHeader& header) {
+  return Header::HEADER_NOT_SET;
+}
 absl::StatusOr<NextHeader> GetNextHeader(const Header& header) {
   switch (header.header_case()) {
     case Header::kEthernetHeader:
@@ -94,6 +98,8 @@ absl::StatusOr<NextHeader> GetNextHeader(const Header& header) {
       return GetNextHeader(header.udp_header());
     case Header::kTcpHeaderPrefix:
       return GetNextHeader(header.tcp_header_prefix());
+    case Header::kArpHeader:
+      return GetNextHeader(header.arp_header());
     case Header::HEADER_NOT_SET:
       return Header::HEADER_NOT_SET;
   }
@@ -255,6 +261,28 @@ absl::StatusOr<TcpHeaderPrefix> ParseTcpHeaderPrefix(pdpi::BitString& data) {
   return header;
 }
 
+// Parse an ARP header, or return error if the packet is too small.
+absl::StatusOr<ArpHeader> ParseArpHeader(pdpi::BitString& data) {
+  if (data.size() < kArpHeaderBitwidth) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "Packet is too short to parse an ARP header next. Only "
+           << data.size() << " bits left, need at least " << kArpHeaderBitwidth
+           << ".";
+  }
+
+  ArpHeader header;
+  header.set_hardware_type(ParseBits(data, kArpTypeBitwidth));
+  header.set_protocol_type(ParseBits(data, kArpTypeBitwidth));
+  header.set_hardware_length(ParseBits(data, kArpLengthBitwidth));
+  header.set_protocol_length(ParseBits(data, kArpLengthBitwidth));
+  header.set_operation(ParseBits(data, kArpOperationBitwidth));
+  header.set_sender_hardware_address(ParseMacAddress(data));
+  header.set_sender_protocol_address(ParseIpv4Address(data));
+  header.set_target_hardware_address(ParseMacAddress(data));
+  header.set_target_protocol_address(ParseIpv4Address(data));
+  return header;
+}
+
 absl::StatusOr<Header> ParseHeader(Header::HeaderCase header_case,
                                    pdpi::BitString& data) {
   Header result;
@@ -279,6 +307,10 @@ absl::StatusOr<Header> ParseHeader(Header::HeaderCase header_case,
     case Header::kTcpHeaderPrefix: {
       ASSIGN_OR_RETURN(*result.mutable_tcp_header_prefix(),
                        ParseTcpHeaderPrefix(data));
+      return result;
+    }
+    case Header::kArpHeader: {
+      ASSIGN_OR_RETURN(*result.mutable_arp_header(), ParseArpHeader(data));
       return result;
     }
     case Header::HEADER_NOT_SET:
@@ -686,6 +718,59 @@ void TcpHeaderPrefixInvalidReasons(const TcpHeaderPrefix& header,
       output);
 }
 
+void ArpHeaderInvalidReasons(const ArpHeader& header,
+                             const std::string& field_prefix,
+                             const Packet& packet, int header_index,
+                             std::vector<std::string>& output) {
+  bool hardware_type_invalid = HexStringInvalidReasons<kArpTypeBitwidth>(
+      header.hardware_type(), absl::StrCat(field_prefix, "hardware_type"),
+      output);
+  bool protocol_type_invalid = HexStringInvalidReasons<kArpTypeBitwidth>(
+      header.protocol_type(), absl::StrCat(field_prefix, "protocol_type"),
+      output);
+  bool hardware_length_invalid = HexStringInvalidReasons<kArpLengthBitwidth>(
+      header.hardware_length(), absl::StrCat(field_prefix, "hardware_length"),
+      output);
+  bool protocol_length_invalid = HexStringInvalidReasons<kArpLengthBitwidth>(
+      header.protocol_length(), absl::StrCat(field_prefix, "protocol_length"),
+      output);
+  HexStringInvalidReasons<kArpOperationBitwidth>(
+      header.operation(), absl::StrCat(field_prefix, "operation"), output);
+  MacAddressInvalidReasons(
+      header.sender_hardware_address(),
+      absl::StrCat(field_prefix, "sender_hardware_address"), output);
+  Ipv4AddressInvalidReasons(
+      header.sender_protocol_address(),
+      absl::StrCat(field_prefix, "sender_protocol_address"), output);
+  MacAddressInvalidReasons(
+      header.target_hardware_address(),
+      absl::StrCat(field_prefix, "target_hardware_address"), output);
+  Ipv4AddressInvalidReasons(
+      header.target_protocol_address(),
+      absl::StrCat(field_prefix, "target_protocol_address"), output);
+
+  if (!hardware_type_invalid && header.hardware_type() != "0x0001") {
+    output.push_back(absl::StrCat(field_prefix,
+                                  "hardware_type: Must be 0x0001, but was ",
+                                  header.hardware_type(), " instead."));
+  }
+  if (!protocol_type_invalid && header.protocol_type() != "0x0800") {
+    output.push_back(absl::StrCat(field_prefix,
+                                  "protocol_type: Must be 0x0800, but was ",
+                                  header.protocol_type(), " instead."));
+  }
+  if (!hardware_length_invalid && header.hardware_length() != "0x06") {
+    output.push_back(absl::StrCat(field_prefix,
+                                  "hardware_length: Must be 0x06, but was ",
+                                  header.hardware_length(), " instead."));
+  }
+  if (!protocol_length_invalid && header.protocol_length() != "0x04") {
+    output.push_back(absl::StrCat(field_prefix,
+                                  "hardware_type: Must be 0x04, but was ",
+                                  header.protocol_length(), " instead."));
+  }
+}
+
 }  // namespace
 
 std::string HeaderCaseName(Header::HeaderCase header_case) {
@@ -700,6 +785,8 @@ std::string HeaderCaseName(Header::HeaderCase header_case) {
       return "UdpHeader";
     case Header::kTcpHeaderPrefix:
       return "TcpHeaderPrefix";
+    case Header::kArpHeader:
+      return "ArpHeader";
     case Header::HEADER_NOT_SET:
       return "HEADER_NOT_SET";
   }
@@ -753,6 +840,11 @@ std::vector<std::string> PacketInvalidReasons(const Packet& packet) {
       case Header::kTcpHeaderPrefix: {
         TcpHeaderPrefixInvalidReasons(header.tcp_header_prefix(), field_prefix,
                                       packet, index, result);
+        break;
+      }
+      case Header::kArpHeader: {
+        ArpHeaderInvalidReasons(header.arp_header(), field_prefix, packet,
+                                index, result);
         break;
       }
       case Header::HEADER_NOT_SET:
@@ -899,6 +991,29 @@ absl::Status SerializeTcpHeaderPrefix(const TcpHeaderPrefix& header,
   return absl::OkStatus();
 }
 
+absl::Status SerializeArpHeader(const ArpHeader& header,
+                                pdpi::BitString& output) {
+  RETURN_IF_ERROR(
+      SerializeBits<kArpTypeBitwidth>(header.hardware_type(), output));
+  RETURN_IF_ERROR(
+      SerializeBits<kArpTypeBitwidth>(header.protocol_type(), output));
+  RETURN_IF_ERROR(
+      SerializeBits<kArpLengthBitwidth>(header.hardware_length(), output));
+  RETURN_IF_ERROR(
+      SerializeBits<kArpLengthBitwidth>(header.protocol_length(), output));
+  RETURN_IF_ERROR(
+      SerializeBits<kArpOperationBitwidth>(header.operation(), output));
+  RETURN_IF_ERROR(
+      SerializeMacAddress(header.sender_hardware_address(), output));
+  RETURN_IF_ERROR(
+      SerializeIpv4Address(header.sender_protocol_address(), output));
+  RETURN_IF_ERROR(
+      SerializeMacAddress(header.target_hardware_address(), output));
+  RETURN_IF_ERROR(
+      SerializeIpv4Address(header.target_protocol_address(), output));
+  return absl::OkStatus();
+}
+
 absl::Status SerializeHeader(const Header& header, pdpi::BitString& output) {
   switch (header.header_case()) {
     case Header::kEthernetHeader:
@@ -911,6 +1026,8 @@ absl::Status SerializeHeader(const Header& header, pdpi::BitString& output) {
       return SerializeUdpHeader(header.udp_header(), output);
     case Header::kTcpHeaderPrefix:
       return SerializeTcpHeaderPrefix(header.tcp_header_prefix(), output);
+    case Header::kArpHeader:
+      return SerializeArpHeader(header.arp_header(), output);
     case Header::HEADER_NOT_SET:
       return gutil::InvalidArgumentErrorBuilder()
              << "Found invalid HEADER_NOT_SET in header.";
@@ -1037,6 +1154,26 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
         }
         break;
       }
+      case Header::kArpHeader: {
+        ArpHeader& arp_header = *header.mutable_arp_header();
+        if (arp_header.hardware_type().empty()) {
+          arp_header.set_hardware_type("0x0001");
+          changes = true;
+        }
+        if (arp_header.protocol_type().empty()) {
+          arp_header.set_protocol_type("0x0800");
+          changes = true;
+        }
+        if (arp_header.hardware_length().empty()) {
+          arp_header.set_hardware_length("0x06");
+          changes = true;
+        }
+        if (arp_header.protocol_length().empty()) {
+          arp_header.set_protocol_length("0x04");
+          changes = true;
+        }
+        break;
+      }
       case Header::kEthernetHeader:
       case Header::kTcpHeaderPrefix:
         // No computed fields.
@@ -1076,6 +1213,7 @@ absl::StatusOr<bool> PadPacketToMinimumSize(Packet& packet) {
     case Header::kIpv6Header:
     case Header::kUdpHeader:
     case Header::kTcpHeaderPrefix:
+    case Header::kArpHeader:
     case Header::HEADER_NOT_SET:
       return false;
   }
@@ -1129,6 +1267,9 @@ absl::StatusOr<int> PacketSizeInBits(const Packet& packet,
         break;
       case Header::kTcpHeaderPrefix:
         size += kTcpHeaderPrefixBitwidth;
+        break;
+      case Header::kArpHeader:
+        size += kArpHeaderBitwidth;
         break;
       case Header::HEADER_NOT_SET:
         return gutil::InvalidArgumentErrorBuilder()
