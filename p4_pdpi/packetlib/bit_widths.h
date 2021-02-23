@@ -14,6 +14,7 @@ constexpr int kIpv6HeaderBitwidth = 320;
 constexpr int kUdpHeaderBitwidth = 64;
 constexpr int kTcpHeaderPrefixBitwidth = 32;
 constexpr int kArpHeaderBitwidth = 28 * 8;
+constexpr int kIcmpHeaderBitwidth = 8 * 8;
 
 // Ethernet constants.
 constexpr int kEthernetEthertypeBitwidth = 16;
@@ -47,6 +48,12 @@ constexpr int kTcpPortBitwidth = 16;
 constexpr int kArpTypeBitwidth = 16;
 constexpr int kArpLengthBitwidth = 8;
 constexpr int kArpOperationBitwidth = 16;
+
+// ICMP constants.
+constexpr int kIcmpTypeBitwidth = 8;
+constexpr int kIcmpCodeBitwidth = 8;
+constexpr int kIcmpChecksumBitwidth = 16;
+constexpr int kIcmpRestOfHeaderBitwidth = 32;
 
 // Minimum packet sizes, in bytes.
 constexpr int kMinNumBytesInEthernetPayload = 46;

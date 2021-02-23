@@ -103,6 +103,13 @@ absl::StatusOr<int> Ipv4HeaderChecksum(Ipv4Header header);
 // set and valid except possibly the UDP checksum field, which is ignored.
 absl::StatusOr<int> UdpHeaderChecksum(Packet packet, int udp_header_index);
 
+// Computes the 16-bit ICMP checksum for the given `packet` and
+// `icmp_header_index`.
+// The header at the given index must be an ICMP header, and it must be preceded
+// by an IP header. All fields in all headers following that IP header must be
+// set and valid except possibly the UDP checksum field, which is ignored.
+absl::StatusOr<int> IcmpHeaderChecksum(Packet packet, int icmp_header_index);
+
 std::string HeaderCaseName(Header::HeaderCase header_case);
 
 }  // namespace packetlib

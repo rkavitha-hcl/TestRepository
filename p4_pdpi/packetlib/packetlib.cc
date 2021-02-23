@@ -64,6 +64,7 @@ absl::StatusOr<NextHeader> GetNextHeader(const EthernetHeader& header) {
 absl::StatusOr<NextHeader> GetNextHeader(const Ipv4Header& header) {
   if (header.protocol() == "0x06") return Header::kTcpHeaderPrefix;
   if (header.protocol() == "0x11") return Header::kUdpHeader;
+  if (header.protocol() == "0x01") return Header::kIcmpHeader;
   return UnsupportedNextHeader{
       .reason = absl::StrFormat("ipv4_header.protocol %s: unsupported",
                                 header.protocol())};
@@ -71,6 +72,7 @@ absl::StatusOr<NextHeader> GetNextHeader(const Ipv4Header& header) {
 absl::StatusOr<NextHeader> GetNextHeader(const Ipv6Header& header) {
   if (header.next_header() == "0x06") return Header::kTcpHeaderPrefix;
   if (header.next_header() == "0x11") return Header::kUdpHeader;
+  if (header.next_header() == "0x3a") return Header::kIcmpHeader;
   return UnsupportedNextHeader{
       .reason = absl::StrFormat("ipv6_header.next_header %s: unsupported",
                                 header.next_header())};
@@ -84,6 +86,9 @@ absl::StatusOr<NextHeader> GetNextHeader(const TcpHeaderPrefix& header) {
                                    "prefix of header containing ports only"};
 }
 absl::StatusOr<NextHeader> GetNextHeader(const ArpHeader& header) {
+  return Header::HEADER_NOT_SET;
+}
+absl::StatusOr<NextHeader> GetNextHeader(const IcmpHeader& header) {
   return Header::HEADER_NOT_SET;
 }
 absl::StatusOr<NextHeader> GetNextHeader(const Header& header) {
@@ -100,6 +105,8 @@ absl::StatusOr<NextHeader> GetNextHeader(const Header& header) {
       return GetNextHeader(header.tcp_header_prefix());
     case Header::kArpHeader:
       return GetNextHeader(header.arp_header());
+    case Header::kIcmpHeader:
+      return GetNextHeader(header.icmp_header());
     case Header::HEADER_NOT_SET:
       return Header::HEADER_NOT_SET;
   }
@@ -283,6 +290,23 @@ absl::StatusOr<ArpHeader> ParseArpHeader(pdpi::BitString& data) {
   return header;
 }
 
+// Parse an ICMP header, or return error if the packet is too small.
+absl::StatusOr<IcmpHeader> ParseIcmpHeader(pdpi::BitString& data) {
+  if (data.size() < kIcmpHeaderBitwidth) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "Packet is too short to parse an ICMP header next. Only "
+           << data.size() << " bits left, need at least " << kIcmpHeaderBitwidth
+           << ".";
+  }
+
+  IcmpHeader header;
+  header.set_type(ParseBits(data, kIcmpTypeBitwidth));
+  header.set_code(ParseBits(data, kIcmpCodeBitwidth));
+  header.set_checksum(ParseBits(data, kIcmpChecksumBitwidth));
+  header.set_rest_of_header(ParseBits(data, kIcmpRestOfHeaderBitwidth));
+  return header;
+}
+
 absl::StatusOr<Header> ParseHeader(Header::HeaderCase header_case,
                                    pdpi::BitString& data) {
   Header result;
@@ -311,6 +335,10 @@ absl::StatusOr<Header> ParseHeader(Header::HeaderCase header_case,
     }
     case Header::kArpHeader: {
       ASSIGN_OR_RETURN(*result.mutable_arp_header(), ParseArpHeader(data));
+      return result;
+    }
+    case Header::kIcmpHeader: {
+      ASSIGN_OR_RETURN(*result.mutable_icmp_header(), ParseIcmpHeader(data));
       return result;
     }
     case Header::HEADER_NOT_SET:
@@ -771,6 +799,59 @@ void ArpHeaderInvalidReasons(const ArpHeader& header,
   }
 }
 
+void IcmpHeaderInvalidReasons(const IcmpHeader& header,
+                              const std::string& field_prefix,
+                              const Packet& packet, int header_index,
+                              std::vector<std::string>& output) {
+  HexStringInvalidReasons<kIcmpTypeBitwidth>(
+      header.type(), absl::StrCat(field_prefix, "type"), output);
+  HexStringInvalidReasons<kIcmpCodeBitwidth>(
+      header.code(), absl::StrCat(field_prefix, "code"), output);
+  bool checksum_invalid = HexStringInvalidReasons<kIcmpChecksumBitwidth>(
+      header.checksum(), absl::StrCat(field_prefix, "checksum"), output);
+  HexStringInvalidReasons<kIcmpRestOfHeaderBitwidth>(
+      header.rest_of_header(), absl::StrCat(field_prefix, "rest_of_header"),
+      output);
+
+  // ICMP should be preceded by either an IPv4 or IPv6 header.
+  if (header_index <= 0) {
+    output.push_back(absl::StrCat(field_prefix,
+                                  "checksum: ICMP header must be preceded by "
+                                  "IP header for checksum to be "
+                                  "defined; found no header instead"));
+    return;
+  }
+  Header::HeaderCase previous = packet.headers(header_index - 1).header_case();
+  if (previous != Header::kIpv4Header && previous != Header::kIpv6Header) {
+    output.push_back(absl::StrCat(field_prefix,
+                                  "checksum: ICMP header must be preceded by "
+                                  "IP header for checksum to be "
+                                  "defined; found ",
+                                  HeaderCaseName(previous), " at headers[",
+                                  (header_index - 1), "] instead"));
+    return;
+  }
+
+  // Validate checksum if it isn't invalid.
+  if (checksum_invalid) {
+    return;
+  }
+  if (auto checksum = IcmpHeaderChecksum(packet, header_index);
+      !checksum.ok()) {
+    output.push_back(absl::StrCat(
+        field_prefix, "checksum: Couldn't compute expected checksum: ",
+        checksum.status().ToString()));
+  } else {
+    std::string expected =
+        pdpi::BitsetToHexString(std::bitset<kIcmpChecksumBitwidth>(*checksum));
+    if (header.checksum() != expected) {
+      output.push_back(absl::StrCat(field_prefix, "checksum: Must be ",
+                                    expected, ", but was ", header.checksum(),
+                                    " instead."));
+    }
+  }
+}
+
 }  // namespace
 
 std::string HeaderCaseName(Header::HeaderCase header_case) {
@@ -787,6 +868,8 @@ std::string HeaderCaseName(Header::HeaderCase header_case) {
       return "TcpHeaderPrefix";
     case Header::kArpHeader:
       return "ArpHeader";
+    case Header::kIcmpHeader:
+      return "IcmpHeader";
     case Header::HEADER_NOT_SET:
       return "HEADER_NOT_SET";
   }
@@ -845,6 +928,11 @@ std::vector<std::string> PacketInvalidReasons(const Packet& packet) {
       case Header::kArpHeader: {
         ArpHeaderInvalidReasons(header.arp_header(), field_prefix, packet,
                                 index, result);
+        break;
+      }
+      case Header::kIcmpHeader: {
+        IcmpHeaderInvalidReasons(header.icmp_header(), field_prefix, packet,
+                                 index, result);
         break;
       }
       case Header::HEADER_NOT_SET:
@@ -1014,6 +1102,17 @@ absl::Status SerializeArpHeader(const ArpHeader& header,
   return absl::OkStatus();
 }
 
+absl::Status SerializeIcmpHeader(const IcmpHeader& header,
+                                 pdpi::BitString& output) {
+  RETURN_IF_ERROR(SerializeBits<kIcmpTypeBitwidth>(header.type(), output));
+  RETURN_IF_ERROR(SerializeBits<kIcmpCodeBitwidth>(header.code(), output));
+  RETURN_IF_ERROR(
+      SerializeBits<kIcmpChecksumBitwidth>(header.checksum(), output));
+  RETURN_IF_ERROR(SerializeBits<kIcmpRestOfHeaderBitwidth>(
+      header.rest_of_header(), output));
+  return absl::OkStatus();
+}
+
 absl::Status SerializeHeader(const Header& header, pdpi::BitString& output) {
   switch (header.header_case()) {
     case Header::kEthernetHeader:
@@ -1028,6 +1127,8 @@ absl::Status SerializeHeader(const Header& header, pdpi::BitString& output) {
       return SerializeTcpHeaderPrefix(header.tcp_header_prefix(), output);
     case Header::kArpHeader:
       return SerializeArpHeader(header.arp_header(), output);
+    case Header::kIcmpHeader:
+      return SerializeIcmpHeader(header.icmp_header(), output);
     case Header::HEADER_NOT_SET:
       return gutil::InvalidArgumentErrorBuilder()
              << "Found invalid HEADER_NOT_SET in header.";
@@ -1174,6 +1275,17 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
         }
         break;
       }
+      case Header::kIcmpHeader: {
+        IcmpHeader& icmp_header = *header.mutable_icmp_header();
+        if (icmp_header.checksum().empty()) {
+          ASSIGN_OR_RETURN(int checksum,
+                           IcmpHeaderChecksum(packet, header_index));
+          icmp_header.set_checksum(pdpi::BitsetToHexString(
+              std::bitset<kIcmpChecksumBitwidth>(checksum)));
+          changes = true;
+        }
+        break;
+      }
       case Header::kEthernetHeader:
       case Header::kTcpHeaderPrefix:
         // No computed fields.
@@ -1214,6 +1326,7 @@ absl::StatusOr<bool> PadPacketToMinimumSize(Packet& packet) {
     case Header::kUdpHeader:
     case Header::kTcpHeaderPrefix:
     case Header::kArpHeader:
+    case Header::kIcmpHeader:
     case Header::HEADER_NOT_SET:
       return false;
   }
@@ -1270,6 +1383,9 @@ absl::StatusOr<int> PacketSizeInBits(const Packet& packet,
         break;
       case Header::kArpHeader:
         size += kArpHeaderBitwidth;
+        break;
+      case Header::kIcmpHeader:
+        size += kIcmpHeaderBitwidth;
         break;
       case Header::HEADER_NOT_SET:
         return gutil::InvalidArgumentErrorBuilder()
@@ -1376,6 +1492,58 @@ absl::StatusOr<int> UdpHeaderChecksum(Packet packet, int udp_header_index) {
                               << HeaderCaseName(preceding_header.header_case());
   }
   RETURN_IF_ERROR(RawSerializePacket(packet, udp_header_index, data));
+  return OnesComplementChecksum(std::move(data));
+}
+
+absl::StatusOr<int> IcmpHeaderChecksum(Packet packet, int icmp_header_index) {
+  auto invalid_argument = gutil::InvalidArgumentErrorBuilder()
+                          << "IcmpHeaderChecksum(packet, icmp_header_index = "
+                          << icmp_header_index << "): ";
+  if (icmp_header_index < 1 || icmp_header_index >= packet.headers().size()) {
+    return invalid_argument
+           << "icmp_header_index must be in [1, " << packet.headers().size()
+           << ") since the given packet has " << packet.headers().size()
+           << " headers and the ICMP header must be preceded by an IP header";
+  }
+  if (auto header_case = packet.headers(icmp_header_index).header_case();
+      header_case != Header::kIcmpHeader) {
+    return invalid_argument << "packet.headers[" << icmp_header_index
+                            << "] is a " << HeaderCaseName(header_case)
+                            << ", expected IcmpHeader";
+  }
+
+  IcmpHeader& icmp_header =
+      *packet.mutable_headers(icmp_header_index)->mutable_icmp_header();
+  icmp_header.set_checksum("0x0000");
+
+  pdpi::BitString data;
+  const Header& preceding_header = packet.headers(icmp_header_index - 1);
+  switch (preceding_header.header_case()) {
+    case Header::kIpv6Header: {
+      // Serialize "pseudo header" for checksum calculation, following
+      // https://en.wikipedia.org/wiki/Internet_Control_Message_Protocol_for_IPv6#Checksum.
+      auto& header = preceding_header.ipv6_header();
+      RETURN_IF_ERROR(SerializeIpv6Address(header.ipv6_source(), data));
+      RETURN_IF_ERROR(SerializeIpv6Address(header.ipv6_destination(), data));
+      ASSIGN_OR_RETURN(int icmpv6_size,
+                       PacketSizeInBytes(packet, icmp_header_index));
+      data.AppendBits<32>(icmpv6_size);
+      data.AppendBits<24>(0);
+      RETURN_IF_ERROR(
+          SerializeBits<kIpNextHeaderBitwidth>(header.next_header(), data));
+      break;
+    }
+    case Header::kIpv4Header: {
+      // For ICMPv4, only the ICMP header and payload is used in the checksum
+      // calculation.
+      break;
+    }
+    default:
+      return invalid_argument << "expected packet.headers[udp_header_index - "
+                                 "1] to be an IP header, got "
+                              << HeaderCaseName(preceding_header.header_case());
+  }
+  RETURN_IF_ERROR(RawSerializePacket(packet, icmp_header_index, data));
   return OnesComplementChecksum(std::move(data));
 }
 

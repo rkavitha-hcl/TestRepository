@@ -382,6 +382,67 @@ void RunPacketParseTests() {
     # Payload
     payload: 0x 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
   )PB");
+
+  RunPacketParseTest("ICMPv4 Packet (Valid)", R"PB(
+    # Taken from
+    # www.erg.abdn.ac.uk/users/gorry/course/inet-pages/packet-dec1.html
+    # --------------------------------------------------------------------------
+    # Ethernet header
+    ethernet_destination: 0x 08 00 20 86 35 4b
+    ethernet_source: 0x 00 e0 f7 26 3f e9
+    ether_type: 0x0800
+    # IPv4 header
+    version: 0x4
+    ihl: 0x5
+    dscp: 0b000000
+    ecn: 0b00
+    total_length: 0x0054
+    identification: 0xaafb
+    flags: 0b010  # website's 0x4 is from interpreting 4 bits.
+    fragment_offset: 0b0000000000000
+    ttl: 0xfc       # 252
+    protocol: 0x01  # ICMP
+    checksum: 0xfa30
+    ipv4_source: 0x 8b 85 e9 02       # 139.133.233.2
+    ipv4_destination: 0x 8b 85 d9 6e  # 139.133.233.110
+    # ICMP header
+    type: 0x00
+    code: 0x00
+    checksum: 0x45da
+    rest_of_header: 0x 1e 60 00 00
+    # payload
+    payload: 0x 33 5e 3a b8 00 00 42 ac 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14
+    payload: 0x 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25 26 27 28 29
+    payload: 0x 2a 2b 2c 2d 2e 2f 30 31 32 33 34 35 36 37
+  )PB");
+  RunPacketParseTest("ICMPv6 Packet (Valid)", R"PB(
+    # Taken from
+    # www.cloudshark.org/captures/e98730aee1fb
+    # --------------------------------------------------------------------------
+    # Ethernet header
+    ethernet_destination: 0x c2 01 51 fa 00 00
+    ethernet_source: 0x c2 00 51 fa 00 00
+    ethertype: 0x86dd
+    # IPv6 header:
+    version: 0x6
+    dscp: 0b000000
+    ecn: 0b00
+    flow_label: 0x00000
+    payload_length: 0x003c
+    next_header: 0x3a  # ICMP
+    hop_limit: 0x40
+    ipv6_source: 0x20010db8000000120000000000000001
+    ipv6_destination: 0x20010db8000000120000000000000002
+    # ICMP header:
+    type: 0x80
+    code: 0x00
+    checksum: 0x863c
+    rest_of_header: 0x 11 0d 00 00
+    # payload
+    payload: 0x 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14
+    payload: 0x 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25 26 27 28 29
+    payload: 0x 2a 2b 2c 2d 2e 2f 30 31 32 33
+  )PB");
 }
 
 void RunProtoPacketTests() {
@@ -716,6 +777,76 @@ void RunProtoPacketTests() {
                              }
                            }
                          )PB"));
+
+  RunProtoPacketTest(
+      "ICMPv4 packet without computed fields",
+      gutil::ParseProtoOrDie<Packet>(R"PB(
+        headers {
+          ethernet_header {
+            ethernet_destination: "08:00:20:86:35:4b"
+            ethernet_source: "00:e0:f7:26:3f:e9"
+            ethertype: "0x0800"
+          }
+        }
+        headers {
+          ipv4_header {
+            dscp: "0x00"
+            ecn: "0x0"
+            identification: "0xaafb"
+            flags: "0x2"
+            fragment_offset: "0x0000"
+            ttl: "0xfc"
+            protocol: "0x01"
+            ipv4_source: "139.133.233.2"
+            ipv4_destination: "139.133.217.110"
+          }
+        }
+        headers {
+          icmp_header { type: "0x00" code: "0x00" rest_of_header: "0x1e600000" }
+        }
+        payload: "0x335e3ab8000042ac08090a0b0c0d0e0f101112131415"
+      )PB"));
+  RunProtoPacketTest(
+      "ICMPv6 packet without computed fields",
+      gutil::ParseProtoOrDie<Packet>(R"PB(
+        headers {
+          ethernet_header {
+            ethernet_destination: "c2:01:51:fa:00:00"
+            ethernet_source: "c2:00:51:fa:00:00"
+            ethertype: "0x86dd"
+          }
+        }
+        headers {
+          ipv6_header {
+            dscp: "0x00"
+            ecn: "0x0"
+            flow_label: "0x00000"
+            next_header: "0x3a"
+            hop_limit: "0x40"
+            ipv6_source: "2001:db8:0:12::1"
+            ipv6_destination: "2001:db8:0:12::2"
+          }
+        }
+        headers {
+          icmp_header { type: "0x80" code: "0x00" rest_of_header: "0x110d0000" }
+        }
+        payload: "0x000102030405060708090a0b0c0d0e0f101112131415"
+      )PB"));
+  RunProtoPacketTest(
+      "ICMP packet without a preceding IP header",
+      gutil::ParseProtoOrDie<Packet>(R"PB(
+        headers {
+          ethernet_header {
+            ethernet_destination: "c2:01:51:fa:00:00"
+            ethernet_source: "c2:00:51:fa:00:00"
+            ethertype: "0x86dd"
+          }
+        }
+        headers {
+          icmp_header { type: "0x80" code: "0x00" rest_of_header: "0x110d0000" }
+        }
+        payload: "0x000102030405060708090a0b0c0d0e0f101112131415"
+      )PB"));
 
   RunProtoPacketTest("Uninitialized (empty packet) - should be invalid",
                      gutil::ParseProtoOrDie<Packet>(R"PB()PB"));

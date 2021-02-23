@@ -56,6 +56,7 @@ message Header {
     UdpHeader udp_header = 4;
     TcpHeaderPrefix tcp_header_prefix = 5;
     ArpHeader arp_header = 6;
+    IcmpHeader icmp_header = 7;
   }
 }
 
@@ -113,6 +114,14 @@ message Ipv6Header {
   string hop_limit = 7;         // 8 bits
   string ipv6_source = 8;       // Format::IPV6
   string ipv6_destination = 9;  // Format::IPV6
+}
+
+// An ICMP header.
+message IcmpHeader {
+  string type = 1;            // 8 bits
+  string code = 2;            // 8 bits
+  string checksum = 3;        // 16 bits (computed field)
+  string rest_of_header = 4;  // 32 bits
 }
 
 // A UDP header.
