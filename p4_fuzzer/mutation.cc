@@ -161,8 +161,9 @@ void MutateInvalidActionId(BitGen* gen, TableEntry* entry,
   }
 }
 
-absl::Status MutateInvalidTableImplementation(
-    BitGen* gen, TableEntry* entry, const pdpi::IrP4Info& ir_p4_info) {
+absl::Status MutateInvalidTableImplementation(BitGen* gen, TableEntry* entry,
+                                              const pdpi::IrP4Info& ir_p4_info,
+                                              const SwitchState& switch_state) {
   auto table_ids = AllTableIds(ir_p4_info);
 
   if (absl::c_find(table_ids, entry->table_id()) == table_ids.end()) {
@@ -175,14 +176,18 @@ absl::Status MutateInvalidTableImplementation(
 
   switch (entry->action().type_case()) {
     case p4::v1::TableAction::kActionProfileActionSet: {
-      *entry->mutable_action()->mutable_action() = FuzzAction(
-          gen, ChooseNonDefaultActionRef(gen, ir_table_info).action());
+      ASSIGN_OR_RETURN(
+          *entry->mutable_action()->mutable_action(),
+          FuzzAction(gen, switch_state,
+                     ChooseNonDefaultActionRef(gen, ir_table_info).action()));
       break;
     }
 
     case p4::v1::TableAction::kAction: {
-      *entry->mutable_action()->mutable_action_profile_action_set() =
-          FuzzActionProfileActionSet(gen, ir_p4_info, ir_table_info);
+      ASSIGN_OR_RETURN(
+          *entry->mutable_action()->mutable_action_profile_action_set(),
+          FuzzActionProfileActionSet(gen, ir_p4_info, switch_state,
+                                     ir_table_info));
       break;
     }
 
@@ -253,9 +258,11 @@ absl::Status MutateDuplicateInsert(absl::BitGen* gen, p4::v1::Update* update,
 absl::Status MutateNonexistingDelete(absl::BitGen* gen, p4::v1::Update* update,
                                      const pdpi::IrP4Info& ir_p4_info,
                                      const SwitchState& switch_state) {
-  const int table_id = FuzzTableId(gen, switch_state);
+  const int table_id = FuzzTableId(gen, ir_p4_info);
 
-  p4::v1::TableEntry entry = FuzzValidTableEntry(gen, ir_p4_info, table_id);
+  ASSIGN_OR_RETURN(
+      p4::v1::TableEntry entry,
+      FuzzValidTableEntry(gen, ir_p4_info, switch_state, table_id));
   if (switch_state.GetTableEntry(entry) != absl::nullopt) {
     return absl::InternalError("Generated entry that exists in switch");
   }
@@ -295,7 +302,8 @@ absl::Status MutateUpdate(BitGen* gen, p4::v1::Update* update,
       return absl::OkStatus();
 
     case Mutation::INVALID_TABLE_IMPLEMENTATION:
-      return MutateInvalidTableImplementation(gen, entry, ir_p4_info);
+      return MutateInvalidTableImplementation(gen, entry, ir_p4_info,
+                                              switch_state);
 
     case Mutation::INVALID_ACTION_SELECTOR_WEIGHT:
       return MutateInvalidActionSelectorWeight(gen, entry, ir_p4_info);

@@ -22,6 +22,7 @@
 #include "p4_pdpi/entity_management.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
+#include "p4_pdpi/sequencing.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 #include "thinkit/mirror_testbed_fixture.h"
 #include "thinkit/test_environment.h"
@@ -176,8 +177,29 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
   EXPECT_OK(environment.StoreTestArtifact("error_messages.txt",
                                           absl::StrJoin(error_messages, "\n")));
 
-  // Leave the switch in a clean state.
-  ASSERT_OK(pdpi::ClearTableEntries(session.get(), info));
+  // Leave the switch in a clean state and log the final state to help with
+  // debugging.
+  ASSERT_OK_AND_ASSIGN(auto table_entries,
+                       pdpi::ReadPiTableEntries(session.get()));
+  for (const auto& entry : table_entries) {
+    EXPECT_OK(environment.AppendToTestArtifact(
+        "clearing__pi_entries_read_from_switch.txt", entry));
+  }
+  std::vector<p4::v1::Update> pi_updates =
+      pdpi::CreatePiUpdates(table_entries, p4::v1::Update::DELETE);
+  ASSERT_OK_AND_ASSIGN(
+      std::vector<p4::v1::WriteRequest> sequenced_clear_requests,
+      pdpi::SequencePiUpdatesIntoWriteRequests(info, pi_updates));
+
+  for (int i = 0; i < sequenced_clear_requests.size(); i++) {
+    EXPECT_OK(environment.AppendToTestArtifact(
+        "clearing__delete_write_requests.txt",
+        absl::StrCat("# Delete write batch ", i + 1, ".\n")));
+    EXPECT_OK(environment.AppendToTestArtifact(
+        "clearing__delete_write_requests.txt", sequenced_clear_requests[i]));
+  }
+  ASSERT_OK(pdpi::SetIdsAndSendPiWriteRequests(session.get(),
+                                               sequenced_clear_requests));
 }
 
 }  // namespace p4_fuzzer

@@ -78,7 +78,9 @@ class SwitchState {
 
   // Returns the set of used IDs for a given IrMatchFieldReference.
   std::vector<std::string> GetIdsForMatchField(
-      const pdpi::IrMatchFieldReference& field);
+      const pdpi::IrMatchFieldReference& field) const;
+
+  pdpi::IrP4Info GetIrP4Info() const { return ir_p4info_; }
 
  private:
   // A map from table ids to the entries they store.

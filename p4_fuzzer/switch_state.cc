@@ -155,7 +155,7 @@ std::string SwitchState::SwitchStateSummary() const {
 }
 
 std::vector<std::string> SwitchState::GetIdsForMatchField(
-    const pdpi::IrMatchFieldReference& field) {
+    const pdpi::IrMatchFieldReference& field) const {
   std::vector<std::string> result;
   const auto& table_definition =
       FindOrDie(ir_p4info_.tables_by_name(), field.table());

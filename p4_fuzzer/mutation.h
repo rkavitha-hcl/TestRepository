@@ -47,7 +47,8 @@ absl::Status MutateDuplicateMatchField(absl::BitGen* gen,
 // expects a single action and vice versa.
 absl::Status MutateInvalidTableImplementation(absl::BitGen* gen,
                                               p4::v1::TableEntry* entry,
-                                              const pdpi::IrP4Info& ir_p4_info);
+                                              const pdpi::IrP4Info& ir_p4_info,
+                                              const SwitchState& switch_state);
 
 // This picks an action_profile_action and sets its weight to a non-positive
 // integer. This is only intended for tables that support one-shot action

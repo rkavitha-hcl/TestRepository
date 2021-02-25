@@ -26,6 +26,11 @@
 
 namespace pdpi {
 
+// Create PI updates from PI table entries.
+std::vector<p4::v1::Update> CreatePiUpdates(
+    absl::Span<const p4::v1::TableEntry> pi_entries,
+    p4::v1::Update_Type update_type);
+
 // Sets the request's session parameters(e.g. device id). And sends a PI
 // (program independent) read request.
 absl::StatusOr<p4::v1::ReadResponse> SetIdAndSendPiReadRequest(
