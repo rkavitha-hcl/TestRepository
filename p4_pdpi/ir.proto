@@ -131,6 +131,12 @@ message IrActionDefinition {
   map<string, IrActionParamDefinition> params_by_name = 3;
 }
 
+// Describes an action profile definition.
+message IrActionProfileDefinition {
+  // Required. The action profile from the P4Info.
+  p4.config.v1.ActionProfile action_profile = 1;
+}
+
 // Describes a packet-io metadata header.
 message IrPacketIoMetadataDefinition {
   // Required. From P4Info.
@@ -150,6 +156,10 @@ message IrP4Info {
   map<uint32, IrActionDefinition> actions_by_id = 3;
   // Required. Maps action names to actions.
   map<string, IrActionDefinition> actions_by_name = 4;
+  // Required. Maps action profile IDs to action profiles.
+  map<uint32, IrActionProfileDefinition> action_profiles_by_id = 10;
+  // Required. Maps action profile names to action profiles.
+  map<string, IrActionProfileDefinition> action_profiles_by_name = 11;
   // Required. Maps packet-in metadata IDs to metadata.
   map<uint32, IrPacketIoMetadataDefinition> packet_in_metadata_by_id = 5;
   // Required. Maps packet-in metadata names to metadata.

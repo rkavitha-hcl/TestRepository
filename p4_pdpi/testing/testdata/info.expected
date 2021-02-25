@@ -4829,5 +4829,37 @@ references {
   table: "referred_table"
   match_field: "id"
 }
+action_profiles_by_id {
+  key: 290772822
+  value {
+    action_profile {
+      preamble {
+        id: 290772822
+        name: "ingress.wcmp_group_selector"
+        alias: "wcmp_group_selector"
+      }
+      table_ids: 33554440
+      table_ids: 33554438
+      with_selector: true
+      size: 1024
+    }
+  }
+}
+action_profiles_by_name {
+  key: "wcmp_group_selector"
+  value {
+    action_profile {
+      preamble {
+        id: 290772822
+        name: "ingress.wcmp_group_selector"
+        alias: "wcmp_group_selector"
+      }
+      table_ids: 33554440
+      table_ids: 33554438
+      with_selector: true
+      size: 1024
+    }
+  }
+}
 
 

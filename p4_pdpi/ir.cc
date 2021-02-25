@@ -756,6 +756,22 @@ StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info &p4_info) {
                      action.preamble().name())));
   }
 
+  // Translate all action profiles to IR.
+  for (const auto &action_profile : p4_info.action_profiles()) {
+    IrActionProfileDefinition ir_action_profile;
+    *ir_action_profile.mutable_action_profile() = action_profile;
+    RETURN_IF_ERROR(gutil::InsertIfUnique(
+        info.mutable_action_profiles_by_id(), action_profile.preamble().id(),
+        ir_action_profile,
+        absl::StrCat("Found several action profiles with the same ID: ",
+                     action_profile.preamble().id())));
+    RETURN_IF_ERROR(gutil::InsertIfUnique(
+        info.mutable_action_profiles_by_name(),
+        action_profile.preamble().alias(), ir_action_profile,
+        absl::StrCat("Found several action profiles with the same name: ",
+                     action_profile.preamble().name())));
+  }
+
   // Translate all table definitions to IR.
   for (const auto &table : p4_info.tables()) {
     IrTableDefinition ir_table_definition;
