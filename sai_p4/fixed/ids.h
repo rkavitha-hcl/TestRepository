@@ -21,6 +21,7 @@
 #define MIRROR_SESSION_TABLE_ID 0x02000046              // 33554502
 #define L3_ADMIT_TABLE_ID 0x02000047                    // 33554503
 #define MIRROR_PORT_TO_PRE_SESSION_TABLE_ID 0x02000048  // 33554504
+#define ECMP_HASHING_TABLE_ID 0x02000049                // 33554505
 
 // --- Actions -----------------------------------------------------------------
 
@@ -34,6 +35,9 @@
 #define MIRRORING_MIRROR_AS_IPV4_ERSPAN_ACTION_ID 0x01000007  // 16777223
 #define L3_ADMIT_ACTION_ID 0x01000008                         // 16777224
 #define MIRRORING_SET_PRE_SESSION_ACTION_ID 0x01000009        // 16777225
+#define SELECT_ECMP_HASH_ALGORITHM_ACTION_ID 0x010000A        // 16777226
+#define COMPUTE_ECMP_HASH_IPV4_ACTION_ID 0x0100000B           // 16777227
+#define COMPUTE_ECMP_HASH_IPV6_ACTION_ID 0x0100000C           // 16777228
 
 // --- Copy to CPU session -----------------------------------------------------
 

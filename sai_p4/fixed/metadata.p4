@@ -84,6 +84,7 @@ struct local_metadata_t {
   packet_rewrites_t packet_rewrites;
   bit<16> l4_src_port;
   bit<16> l4_dst_port;
+  bit<WCMP_SELECTOR_INPUT_BITWIDTH> wcmp_selector_input;
   // mirroring data, we can't group the into a struct, because BMv2 doesn't
   // support passing structs in clone3.
   bool mirror_session_id_valid;

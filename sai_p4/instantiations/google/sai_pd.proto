@@ -332,6 +332,10 @@ message SetPreSessionAction {
   string id = 1;  // Format::HEX_STRING / 32 bits
 }
 
+message ComputeEcmpHashIpv4Action {}
+
+message ComputeEcmpHashIpv6Action {}
+
 message SetVrfAction {
   string vrf_id = 1;  // Format::STRING
 }
@@ -356,6 +360,8 @@ message LinkqualDropAction {}
 message LinkqualSetPortAction {
   string port = 1;  // Format::HEX_STRING / 9 bits
 }
+
+message SelectEmcpHashAlgorithmAction {}
 
 message NoAction {}
 

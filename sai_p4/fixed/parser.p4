@@ -18,6 +18,7 @@ parser packet_parser(packet_in packet, out headers_t headers,
     local_metadata.packet_rewrites.dst_mac = 0;
     local_metadata.l4_src_port = 0;
     local_metadata.l4_dst_port = 0;
+    local_metadata.wcmp_selector_input = 0;
     local_metadata.mirror_session_id_valid = false;
     local_metadata.color = MeterColor_t.GREEN;
 

@@ -12,6 +12,7 @@
 #include "acl_ingress.p4"
 #include "acl_lookup.p4"
 #include "acl_linkqual.p4"
+#include "hashing.p4"
 
 control ingress(inout headers_t headers,
                 inout local_metadata_t local_metadata,
@@ -19,6 +20,7 @@ control ingress(inout headers_t headers,
   apply {
     acl_lookup.apply(headers, local_metadata, standard_metadata);
     l3_admit.apply(headers, local_metadata, standard_metadata);
+    hashing.apply(headers, local_metadata, standard_metadata);
     routing.apply(headers, local_metadata, standard_metadata);
     acl_linkqual.apply(headers, local_metadata, standard_metadata);
     acl_ingress.apply(headers, local_metadata, standard_metadata);

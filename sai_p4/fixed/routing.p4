@@ -48,11 +48,6 @@ control routing(in headers_t headers,
   bool neighbor_id_valid = false;
   neighbor_id_t neighbor_id_value;
 
-  const bit<1> HASH_BASE_CRC16 = 1w0;
-  const bit<14> HASH_MAX_CRC16 = 14w1024;
-
-  bit<WCMP_SELECTOR_INPUT_BITWIDTH> wcmp_selector_input = 0;
-
   // Sets SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS.
   @id(ROUTING_SET_DST_MAC_ACTION_ID)
   action set_dst_mac(@id(1) @format(MAC_ADDRESS) ethernet_addr_t dst_mac) {
@@ -175,7 +170,7 @@ control routing(in headers_t headers,
   table wcmp_group_table {
     key = {
       wcmp_group_id_value : exact @id(1) @name("wcmp_group_id");
-      wcmp_selector_input : selector;
+      local_metadata.wcmp_selector_input : selector;
     }
     actions = {
       @proto_id(1) set_nexthop_id;
@@ -243,16 +238,8 @@ control routing(in headers_t headers,
   apply {
     if (local_metadata.admit_to_l3) {
       if (headers.ipv4.isValid()) {
-        hash(wcmp_selector_input, HashAlgorithm.crc16, HASH_BASE_CRC16, {
-             headers.ipv4.dst_addr, headers.ipv4.src_addr,
-             local_metadata.l4_src_port, local_metadata.l4_dst_port},
-             HASH_MAX_CRC16);
         ipv4_table.apply();
       } else if (headers.ipv6.isValid()) {
-        hash(wcmp_selector_input, HashAlgorithm.crc16, HASH_BASE_CRC16, {
-             headers.ipv6.dst_addr, headers.ipv6.src_addr,
-             headers.ipv6.flow_label[15:0], local_metadata.l4_src_port,
-             local_metadata.l4_dst_port}, HASH_MAX_CRC16);
         ipv6_table.apply();
       }
 
