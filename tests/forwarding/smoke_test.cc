@@ -14,6 +14,7 @@
 
 #include "tests/forwarding/smoke_test.h"
 
+#include "absl/strings/str_cat.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/proto_matchers.h"
@@ -27,6 +28,89 @@
 
 namespace gpins {
 namespace {
+
+// TODO: Enable once the bug is fixed.
+TEST_P(SmokeTestFixture, DISABLED_Bug181149419) {
+  // Adding 8 mirror sessions should succeed.
+  for (int i = 0; i < 8; i++) {
+    sai::TableEntry pd_entry = gutil::ParseProtoOrDie<sai::TableEntry>(
+        R"PB(
+          mirror_session_table_entry {
+            match { mirror_session_id: "session" }
+            action {
+              mirror_as_ipv4_erspan {
+                port: "0x000"
+                src_ip: "10.206.196.0"
+                dst_ip: "172.20.0.202"
+                src_mac: "00:02:03:04:05:06"
+                dst_mac: "00:1a:11:17:5f:80"
+                ttl: "0x40"
+                tos: "0x00"
+              }
+            }
+          }
+        )PB");
+    pd_entry.mutable_mirror_session_table_entry()
+        ->mutable_match()
+        ->set_mirror_session_id(absl::StrCat("session-", i));
+
+    ASSERT_OK_AND_ASSIGN(const p4::v1::TableEntry pi_entry,
+                         pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));
+    EXPECT_OK(pdpi::InstallPiTableEntry(SutP4RuntimeSession(), pi_entry));
+  }
+  // Adding one entry above the limit will fail.
+  {
+    sai::TableEntry pd_entry = gutil::ParseProtoOrDie<sai::TableEntry>(
+        R"PB(
+          mirror_session_table_entry {
+            match { mirror_session_id: "session-9" }
+            action {
+              mirror_as_ipv4_erspan {
+                port: "0x000"
+                src_ip: "10.206.196.0"
+                dst_ip: "172.20.0.202"
+                src_mac: "00:02:03:04:05:06"
+                dst_mac: "00:1a:11:17:5f:80"
+                ttl: "0x40"
+                tos: "0x00"
+              }
+            }
+          }
+        )PB");
+
+    ASSERT_OK_AND_ASSIGN(const p4::v1::TableEntry pi_entry,
+                         pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));
+    EXPECT_FALSE(
+        pdpi::InstallPiTableEntry(SutP4RuntimeSession(), pi_entry).ok());
+  }
+  // Adding ACL entries that use the 8 mirrors should all succeed.
+  for (int i = 0; i < 8; i++) {
+    sai::TableEntry pd_entry = gutil::ParseProtoOrDie<sai::TableEntry>(
+        R"PB(
+          acl_ingress_table_entry {
+            match {
+              is_ipv4 { value: "0x1" }
+              src_ip { value: "10.0.0.0" mask: "255.255.255.255" }
+              dscp { value: "0x1c" mask: "0x3c" }
+            }
+            action { mirror { mirror_session_id: "session-1" } }
+            priority: 2100
+          }
+        )PB");
+    pd_entry.mutable_acl_ingress_table_entry()
+        ->mutable_action()
+        ->mutable_mirror()
+        ->set_mirror_session_id(absl::StrCat("session-", i));
+    pd_entry.mutable_acl_ingress_table_entry()
+        ->mutable_match()
+        ->mutable_src_ip()
+        ->set_value(absl::StrCat("10.0.0.", i));
+
+    ASSERT_OK_AND_ASSIGN(const p4::v1::TableEntry pi_entry,
+                         pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));
+    ASSERT_OK(pdpi::InstallPiTableEntry(SutP4RuntimeSession(), pi_entry));
+  }
+}
 
 TEST_P(SmokeTestFixture, InsertTableEntry) {
   const sai::TableEntry pd_entry = gutil::ParseProtoOrDie<sai::TableEntry>(
