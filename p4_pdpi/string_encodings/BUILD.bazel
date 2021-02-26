@@ -121,3 +121,35 @@ cmd_diff_test(
         ":hex_string_test_runner",
     ],
 )
+
+cc_library(
+    name = "decimal_string",
+    srcs = ["decimal_string.cc"],
+    hdrs = ["decimal_string.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//gutil:status",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+# go/golden-test-with-coverage
+cc_test(
+    name = "decimal_string_test_runner",
+    srcs = ["decimal_string_test_runner.cc"],
+    linkstatic = True,
+    deps = [
+        ":decimal_string",
+    ],
+)
+
+cmd_diff_test(
+    name = "decimal_string_test",
+    actual_cmd = "$(execpath :decimal_string_test_runner)",
+    expected = "//p4_pdpi/testing/testdata:decimal_string.expected",
+    tools = [
+        ":decimal_string_test_runner",
+    ],
+)
