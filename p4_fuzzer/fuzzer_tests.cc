@@ -119,16 +119,22 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
           ASSERT_OK_AND_ASSIGN(
               const pdpi::IrTableDefinition& table,
               gutil::FindOrStatus(info.tables_by_id(), table_id));
-          // TODO: re-enable this check once the switch is fixed.
+          // TODO: acl_lookup_table has a resource limit problem.
+          // TODO: router_interface_table, ipv4_table and
+          // ipv6_table all have resource limit problems.
           if (!(mask_known_failures &&
-                table.preamble().alias() == "acl_lookup_table")) {
+                (table.preamble().alias() == "acl_lookup_table" ||
+                 table.preamble().alias() == "router_interface_table" ||
+                 table.preamble().alias() == "ipv4_table" ||
+                 table.preamble().alias() == "ipv6_table"))) {
             // Check that table was full before this status.
             EXPECT_TRUE(state.IsTableFull(table_id))
                 << "Switch reported RESOURCE_EXHAUSTED for "
                 << table.preamble().alias() << ". The table currently has "
                 << state.GetNumTableEntries(table_id)
                 << " entries, but is supposed to support at least "
-                << table.size() << " entries. Update = " << update.DebugString()
+                << table.size() << " entries."
+                << "\nUpdate = " << update.DebugString()
                 << "\nState = " << state.SwitchStateSummary();
           }
         }
