@@ -155,10 +155,7 @@ control routing(in headers_t headers,
     nexthop_id_value = nexthop_id;
   }
 
-  @max_sum_of_weights_per_group(
-      WCMP_GROUP_SELECTOR_MAX_SUM_OF_WEIGHTS_PER_GROUP)
-  @max_sum_of_weights_across_all_groups(
-      WCMP_GROUP_SELECTOR_MAX_SUM_OF_WEIGHTS_ACROSS_ALL_GROUPS)
+  @max_group_size(WCMP_GROUP_SELECTOR_MAX_SUM_OF_WEIGHTS_PER_GROUP)
   action_selector(HashAlgorithm.identity,
                   WCMP_GROUP_SELECTOR_MAX_SUM_OF_WEIGHTS_ACROSS_ALL_GROUPS,
                   WCMP_SELECTOR_INPUT_BITWIDTH)

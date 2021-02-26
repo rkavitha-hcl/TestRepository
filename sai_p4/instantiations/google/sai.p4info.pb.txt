@@ -870,12 +870,11 @@ action_profiles {
     id: 299650760
     name: "ingress.routing.wcmp_group_selector"
     alias: "wcmp_group_selector"
-    annotations: "@max_sum_of_weights_per_group(1024)"
-    annotations: "@max_sum_of_weights_across_all_groups(65536)"
   }
   table_ids: 33554499
   with_selector: true
   size: 65536
+  max_group_size: 1024
 }
 direct_counters {
   preamble {
