@@ -16,9 +16,6 @@ control hashing(in headers_t headers,
   bit<32> seed = 0;
   bit<4> offset = 0;
 
-  // TODO: hide `select_emcp_hash_algorithm`, `compute_ecmp_hash_ipv4`,
-  // and `compute_ecmp_hash_ipv6` from PD protos.
-
   // TODO: need to set these values differently for S2 and S3
   // S2 is SAI_HASH_ALGORITHM_CRC_CCITT with offset 4
   // S3 is SAI_HASH_ALGORITHM_CRC       with offset 8
