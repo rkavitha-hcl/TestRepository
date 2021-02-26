@@ -7,11 +7,14 @@
 #include "../../fixed/ids.h"
 #include "../../fixed/resource_limits.p4"
 
+#define ECMP_HASH_SEED 0
+#define ECMP_HASH_OFFSET 0
+
 control hashing(in headers_t headers,
                 inout local_metadata_t local_metadata,
                 in standard_metadata_t standard_metadata) {
-  const bit<1> HASH_BASE = 1w0;
-  const bit<14> HASH_MAX = 14w1024;
+  bit<32> seed = 0;
+  bit<4> offset = 0;
 
   // TODO: hide `select_emcp_hash_algorithm`, `compute_ecmp_hash_ipv4`,
   // and `compute_ecmp_hash_ipv6` from PD protos.
@@ -19,7 +22,9 @@ control hashing(in headers_t headers,
   // TODO: need to set these values differently for S2 and S3
   // S2 is SAI_HASH_ALGORITHM_CRC_CCITT with offset 4
   // S3 is SAI_HASH_ALGORITHM_CRC       with offset 8
-  @sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC)
+  @sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)
+  @sai_hash_seed(ECMP_HASH_SEED)
+  @sai_hash_offset(ECMP_HASH_OFFSET)
   @id(SELECT_ECMP_HASH_ALGORITHM_ACTION_ID)
   action select_emcp_hash_algorithm() {
     // TODO:
@@ -33,8 +38,8 @@ control hashing(in headers_t headers,
     //
     //     enum HashAlgorithm {
     //          ^^^^^^^^^^^^^
-
-    // TODO: need to figure out what to do with the offset.
+    seed = ECMP_HASH_SEED;
+    offset = ECMP_HASH_OFFSET;
   }
 
   @sai_ecmp_hash(SAI_SWITCH_ATTR_ECMP_HASH_IPV4)
@@ -45,10 +50,15 @@ control hashing(in headers_t headers,
   @id(COMPUTE_ECMP_HASH_IPV4_ACTION_ID)
   action compute_ecmp_hash_ipv4() {
     hash(local_metadata.wcmp_selector_input,
-         HashAlgorithm.crc32, HASH_BASE, {
-         headers.ipv4.src_addr, headers.ipv4.dst_addr,
+         HashAlgorithm.crc32, /*base=*/1w0, {
+         seed, headers.ipv4.src_addr, headers.ipv4.dst_addr,
          local_metadata.l4_src_port, local_metadata.l4_dst_port},
-         HASH_MAX);
+         /*max=2^16=*/17w0x10000);
+
+     // Rotate the wcmp_selector_input by offset bits to the right.
+     local_metadata.wcmp_selector_input =
+         local_metadata.wcmp_selector_input >> offset |
+         local_metadata.wcmp_selector_input << (WCMP_SELECTOR_INPUT_BITWIDTH - offset);
   }
 
   @sai_ecmp_hash(SAI_SWITCH_ATTR_ECMP_HASH_IPV6)
@@ -60,11 +70,16 @@ control hashing(in headers_t headers,
   @id(COMPUTE_ECMP_HASH_IPV6_ACTION_ID)
   action compute_ecmp_hash_ipv6() {
     hash(local_metadata.wcmp_selector_input,
-         HashAlgorithm.crc32, HASH_BASE, {
-         headers.ipv6.flow_label,
+         HashAlgorithm.crc32, /*base=*/1w0, {
+         seed, headers.ipv6.flow_label,
          headers.ipv6.src_addr, headers.ipv6.dst_addr,
          local_metadata.l4_src_port, local_metadata.l4_dst_port},
-         HASH_MAX);
+         /*max=2^16=*/17w0x10000);
+
+     // Rotate the wcmp_selector_input by offset bits to the right.
+     local_metadata.wcmp_selector_input =
+         local_metadata.wcmp_selector_input >> offset |
+         local_metadata.wcmp_selector_input << (WCMP_SELECTOR_INPUT_BITWIDTH - offset);
   }
 
   apply {

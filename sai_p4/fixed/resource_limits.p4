@@ -59,6 +59,6 @@
 
 // The selector chooses a group's member, so its bitwidth has to be at least
 // log2 of WCMP_GROUP_SELECTOR_MAX_SUM_OF_WEIGHTS_PER_GROUP.
-#define WCMP_SELECTOR_INPUT_BITWIDTH 10
+#define WCMP_SELECTOR_INPUT_BITWIDTH 16
 
 #endif  // SAI_RESOURCE_LIMITS_P4_
