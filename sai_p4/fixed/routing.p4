@@ -54,7 +54,6 @@ control routing(in headers_t headers,
     local_metadata.packet_rewrites.dst_mac = dst_mac;
   }
 
-  @proto_package("sai")
   @id(ROUTING_NEIGHBOR_TABLE_ID)
   table neighbor_table {
     key = {
@@ -85,7 +84,6 @@ control routing(in headers_t headers,
     local_metadata.packet_rewrites.src_mac = src_mac;
   }
 
-  @proto_package("sai")
   @id(ROUTING_ROUTER_INTERFACE_TABLE_ID)
   table router_interface_table {
     key = {
@@ -125,7 +123,6 @@ control routing(in headers_t headers,
     neighbor_id_value = neighbor_id;
   }
 
-  @proto_package("sai")
   @id(ROUTING_NEXTHOP_TABLE_ID)
   table nexthop_table {
     key = {
@@ -161,7 +158,6 @@ control routing(in headers_t headers,
                   WCMP_SELECTOR_INPUT_BITWIDTH)
       wcmp_group_selector;
 
-  @proto_package("sai")
   @id(ROUTING_WCMP_GROUP_TABLE_ID)
   @oneshot()
   table wcmp_group_table {
@@ -196,7 +192,6 @@ control routing(in headers_t headers,
     wcmp_group_id_value = wcmp_group_id;
   }
 
-  @proto_package("sai")
   @id(ROUTING_IPV4_TABLE_ID)
   table ipv4_table {
     key = {
@@ -214,7 +209,6 @@ control routing(in headers_t headers,
     const default_action = drop;
   }
 
-  @proto_package("sai")
   @id(ROUTING_IPV6_TABLE_ID)
   table ipv6_table {
     key = {

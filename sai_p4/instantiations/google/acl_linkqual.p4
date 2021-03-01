@@ -30,7 +30,6 @@ control acl_linkqual(in headers_t headers,
     linkqual_counter.count();
   }
 
-  @proto_package("sai")
   @id(ACL_LINKQUAL_TABLE_ID)
   @sai_acl(INGRESS)
   table acl_linkqual_table {

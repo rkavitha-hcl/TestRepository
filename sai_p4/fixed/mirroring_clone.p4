@@ -25,7 +25,6 @@ control mirroring_clone(inout headers_t headers,
   // SAI_MIRROR_SESSION_ATTR_DST_MAC_ADDRESS
   // SAI_MIRROR_SESSION_ATTR_TTL
   // SAI_MIRROR_SESSION_ATTR_TOS
-  @proto_package("sai")
   @id(MIRRORING_MIRROR_AS_IPV4_ERSPAN_ACTION_ID)
   action mirror_as_ipv4_erspan(
       @id(1) port_id_t port,
@@ -44,7 +43,6 @@ control mirroring_clone(inout headers_t headers,
     local_metadata.mirroring_tos = tos;
   }
 
-  @proto_package("sai")
   @id(MIRROR_SESSION_TABLE_ID)
   table mirror_session_table {
     key = {
@@ -59,13 +57,11 @@ control mirroring_clone(inout headers_t headers,
     size = MIRROR_SESSION_TABLE_SIZE;
   }
 
-  @proto_package("sai")
   @id(MIRRORING_SET_PRE_SESSION_ACTION_ID)
   action set_pre_session(bit<32> id) {
     pre_session = id;
   }
 
-  @proto_package("sai")
   @id(MIRROR_PORT_TO_PRE_SESSION_TABLE_ID)
   table mirror_port_to_pre_session_table {
     key = {

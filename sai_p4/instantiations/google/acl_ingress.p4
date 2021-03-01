@@ -62,7 +62,6 @@ control acl_ingress(in headers_t headers,
     acl_ingress_counter.count();
   }
 
-  @proto_package("sai")
   @id(ACL_INGRESS_TABLE_ID)
   @sai_acl(INGRESS)
   @entry_restriction("

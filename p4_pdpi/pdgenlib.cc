@@ -356,6 +356,17 @@ StatusOr<std::string> GetPacketIoMessage(const IrP4Info& info) {
   return result;
 }
 
+bool IsActionUnused(const IrActionDefinition& action,
+                    const std::vector<IrTableDefinition>& tables) {
+  for (const auto& table : tables) {
+    for (const auto& used_action : table.entry_actions()) {
+      if (used_action.action().preamble().id() == action.preamble().id())
+        return false;
+    }
+  }
+  return true;
+}
+
 }  // namespace
 
 StatusOr<std::string> IrP4InfoToPdProto(const IrP4Info& info,
@@ -438,6 +449,7 @@ message Optional {
   // Action messages.
   absl::StrAppend(&result, HeaderComment("Actions"), "\n");
   for (const auto& action : actions) {
+    if (IsActionUnused(action, tables)) continue;
     ASSIGN_OR_RETURN(const auto& action_pd, GetActionMessage(action));
     absl::StrAppend(&result, action_pd, "\n\n");
   }

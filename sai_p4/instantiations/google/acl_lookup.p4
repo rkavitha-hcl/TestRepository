@@ -24,7 +24,6 @@ control acl_lookup(in headers_t headers,
     acl_lookup_counter.count();
   }
 
-  @proto_package("sai")
   @id(ACL_LOOKUP_TABLE_ID)
   @sai_acl(LOOKUP)
   @entry_restriction("

@@ -15,7 +15,6 @@ control l3_admit(in headers_t headers,
     local_metadata.admit_to_l3 = true;
   }
 
-  @proto_package("sai")
   @id(L3_ADMIT_TABLE_ID)
   table l3_admit_table {
     key = {
