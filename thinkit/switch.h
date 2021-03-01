@@ -20,6 +20,7 @@
 
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "cert/cert.grpc.pb.h"
 #include "diag/diag.grpc.pb.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
@@ -55,6 +56,11 @@ class Switch {
   // Creates and returns a stub to the gNOI Diag service.
   virtual absl::StatusOr<std::unique_ptr<gnoi::diag::Diag::Stub>>
   CreateGnoiDiagStub() = 0;
+
+  // Creates and returns a stub to the gNOI Certificate service.
+  virtual absl::StatusOr<
+      std::unique_ptr<gnoi::certificate::CertificateManagement::Stub>>
+  CreateGnoiCertificateStub() = 0;
 };
 
 }  // namespace thinkit
