@@ -38,6 +38,7 @@ int main() {
   TEST_STATUSOR(pdpi::IntToDecimalString(213));
   TEST_STATUSOR(pdpi::IntToDecimalString(2147483648));
   TEST_STATUSOR(pdpi::IntToDecimalString(4294967296));
+  TEST_STATUSOR(pdpi::IntToDecimalString(4294967295U));
   TEST_STATUSOR(pdpi::IntToDecimalString(9223372036854775807));
   TEST_STATUSOR(pdpi::IntToDecimalString(18446744073709551615U));
   // octal literal.

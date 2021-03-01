@@ -23,19 +23,17 @@
 
 namespace pdpi {
 
-// Converts given decimical string to integer value, returns an error status if
+// Converts given decimal string to integer value, returns an error status if
 // the conversion fails.
 // We only allow positive value without sign and leading 0s. (e.g., "-10",
 // "+10", "012" will be treated as invalid input).
-absl::StatusOr<int> DecimalStringToInt(absl::string_view decimical_string);
-absl::StatusOr<int32_t> DecimalStringToInt32(
-    absl::string_view decimical_string);
-absl::StatusOr<int64_t> DecimalStringToInt64(
-    absl::string_view decimical_string);
+absl::StatusOr<int> DecimalStringToInt(absl::string_view decimal_string);
+absl::StatusOr<int32_t> DecimalStringToInt32(absl::string_view decimal_string);
+absl::StatusOr<int64_t> DecimalStringToInt64(absl::string_view decimal_string);
 absl::StatusOr<uint32_t> DecimalStringToUint32(
-    absl::string_view decimical_string);
+    absl::string_view decimal_string);
 absl::StatusOr<uint64_t> DecimalStringToUint64(
-    absl::string_view decimical_string);
+    absl::string_view decimal_string);
 
 // Converts given integer value to decimal string if the integer is
 // non-negative, or returns an error status otherwise.

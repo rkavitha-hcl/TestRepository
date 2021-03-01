@@ -61,6 +61,9 @@ $ pdpi::IntToDecimalString(2147483648)
 $ pdpi::IntToDecimalString(4294967296)
 -> 4294967296
 
+$ pdpi::IntToDecimalString(4294967295U)
+-> 4294967295
+
 $ pdpi::IntToDecimalString(9223372036854775807)
 -> 9223372036854775807
 

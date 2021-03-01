@@ -25,30 +25,30 @@ namespace pdpi {
 namespace {
 
 template <typename IntType>
-absl::StatusOr<IntType> DecimalStringTo(absl::string_view decimical_string) {
+absl::StatusOr<IntType> DecimalStringTo(absl::string_view decimal_string) {
   static_assert(sizeof(IntType) == 4 || sizeof(IntType) == 8,
                 "DecimalStringTo works only with 32-bit or 64-bit integers.");
   IntType result = 0;
   const IntType max_value = std::numeric_limits<IntType>::max();
-  for (const char decimal_char : decimical_string) {
+  for (const char decimal_char : decimal_string) {
     // We only allow positive value without sign. So, any character that is not
     // a valid digit will be treated as invalid character. (e.g. '-', '+').
     if (!std::isdigit(decimal_char)) {
       return gutil::InvalidArgumentErrorBuilder()
-             << "invalid decimal string, " << decimical_string
+             << "invalid decimal string, " << decimal_string
              << " contains non-digit character: " << decimal_char << ".";
     }
     int digit = decimal_char - '0';
     // Check the leading 0 case (e.g., "0123").
-    if (result == 0 && digit == 0 && decimical_string.size() > 1)
+    if (result == 0 && digit == 0 && decimal_string.size() > 1)
       return gutil::InvalidArgumentErrorBuilder()
-             << "invalid decimal string, " << decimical_string
+             << "invalid decimal string, " << decimal_string
              << " starts with 0.";
 
     // Check the overflow case.
     if (result > max_value / 10 || result * 10 > max_value - digit) {
       return gutil::InvalidArgumentErrorBuilder()
-             << "invalid decimal string, " << decimical_string
+             << "invalid decimal string, " << decimal_string
              << " exceeds the numeric limit of " << max_value << ".";
     }
     result = result * 10 + digit;
@@ -59,7 +59,7 @@ absl::StatusOr<IntType> DecimalStringTo(absl::string_view decimical_string) {
 
 template <typename IntType>
 absl::StatusOr<std::string> ToDecimalString(IntType value) {
-  // Only postivie decimal value is allowed here.
+  // Only positive decimal value is allowed here.
   if (value < 0) {
     return gutil::InvalidArgumentErrorBuilder()
            << "invalid decimal value, only positive value is allowed but input "
@@ -71,24 +71,22 @@ absl::StatusOr<std::string> ToDecimalString(IntType value) {
 
 }  // namespace
 
-absl::StatusOr<int> DecimalStringToInt(absl::string_view decimical_string) {
-  return DecimalStringTo<int>(decimical_string);
+absl::StatusOr<int> DecimalStringToInt(absl::string_view decimal_string) {
+  return DecimalStringTo<int>(decimal_string);
 }
-absl::StatusOr<int32_t> DecimalStringToInt32(
-    absl::string_view decimical_string) {
-  return DecimalStringTo<int32_t>(decimical_string);
+absl::StatusOr<int32_t> DecimalStringToInt32(absl::string_view decimal_string) {
+  return DecimalStringTo<int32_t>(decimal_string);
 }
-absl::StatusOr<int64_t> DecimalStringToInt64(
-    absl::string_view decimical_string) {
-  return DecimalStringTo<int64_t>(decimical_string);
+absl::StatusOr<int64_t> DecimalStringToInt64(absl::string_view decimal_string) {
+  return DecimalStringTo<int64_t>(decimal_string);
 }
 absl::StatusOr<uint32_t> DecimalStringToUint32(
-    absl::string_view decimical_string) {
-  return DecimalStringTo<uint32_t>(decimical_string);
+    absl::string_view decimal_string) {
+  return DecimalStringTo<uint32_t>(decimal_string);
 }
 absl::StatusOr<uint64_t> DecimalStringToUint64(
-    absl::string_view decimical_string) {
-  return DecimalStringTo<uint64_t>(decimical_string);
+    absl::string_view decimal_string) {
+  return DecimalStringTo<uint64_t>(decimal_string);
 }
 
 absl::StatusOr<std::string> IntToDecimalString(int value) {
