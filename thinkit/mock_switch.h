@@ -30,7 +30,7 @@ namespace thinkit {
 
 class MockSwitch : public Switch {
  public:
-  MOCK_METHOD(absl::string_view, ChassisName, (), (override));
+  MOCK_METHOD(const std::string&, ChassisName, (), (override));
   MOCK_METHOD(uint32_t, DeviceId, (), (override));
   MOCK_METHOD(absl::StatusOr<std::unique_ptr<p4::v1::P4Runtime::Stub>>,
               CreateP4RuntimeStub, (), (override));

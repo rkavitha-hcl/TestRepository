@@ -35,7 +35,7 @@ class Switch {
 
   // Returns the chassis name of the switch. This should be a reachable
   // hostname to the switch.
-  virtual absl::string_view ChassisName() = 0;
+  virtual const std::string& ChassisName() = 0;
 
   // Returns the P4Runtime device ID of the switch.
   virtual uint32_t DeviceId() = 0;
