@@ -91,8 +91,8 @@ def pins_infra_deps():
     if not native.existing_rule("com_github_p4lang_p4_constraints"):
         git_repository(
             name = "com_github_p4lang_p4_constraints",
-            # Newest commit on master on 2020-12-21.
-            commit = "cbd911c54e5d21ce8448865366263a6915a7e434",
+            # Newest commit on master on 2021-03-03.
+            commit = "920b6abe56d2b57b334bf56fa93cbbc9ea7c4500",
             remote = "https://github.com/p4lang/p4-constraints",
         )
     if not native.existing_rule("com_github_nlohmann_json"):

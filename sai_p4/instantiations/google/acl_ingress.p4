@@ -77,7 +77,7 @@ control acl_ingress(in headers_t headers,
     // Only allow arp_tpa for ARP packets
     arp_tpa::mask != 0 -> ether_type == 0x0806;
     // Only allow icmp_type for ICMP packets
-    icmp_type::mask != 0 -> ((is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1) && ip_protocol == 58);
+    icmpv6_type::mask != 0 -> ((is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1) && ip_protocol == 58);
     // Forbid illegal combinations of IP_TYPE fields.
     is_ip::mask != 0 -> (is_ipv4::mask == 0 && is_ipv6::mask == 0);
     is_ipv4::mask != 0 -> (is_ip::mask == 0 && is_ipv6::mask == 0);

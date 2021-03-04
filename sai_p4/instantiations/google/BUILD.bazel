@@ -105,6 +105,8 @@ cc_test(
     srcs = ["sai_p4info_test.cc"],
     deps = [
         ":sai_p4info_cc",
+        "//gutil:status_matchers",
+        "@com_github_p4lang_p4_constraints//p4_constraints/backend:constraint_info",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",

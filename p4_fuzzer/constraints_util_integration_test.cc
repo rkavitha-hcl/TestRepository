@@ -24,13 +24,10 @@ p4_constraints::ConstraintInfo GetConstraintInfoFromP4Info(
 
   CHECK_EQ(gutil::ReadProtoFromFile(p4info_file, &p4_info), absl::OkStatus());
 
-  absl::variant<p4_constraints::ConstraintInfo, std::vector<absl::Status>>
-      constraints = p4_constraints::P4ToConstraintInfo(p4_info);
+  auto constraints = p4_constraints::P4ToConstraintInfo(p4_info);
+  CHECK(constraints.ok()) << "Failed to parse ConstraintInfo from P4Info file";
 
-  CHECK(absl::holds_alternative<p4_constraints::ConstraintInfo>(constraints))
-      << "Failed to parse ConstraintInfo from P4Info file";
-
-  return absl::get<p4_constraints::ConstraintInfo>(constraints);
+  return *constraints;
 }
 
 p4_constraints::ast::Expression GetFirstExpressionFromConstraintInfo(
