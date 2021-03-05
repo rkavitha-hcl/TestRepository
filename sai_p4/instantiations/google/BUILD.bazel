@@ -91,6 +91,12 @@ diff_test(
     expected = "sai.p4info.pb.txt",  # Checked in.
 )
 
+diff_test(
+    name = "wbb_p4info_up_to_date_test",
+    actual = "generated/wbb.p4info.pb.txt",  # Generated.
+    expected = "wbb.p4info.pb.txt",  # Checked in.
+)
+
 # Auxiliary target, see go/totw/128.
 cc_embed_data(
     name = "sai_p4info_embed",
@@ -126,6 +132,31 @@ p4_library(
         "acl_ingress.p4",
         "acl_linkqual.p4",
         "acl_lookup.p4",
+        "hashing.p4",
+        "ids.h",
+        "resource_limits.p4",
+        "//sai_p4/fixed:headers.p4",
+        "//sai_p4/fixed:ids.h",
+        "//sai_p4/fixed:ipv4_checksum.p4",
+        "//sai_p4/fixed:l3_admit.p4",
+        "//sai_p4/fixed:metadata.p4",
+        "//sai_p4/fixed:mirroring_clone.p4",
+        "//sai_p4/fixed:mirroring_encap.p4",
+        "//sai_p4/fixed:packet_rewrites.p4",
+        "//sai_p4/fixed:parser.p4",
+        "//sai_p4/fixed:resource_limits.p4",
+        "//sai_p4/fixed:routing.p4",
+        "//sai_p4/fixed:ttl.p4",
+    ],
+)
+
+p4_library(
+    name = "wbb",
+    src = "wbb.p4",
+    # Do not access directly. Use checked in sai.p4info.pb.txt instead.
+    p4info_out = "generated/wbb.p4info.pb.txt",
+    deps = [
+        "acl_wbb_ingress.p4",
         "hashing.p4",
         "ids.h",
         "resource_limits.p4",

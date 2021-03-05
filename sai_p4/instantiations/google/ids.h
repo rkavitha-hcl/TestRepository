@@ -16,9 +16,10 @@
 // IDs of ACL tables (8 most significant bits = 0x02).
 // Since these IDs are user defined, they need to be separate from the fixed SAI
 // table ID space. We achieve this by starting the IDs at 0x100.
-#define ACL_INGRESS_TABLE_ID 0x02000100   // 33554688
-#define ACL_LOOKUP_TABLE_ID 0x02000101    // 33554689
-#define ACL_LINKQUAL_TABLE_ID 0x02000102  // 33554690
+#define ACL_INGRESS_TABLE_ID 0x02000100      // 33554688
+#define ACL_LOOKUP_TABLE_ID 0x02000101       // 33554689
+#define ACL_LINKQUAL_TABLE_ID 0x02000102     // 33554690
+#define ACL_WBB_INGRESS_TABLE_ID 0x02000103  // 33554691
 
 // --- Actions -----------------------------------------------------------------
 
@@ -32,13 +33,17 @@
 #define ACL_INGRESS_MIRROR_ACTION_ID 0x01000104     // 16777476
 #define ACL_LINKQUAL_DROP_ACTION_ID 0x01000105      // 16777477
 #define ACL_LINKQUAL_SET_PORT_ACTION_ID 0x01000106  // 16777478
+#define ACL_WBB_INGRESS_COPY_ACTION_ID 0x01000107   // 16777479
+#define ACL_WBB_INGRESS_TRAP_ACTION_ID 0x01000108   // 16777480
 
 // --- Meters ------------------------------------------------------------------
-#define ACL_INGRESS_METER_ID 0x15000100  // 352321792
+#define ACL_INGRESS_METER_ID 0x15000100      // 352321792
+#define ACL_WBB_INGRESS_METER_ID 0x15000101  // 352321793
 
 // --- Counters ----------------------------------------------------------------
-#define ACL_LINKQUAL_COUNTER_ID 0x13000100  // 318767360
-#define ACL_LOOKUP_COUNTER_ID 0x13000101    // 318767361
-#define ACL_INGRESS_COUNTER_ID 0x13000102   // 318767362
+#define ACL_LINKQUAL_COUNTER_ID 0x13000100     // 318767360
+#define ACL_LOOKUP_COUNTER_ID 0x13000101       // 318767361
+#define ACL_INGRESS_COUNTER_ID 0x13000102      // 318767362
+#define ACL_WBB_INGRESS_COUNTER_ID 0x13000103  // 318767363
 
 #endif  // GOOGLE_SAI_IDS_H_

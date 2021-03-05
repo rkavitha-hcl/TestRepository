@@ -10,4 +10,8 @@
 // have up to 2 linkqual flows associated with it.
 #define ACL_LINKQUAL_TABLE_SIZE 192
 
+// 1 entry for LLDP, 1 entry for ND, and 6 entries for traceroute: TTL 0,1,2 for
+// IPv4 and IPv6
+#define ACL_WBB_INGRESS_TABLE_SIZE 8
+
 #endif  // GOOGLE_SAI_RESOURCE_LIMITS_P4_
