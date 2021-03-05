@@ -45,10 +45,11 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
   ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<pdpi::P4RuntimeSession> session,
       pdpi::P4RuntimeSession::Create(std::move(stub), sut.DeviceId()));
-  ASSERT_OK(pdpi::SetForwardingPipelineConfig(session.get(), sai::GetP4Info()));
+  ASSERT_OK(pdpi::SetForwardingPipelineConfig(
+      session.get(), sai::GetP4Info(sai::SwitchRole::kMiddleblock)));
 
   // Clear switch state.
-  pdpi::IrP4Info info = sai::GetIrP4Info();
+  pdpi::IrP4Info info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock);
   ASSERT_OK(pdpi::ClearTableEntries(session.get(), info));
 
   absl::BitGen gen;

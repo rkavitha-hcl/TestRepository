@@ -16,7 +16,7 @@ namespace {
 TEST(FuzzerShowcaseTest, EntryGeneration) {
   absl::BitGen gen;
 
-  pdpi::IrP4Info ir_p4_info = sai::GetIrP4Info();
+  pdpi::IrP4Info ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock);
 
   std::vector<AnnotatedTableEntry> valid_entries =
       ValidForwardingEntries(&gen, ir_p4_info, 1000);

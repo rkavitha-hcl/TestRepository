@@ -17,7 +17,7 @@ using p4::config::v1::P4Info;
 using pdpi::IrP4Info;
 
 // Adapted from go/totw/128.
-const P4Info& GetP4Info() {
+const P4Info& GetP4Info(SwitchRole role) {
   // Safe static object initialization following go/totw/110.
   static const P4Info* info = [] {
     const FileToc* const toc = sai_p4info_embed_create();
@@ -31,15 +31,17 @@ const P4Info& GetP4Info() {
   return *info;
 }
 
-const IrP4Info& GetIrP4Info() {
+const IrP4Info& GetIrP4Info(SwitchRole role) {
   // Safe static object initialization following go/totw/110.
-  static const IrP4Info* info = [] {
-    absl::StatusOr<IrP4Info> ir_p4info = pdpi::CreateIrP4Info(GetP4Info());
+  static const IrP4Info* ir_info = [role] {
+    const P4Info& info = GetP4Info(role);
+    if (info.ByteSize() == 0) return new IrP4Info();
+    absl::StatusOr<IrP4Info> ir_p4info = pdpi::CreateIrP4Info(info);
     CHECK(ir_p4info.status().ok())  // Crash ok: TAP rules out failures.
         << ir_p4info.status();
     return new IrP4Info(std::move(ir_p4info).value());
   }();
-  return *info;
+  return *ir_info;
 }
 
 }  // namespace sai

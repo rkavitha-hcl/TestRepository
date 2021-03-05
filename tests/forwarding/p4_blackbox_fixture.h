@@ -40,8 +40,9 @@ class P4BlackboxFixture : public thinkit::MirrorTestbedFixture {
     ASSERT_OK_AND_ASSIGN(sut_p4rt_session_, pdpi::P4RuntimeSession::Create(
                                                 GetMirrorTestbed().Sut()));
 
-    ASSERT_OK(pdpi::SetForwardingPipelineConfig(sut_p4rt_session_.get(),
-                                                sai::GetP4Info()));
+    ASSERT_OK(pdpi::SetForwardingPipelineConfig(
+        sut_p4rt_session_.get(),
+        sai::GetP4Info(sai::SwitchRole::kMiddleblock)));
 
     // Clear entries here in case the previous test did not (e.g. because it
     // crashed).
@@ -69,7 +70,7 @@ class P4BlackboxFixture : public thinkit::MirrorTestbedFixture {
 
  private:
   std::unique_ptr<pdpi::P4RuntimeSession> sut_p4rt_session_;
-  pdpi::IrP4Info ir_p4info_ = sai::GetIrP4Info();
+  pdpi::IrP4Info ir_p4info_ = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock);
 };
 
 }  // namespace gpins
