@@ -156,13 +156,13 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
         if (status.code() != google::rpc::Code::OK &&
             status.code() != google::rpc::Code::RESOURCE_EXHAUSTED) {
           if (!is_mutated) {
-            LOG(WARNING) << "Switch considered update not OK, but fuzzer did "
-                            "not use a mutation."
-                         << std::endl
-                         << "update = "
-                         << annotated_request.updates(i).DebugString()
-                         << std::endl
-                         << "status = " << status.DebugString();
+            // Switch considered update OK but fuzzer did not use a mutation
+            // (i.e. thought the update should be valid).
+            EXPECT_OK(environment.AppendToTestArtifact(
+                "fuzzer_inaccuracies.txt",
+                absl::StrCat("-------------------\n\nrequest = \n",
+                             annotated_request.updates(i).DebugString(),
+                             "\n\nstatus = \n", status.DebugString())));
             num_notok_without_mutations += 1;
           }
         }
