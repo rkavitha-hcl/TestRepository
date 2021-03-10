@@ -55,7 +55,7 @@ control acl_lookup(in headers_t headers,
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_DST_IPV6) @format(IPV6_ADDRESS);
       dscp : ternary @name("dscp") @id(7)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_DSCP);
-      standard_metadata.ingress_port : optional @name("in_port") @id(8)
+      local_metadata.ingress_port : optional @name("in_port") @id(8)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_IN_PORT);
     }
     actions = {

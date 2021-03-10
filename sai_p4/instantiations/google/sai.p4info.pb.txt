@@ -65,8 +65,10 @@ tables {
     id: 8
     name: "in_port"
     annotations: "@sai_field(SAI_ACL_TABLE_ATTR_FIELD_IN_PORT)"
-    bitwidth: 9
     match_type: OPTIONAL
+    type_name {
+      name: "port_id_t"
+    }
   }
   action_refs {
     id: 16777472
@@ -97,8 +99,10 @@ tables {
   match_fields {
     id: 2
     name: "in_port"
-    bitwidth: 9
     match_type: OPTIONAL
+    type_name {
+      name: "port_id_t"
+    }
   }
   action_refs {
     id: 16777224
@@ -325,8 +329,10 @@ tables {
     id: 3
     name: "in_port"
     annotations: "@sai_field(SAI_ACL_TABLE_ATTR_FIELD_IN_PORT)"
-    bitwidth: 9
     match_type: OPTIONAL
+    type_name {
+      name: "port_id_t"
+    }
   }
   action_refs {
     id: 16777477
@@ -532,7 +538,6 @@ tables {
   match_fields {
     id: 1
     name: "mirror_port"
-    bitwidth: 9
     match_type: EXACT
     type_name {
       name: "port_id_t"
@@ -637,7 +642,6 @@ actions {
   params {
     id: 1
     name: "port"
-    bitwidth: 9
     type_name {
       name: "port_id_t"
     }
@@ -729,7 +733,6 @@ actions {
     id: 1
     name: "port"
     annotations: "@sai_action_param(SAI_ACL_ENTRY_ATTR_ACTION_REDIRECT)"
-    bitwidth: 9
     type_name {
       name: "port_id_t"
     }
@@ -801,7 +804,6 @@ actions {
   params {
     id: 1
     name: "port"
-    bitwidth: 9
     type_name {
       name: "port_id_t"
     }
@@ -918,7 +920,6 @@ controller_packet_metadata {
   metadata {
     id: 1
     name: "ingress_port"
-    bitwidth: 9
     type_name {
       name: "port_id_t"
     }
@@ -926,7 +927,6 @@ controller_packet_metadata {
   metadata {
     id: 2
     name: "target_egress_port"
-    bitwidth: 9
     type_name {
       name: "port_id_t"
     }
@@ -942,7 +942,6 @@ controller_packet_metadata {
   metadata {
     id: 1
     name: "egress_port"
-    bitwidth: 9
     type_name {
       name: "port_id_t"
     }
@@ -989,11 +988,8 @@ type_info {
   new_types {
     key: "port_id_t"
     value {
-      original_type {
-        bitstring {
-          bit {
-            bitwidth: 9
-          }
+      translated_type {
+        sdn_string {
         }
       }
     }

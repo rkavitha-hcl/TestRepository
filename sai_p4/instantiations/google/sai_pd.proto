@@ -149,7 +149,7 @@ message MirrorSessionTableEntry {
 message L3AdmitTableEntry {
   message Match {
     Ternary dst_mac = 1;   // ternary match / Format::MAC
-    Optional in_port = 2;  // optional match / Format::HEX_STRING / 9 bits
+    Optional in_port = 2;  // optional match / Format::STRING
   }
   Match match = 1;
   message Action {
@@ -162,7 +162,7 @@ message L3AdmitTableEntry {
 
 message MirrorPortToPreSessionTableEntry {
   message Match {
-    string mirror_port = 1;  // exact match / Format::HEX_STRING / 9 bits
+    string mirror_port = 1;  // exact match / Format::STRING
   }
   Match match = 1;
   message Action {
@@ -252,7 +252,7 @@ message AclLookupTableEntry {
     Ternary dst_ip = 5;    // ternary match / Format::IPV4
     Ternary dst_ipv6 = 6;  // ternary match / Format::IPV6
     Ternary dscp = 7;      // ternary match / Format::HEX_STRING / 6 bits
-    Optional in_port = 8;  // optional match / Format::HEX_STRING / 9 bits
+    Optional in_port = 8;  // optional match / Format::STRING
   }
   Match match = 1;
   message Action {
@@ -269,7 +269,7 @@ message AclLinkqualTableEntry {
   message Match {
     Ternary ether_type = 1;  // ternary match / Format::HEX_STRING / 16 bits
     Ternary dst_mac = 2;     // ternary match / Format::MAC
-    Optional in_port = 3;    // optional match / Format::HEX_STRING / 9 bits
+    Optional in_port = 3;    // optional match / Format::STRING
   }
   Match match = 1;
   message Action {
@@ -292,7 +292,7 @@ message SetDstMacAction {
 }
 
 message SetPortAndSrcMacAction {
-  string port = 1;     // Format::HEX_STRING / 9 bits
+  string port = 1;     // Format::STRING
   string src_mac = 2;  // Format::MAC
 }
 
@@ -317,7 +317,7 @@ message SetNexthopIdAction {
 message DropAction {}
 
 message MirrorAsIpv4ErspanAction {
-  string port = 1;     // Format::HEX_STRING / 9 bits
+  string port = 1;     // Format::STRING
   string src_ip = 2;   // Format::IPV4
   string dst_ip = 3;   // Format::IPV4
   string src_mac = 4;  // Format::MAC
@@ -354,7 +354,7 @@ message MirrorAction {
 message LinkqualDropAction {}
 
 message LinkqualSetPortAction {
-  string port = 1;  // Format::HEX_STRING / 9 bits
+  string port = 1;  // Format::STRING
 }
 
 // -- All tables ---------------------------------------------------------------
@@ -387,8 +387,8 @@ message PacketIn {
   bytes payload = 1;
 
   message Metadata {
-    string ingress_port = 1;        // Format::HEX_STRING / 9 bits
-    string target_egress_port = 2;  // Format::HEX_STRING / 9 bits
+    string ingress_port = 1;        // Format::STRING
+    string target_egress_port = 2;  // Format::STRING
   }
   Metadata metadata = 2;
 }
@@ -396,7 +396,7 @@ message PacketOut {
   bytes payload = 1;
 
   message Metadata {
-    string egress_port = 1;        // Format::HEX_STRING / 9 bits
+    string egress_port = 1;        // Format::STRING
     string submit_to_ingress = 2;  // Format::HEX_STRING / 1 bits
     string unused_pad = 3;         // Format::HEX_STRING / 7 bits
   }

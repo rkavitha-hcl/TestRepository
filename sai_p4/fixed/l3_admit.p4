@@ -20,7 +20,7 @@ control l3_admit(in headers_t headers,
     key = {
       headers.ethernet.dst_addr : ternary @name("dst_mac") @id(1)
                                           @format(MAC_ADDRESS);
-      standard_metadata.ingress_port : optional @name("in_port") @id(2);
+      local_metadata.ingress_port : optional @name("in_port") @id(2);
     }
     actions = {
       @proto_id(1) admit_to_l3;

@@ -34,8 +34,9 @@ type bit<ROUTER_INTERFACE_ID_BITWIDTH> router_interface_id_t;
 #endif
 type bit<NEIGHBOR_ID_BITWIDTH> neighbor_id_t;
 
-// TODO: This should really be a string, but for the moment we still use
-// an 9-bit integer until everything is ready to use strings.
+#ifndef PLATFORM_BMV2
+@p4runtime_translation("", string)
+#endif
 type bit<PORT_BITWIDTH> port_id_t;
 
 #ifndef PLATFORM_BMV2
@@ -97,6 +98,11 @@ struct local_metadata_t {
   bit<8> mirroring_tos;
   // TODO: consider modeling metering beyond control plane API.
   MeterColor_t color;
+  // We consistently use local_metadata.ingress_port instead of
+  // standard_metadata.ingress_port in the P4 tables to ensure that the P4Info
+  // has port_id_t as the type for all fields that match on ports. This allows
+  // tools to treat ports specially (e.g. a fuzzer).
+  port_id_t ingress_port;
 }
 
 // -- Packet IO headers --------------------------------------------------------

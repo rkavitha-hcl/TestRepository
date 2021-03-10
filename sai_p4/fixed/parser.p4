@@ -21,6 +21,7 @@ parser packet_parser(packet_in packet, out headers_t headers,
     local_metadata.wcmp_selector_input = 0;
     local_metadata.mirror_session_id_valid = false;
     local_metadata.color = MeterColor_t.GREEN;
+    local_metadata.ingress_port = (port_id_t)standard_metadata.ingress_port;
 
     transition parse_ethernet;
   }

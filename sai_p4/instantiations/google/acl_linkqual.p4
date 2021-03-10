@@ -38,7 +38,7 @@ control acl_linkqual(in headers_t headers,
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_ETHER_TYPE);
       headers.ethernet.dst_addr : ternary @name("dst_mac") @id(2)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_DST_MAC) @format(MAC_ADDRESS);
-      standard_metadata.ingress_port : optional @name("in_port") @id(3)
+      local_metadata.ingress_port : optional @name("in_port") @id(3)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_IN_PORT);
     }
     actions = {
