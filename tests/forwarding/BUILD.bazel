@@ -41,7 +41,7 @@ cc_library(
     testonly = True,
     srcs = ["smoke_test.cc"],
     hdrs = ["smoke_test.h"],
-    visibility = ["//platforms/networking/gpins/testing/blackbox/p4:__pkg__"],
+    visibility = ["//visibility:public"],
     deps = [
         ":p4_blackbox_fixture",
         ":test_data",
