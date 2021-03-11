@@ -14,14 +14,18 @@ namespace {
 
 // GetP4Info contains a CHECK; ensure it doesn't fail.
 TEST(GetP4InfoTest, DoesNotCheckCrashAndP4ConstraintsAreParsable) {
-  auto info = GetP4Info(SwitchRole::kMiddleblock);
-  ASSERT_OK_AND_ASSIGN(p4_constraints::ConstraintInfo constraint_info,
-                       p4_constraints::P4ToConstraintInfo(info));
+  for (auto role : AllSwitchRoles()) {
+    auto info = GetP4Info(role);
+    ASSERT_OK_AND_ASSIGN(p4_constraints::ConstraintInfo constraint_info,
+                         p4_constraints::P4ToConstraintInfo(info));
+  }
 }
 
 // GetIrP4Info contains a CHECK; ensure it doesn't fail.
 TEST(GetIrP4InfoTest, DoesNotCheckCrash) {
-  GetIrP4Info(SwitchRole::kMiddleblock);
+  for (auto role : AllSwitchRoles()) {
+    GetIrP4Info(role);
+  }
 }
 
 }  // namespace
