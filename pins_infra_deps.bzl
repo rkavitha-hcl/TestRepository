@@ -5,6 +5,19 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def pins_infra_deps():
     """Sets up 3rd party workspaces needed to build PINS infrastructure."""
+    if not native.existing_rule("sonic_swss_common"):
+        git_repository(
+            name = "sonic_swss_common",
+            branch = "pins/202012_20210206",
+            remote = "git@github.com:pins/sonic-swss-common.git",
+        )
+    if not native.existing_rule("com_github_grpc_grpc"):
+        git_repository(
+            name = "com_github_grpc_grpc",
+            remote = "https://github.com/grpc/grpc",
+            # Move to newer commit to avoid the use of com_github_google_re2.
+            commit = "565520443bdbda0b8ac28337a4904f3f20276305",
+        )
     if not native.existing_rule("com_google_absl"):
         http_archive(
             name = "com_google_absl",

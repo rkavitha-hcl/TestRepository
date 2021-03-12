@@ -13,6 +13,8 @@ jobs:
     runs-on: ubuntu-20.04
     env:
       BAZEL: bazelisk-linux-amd64
+      SWSS: https://x-token-auth:${{ secrets.PINS_GITHUB_BOT_PERSONAL_ACCESS_TOKEN }}@github.com/pins/sonic-swss-common.git
+
     steps:
     - uses: actions/checkout@v2
 
@@ -27,13 +29,18 @@ jobs:
           build-${{ runner.os }}-${{ hashFiles('**/*_deps.bzl') }}
           build-${{ runner.os }}-
 
-    - name: Install p4c system dependencies (Flex, Bison, GMP)
-      run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        ./install_dependencies.sh
 
     - name: Install bazelisk
       run: |
         curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.7.1/$BAZEL"
         chmod +x $BAZEL
+
+    - name: Set up GitHub credentials for private repos
+      run: git config --global url."${SWSS}".InsteadOf "git@github.com:pins/sonic-swss-common.git"
 
     - name: Build
       run: ./$BAZEL build //... --distinct_host_configuration=false
@@ -43,8 +50,13 @@ jobs:
     runs-on: ubuntu-20.04
     env:
       BAZEL: bazelisk-linux-amd64
+      SWSS: https://x-token-auth:${{ secrets.PINS_GITHUB_BOT_PERSONAL_ACCESS_TOKEN }}@github.com/pins/sonic-swss-common.git
+
     steps:
     - uses: actions/checkout@v2
+
+    - name: Pull swss
+      uses: actions/checkout@v2
 
     - name: Mount bazel cache
       uses: actions/cache@v2
@@ -56,13 +68,18 @@ jobs:
           test-${{ runner.os }}-${{ hashFiles('**/*_deps.bzl') }}
           test-${{ runner.os }}-
 
-    - name: Install p4c system dependencies (Flex, Bison, GMP)
-      run: sudo apt-get update && sudo apt-get install bison flex libfl-dev libgmp-dev
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        ./install_dependencies.sh
 
     - name: Install bazelisk
       run: |
         curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.7.1/$BAZEL"
         chmod +x $BAZEL
+
+    - name: Set up GitHub credentials for private repos
+      run: git config --global url."${SWSS}".InsteadOf "git@github.com:pins/sonic-swss-common.git"
 
     - name: Test
       run: ./$BAZEL test //... --test_output=errors --distinct_host_configuration=false

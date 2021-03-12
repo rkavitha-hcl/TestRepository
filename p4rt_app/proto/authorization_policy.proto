@@ -1,0 +1,101 @@
+// Copyright 2020 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+syntax = "proto3";
+
+package google.p4rt;
+
+option cc_generic_services = false;
+
+// AuthorizationPolicy defines which principals are permitted to access which
+// resource. Resources are individual RPC methods scoped by services.
+// This file is imported from the Google authorization_policy.proto.
+
+// Example policy:
+//
+// service_policies {
+//   key : "Service1"
+//   value {
+//     rpc_policies {
+//       key : "rpc1"
+//       value {
+//         labels : "label1"
+//       }
+//       logging_policy {
+//         log_level: RPC_ONLY
+//       }
+//     }
+//     default_service_policy {
+//       labels : "label1"
+//       labels : "label2"
+//     }
+//  }
+// }
+// labels_to_principals {
+//   key : "label1"
+//   value {
+//     mdb_users : "user1"
+//     mdb_groups : "group1"
+//   }
+// }
+// labels_to_principals {
+//   key : "label2"
+//   value {
+//     mdb_users : "user2"
+//     mdb_groups : "group2"
+//   }
+// }
+//
+// This example would authorizes "user1" and "group1" to call "rpc1" of
+// "Service1" and "user1", "user2", "group1" and "group2" to call any other rpcs
+// of "Service1" by default service policy.
+
+message AuthorizationPolicy {
+  enum LogLevel {
+    LOG_NONE = 0;   // Do not produce any automated logs. Preferred for
+                    // high-volume RPCs.
+    LOG_BRIEF = 1;  // Log the RPC & calling Principal name.
+    LOG_FULL = 2;   // Log the RPC, Principal, Request, and response.
+  }
+  message AuthorizedPrincipals {
+    // Both mdb_users and mdb_groups are included from the Google authz
+    // policy proto. But only mdb_users is used as the user identifier.
+    repeated string mdb_users = 1;
+    repeated string mdb_groups = 2;
+  }
+  message RpcPolicy {
+    // Authorization principals to use for the RPC method.
+    repeated string labels = 1;
+    // Log level is included from the Google authz policy proto.
+    // But it is not used.
+    LogLevel log_level = 2;
+  }
+  message ServicePolicy {
+    // The key is the unqualified method name of the RPC call; the value is a
+    // list of labels. Each label is mapped to principals in the
+    // labels_to_principals map below.
+    map<string, RpcPolicy> rpc_policies = 1;
+    // The default policy for any undefined RPC of this Service.
+    RpcPolicy default_service_policy = 2;
+  }
+  // Map of ServicePolicy keyed by service name.
+  map<string, ServicePolicy> service_policies = 1;
+  // Map of AuthorizationPrinciplas keyed by labels used in
+  // AuthorizationPrincipalLabels.
+  map<string, AuthorizedPrincipals> labels_to_principals = 2;
+  // Version string of this policy.
+  string version = 3;
+  // Release timestamp (in seconds since epoch) for this policy.
+  int64 timestamp = 4;
+}

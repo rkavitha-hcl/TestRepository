@@ -1,0 +1,77 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("//p4_pdpi/testing:diff_test.bzl", "cmd_diff_test", "diff_test")
+load("//p4_pdpi:pdgen.bzl", "p4_pd_proto")
+load("@com_github_p4lang_p4c//:bazel/p4_library.bzl", "p4_library")
+
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],
+)
+
+cc_library(
+    name = "app_db_entry_builder",
+    testonly = True,
+    srcs = ["app_db_entry_builder.cc"],
+    hdrs = ["app_db_entry_builder.h"],
+    deps = [
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/types:optional",
+    ],
+)
+
+cc_test(
+    name = "app_db_entry_builder_test",
+    srcs = ["app_db_entry_builder_test.cc"],
+    deps = [
+        ":app_db_entry_builder",  # fixdeps: keep
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+#cc_library(
+#    name = "p4rt_test_main",
+#    testonly = True,
+#    srcs = ["p4rt_test_main.cc"],
+#    deps = [
+#        "//base",
+#        "//base:logging",
+#        "//testing/base/public:gunit_no_google3",
+#    ],
+#)
+
+cc_library(
+    name = "p4runtime_grpc_service",
+    testonly = True,
+    srcs = ["p4runtime_grpc_service.cc"],
+    hdrs = ["p4runtime_grpc_service.h"],
+    deps = [
+        "//gutil:status_matchers",
+        "//p4rt_app/p4runtime:p4runtime_impl",
+        "//p4rt_app/sonic:fake_packetio_interface",
+        "@com_github_google_glog//:glog",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_protobuf//:protobuf",
+        "@sonic_swss_common//:libswsscommon",
+        "@sonic_swss_common//tests/fakes:fake_consumer_notifier",
+        "@sonic_swss_common//tests/fakes:fake_db_connector",
+        "@sonic_swss_common//tests/fakes:fake_producer_state_table",
+        "@sonic_swss_common//tests/fakes:fake_sonic_db_table",
+    ],
+)

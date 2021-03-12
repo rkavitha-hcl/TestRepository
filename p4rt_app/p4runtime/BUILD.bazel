@@ -1,0 +1,183 @@
+load("@bazel_skylib//rules:build_test.bzl", "build_test")
+load("//p4_pdpi/testing:diff_test.bzl", "cmd_diff_test", "diff_test")
+load("//p4_pdpi:pdgen.bzl", "p4_pd_proto")
+load("@com_github_p4lang_p4c//:bazel/p4_library.bzl", "p4_library")
+
+# Copyright 2020 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],
+)
+
+cc_library(
+    name = "p4info_verification",
+    srcs = ["p4info_verification.cc"],
+    hdrs = ["p4info_verification.h"],
+    deps = [
+        "//gutil:collections",
+        "//gutil:status",
+        "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "p4info_verification_test",
+    srcs = ["p4info_verification_test.cc"],
+    deps = [
+        ":p4info_verification",
+        "//gutil:status_matchers",
+        "//p4_pdpi/utils:ir",
+        "//sai_p4/instantiations/google:sai_p4info_cc",
+        "@com_github_google_glog//:glog",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "p4runtime_impl",
+    srcs = ["p4runtime_impl.cc"],
+    hdrs = ["p4runtime_impl.h"],
+    deps = [
+        ":p4info_verification",
+        ":p4runtime_tweaks",
+        ":port_translation",
+        ":sdn_controller_manager",
+        "//gutil:collections",
+        "//gutil:status",
+        "//p4_pdpi:ir",
+        "//p4_pdpi/utils:ir",
+        "//p4rt_app/sonic:app_db_acl_def_table_manager",
+        "//p4rt_app/sonic:app_db_manager",
+        "//p4rt_app/sonic:packetio_interface",
+        "//p4rt_app/sonic:packetio_port",
+        "//p4rt_app/sonic:response_handler",
+        "//p4rt_app/sonic:vrf_entry_translation",
+        "//p4rt_app/sonic/adapters:system_call_adapter",
+        "//p4rt_app/utils:status_utility",
+        "//p4rt_app/utils:table_utility",
+        "@com_github_google_glog//:glog",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:optional",
+        "@com_google_protobuf//:protobuf",
+        "@sonic_swss_common//:libswsscommon",
+    ],
+)
+
+cc_test(
+    name = "p4runtime_impl_test",
+    srcs = ["p4runtime_impl_test.cc"],
+    deps = [
+        ":p4info_verification",
+        ":p4runtime_impl",
+        "//gutil:proto_matchers",
+        "//gutil:status_matchers",
+        "//p4_pdpi/utils:ir",
+        "//p4rt_app/sonic:packetio_impl",
+        "//p4rt_app/sonic:packetio_port",
+        "//p4rt_app/sonic/adapters:mock_system_call_adapter",
+        "//sai_p4/instantiations/google:sai_p4info_cc",
+        "@boost//:bimap",
+        "@boost//:graph",
+        "@com_github_google_glog//:glog",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "p4runtime_tweaks",
+    srcs = ["p4runtime_tweaks.cc"],
+    hdrs = ["p4runtime_tweaks.h"],
+    deps = [
+        "//p4_pdpi:ir",
+        "//p4_pdpi/string_encodings:hex_string",
+        "//p4_pdpi/utils:annotation_parser",
+        "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
+)
+
+cc_test(
+    name = "p4runtime_tweaks_test",
+    srcs = ["p4runtime_tweaks_test.cc"],
+    deps = [
+        ":p4runtime_tweaks",
+        "//gutil:proto_matchers",
+        "//gutil:status_matchers",
+        "//p4rt_app/utils:ir_builder",
+        "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "port_translation",
+    srcs = ["port_translation.cc"],
+    hdrs = ["port_translation.h"],
+    deps = [
+        "//gutil:collections",
+        "//gutil:status",
+        "//p4_pdpi:ir",
+        "@boost//:bimap",
+        "@boost//:graph",
+        "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "port_translation_test",
+    srcs = ["port_translation_test.cc"],
+    deps = [
+        ":port_translation",
+        "//gutil:status_matchers",
+        "@boost//:bimap",
+        "@boost//:graph",
+        "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "sdn_controller_manager",
+    srcs = ["sdn_controller_manager.cc"],
+    hdrs = ["sdn_controller_manager.h"],
+    deps = [
+        "@com_github_google_glog//:glog",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/numeric:int128",
+        "@com_google_absl//absl/strings",
+    ],
+)
