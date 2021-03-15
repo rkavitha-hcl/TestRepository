@@ -9,6 +9,7 @@
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
 #include "sai_p4/instantiations/google/middleblock_p4info_embed.h"
+#include "sai_p4/instantiations/google/switch_role.h"
 #include "sai_p4/instantiations/google/wbb_p4info_embed.h"
 
 namespace sai {

@@ -51,13 +51,17 @@ cc_library(
     hdrs = [
         "parser.h",
     ],
-    visibility = ["//p4_symbolic/ir:__pkg__"],
+    visibility = ["//visibility:public"],
     deps = [
+        "//gutil:proto",
         "//gutil:status",
+        "//p4_pdpi:ir_cc_proto",
         "//p4_symbolic/bmv2",
         "//p4_symbolic/ir",
         "//p4_symbolic/ir:ir_cc_proto",
         "//p4_symbolic/ir:pdpi_driver",
         "//p4_symbolic/symbolic",
+        "//p4_symbolic/util",
+        "@com_google_absl//absl/types:span",
     ],
 )

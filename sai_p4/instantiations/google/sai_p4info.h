@@ -5,18 +5,9 @@
 
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_pdpi/ir.pb.h"
+#include "sai_p4/instantiations/google/switch_role.h"
 
 namespace sai {
-
-enum class SwitchRole {
-  kMiddleblock,
-  kWbb,
-};
-
-// Returns all switch roles.
-inline std::vector<SwitchRole> AllSwitchRoles() {
-  return {SwitchRole::kMiddleblock, SwitchRole::kWbb};
-}
 
 // Returns a reference to a static P4info message for the SAI P4 program for the
 // given role. The reference is guaranteed to remain valid at all times. If a

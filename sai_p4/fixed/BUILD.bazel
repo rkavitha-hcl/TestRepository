@@ -21,7 +21,8 @@ package(
     licenses = ["notice"],
 )
 
-exports_files(
+filegroup(
+    name = "fixed",
     srcs = [
         "headers.p4",
         "ids.h",
