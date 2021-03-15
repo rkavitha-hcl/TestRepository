@@ -11,6 +11,8 @@ control mirroring_encap(inout headers_t headers,
                         inout local_metadata_t local_metadata,
                         inout standard_metadata_t standard_metadata) {
   apply {
+    // TODO: Currently causes p4-symbolic to crash.
+#ifndef PLATFORM_P4SYMBOLIC
     if (standard_metadata.instance_type == CLONE_REPLICA_INSTANCE) {
 
       // Reference for ERSPAN Type II header construction
@@ -50,6 +52,7 @@ control mirroring_encap(inout headers_t headers,
       headers.erspan_gre.version = 0;
       headers.erspan_gre.protocol = GRE_PROTOCOL_ERSPAN;
     }
+#endif  // PLATFORM_P4SYMBOLIC
   }
 }  // control mirroring_encap
 

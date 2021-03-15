@@ -95,7 +95,9 @@ TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
   const P4Info p4info = sai::GetNonstandardP4Info(role, platform);
   ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
                        pdpi::CreateIrP4Info(p4info));
-  const std::string bmv2_config = sai::GetNonstandardP4Config(role, platform);
+  const std::string p4_config = sai::GetNonstandardP4Config(role, platform);
+  EXPECT_OK(env.StoreTestArtifact("ir_p4info.textproto", ir_p4info));
+  EXPECT_OK(env.StoreTestArtifact("p4_config.json", p4_config));
 
   // Prepare hard-coded table entries.
   auto pd_entries = ParseProtoOrDie<sai::TableEntries>(kTableEntries);
@@ -108,7 +110,7 @@ TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
 
   // Prepare p4-symbolic.
   ASSERT_OK_AND_ASSIGN(symbolic::Dataplane dataplane,
-                       ParseToIr(bmv2_config, ir_p4info, pi_entries));
+                       ParseToIr(p4_config, ir_p4info, pi_entries));
   std::vector<int> ports = {0, 1, 2};
   LOG(INFO) << "building model (this may take a while) ...";
   absl::Time start_time = absl::Now();
@@ -133,7 +135,8 @@ TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
     CHECK_NE(ctx.trace.matched_entries.count("ingress.routing.ipv4_table"), 0);
     auto ipv4_table =
         ctx.trace.matched_entries.at("ingress.routing.ipv4_table");
-    return ipv4_table.matched && ipv4_table.entry_index == 0;
+    return ipv4_table.matched && ipv4_table.entry_index == 0 &&
+           !ctx.trace.dropped;
   };
   EXPECT_OK(env.StoreTestArtifact(
       "hit_ipv4_table_entry.smt",
