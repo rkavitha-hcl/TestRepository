@@ -41,6 +41,7 @@ TEST_P(BertTest, StartBertFailsIfRequestParametersInvalid) {
         per_port_requests {
           interface {
             origin: "openconfig"
+            elem { name: "interfaces" }
             elem {
               name: "interface"
               key { key: "name" value: "Ethernet0" }
@@ -107,6 +108,7 @@ TEST_P(BertTest, StartBertFailsIfRequestParametersInvalid) {
         gutil::ParseProtoOrDie<gnoi::types::Path>(
             R"PROTO(
               origin: "openconfig"
+              elem { name: "interfaces" }
               elem {
                 name: "interface"
                 key { key: "name" value: "InvalidPort" }
