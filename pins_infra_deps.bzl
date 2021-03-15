@@ -17,6 +17,7 @@ def pins_infra_deps():
             remote = "https://github.com/grpc/grpc",
             # Move to newer commit to avoid the use of com_github_google_re2.
             commit = "565520443bdbda0b8ac28337a4904f3f20276305",
+            shallow_since = "1614649991 -0800",
         )
     if not native.existing_rule("com_google_absl"):
         http_archive(
@@ -44,6 +45,7 @@ def pins_infra_deps():
             name = "com_googlesource_code_re2",
             commit = "72f110e82ccf3a9ae1c9418bfb447c3ba1cf95c2",
             remote = "https://github.com/google/re2",
+            shallow_since = "1614161110 +0000",
         )
     if not native.existing_rule("com_google_googleapis"):
         git_repository(
@@ -162,4 +164,5 @@ def pins_infra_deps():
             commit = "f4d40a9c9e7422e488af69490a1f85970e43f325",
             # TODO: Upstream changes from this private repo to official gnoi repo.
             remote = "https://github.com/vamsipunati/gnoi.git",
+            shallow_since = "1610343230 -0800",
         )
