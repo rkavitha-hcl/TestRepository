@@ -48,8 +48,9 @@ using NextHeader = absl::variant<
     // An unsupported next header.
     UnsupportedNextHeader>;
 
-absl::StatusOr<NextHeader> GetNextHeader(const EthernetHeader& header) {
-  ASSIGN_OR_RETURN(int ethertype, pdpi::HexStringToInt(header.ethertype()),
+absl::StatusOr<NextHeader> GetNextHeaderForEtherType(
+    absl::string_view header_name, absl::string_view ethertype_hexstring) {
+  ASSIGN_OR_RETURN(int ethertype, pdpi::HexStringToInt(ethertype_hexstring),
                    _.SetCode(absl::StatusCode::kInternal).SetPrepend()
                        << "unable to parse ethertype: ");
   // See https://en.wikipedia.org/wiki/EtherType.
@@ -57,9 +58,17 @@ absl::StatusOr<NextHeader> GetNextHeader(const EthernetHeader& header) {
   if (ethertype == 0x0800) return Header::kIpv4Header;
   if (ethertype == 0x86dd) return Header::kIpv6Header;
   if (ethertype == 0x0806) return Header::kArpHeader;
+  if (ethertype == 0x8100) return Header::kVlanHeader;
   return UnsupportedNextHeader{
-      .reason = absl::StrFormat("ethernet_header.ethertype %s: unsupported",
-                                header.ethertype())};
+      .reason = absl::StrFormat("%s.ethertype %s: unsupported", header_name,
+                                ethertype_hexstring)};
+}
+
+absl::StatusOr<NextHeader> GetNextHeader(const EthernetHeader& header) {
+  return GetNextHeaderForEtherType("ethernet_header", header.ethertype());
+}
+absl::StatusOr<NextHeader> GetNextHeader(const VlanHeader& header) {
+  return GetNextHeaderForEtherType("vlan_header", header.ethertype());
 }
 absl::StatusOr<NextHeader> GetNextHeader(const Ipv4Header& header) {
   if (header.protocol() == "0x06") return Header::kTcpHeaderPrefix;
@@ -107,6 +116,8 @@ absl::StatusOr<NextHeader> GetNextHeader(const Header& header) {
       return GetNextHeader(header.arp_header());
     case Header::kIcmpHeader:
       return GetNextHeader(header.icmp_header());
+    case Header::kVlanHeader:
+      return GetNextHeader(header.vlan_header());
     case Header::HEADER_NOT_SET:
       return Header::HEADER_NOT_SET;
   }
@@ -307,6 +318,25 @@ absl::StatusOr<IcmpHeader> ParseIcmpHeader(pdpi::BitString& data) {
   return header;
 }
 
+// Parse a VLAN header, or return error if the packet is too small.
+absl::StatusOr<VlanHeader> ParseVlanHeader(pdpi::BitString& data) {
+  if (data.size() < kVlanHeaderBitwidth) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "Packet is too short to parse a VLAN header next. Only "
+           << data.size() << " bits left, need at least " << kVlanHeaderBitwidth
+           << ".";
+  }
+
+  VlanHeader header;
+  header.set_priority_code_point(
+      ParseBits(data, kVlanPriorityCodePointBitwidth));
+  header.set_drop_eligible_indicator(
+      ParseBits(data, kVlanDropEligibilityIndicatorBitwidth));
+  header.set_vlan_identifier(ParseBits(data, kVlanVlanIdentifierBitwidth));
+  header.set_ethertype(ParseBits(data, kVlanEthertypeBitwidth));
+  return header;
+}
+
 absl::StatusOr<Header> ParseHeader(Header::HeaderCase header_case,
                                    pdpi::BitString& data) {
   Header result;
@@ -339,6 +369,10 @@ absl::StatusOr<Header> ParseHeader(Header::HeaderCase header_case,
     }
     case Header::kIcmpHeader: {
       ASSIGN_OR_RETURN(*result.mutable_icmp_header(), ParseIcmpHeader(data));
+      return result;
+    }
+    case Header::kVlanHeader: {
+      ASSIGN_OR_RETURN(*result.mutable_vlan_header(), ParseVlanHeader(data));
       return result;
     }
     case Header::HEADER_NOT_SET:
@@ -852,6 +886,23 @@ void IcmpHeaderInvalidReasons(const IcmpHeader& header,
   }
 }
 
+void VlanHeaderInvalidReasons(const VlanHeader& header,
+                              const std::string& field_prefix,
+                              const Packet& packet, int header_index,
+                              std::vector<std::string>& output) {
+  HexStringInvalidReasons<kVlanPriorityCodePointBitwidth>(
+      header.priority_code_point(),
+      absl::StrCat(field_prefix, "priority_code_point"), output);
+  HexStringInvalidReasons<kVlanDropEligibilityIndicatorBitwidth>(
+      header.drop_eligible_indicator(),
+      absl::StrCat(field_prefix, "drop_eligible_indicator"), output);
+  HexStringInvalidReasons<kVlanVlanIdentifierBitwidth>(
+      header.vlan_identifier(), absl::StrCat(field_prefix, "vlan_identifier"),
+      output);
+  HexStringInvalidReasons<kVlanEthertypeBitwidth>(
+      header.ethertype(), absl::StrCat(field_prefix, "ethertype"), output);
+}
+
 }  // namespace
 
 std::string HeaderCaseName(Header::HeaderCase header_case) {
@@ -870,6 +921,8 @@ std::string HeaderCaseName(Header::HeaderCase header_case) {
       return "ArpHeader";
     case Header::kIcmpHeader:
       return "IcmpHeader";
+    case Header::kVlanHeader:
+      return "VlanHeader";
     case Header::HEADER_NOT_SET:
       return "HEADER_NOT_SET";
   }
@@ -932,6 +985,11 @@ std::vector<std::string> PacketInvalidReasons(const Packet& packet) {
       }
       case Header::kIcmpHeader: {
         IcmpHeaderInvalidReasons(header.icmp_header(), field_prefix, packet,
+                                 index, result);
+        break;
+      }
+      case Header::kVlanHeader: {
+        VlanHeaderInvalidReasons(header.vlan_header(), field_prefix, packet,
                                  index, result);
         break;
       }
@@ -1113,6 +1171,19 @@ absl::Status SerializeIcmpHeader(const IcmpHeader& header,
   return absl::OkStatus();
 }
 
+absl::Status SerializeVlanHeader(const VlanHeader& header,
+                                 pdpi::BitString& output) {
+  RETURN_IF_ERROR(SerializeBits<kVlanPriorityCodePointBitwidth>(
+      header.priority_code_point(), output));
+  RETURN_IF_ERROR(SerializeBits<kVlanDropEligibilityIndicatorBitwidth>(
+      header.drop_eligible_indicator(), output));
+  RETURN_IF_ERROR(SerializeBits<kVlanVlanIdentifierBitwidth>(
+      header.vlan_identifier(), output));
+  RETURN_IF_ERROR(
+      SerializeBits<kVlanEthertypeBitwidth>(header.ethertype(), output));
+  return absl::OkStatus();
+}
+
 absl::Status SerializeHeader(const Header& header, pdpi::BitString& output) {
   switch (header.header_case()) {
     case Header::kEthernetHeader:
@@ -1129,6 +1200,8 @@ absl::Status SerializeHeader(const Header& header, pdpi::BitString& output) {
       return SerializeArpHeader(header.arp_header(), output);
     case Header::kIcmpHeader:
       return SerializeIcmpHeader(header.icmp_header(), output);
+    case Header::kVlanHeader:
+      return SerializeVlanHeader(header.vlan_header(), output);
     case Header::HEADER_NOT_SET:
       return gutil::InvalidArgumentErrorBuilder()
              << "Found invalid HEADER_NOT_SET in header.";
@@ -1288,6 +1361,7 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
       }
       case Header::kEthernetHeader:
       case Header::kTcpHeaderPrefix:
+      case Header::kVlanHeader:
         // No computed fields.
         break;
       case Header::HEADER_NOT_SET:
@@ -1327,6 +1401,7 @@ absl::StatusOr<bool> PadPacketToMinimumSize(Packet& packet) {
     case Header::kTcpHeaderPrefix:
     case Header::kArpHeader:
     case Header::kIcmpHeader:
+    case Header::kVlanHeader:
     case Header::HEADER_NOT_SET:
       return false;
   }
@@ -1386,6 +1461,9 @@ absl::StatusOr<int> PacketSizeInBits(const Packet& packet,
         break;
       case Header::kIcmpHeader:
         size += kIcmpHeaderBitwidth;
+        break;
+      case Header::kVlanHeader:
+        size += kVlanHeaderBitwidth;
         break;
       case Header::HEADER_NOT_SET:
         return gutil::InvalidArgumentErrorBuilder()

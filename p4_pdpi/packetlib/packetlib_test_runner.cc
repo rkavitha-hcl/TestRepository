@@ -443,6 +443,33 @@ void RunPacketParseTests() {
     payload: 0x 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25 26 27 28 29
     payload: 0x 2a 2b 2c 2d 2e 2f 30 31 32 33
   )PB");
+
+  RunPacketParseTest("VLAN Packet with ARP (Valid)", R"PB(
+    # Taken from
+    # www.cloudshark.org/captures/e7f1b8c0b434
+    # --------------------------------------------------------------------------
+    # Ethernet header
+    ethernet_destination: 0x ff ff ff ff ff ff
+    ethernet_source: 0x 00 19 06 ea b8 c1
+    ether_type: 0x8100
+    # VLAN header
+    priority_code_point: 0b000
+    drop_eligibility_indicator: 0b0
+    vlan_identifier: 0x07b
+    ether_type: 0x0806
+    # ARP header
+    hardware_type: 0x0001  # Ethernet
+    protocol_type: 0x0800  # IPv4
+    hardware_length: 0x06
+    protocol_length: 0x04
+    operation: 0x0002  # Reply
+    sender_hardware_address: 0x 00 19 06 ea b8 c1
+    sender_protocol_address: 0x c0 a8 7b 01
+    target_hardware_address: 0x ff ff ff ff ff ff
+    target_protocol_address: 0x c0 a8 7b 01
+    # Payload
+    payload: 0x 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
+  )PB");
 }
 
 void RunProtoPacketTests() {
@@ -847,6 +874,34 @@ void RunProtoPacketTests() {
         }
         payload: "0x000102030405060708090a0b0c0d0e0f101112131415"
       )PB"));
+  RunProtoPacketTest("VLAN ARP packet",
+                     gutil::ParseProtoOrDie<Packet>(
+                         R"PB(
+                           headers {
+                             ethernet_header {
+                               ethernet_destination: "ff:ff:ff:ff:ff:ff"
+                               ethernet_source: "11:22:33:44:55:66"
+                               ethertype: "0x8100"
+                             }
+                           }
+                           headers {
+                             vlan_header {
+                               priority_code_point: "0x0"
+                               drop_eligible_indicator: "0x1"
+                               vlan_identifier: "0x123"
+                               ethertype: "0x0806"
+                             }
+                           }
+                           headers {
+                             arp_header {
+                               operation: "0x0001"
+                               sender_hardware_address: "11:22:33:44:55:66"
+                               sender_protocol_address: "1.2.3.4"
+                               target_hardware_address: "00:00:00:00:00:00"
+                               target_protocol_address: "1.2.3.5"
+                             }
+                           }
+                         )PB"));
 
   RunProtoPacketTest("Uninitialized (empty packet) - should be invalid",
                      gutil::ParseProtoOrDie<Packet>(R"PB()PB"));

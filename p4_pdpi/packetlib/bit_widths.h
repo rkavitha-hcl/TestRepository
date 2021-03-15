@@ -15,9 +15,16 @@ constexpr int kUdpHeaderBitwidth = 64;
 constexpr int kTcpHeaderPrefixBitwidth = 32;
 constexpr int kArpHeaderBitwidth = 28 * 8;
 constexpr int kIcmpHeaderBitwidth = 8 * 8;
+constexpr int kVlanHeaderBitwidth = 32;
 
 // Ethernet constants.
 constexpr int kEthernetEthertypeBitwidth = 16;
+
+// VLAN constants.
+constexpr int kVlanPriorityCodePointBitwidth = 3;
+constexpr int kVlanDropEligibilityIndicatorBitwidth = 1;
+constexpr int kVlanVlanIdentifierBitwidth = 12;
+constexpr int kVlanEthertypeBitwidth = 16;
 
 // IP constants.
 constexpr int kIpVersionBitwidth = 4;          // IPv4 & IPv6
