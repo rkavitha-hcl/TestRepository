@@ -2,6 +2,7 @@
 
 #include "absl/strings/string_view.h"
 #include "absl/time/clock.h"
+#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -16,12 +17,15 @@
 #include "sai_p4/instantiations/google/sai_nonstandard_platforms.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
 #include "sai_p4/instantiations/google/switch_role.h"
+#include "thinkit/bazel_test_environment.h"
 
 namespace p4_symbolic {
 namespace {
 
 using ::gutil::ParseProtoOrDie;
 using ::p4::config::v1::P4Info;
+using ::testing::Eq;
+using ::testing::Not;
 
 constexpr absl::string_view kTableEntries = R"PB(
   entries {
@@ -73,8 +77,19 @@ constexpr absl::string_view kTableEntries = R"PB(
   }
 )PB";
 
-TEST(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
+class P4SymbolicComponentTest : public testing::Test {
+ public:
+  thinkit::TestEnvironment& Environment() { return *environment_; }
+
+ private:
+  std::unique_ptr<thinkit::TestEnvironment> environment_ =
+      absl::make_unique<thinkit::BazelTestEnvironment>(
+          /*mask_known_failures=*/true);
+};
+
+TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
   // Some constants.
+  thinkit::TestEnvironment& env = Environment();
   const auto role = sai::SwitchRole::kMiddleblock;
   const auto platform = sai::NonstandardPlatform::kP4Symbolic;
   const P4Info p4info = sai::GetNonstandardP4Info(role, platform);
@@ -84,7 +99,7 @@ TEST(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
 
   // Prepare hard-coded table entries.
   auto pd_entries = ParseProtoOrDie<sai::TableEntries>(kTableEntries);
-  LOG(INFO) << "table entries = " << pd_entries.DebugString();
+  EXPECT_OK(env.StoreTestArtifact("pd_entries.textproto", pd_entries));
   std::vector<p4::v1::TableEntry> pi_entries;
   for (auto& pd_entry : pd_entries.entries()) {
     ASSERT_OK_AND_ASSIGN(pi_entries.emplace_back(),
@@ -102,10 +117,34 @@ TEST(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
       symbolic::EvaluateP4Pipeline(dataplane, ports,
                                    /*hardcoded_parser=*/false));
   LOG(INFO) << "-> done in " << (absl::Now() - start_time);
+  for (auto& [name, entries] : solver_state->entries) {
+    std::string banner = absl::StrCat(
+        "== ", name, " ", std::string(80 - name.size() - 4, '='), "\n");
+    EXPECT_OK(env.AppendToTestArtifact("ir_entries.textproto", banner));
+    for (auto& entry : entries) {
+      EXPECT_OK(env.AppendToTestArtifact("ir_entries.textproto", entry));
+    }
+  }
+  EXPECT_OK(env.StoreTestArtifact("program.textproto", solver_state->program));
 
-  // TODO: Generate test packets.
-  // symbolic::Solve
-  // symbolic::DebugSMT
+  // Define assertion to hit IPv4 table entry.
+  symbolic::Assertion hit_ipv4_table_entry =
+      [](const symbolic::SymbolicContext& ctx) -> z3::expr {
+    CHECK_NE(ctx.trace.matched_entries.count("ingress.routing.ipv4_table"), 0);
+    auto ipv4_table =
+        ctx.trace.matched_entries.at("ingress.routing.ipv4_table");
+    return ipv4_table.matched && ipv4_table.entry_index == 0;
+  };
+  EXPECT_OK(env.StoreTestArtifact(
+      "hit_ipv4_table_entry.smt",
+      symbolic::DebugSMT(solver_state, hit_ipv4_table_entry)));
+  ASSERT_OK_AND_ASSIGN(
+      absl::optional<symbolic::ConcreteContext> concrete_context,
+      symbolic::Solve(solver_state, hit_ipv4_table_entry));
+  ASSERT_THAT(concrete_context, Not(Eq(absl::nullopt)));
+  EXPECT_OK(
+      env.StoreTestArtifact("hit_ipv4_table_entry.solution.txt",
+                            concrete_context->to_string(/*verbose=*/true)));
 }
 
 }  // namespace
