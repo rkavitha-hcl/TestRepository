@@ -105,7 +105,7 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
     // TODO: enable this once the switch actually returns a real reply
     // for all inputs.
     if (!mask_known_failures) {
-      EXPECT_TRUE(response.has_rpc_response())
+      ASSERT_TRUE(response.has_rpc_response())
           << "Expected proper response, but got: " << response.DebugString();
     }
     if (response.has_rpc_response()) {
@@ -138,7 +138,7 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
                  table.preamble().alias() == "ipv4_table" ||
                  table.preamble().alias() == "ipv6_table"))) {
             // Check that table was full before this status.
-            EXPECT_TRUE(state.IsTableFull(table_id))
+            ASSERT_TRUE(state.IsTableFull(table_id))
                 << "Switch reported RESOURCE_EXHAUSTED for "
                 << table.preamble().alias() << ". The table currently has "
                 << state.GetNumTableEntries(table_id)
@@ -153,9 +153,7 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
           error_messages.insert(absl::StrCat(
               google::rpc::Code_Name(status.code()), ": ", status.message()));
         } else {
-          // TODO: check using ASSERT_OK in the future once the switch
-          // no longer fails this.
-          state.ApplyUpdate(update).IgnoreError();
+          ASSERT_OK(state.ApplyUpdate(update));
           num_ok_statuses += 1;
         }
 
