@@ -13,6 +13,7 @@
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/pd.h"
 #include "p4_symbolic/parser.h"
+#include "p4_symbolic/sai/parser.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 #include "sai_p4/instantiations/google/sai_nonstandard_platforms.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
@@ -108,17 +109,23 @@ TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
                          pdpi::PdTableEntryToPi(ir_p4info, pd_entry));
   }
 
-  // Prepare p4-symbolic.
+  // Symbolically evaluate program.
   ASSERT_OK_AND_ASSIGN(symbolic::Dataplane dataplane,
                        ParseToIr(p4_config, ir_p4info, pi_entries));
   std::vector<int> ports = {0, 1, 2};
   LOG(INFO) << "building model (this may take a while) ...";
   absl::Time start_time = absl::Now();
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<symbolic::SolverState> solver_state,
-      symbolic::EvaluateP4Pipeline(dataplane, ports,
-                                   /*hardcoded_parser=*/false));
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<symbolic::SolverState> solver_state,
+                       symbolic::EvaluateP4Pipeline(dataplane, ports));
   LOG(INFO) << "-> done in " << (absl::Now() - start_time);
+  // Add constraints for parser.
+  ASSERT_OK_AND_ASSIGN(
+      std::vector<z3::expr> parser_constraints,
+      EvaluateSaiParser(solver_state->context.ingress_headers));
+  for (auto& constraint : parser_constraints) {
+    solver_state->solver->add(constraint);
+  }
+  // Dump solver state.
   for (auto& [name, entries] : solver_state->entries) {
     std::string banner = absl::StrCat(
         "== ", name, " ", std::string(80 - name.size() - 4, '='), "\n");
@@ -129,7 +136,7 @@ TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
   }
   EXPECT_OK(env.StoreTestArtifact("program.textproto", solver_state->program));
 
-  // Define assertion to hit IPv4 table entry.
+  // Define assertion to hit IPv4 table entry, and solve for it.
   symbolic::Assertion hit_ipv4_table_entry =
       [](const symbolic::SymbolicContext& ctx) -> z3::expr {
     CHECK_NE(ctx.trace.matched_entries.count("ingress.routing.ipv4_table"), 0);
@@ -141,13 +148,16 @@ TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
   EXPECT_OK(env.StoreTestArtifact(
       "hit_ipv4_table_entry.smt",
       symbolic::DebugSMT(solver_state, hit_ipv4_table_entry)));
-  ASSERT_OK_AND_ASSIGN(
-      absl::optional<symbolic::ConcreteContext> concrete_context,
-      symbolic::Solve(solver_state, hit_ipv4_table_entry));
-  ASSERT_THAT(concrete_context, Not(Eq(absl::nullopt)));
-  EXPECT_OK(
-      env.StoreTestArtifact("hit_ipv4_table_entry.solution.txt",
-                            concrete_context->to_string(/*verbose=*/true)));
+  ASSERT_OK_AND_ASSIGN(absl::optional<symbolic::ConcreteContext> solution,
+                       symbolic::Solve(solver_state, hit_ipv4_table_entry));
+  ASSERT_THAT(solution, Not(Eq(absl::nullopt)));
+  EXPECT_OK(env.StoreTestArtifact("hit_ipv4_table_entry.solution.txt",
+                                  solution->to_string(/*verbose=*/true)));
+
+  // Check some properties of the solution.
+  EXPECT_THAT(solution->egress_packet.eth_type, "#x0800");
+  EXPECT_THAT(solution->egress_packet.eth_dst, "#xccbbaa998877");
+  EXPECT_THAT(solution->egress_packet.eth_src, "#x665544332211");
 }
 
 }  // namespace
