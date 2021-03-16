@@ -6,13 +6,18 @@ on:
   pull_request:
     branches: [ master ]
   schedule:
-    # Run once an hour to ensure we always have a master-branch cache entry.
-    # https://crontab.guru/#0_*_*_*_*
-    - cron: "0 * * * *"
+    # Run once a day at midnight (PDT). This is when the cache key changes, and
+    # so this will ensure the new cache entry is generated on the master branch,
+    # making CI fast during the PT workday.
+    # https://crontab.guru/#0_7_*_*_*
+    - cron: "0 7 * * *"
 
 jobs:
-
   build:
+    strategy:
+      matrix:
+        bazelcmd: [build, test]
+    name: ${{ matrix.bazelcmd }}
     # We use Ubuntu 20.04 as it comes with GCC v9.3 by default.
     runs-on: ubuntu-20.04
     env:
@@ -22,9 +27,9 @@ jobs:
     steps:
     - uses: actions/checkout@v2
 
-    - name: Compute number of the current calendar week (PST).
-      id: week
-      run: echo "::set-output name=number::$(TZ='America/Los_Angeles' date +%V)"
+    - name: Compute day of the year (PDT).
+      id: day
+      run: echo "::set-output name=number::$(TZ='Etc/GMT+7' date +%j)"
 
     - name: Mount bazel cache
       uses: actions/cache@v2
@@ -32,10 +37,10 @@ jobs:
         # See https://docs.bazel.build/versions/master/output_directories.html
         path: "~/.cache/bazel"
         # See https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows
-        key: build-${{ runner.os }}-${{ hashFiles('**/*_deps.bzl') }}-${{ steps.week.outputs.number }}
+        key: ${{ matrix.bazelcmd }}-${{ runner.os }}-${{ hashFiles('**/*_deps.bzl') }}-${{ steps.day.outputs.number }}
         restore-keys: |
-          build-${{ runner.os }}-${{ hashFiles('**/*_deps.bzl') }}
-          build-${{ runner.os }}-
+          ${{ matrix.bazelcmd }}-${{ runner.os }}-${{ hashFiles('**/*_deps.bzl') }}
+          ${{ matrix.bazelcmd }}-${{ runner.os }}-
 
     - name: Install system dependencies
       run: ./install_dependencies.sh
@@ -49,39 +54,4 @@ jobs:
       run: git config --global url."${SWSS}".InsteadOf "git@github.com:pins/sonic-swss-common.git"
 
     - name: Build
-      run: ./$BAZEL build //... --distinct_host_configuration=false
-
-  test:
-    # We use Ubuntu 20.04 as it comes with GCC v9.3 by default.
-    runs-on: ubuntu-20.04
-    env:
-      BAZEL: bazelisk-linux-amd64
-      SWSS: https://x-token-auth:${{ secrets.PINS_GITHUB_BOT_PERSONAL_ACCESS_TOKEN }}@github.com/pins/sonic-swss-common.git
-
-    steps:
-    - uses: actions/checkout@v2
-
-    - name: Mount bazel cache
-      uses: actions/cache@v2
-      with:
-        # See https://docs.bazel.build/versions/master/output_directories.html
-        path: "~/.cache/bazel"
-        # See https://docs.github.com/en/actions/guides/caching-dependencies-to-speed-up-workflows
-        key: test-${{ runner.os }}-${{ hashFiles('**/*_deps.bzl') }}-${{ steps.week.outputs.number }}
-        restore-keys: |
-          test-${{ runner.os }}-${{ hashFiles('**/*_deps.bzl') }}
-          test-${{ runner.os }}-
-
-    - name: Install system dependencies
-      run: ./install_dependencies.sh
-
-    - name: Install bazelisk
-      run: |
-        curl -LO "https://github.com/bazelbuild/bazelisk/releases/download/v1.7.5/$BAZEL"
-        chmod +x $BAZEL
-
-    - name: Set up GitHub credentials for private repos
-      run: git config --global url."${SWSS}".InsteadOf "git@github.com:pins/sonic-swss-common.git"
-
-    - name: Test
-      run: ./$BAZEL test //... --test_output=errors --distinct_host_configuration=false
+      run: ./$BAZEL ${{ matrix.bazelcmd }} //... --test_output=errors --distinct_host_configuration=false
