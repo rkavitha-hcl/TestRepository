@@ -21,6 +21,7 @@ cc_library(
         "//gutil:collections",
         "//gutil:status",
         "//gutil:status_matchers",
+        "//lib/gnmi:gnmi_helper",
         "//p4_pdpi:connection_management",
         "//p4_pdpi:entity_management",
         "//p4_pdpi:ir",

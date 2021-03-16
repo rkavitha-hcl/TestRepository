@@ -18,6 +18,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/status_matchers.h"
+#include "lib/gnmi/gnmi_helper.h"
 #include "p4_pdpi/connection_management.h"
 #include "p4_pdpi/entity_management.h"
 #include "p4_pdpi/pd.h"
@@ -36,10 +37,15 @@ class P4BlackboxFixture : public thinkit::MirrorTestbedFixture {
  public:
   void SetUp() override {
     MirrorTestbedFixture::SetUp();
+    // Push the gnmi configuration.
+    ASSERT_OK(
+        pins_test::PushGnmiConfig(GetMirrorTestbed().Sut(), GetGnmiConfig()));
+    ASSERT_OK(pins_test::PushGnmiConfig(GetMirrorTestbed().ControlSwitch(),
+                                        GetGnmiConfig()));
+
     // Initialize the connection.
     ASSERT_OK_AND_ASSIGN(sut_p4rt_session_, pdpi::P4RuntimeSession::Create(
                                                 GetMirrorTestbed().Sut()));
-
     ASSERT_OK(pdpi::SetForwardingPipelineConfig(
         sut_p4rt_session_.get(),
         sai::GetP4Info(sai::SwitchRole::kMiddleblock)));

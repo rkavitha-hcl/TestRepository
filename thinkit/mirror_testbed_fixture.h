@@ -36,6 +36,13 @@ class MirrorTestbedInterface {
   virtual MirrorTestbed& GetMirrorTestbed() = 0;
 };
 
+// The Thinkit `TestParams` defines test parameters to
+// `MirrorTestbedFixture` class.
+struct TestParams {
+  MirrorTestbedInterface* mirror_testbed;
+  std::string gnmi_config;
+};
+
 // The ThinKit `MirrorTestbedFixture` class acts as a base test fixture for
 // platform independent PINS tests. Any platform specific SetUp or TearDown
 // requirements are abstracted through the ThinKit MirrorTestbedInterface which
@@ -59,8 +66,7 @@ class MirrorTestbedInterface {
 //
 //  Individual tests should use the new suite name:
 //    TEST_P(MyPinsTest, MyTestName) {}
-class MirrorTestbedFixture
-    : public testing::TestWithParam<MirrorTestbedInterface*> {
+class MirrorTestbedFixture : public testing::TestWithParam<TestParams> {
  protected:
   // A derived class that needs/wants to do its own setup can override this
   // method. However, it should take care to call this base setup first. That
@@ -79,10 +85,12 @@ class MirrorTestbedFixture
     return mirror_testbed_interface_->GetMirrorTestbed();
   }
 
+  std::string GetGnmiConfig() { return GetParam().gnmi_config; }
+
  private:
   // Takes ownership of the MirrorTestbedInterface parameter.
   std::unique_ptr<MirrorTestbedInterface> mirror_testbed_interface_ =
-      absl::WrapUnique<MirrorTestbedInterface>(GetParam());
+      absl::WrapUnique<MirrorTestbedInterface>(GetParam().mirror_testbed);
 };
 
 }  // namespace thinkit

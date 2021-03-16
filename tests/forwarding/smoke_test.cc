@@ -39,7 +39,7 @@ TEST_P(SmokeTestFixture, DISABLED_Bug181149419) {
             match { mirror_session_id: "session" }
             action {
               mirror_as_ipv4_erspan {
-                port: "0x000"
+                port: "1"
                 src_ip: "10.206.196.0"
                 dst_ip: "172.20.0.202"
                 src_mac: "00:02:03:04:05:06"
@@ -66,7 +66,7 @@ TEST_P(SmokeTestFixture, DISABLED_Bug181149419) {
             match { mirror_session_id: "session-9" }
             action {
               mirror_as_ipv4_erspan {
-                port: "0x000"
+                port: "1"
                 src_ip: "10.206.196.0"
                 dst_ip: "172.20.0.202"
                 src_mac: "00:02:03:04:05:06"
@@ -118,7 +118,7 @@ TEST_P(SmokeTestFixture, InsertTableEntry) {
         router_interface_table_entry {
           match { router_interface_id: "router-interface-1" }
           action {
-            set_port_and_src_mac { port: "0x000" src_mac: "02:2a:10:00:00:03" }
+            set_port_and_src_mac { port: "1" src_mac: "02:2a:10:00:00:03" }
           }
         }
       )PB");
@@ -134,7 +134,7 @@ TEST_P(SmokeTestFixture, InsertTableEntryWithRandomCharacterId) {
         router_interface_table_entry {
           match { router_interface_id: "\x01\x33\x00\xff,\":'}(*{+-" }
           action {
-            set_port_and_src_mac { port: "0x000" src_mac: "02:2a:10:00:00:03" }
+            set_port_and_src_mac { port: "1" src_mac: "02:2a:10:00:00:03" }
           }
         }
       )PB");

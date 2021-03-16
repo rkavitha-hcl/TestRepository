@@ -90,6 +90,9 @@ absl::Status PushGnmiConfig(
     const std::string& gnmi_config,
     absl::uint128 election_id = pdpi::TimeBasedElectionId());
 
+absl::Status PushGnmiConfig(thinkit::Switch& chassis,
+                            const std::string& gnmi_config);
+
 absl::Status CheckAllInterfaceUpOverGnmi(gnmi::gNMI::Stub& stub);
 
 // Returns gNMI Path for OC strings.

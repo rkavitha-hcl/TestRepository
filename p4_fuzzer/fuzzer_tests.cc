@@ -13,6 +13,7 @@
 #include "gutil/collections.h"
 #include "gutil/status.h"
 #include "gutil/status_matchers.h"
+#include "lib/gnmi/gnmi_helper.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_fuzzer/annotation_util.h"
 #include "p4_fuzzer/fuzz_util.h"
@@ -39,6 +40,12 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
   thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
 
   bool mask_known_failures = environment.MaskKnownFailures();
+
+  // Push the gnmi configuration.
+  ASSERT_OK(
+      pins_test::PushGnmiConfig(GetMirrorTestbed().Sut(), GetGnmiConfig()));
+  ASSERT_OK(pins_test::PushGnmiConfig(GetMirrorTestbed().ControlSwitch(),
+                                      GetGnmiConfig()));
 
   // Initialize connection.
   ASSERT_OK_AND_ASSIGN(auto stub, sut.CreateP4RuntimeStub());

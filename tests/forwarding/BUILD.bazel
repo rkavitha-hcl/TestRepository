@@ -25,6 +25,7 @@ cc_library(
     hdrs = ["p4_blackbox_fixture.h"],
     deps = [
         "//gutil:status_matchers",
+        "//lib/gnmi:gnmi_helper",
         "//p4_pdpi:connection_management",
         "//p4_pdpi:entity_management",
         "//p4_pdpi:pd",

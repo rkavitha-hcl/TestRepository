@@ -191,6 +191,13 @@ absl::Status PushGnmiConfig(gnmi::gNMI::Stub& stub,
   return absl::OkStatus();
 }
 
+absl::Status PushGnmiConfig(thinkit::Switch& chassis,
+                            const std::string& gnmi_config) {
+  ASSIGN_OR_RETURN(std::unique_ptr<gnmi::gNMI::Stub> stub,
+                   chassis.CreateGnmiStub());
+  return pins_test::PushGnmiConfig(*stub, chassis.ChassisName(), gnmi_config);
+}
+
 absl::Status CheckAllInterfaceUpOverGnmi(gnmi::gNMI::Stub& stub) {
   ASSIGN_OR_RETURN(auto req,
                    BuildGnmiGetRequest("interfaces", gnmi::GetRequest::STATE));
