@@ -16,6 +16,7 @@
 
 #include <stdint.h>
 
+#include <algorithm>
 #include <string>
 #include <vector>
 
@@ -943,15 +944,30 @@ absl::Status IrWriteRpcStatusToPd(const IrWriteRpcStatus &ir_write_status,
 static absl::Status PdMatchEntryToIr(const IrTableDefinition &ir_table_info,
                                      const google::protobuf::Message &pd_match,
                                      IrTableEntry *ir_table_entry) {
-  for (const auto &pd_match_name : GetAllFieldNames(pd_match)) {
-    auto *ir_match = ir_table_entry->add_matches();
-    ir_match->set_name(pd_match_name);
+  std::vector<std::pair<uint64_t, std::string>> matches;
+  for (const auto &[id, match_field] : ir_table_info.match_fields_by_id()) {
+    matches.push_back({id, match_field.match_field().name()});
+  }
+  std::sort(matches.begin(), matches.end());
+  for (const auto &[_, pd_match_name] : matches) {
     ASSIGN_OR_RETURN(
         const auto &ir_match_info,
         gutil::FindOrStatus(ir_table_info.match_fields_by_name(),
                             pd_match_name),
         _ << "P4Info for table \"" << ir_table_info.preamble().name()
           << "\" does not contain match with name \"" << pd_match_name << "\"");
+
+    // Skip optional fields that are not present in pd_match. For exact matches,
+    // this will automatically assume the default value (i.e. ""), which allows
+    // for "" for Format::STRING fields.
+    auto has_field = HasField(pd_match, pd_match_name);
+    if (has_field.ok() && !*has_field &&
+        ir_match_info.match_field().match_type() != MatchField::EXACT) {
+      continue;
+    }
+
+    auto *ir_match = ir_table_entry->add_matches();
+    ir_match->set_name(pd_match_name);
     switch (ir_match_info.match_field().match_type()) {
       case MatchField::EXACT: {
         ASSIGN_OR_RETURN(const auto &pd_value,

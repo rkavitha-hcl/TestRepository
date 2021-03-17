@@ -1587,7 +1587,7 @@ id_test_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-Expected 2 mandatory match conditions but found 1 instead
+In match field 'ipv4' of table 'id_test_table': Invalid IPv4 address: ''
 =========================================================================
 negative prefix length
 =========================================================================
@@ -3073,6 +3073,127 @@ meter_config {
   cburst: 345
   pir: 123
   pburst: 345
+}
+
+
+=========================================================================
+exact match with empty string for Format::STRING
+=========================================================================
+
+--- PD (Input):
+exact_table_entry {
+  match {
+    normal: "0x054"
+    ipv4: "10.43.12.5"
+    ipv6: "3242::fee2"
+    mac: "00:11:22:33:44:55"
+  }
+  action {
+    NoAction {
+    }
+  }
+}
+
+--- IR:
+table_name: "exact_table"
+matches {
+  name: "normal"
+  exact {
+    hex_str: "0x054"
+  }
+}
+matches {
+  name: "ipv4"
+  exact {
+    ipv4: "10.43.12.5"
+  }
+}
+matches {
+  name: "ipv6"
+  exact {
+    ipv6: "3242::fee2"
+  }
+}
+matches {
+  name: "mac"
+  exact {
+    mac: "00:11:22:33:44:55"
+  }
+}
+matches {
+  name: "str"
+  exact {
+    str: ""
+  }
+}
+action {
+  name: "NoAction"
+}
+
+--- PI:
+table_id: 33554434
+match {
+  field_id: 1
+  exact {
+    value: "T"
+  }
+}
+match {
+  field_id: 2
+  exact {
+    value: "\n+\014\005"
+  }
+}
+match {
+  field_id: 3
+  exact {
+    value: "2B\000\000\000\000\000\000\000\000\000\000\000\000\376\342"
+  }
+}
+match {
+  field_id: 4
+  exact {
+    value: "\021\"3DU"
+  }
+}
+match {
+  field_id: 5
+  exact {
+  }
+}
+action {
+  action {
+    action_id: 21257015
+  }
+}
+
+
+=========================================================================
+ipv4 LPM table with /0
+=========================================================================
+
+--- PD (Input):
+lpm1_table_entry {
+  match {
+  }
+  action {
+    NoAction {
+    }
+  }
+}
+
+--- IR:
+table_name: "lpm1_table"
+action {
+  name: "NoAction"
+}
+
+--- PI:
+table_id: 33554436
+action {
+  action {
+    action_id: 21257015
+  }
 }
 
 

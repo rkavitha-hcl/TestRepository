@@ -1326,6 +1326,30 @@ static void RunPdTests(const pdpi::IrP4Info info) {
       )PB"),
       INPUT_IS_VALID);
 
+  RunPdTableEntryTest(info, "exact match with empty string for Format::STRING",
+                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+                        exact_table_entry {
+                          match {
+                            normal: "0x054"
+                            ipv4: "10.43.12.5"
+                            ipv6: "3242::fee2"
+                            mac: "00:11:22:33:44:55"
+                            str: ""
+                          }
+                          action { NoAction {} }
+                        }
+                      )PB"),
+                      INPUT_IS_VALID);
+
+  RunPdTableEntryTest(info, "ipv4 LPM table with /0",
+                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+                        lpm1_table_entry {
+                          match {}
+                          action { NoAction {} }
+                        }
+                      )PB"),
+                      INPUT_IS_VALID);
+
   // TODO: implement counters
   /*
   RunPdTableEntryTest(
