@@ -91,6 +91,44 @@ metadata {
 
 
 =========================================================================
+PacketIn test: Format::STRING with null characters
+=========================================================================
+
+--- PD (Input):
+payload: "1"
+metadata {
+  ingress_port: "0x034"
+  target_egress_port: "\00423"
+}
+
+--- IR:
+payload: "1"
+metadata {
+  name: "ingress_port"
+  value {
+    hex_str: "0x034"
+  }
+}
+metadata {
+  name: "target_egress_port"
+  value {
+    str: "\00423"
+  }
+}
+
+--- PI:
+payload: "1"
+metadata {
+  metadata_id: 1
+  value: "4"
+}
+metadata {
+  metadata_id: 2
+  value: "\00423"
+}
+
+
+=========================================================================
 PacketOut test: duplicate id
 =========================================================================
 

@@ -522,6 +522,14 @@ tables {
     bitwidth: 128
     match_type: OPTIONAL
   }
+  match_fields {
+    id: 3
+    name: "str"
+    match_type: OPTIONAL
+    type_name {
+      name: "string_id_t"
+    }
+  }
   action_refs {
     id: 16777217
     annotations: "@proto_id(1)"
@@ -2021,6 +2029,20 @@ tables_by_id {
         format: IPV4
       }
     }
+    match_fields_by_id {
+      key: 3
+      value {
+        match_field {
+          id: 3
+          name: "str"
+          match_type: OPTIONAL
+          type_name {
+            name: "string_id_t"
+          }
+        }
+        format: STRING
+      }
+    }
     match_fields_by_name {
       key: "ipv4"
       value {
@@ -2045,6 +2067,20 @@ tables_by_id {
           match_type: OPTIONAL
         }
         format: IPV6
+      }
+    }
+    match_fields_by_name {
+      key: "str"
+      value {
+        match_field {
+          id: 3
+          name: "str"
+          match_type: OPTIONAL
+          type_name {
+            name: "string_id_t"
+          }
+        }
+        format: STRING
       }
     }
     entry_actions {
@@ -3101,6 +3137,20 @@ tables_by_name {
         format: IPV4
       }
     }
+    match_fields_by_id {
+      key: 3
+      value {
+        match_field {
+          id: 3
+          name: "str"
+          match_type: OPTIONAL
+          type_name {
+            name: "string_id_t"
+          }
+        }
+        format: STRING
+      }
+    }
     match_fields_by_name {
       key: "ipv4"
       value {
@@ -3125,6 +3175,20 @@ tables_by_name {
           match_type: OPTIONAL
         }
         format: IPV6
+      }
+    }
+    match_fields_by_name {
+      key: "str"
+      value {
+        match_field {
+          id: 3
+          name: "str"
+          match_type: OPTIONAL
+          type_name {
+            name: "string_id_t"
+          }
+        }
+        format: STRING
       }
     }
     entry_actions {

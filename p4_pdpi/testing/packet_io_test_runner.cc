@@ -94,6 +94,13 @@ static void RunPacketInTests(pdpi::IrP4Info info) {
         metadata { ingress_port: "0x034" target_egress_port: "eth-1/2/3" }
       )PB"),
       INPUT_IS_VALID);
+  RunPdPacketInTest(
+      info, "Format::STRING with null characters",
+      gutil::ParseProtoOrDie<pdpi::PacketIn>(R"PB(
+        payload: "1"
+        metadata { ingress_port: "0x034" target_egress_port: "\00423" }
+      )PB"),
+      INPUT_IS_VALID);
 }
 
 static void RunPacketOutTests(pdpi::IrP4Info info) {

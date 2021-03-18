@@ -3197,3 +3197,296 @@ action {
 }
 
 
+=========================================================================
+exact match with string containing null characters for Format::STRING
+=========================================================================
+
+--- PD (Input):
+exact_table_entry {
+  match {
+    normal: "0x054"
+    ipv4: "10.43.12.5"
+    ipv6: "3242::fee2"
+    mac: "00:11:22:33:44:55"
+    str: "\0001u"
+  }
+  action {
+    NoAction {
+    }
+  }
+}
+
+--- IR:
+table_name: "exact_table"
+matches {
+  name: "normal"
+  exact {
+    hex_str: "0x054"
+  }
+}
+matches {
+  name: "ipv4"
+  exact {
+    ipv4: "10.43.12.5"
+  }
+}
+matches {
+  name: "ipv6"
+  exact {
+    ipv6: "3242::fee2"
+  }
+}
+matches {
+  name: "mac"
+  exact {
+    mac: "00:11:22:33:44:55"
+  }
+}
+matches {
+  name: "str"
+  exact {
+    str: "\0001u"
+  }
+}
+action {
+  name: "NoAction"
+}
+
+--- PI:
+table_id: 33554434
+match {
+  field_id: 1
+  exact {
+    value: "T"
+  }
+}
+match {
+  field_id: 2
+  exact {
+    value: "\n+\014\005"
+  }
+}
+match {
+  field_id: 3
+  exact {
+    value: "2B\000\000\000\000\000\000\000\000\000\000\000\000\376\342"
+  }
+}
+match {
+  field_id: 4
+  exact {
+    value: "\021\"3DU"
+  }
+}
+match {
+  field_id: 5
+  exact {
+    value: "\0001u"
+  }
+}
+action {
+  action {
+    action_id: 21257015
+  }
+}
+
+
+=========================================================================
+optional match with string containing null characters for Format::STRING
+=========================================================================
+
+--- PD (Input):
+optional_table_entry {
+  match {
+    str {
+      value: "\000324"
+    }
+  }
+  action {
+    do_thing_1 {
+      arg2: "0x01234567"
+      arg1: "0x01234568"
+    }
+  }
+  priority: 32
+}
+
+--- IR:
+table_name: "optional_table"
+matches {
+  name: "str"
+  optional {
+    value {
+      str: "\000324"
+    }
+  }
+}
+priority: 32
+action {
+  name: "do_thing_1"
+  params {
+    name: "arg2"
+    value {
+      hex_str: "0x01234567"
+    }
+  }
+  params {
+    name: "arg1"
+    value {
+      hex_str: "0x01234568"
+    }
+  }
+}
+
+--- PI:
+table_id: 33554441
+match {
+  field_id: 3
+  optional {
+    value: "\000324"
+  }
+}
+action {
+  action {
+    action_id: 16777217
+    params {
+      param_id: 1
+      value: "\001#Eg"
+    }
+    params {
+      param_id: 2
+      value: "\001#Eh"
+    }
+  }
+}
+priority: 32
+
+
+=========================================================================
+valid wcmp table with watch_port containing null characters for Format::STRING
+=========================================================================
+
+--- PD (Input):
+wcmp2_table_entry {
+  match {
+    ipv4 {
+      value: "0.0.255.0"
+      prefix_length: 24
+    }
+  }
+  wcmp_actions {
+    action {
+      do_thing_1 {
+        arg2: "0x01234567"
+        arg1: "0x01234568"
+      }
+    }
+    weight: 1
+    watch_port: "\000abc"
+  }
+  wcmp_actions {
+    action {
+      do_thing_1 {
+        arg2: "0x01234569"
+        arg1: "0x01234560"
+      }
+    }
+    weight: 2
+  }
+}
+
+--- IR:
+table_name: "wcmp2_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "0.0.255.0"
+    }
+    prefix_length: 24
+  }
+}
+action_set {
+  actions {
+    action {
+      name: "do_thing_1"
+      params {
+        name: "arg2"
+        value {
+          hex_str: "0x01234567"
+        }
+      }
+      params {
+        name: "arg1"
+        value {
+          hex_str: "0x01234568"
+        }
+      }
+    }
+    weight: 1
+    watch_port: "\000abc"
+  }
+  actions {
+    action {
+      name: "do_thing_1"
+      params {
+        name: "arg2"
+        value {
+          hex_str: "0x01234569"
+        }
+      }
+      params {
+        name: "arg1"
+        value {
+          hex_str: "0x01234560"
+        }
+      }
+    }
+    weight: 2
+  }
+}
+
+--- PI:
+table_id: 33554440
+match {
+  field_id: 1
+  lpm {
+    value: "\377\000"
+    prefix_len: 24
+  }
+}
+action {
+  action_profile_action_set {
+    action_profile_actions {
+      action {
+        action_id: 16777217
+        params {
+          param_id: 1
+          value: "\001#Eg"
+        }
+        params {
+          param_id: 2
+          value: "\001#Eh"
+        }
+      }
+      weight: 1
+      watch_port: "\000abc"
+    }
+    action_profile_actions {
+      action {
+        action_id: 16777217
+        params {
+          param_id: 1
+          value: "\001#Ei"
+        }
+        params {
+          param_id: 2
+          value: "\001#E`"
+        }
+      }
+      weight: 2
+    }
+  }
+}
+
+

@@ -210,6 +210,7 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
       key = {
           meta.ipv4 : optional @id(2) @format(IPV4_ADDRESS) @name("ipv4");
           meta.ipv6 : optional @id(1) @format(IPV6_ADDRESS) @name("ipv6");
+          meta.str : optional @id(3) @name("str");
       }
       actions = {
         @proto_id(1) do_thing_1;

@@ -473,8 +473,12 @@ StatusOr<p4::v1::FieldMatch> IrMatchFieldToPi(
           const auto &value,
           IrValueToNormalizedByteString(
               ir_match.exact(), ir_match_definition.match_field().bitwidth()));
-      match_entry.mutable_exact()->set_value(
-          ArbitraryToCanonicalByteString(value));
+      if (ir_match_definition.format() == STRING) {
+        match_entry.mutable_exact()->set_value(value);
+      } else {
+        match_entry.mutable_exact()->set_value(
+            ArbitraryToCanonicalByteString(value));
+      }
       break;
     }
     case MatchField::LPM: {
@@ -565,8 +569,12 @@ StatusOr<p4::v1::FieldMatch> IrMatchFieldToPi(
                        IrValueToNormalizedByteString(
                            ir_match.optional().value(),
                            ir_match_definition.match_field().bitwidth()));
-      match_entry.mutable_optional()->set_value(
-          ArbitraryToCanonicalByteString(value));
+      if (ir_match_definition.format() == STRING) {
+        match_entry.mutable_optional()->set_value(value);
+      } else {
+        match_entry.mutable_optional()->set_value(
+            ArbitraryToCanonicalByteString(value));
+      }
       break;
     }
     default:
@@ -629,7 +637,11 @@ StatusOr<p4::v1::Action> IrActionInvocationToPi(
         const auto &value,
         IrValueToNormalizedByteString(param.value(),
                                       ir_param_definition.param().bitwidth()));
-    param_entry->set_value(ArbitraryToCanonicalByteString(value));
+    if (ir_param_definition.format() == STRING) {
+      param_entry->set_value(value);
+    } else {
+      param_entry->set_value(ArbitraryToCanonicalByteString(value));
+    }
   }
   return action;
 }
@@ -693,7 +705,11 @@ StatusOr<I> IrPacketIoToPi(const IrP4Info &info, const std::string &kind,
         auto value,
         IrValueToNormalizedByteString(
             metadata.value(), metadata_definition.metadata().bitwidth()));
-    pi_metadata.set_value(ArbitraryToCanonicalByteString(value));
+    if (metadata_definition.format() == STRING) {
+      pi_metadata.set_value(value);
+    } else {
+      pi_metadata.set_value(ArbitraryToCanonicalByteString(value));
+    }
     *result.add_metadata() = pi_metadata;
   }
   // Check for missing metadata

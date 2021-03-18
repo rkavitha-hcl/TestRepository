@@ -1350,6 +1350,56 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                       )PB"),
                       INPUT_IS_VALID);
 
+  RunPdTableEntryTest(
+      info,
+      "exact match with string containing null characters for Format::STRING",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+        exact_table_entry {
+          match {
+            normal: "0x054"
+            ipv4: "10.43.12.5"
+            ipv6: "3242::fee2"
+            mac: "00:11:22:33:44:55"
+            str: "\0001u"
+          }
+          action { NoAction {} }
+        }
+      )PB"),
+      INPUT_IS_VALID);
+
+  RunPdTableEntryTest(
+      info,
+      "optional match with string containing null characters for "
+      "Format::STRING",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+        optional_table_entry {
+          match { str { value: "\000324" } }
+          action { do_thing_1 { arg2: "0x01234567" arg1: "0x01234568" } }
+          priority: 32
+        }
+      )PB"),
+      INPUT_IS_VALID);
+
+  RunPdTableEntryTest(
+      info,
+      "valid wcmp table with watch_port containing null characters for "
+      "Format::STRING",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+        wcmp2_table_entry {
+          match { ipv4 { value: "0.0.255.0" prefix_length: 24 } }
+          wcmp_actions {
+            action { do_thing_1 { arg2: "0x01234567" arg1: "0x01234568" } }
+            weight: 1
+            watch_port: "\00abc"
+          }
+          wcmp_actions {
+            action { do_thing_1 { arg2: "0x01234569" arg1: "0x01234560" } }
+            weight: 2
+          }
+        }
+      )PB"),
+      INPUT_IS_VALID);
+
   // TODO: implement counters
   /*
   RunPdTableEntryTest(

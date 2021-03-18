@@ -170,6 +170,7 @@ message OptionalTableEntry {
   message Match {
     Optional ipv6 = 1; // optional match / Format::IPV6
     Optional ipv4 = 2; // optional match / Format::IPV4
+    Optional str = 3; // optional match / Format::STRING
   }
   Match match = 1;
   message Action {
