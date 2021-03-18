@@ -51,7 +51,7 @@ static constexpr absl::string_view router_interface = R"pb(
         action {
           action {
             action_id: 16777218
-            params { param_id: 1 value: "\000\000\000\000" }
+            params { param_id: 1 value: "1" }
             params { param_id: 2 value: "\000\002\003\004\005\005" }
           }
         }
@@ -240,3 +240,12 @@ TEST_F(P4rtRouteTest, ProgramIp4RouteEntries) {
 
 }  // namespace
 }  // namespace p4rt_app
+
+// Temporary fix to have performance tests run nightly until we find a way to
+// bring p4rt_test_main.cc to p4rt_app specific tests alone.
+GTEST_API_ int main(int argc, char** argv) {
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
+  google::InitGoogleLogging(argv[0]);
+  testing::InitGoogleTest(&argc, argv);
+  return RUN_ALL_TESTS();
+}

@@ -45,24 +45,23 @@ using ::grpc::Server;
 using ::grpc::ServerBuilder;
 using ::grpc::ServerCredentials;
 
-ABSL_FLAG(bool, use_insecure_server_credentials, false, "Insecure gRPC.");
-ABSL_FLAG(std::string, ca_certificate_file, "",
-          "CA root certificate file, in PEM format. If set, p4rt will "
-          "require and verify client certificate.");
-ABSL_FLAG(std::string, server_certificate_file, "",
-          "Server certificate file, in PEM format.");
-ABSL_FLAG(std::string, server_key_file, "", "Server key file, in PEM format.");
-ABSL_FLAG(
-    bool, authz_policy_enabled, false,
+DEFINE_bool(use_insecure_server_credentials, false, "Insecure gRPC.");
+DEFINE_string(ca_certificate_file, "",
+              "CA root certificate file, in PEM format. If set, p4rt will "
+              "require and verify client certificate.");
+DEFINE_string(server_certificate_file, "",
+              "Server certificate file, in PEM format.");
+DEFINE_string(server_key_file, "", "Server key file, in PEM format.");
+DEFINE_bool(
+    authz_policy_enabled, false,
     "Enable authz policy. Only take effect if use_insecure_server_credentials "
     "is false and mTLS is configured.");
-ABSL_FLAG(std::string, authorization_policy_file_path, "/keys",
-          "Path prefix of the authorization policy file.");
-ABSL_FLAG(std::string, authorization_policy_file_name,
-          "authorization_policy.proto.txt",
-          "File name of the authorization policy file.");
-ABSL_FLAG(bool, use_genetlink, false,
-          "Enable Generic Netlink model for Packet Receive");
+DEFINE_string(authorization_policy_file_path, "/keys",
+              "Path prefix of the authorization policy file.");
+DEFINE_string(authorization_policy_file_name, "authorization_policy.proto.txt",
+              "File name of the authorization policy file.");
+DEFINE_bool(use_genetlink, false,
+            "Enable Generic Netlink model for Packet Receive");
 
 absl::StatusOr<std::shared_ptr<ServerCredentials>> BuildServerCredentials() {
   constexpr int kCertRefreshIntervalSec = 5;
@@ -70,9 +69,8 @@ absl::StatusOr<std::shared_ptr<ServerCredentials>> BuildServerCredentials() {
   constexpr char kIdentityCertName[] = "switch_cert";
 
   std::shared_ptr<ServerCredentials> creds;
-  if (absl::GetFlag(FLAGS_use_insecure_server_credentials) ||
-      absl::GetFlag(FLAGS_server_key_file).empty() ||
-      absl::GetFlag(FLAGS_server_certificate_file).empty()) {
+  if (FLAGS_use_insecure_server_credentials || FLAGS_server_key_file.empty() ||
+      FLAGS_server_certificate_file.empty()) {
     creds = grpc::InsecureServerCredentials();
     if (creds == nullptr) {
       return gutil::InternalErrorBuilder()
@@ -80,11 +78,10 @@ absl::StatusOr<std::shared_ptr<ServerCredentials>> BuildServerCredentials() {
     }
   } else {
     // If CA certificate is not provided, client certificate is not required.
-    if (absl::GetFlag(FLAGS_ca_certificate_file).empty()) {
+    if (FLAGS_ca_certificate_file.empty()) {
       auto certificate_provider =
           std::make_shared<grpc::experimental::FileWatcherCertificateProvider>(
-              absl::GetFlag(FLAGS_server_key_file),
-              absl::GetFlag(FLAGS_server_certificate_file),
+              FLAGS_server_key_file, FLAGS_server_certificate_file,
               kCertRefreshIntervalSec);
       grpc::experimental::TlsServerCredentialsOptions opts(
           certificate_provider);
@@ -95,10 +92,8 @@ absl::StatusOr<std::shared_ptr<ServerCredentials>> BuildServerCredentials() {
     } else {
       auto certificate_provider =
           std::make_shared<grpc::experimental::FileWatcherCertificateProvider>(
-              absl::GetFlag(FLAGS_server_key_file),
-              absl::GetFlag(FLAGS_server_certificate_file),
-              absl::GetFlag(FLAGS_ca_certificate_file),
-              kCertRefreshIntervalSec);
+              FLAGS_server_key_file, FLAGS_server_certificate_file,
+              FLAGS_ca_certificate_file, kCertRefreshIntervalSec);
       grpc::experimental::TlsServerCredentialsOptions opts(
           certificate_provider);
       opts.watch_root_certs();
@@ -114,12 +109,11 @@ absl::StatusOr<std::shared_ptr<ServerCredentials>> BuildServerCredentials() {
              << "nullptr returned from grpc::SslServerCredentials";
     }
 
-    if (absl::GetFlag(FLAGS_authz_policy_enabled) &&
-        !absl::GetFlag(FLAGS_ca_certificate_file).empty()) {
+    if (FLAGS_authz_policy_enabled && !FLAGS_ca_certificate_file.empty()) {
       auto authz_policy_processor = std::make_shared<
           p4rt_app::grpc_authz_processor::GrpcAuthzPolicyProcessor>(
-          absl::GetFlag(FLAGS_authorization_policy_file_path),
-          absl::GetFlag(FLAGS_authorization_policy_file_name));
+          FLAGS_authorization_policy_file_path,
+          FLAGS_authorization_policy_file_name);
       creds->SetAuthMetadataProcessor(authz_policy_processor);
     }
   }
@@ -131,9 +125,8 @@ int main(int argc, char** argv) {
   constexpr int kRedisDbPort = 6379;
   constexpr char kServerAddress[] = "[::]:9559";
 
-  // TODO GOOGLE3 - Check what needs to be done for non-google3
-  // google::InitGoogleLogging(argv[0]);
-  absl::ParseCommandLine(argc, argv);
+  google::InitGoogleLogging(argv[0]);
+  gflags::ParseCommandLineFlags(&argc, &argv, true);
 
   // Open a database connection into the SONiC AppDb.
   auto sonic_app_db =
@@ -173,7 +166,7 @@ int main(int argc, char** argv) {
       std::move(sonic_app_db), std::move(sonic_state_db),
       std::move(app_db_table_p4rt), std::move(notification_channel_p4rt),
       std::move(app_db_table_vrf), std::move(notification_channel_vrf),
-      std::move(*packetio_impl_or), absl::GetFlag(FLAGS_use_genetlink));
+      std::move(*packetio_impl_or), FLAGS_use_genetlink);
 
   // Start a P4 runtime server
   ServerBuilder builder;
