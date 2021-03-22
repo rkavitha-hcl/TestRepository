@@ -30,6 +30,22 @@ namespace gpins {
 namespace {
 
 // TODO: Enable once the bug is fixed.
+TEST_P(SmokeTestFixture,
+       DISABLED_InstallDefaultRouteForEmptyStringVrfShouldSucceed) {
+  const sai::TableEntry pd_entry = gutil::ParseProtoOrDie<sai::TableEntry>(
+      R"PB(
+        ipv4_table_entry {
+          match { vrf_id: "" }
+          action { drop {} }
+        }
+      )PB");
+
+  ASSERT_OK_AND_ASSIGN(const p4::v1::TableEntry pi_entry,
+                       pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));
+  ASSERT_OK(pdpi::InstallPiTableEntry(SutP4RuntimeSession(), pi_entry));
+}
+
+// TODO: Enable once the bug is fixed.
 TEST_P(SmokeTestFixture, DISABLED_Bug181149419) {
   // Adding 8 mirror sessions should succeed.
   for (int i = 0; i < 8; i++) {
