@@ -32,6 +32,7 @@
 #include "google/protobuf/util/message_differencer.h"
 #include "gutil/collections.h"
 #include "gutil/status.h"
+#include "p4/config/v1/p4info.pb.h"
 #include "p4_pdpi/utils/ir.h"
 #include "p4rt_app/p4runtime/p4info_verification.h"
 #include "p4rt_app/p4runtime/port_translation.h"
@@ -135,10 +136,11 @@ p4::v1::StreamMessageResponse GenerateErrorResponse(
   return response;
 }
 
-// Compares two pdpi::IrP4Info protobufs and returns true if they represent the
+// Compares two P4Info protobufs and returns true if they represent the
 // same information. Differences are reported in the optional string.
-bool IrP4InfoEquals(const pdpi::IrP4Info& left, const pdpi::IrP4Info& right,
-                    std::string* diff_report) {
+bool P4InfoEquals(const p4::config::v1::P4Info& left,
+                  const p4::config::v1::P4Info& right,
+                  std::string* diff_report) {
   google::protobuf::util::MessageDifferencer differencer;
   differencer.set_repeated_field_comparison(
       google::protobuf::util::MessageDifferencer::AS_SMART_SET);
@@ -515,6 +517,19 @@ grpc::Status P4RuntimeImpl::SetForwardingPipelineConfig(
       }
     }
 
+    // Fail if the new forwarding pipeline is different from the current one.
+    std::string diff_report;
+    if (forwarding_pipeline_config_.has_value() &&
+        !P4InfoEquals(forwarding_pipeline_config_->p4info(),
+                      request->config().p4info(), &diff_report)) {
+      return gutil::AbslStatusToGrpcStatus(
+          gutil::UnimplementedErrorBuilder().LogError()
+          << "Modifying a configured forwarding pipeline is not currently "
+             "supported. Please reboot the device. Configuration "
+             "differences:\n"
+          << diff_report);
+    }
+
     auto ir_p4info_result = pdpi::CreateIrP4Info(request->config().p4info());
     if (!ir_p4info_result.ok())
       return gutil::AbslStatusToGrpcStatus(ir_p4info_result.status());
@@ -530,17 +545,6 @@ grpc::Status P4RuntimeImpl::SetForwardingPipelineConfig(
         return gutil::AbslStatusToGrpcStatus(config_result);
       }
       ir_p4info_ = std::move(new_ir_p4info);
-    } else {
-      // Fail if the new forwarding pipeline is different from the current one.
-      std::string diff_report;
-      if (!IrP4InfoEquals(ir_p4info_.value(), new_ir_p4info, &diff_report)) {
-        return gutil::AbslStatusToGrpcStatus(
-            gutil::UnimplementedErrorBuilder().LogError()
-            << "Modifying a configured forwarding pipeline is not currently "
-               "supported. Please reboot the device. Configuration "
-               "differences:\n"
-            << diff_report);
-      }
     }
     forwarding_pipeline_config_ = request->config();
     LOG(INFO) << "SetForwardingPipelineConfig completed successfully.";
