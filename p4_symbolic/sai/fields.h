@@ -18,6 +18,7 @@
 #ifndef GOOGLE_P4_SYMBOLIC_SAI_FIELDS_H_
 #define GOOGLE_P4_SYMBOLIC_SAI_FIELDS_H_
 
+#include "absl/status/statusor.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 #include "z3++.h"
 

@@ -23,8 +23,10 @@
 
 #include <vector>
 
+#include "absl/status/statusor.h"
 #include "gutil/status.h"
 #include "p4_symbolic/symbolic/symbolic.h"
+#include "z3++.h"
 
 namespace p4_symbolic {
 

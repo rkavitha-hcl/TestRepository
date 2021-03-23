@@ -14,6 +14,10 @@
 
 #include "p4_symbolic/sai/parser.h"
 
+#include <type_traits>
+#include <vector>
+
+#include "absl/status/statusor.h"
 #include "gutil/status.h"
 #include "p4_symbolic/sai/fields.h"
 #include "p4_symbolic/symbolic/operators.h"

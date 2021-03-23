@@ -17,7 +17,43 @@ load("//p4_pdpi/testing:diff_test.bzl", "cmd_diff_test", "diff_test")
 load("//p4_pdpi:pdgen.bzl", "p4_pd_proto")
 load("@com_github_p4lang_p4c//:bazel/p4_library.bzl", "p4_library")
 
-package(licenses = ["notice"])
+package(
+    default_visibility = ["//visibility:public"],
+    licenses = ["notice"],
+)
+
+cc_library(
+    name = "sai",
+    srcs = ["sai.cc"],
+    hdrs = ["sai.h"],
+    deps = [
+        ":parser",
+        "//p4_pdpi:ir",
+        "//p4_pdpi:ir_cc_proto",
+        "//p4_symbolic:parser",
+        "//p4_symbolic/symbolic",
+        "//sai_p4/instantiations/google:sai_nonstandard_platforms_cc",
+        "//sai_p4/instantiations/google:switch_role",
+        "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+cc_test(
+    name = "sai_test",
+    srcs = ["sai_test.cc"],
+    deps = [
+        ":sai",
+        "//gutil:status_matchers",
+        "//p4_symbolic/symbolic",
+        "//sai_p4/instantiations/google:switch_role",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
 
 cc_library(
     name = "fields",
@@ -27,7 +63,25 @@ cc_library(
         "//gutil:status",
         "//p4_symbolic/symbolic",
         "@com_github_z3prover_z3//:api",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "fields_test",
+    srcs = ["fields_test.cc"],
+    deps = [
+        ":fields",
+        ":sai",
+        "//gutil:status_matchers",
+        "//p4_symbolic/symbolic",
+        "//sai_p4/instantiations/google:switch_role",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -42,5 +96,47 @@ cc_library(
         "//p4_symbolic/symbolic",
         "@com_github_z3prover_z3//:api",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+cc_library(
+    name = "deparser",
+    srcs = ["deparser.cc"],
+    hdrs = ["deparser.h"],
+    visibility = ["//p4_symbolic:__subpackages__"],
+    deps = [
+        ":fields",
+        "//gutil:status",
+        "//p4_pdpi/string_encodings:bit_string",
+        "//p4_pdpi/string_encodings:hex_string",
+        "//p4_symbolic/symbolic",
+        "@com_github_z3prover_z3//:api",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "deparser_test",
+    srcs = ["deparser_test.cc"],
+    deps = [
+        ":deparser",
+        ":fields",
+        ":parser",
+        ":sai",
+        "//gutil:status_matchers",
+        "//p4_pdpi/packetlib",
+        "//p4_pdpi/packetlib:packetlib_cc_proto",
+        "//p4_pdpi/string_encodings:bit_string",
+        "//p4_symbolic/symbolic",
+        "//sai_p4/instantiations/google:switch_role",
+        "@com_github_google_glog//:glog",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_github_z3prover_z3//:api",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_googletest//:gtest_main",
     ],
 )

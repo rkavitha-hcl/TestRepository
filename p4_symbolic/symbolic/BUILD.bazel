@@ -46,7 +46,10 @@ cc_library(
         "util.h",
         "values.h",
     ],
-    visibility = ["//p4_symbolic:__subpackages__"],
+    visibility = [
+        "//p4_symbolic:__subpackages__",
+        "//platforms/networking/gpins/testing:__subpackages__",
+    ],
     deps = [
         "//gutil:status",
         "//p4_pdpi:ir_cc_proto",
