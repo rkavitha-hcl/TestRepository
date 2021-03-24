@@ -412,13 +412,12 @@ Packet ParsePacket(absl::string_view input, Header::HeaderCase first_header) {
   }
 
   // Set payload.
-  if (data.size() != 0) {
-    auto payload = data.ToHexString();
-    if (payload.ok()) {
-      packet.set_payload(*payload);
-    } else {
-      LOG(DFATAL) << payload.status();
-    }
+  if (auto payload = data.ToByteString(); payload.ok()) {
+    packet.set_payload(*payload);
+  } else {
+    LOG(DFATAL) << payload.status();
+    packet.add_reasons_invalid(absl::StrCat(
+        "INTERNAL ERROR WHILE PARSING PAYLOAD: ", payload.status().ToString()));
   }
 
   // Check packet validity.
@@ -1212,10 +1211,7 @@ absl::Status RawSerializePacket(const Packet& packet, int start_header_index,
     RETURN_IF_ERROR(SerializeHeader(packet.headers(i), output)).SetPrepend()
         << "while trying to serialize packet.headers(" << i << "): ";
   }
-  if (!packet.payload().empty()) {
-    RETURN_IF_ERROR(output.AppendHexString(packet.payload())).SetPrepend()
-        << "while trying to serialze packet.payload: ";
-  }
+  output.AppendBytes(packet.payload());
   return absl::OkStatus();
 }
 
@@ -1390,13 +1386,8 @@ absl::StatusOr<bool> PadPacketToMinimumSize(Packet& packet) {
                                       ? *ethertype - kEthernetHeaderBitwidth / 8
                                       : kMinNumBytesInEthernetPayload;
         if (*size >= target_payload_size) return false;
-        std::string padding =
-            std::string(2 * (target_payload_size - *size), '0');
-        if (packet.payload().empty()) {
-          packet.set_payload(absl::StrCat("0x", padding));
-        } else {
-          absl::StrAppend(packet.mutable_payload(), padding);
-        }
+        std::string padding = std::string(target_payload_size - *size, '\0');
+        absl::StrAppend(packet.mutable_payload(), padding);
         return true;
       }
     }
@@ -1476,11 +1467,7 @@ absl::StatusOr<int> PacketSizeInBits(const Packet& packet,
     }
   }
 
-  if (!packet.payload().empty()) {
-    // 4 bits for every hex char after the '0x' prefix.
-    size += 4 * (packet.payload().size() - 2);
-  }
-
+  size += 8 * packet.payload().size();
   return size;
 }
 

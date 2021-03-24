@@ -18,7 +18,7 @@ headers {
     ethertype: "0x002e"
   }
 }
-payload: "0x00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899aabbccdd"
+payload: "\000\021\"3DUfw\210\231\252\273\314\335\356\377\000\021\"3DUfw\210\231\252\273\314\335\356\377\000\021\"3DUfw\210\231\252\273\314\335"
 
 ================================================================================
 Parsing test: Ethernet packet (invalid)
@@ -38,7 +38,7 @@ headers {
     ethertype: "0x0001"
   }
 }
-payload: "0x0102"
+payload: "\001\002"
 reasons_invalid: "headers[0].ethertype: value 0x0001 is <= 1500 and should thus match payload size, but payload size is 2 bytes"
 
 PadPacketToMinimumSize(packet) = false
@@ -114,7 +114,7 @@ headers {
     ipv4_destination: "20.0.0.3"
   }
 }
-payload: "0x1234"
+payload: "\0224"
 reason_unsupported: "ipv4_header.protocol 0x05: unsupported"
 reasons_invalid: "headers[0].: expected at least 46 bytes of Ethernet payload, but got only 22"
 reasons_invalid: "headers[1].total_length: Must be 0x0016, but was 0x6fc6 instead."
@@ -173,7 +173,7 @@ headers {
     ipv4_destination: "20.0.0.3"
   }
 }
-payload: "0x00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+payload: "\000\021\"3DUfw\210\231\252\273\314\335\356\377\000\021\"3DUfw\210\231\252\273\314\335\356\377"
 reason_unsupported: "ipv4_header.protocol 0x05: unsupported"
 
 ================================================================================
@@ -223,7 +223,7 @@ headers {
     checksum: "0x279f"
   }
 }
-payload: "0x1e4b8180"
+payload: "\036K\201\200"
 reasons_invalid: "headers[0].: expected at least 46 bytes of Ethernet payload, but got only 32"
 reasons_invalid: "headers[1].total_length: Must be 0x0020, but was 0x0073 instead."
 reasons_invalid: "headers[2].length: Must be 0x000c, but was 0x005f instead."
@@ -284,7 +284,7 @@ headers {
     uninterpreted_options: "0x11223344"
   }
 }
-payload: "0x00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+payload: "\000\021\"3DUfw\210\231\252\273\314\335\356\377\000\021\"3DUfw\210\231\252\273\314\335\356\377"
 reason_unsupported: "ipv4_header.protocol 0x05: unsupported"
 
 ================================================================================
@@ -389,7 +389,7 @@ headers {
     ipv6_destination: "8888:9999:aaaa:bbbb:cccc:dddd:eeee:ffff"
   }
 }
-payload: "0x12"
+payload: "\022"
 reason_unsupported: "ipv6_header.next_header 0x90: unsupported"
 reasons_invalid: "headers[0].: expected at least 46 bytes of Ethernet payload, but got only 41"
 reasons_invalid: "headers[1].version: Must be 0x6, but was 0x4 instead."
@@ -440,7 +440,7 @@ headers {
     ipv6_destination: "8888:9999:aaaa:bbbb:cccc:dddd:eeee:ffff"
   }
 }
-payload: "0x00112233445566778899aabbccddeeff00112233445566778899aabbccddeeff"
+payload: "\000\021\"3DUfw\210\231\252\273\314\335\356\377\000\021\"3DUfw\210\231\252\273\314\335\356\377"
 reason_unsupported: "ipv6_header.next_header 0x90: unsupported"
 
 ================================================================================
@@ -509,7 +509,7 @@ headers {
     checksum: "0x7961"
   }
 }
-payload: "0x486900112233445566778899aabbccddeeff"
+payload: "Hi\000\021\"3DUfw\210\231\252\273\314\335\356\377"
 
 ================================================================================
 Parsing test: TCP packet (valid)
@@ -581,7 +581,7 @@ headers {
     destination_port: "0x0017"
   }
 }
-payload: "0x7214f1140000000060022238a92c0000020405b41122"
+payload: "r\024\361\024\000\000\000\000`\002\"8\251,\000\000\002\004\005\264\021\""
 reason_unsupported: "TCP only partially supported -- parsing prefix of header containing ports only"
 
 ================================================================================
@@ -625,7 +625,7 @@ headers {
     target_protocol_address: "10.0.0.2"
   }
 }
-payload: "0x000000000000000000000000000000000000"
+payload: "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
 
 ================================================================================
 Parsing test: ICMPv4 Packet (Valid)
@@ -694,7 +694,7 @@ headers {
     rest_of_header: "0x1e600000"
   }
 }
-payload: "0x335e3ab8000042ac08090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f3031323334353637"
+payload: "3^:\270\000\000B\254\010\t\n\013\014\r\016\017\020\021\022\023\024\025\026\027\030\031\032\033\034\035\036\037 !\"#$%&\'()*+,-./01234567"
 
 ================================================================================
 Parsing test: ICMPv6 Packet (Valid)
@@ -755,7 +755,7 @@ headers {
     rest_of_header: "0x110d0000"
   }
 }
-payload: "0x000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f30313233"
+payload: "\000\001\002\003\004\005\006\007\010\t\n\013\014\r\016\017\020\021\022\023\024\025\026\027\030\031\032\033\034\035\036\037 !\"#$%&\'()*+,-./0123"
 
 ================================================================================
 Parsing test: VLAN Packet with ARP (Valid)
@@ -814,7 +814,7 @@ headers {
     target_protocol_address: "192.168.123.1"
   }
 }
-payload: "0x000000000000000000000000000000000000"
+payload: "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
 
 ================================================================================
 Proto packet test: UDP header not preceded by other header
@@ -829,7 +829,7 @@ headers {
     checksum: "0x35c5"
   }
 }
-payload: "0x4869"
+payload: "Hi"
 
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
@@ -862,7 +862,7 @@ headers {
     checksum: "0x35c5"
   }
 }
-payload: "0x4869"
+payload: "Hi"
 
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
@@ -910,18 +910,16 @@ headers {
     destination_port: "0x000a"
   }
 }
-payload: "0x4869"
+payload: "Some random payload."
 
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
-- headers[0].: expected at least 46 bytes of Ethernet payload, but got only 30
 - headers[1].total_length: missing
 - headers[1].checksum: missing
 - headers[2].length: missing
 - headers[2].checksum: missing
 
-PadPacketToMinimumSize(packet) = true
-new payload: "0x486900000000000000000000000000000000"
+PadPacketToMinimumSize(packet) = false
 
 UpdateMissingComputedFields(packet) = true
 packet =
@@ -938,13 +936,13 @@ headers {
     ihl: "0x5"
     dscp: "0x1b"
     ecn: "0x1"
-    total_length: "0x002e"
+    total_length: "0x0030"
     identification: "0x0000"
     flags: "0x0"
     fragment_offset: "0x0000"
     ttl: "0x10"
     protocol: "0x11"
-    checksum: "0x28c5"
+    checksum: "0x28c3"
     ipv4_source: "192.168.0.31"
     ipv4_destination: "192.168.0.30"
   }
@@ -953,11 +951,11 @@ headers {
   udp_header {
     source_port: "0x0014"
     destination_port: "0x000a"
-    length: "0x001a"
-    checksum: "0x35a5"
+    length: "0x001c"
+    checksum: "0xac67"
   }
 }
-payload: "0x486900000000000000000000000000000000"
+payload: "Some random payload."
 
 ValidatePacket(packet) = OK
 
@@ -994,7 +992,7 @@ headers {
     destination_port: "0x000a"
   }
 }
-payload: "0x4869"
+payload: "Hi"
 
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
@@ -1034,7 +1032,7 @@ headers {
     checksum: "0xb6d4"
   }
 }
-payload: "0x4869"
+payload: "Hi"
 
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - headers[2]: expected no header (because the previous header demands either no header or an unsupported header), got UdpHeader
@@ -1067,18 +1065,18 @@ headers {
     ipv4_destination: "20.0.0.3"
   }
 }
-payload: "0xabcd"
+payload: "payloads everywhere"
 
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
-- headers[0].: expected at least 46 bytes of Ethernet payload, but got only 22
+- headers[0].: expected at least 46 bytes of Ethernet payload, but got only 39
 - headers[1].version: missing
 - headers[1].ihl: missing
 - headers[1].total_length: missing
 - headers[1].checksum: missing
 
 PadPacketToMinimumSize(packet) = true
-new payload: "0xabcd000000000000000000000000000000000000000000000000"
+new payload: "payloads everywhere\000\000\000\000\000\000\000"
 
 UpdateMissingComputedFields(packet) = true
 packet =
@@ -1106,7 +1104,7 @@ headers {
     ipv4_destination: "20.0.0.3"
   }
 }
-payload: "0xabcd000000000000000000000000000000000000000000000000"
+payload: "payloads everywhere\000\000\000\000\000\000\000"
 
 ValidatePacket(packet) = OK
 
@@ -1141,17 +1139,16 @@ headers {
     uninterpreted_options: "0x12"
   }
 }
-payload: "0x00112233445566778899aabbccddeeff"
+payload: "A somewhat longer payload."
 
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
-- headers[0].: expected at least 46 bytes of Ethernet payload, but got only 37
 - headers[1].ihl: missing
 - headers[1].uninterpreted_options: found 8 bits, but expected multiple of 32 bits
+- headers[1].total_length: Must be 0x002f, but was 0x0025 instead.
 - headers[1].checksum: Couldn't compute expected checksum: INVALID_ARGUMENT: missing '0x'-prefix in hexadecimal string: ''
 
-PadPacketToMinimumSize(packet) = true
-new payload: "0x00112233445566778899aabbccddeeff000000000000000000"
+PadPacketToMinimumSize(packet) = false
 
 UpdateMissingComputedFields(packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].ihl: uninterpreted_options field is invalid
 
@@ -1186,11 +1183,10 @@ headers {
     uninterpreted_options: "0x12345678"
   }
 }
-payload: "0x00112233445566778899aabbccddeeff"
+payload: "A somewhat longer payload."
 
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
-- headers[0].: expected at least 46 bytes of Ethernet payload, but got only 40
 - headers[1].ihl: missing
 - headers[1].dscp: invalid format: illegal conversion from hex string '0x011011' to 6 bits; expected between 21 and 24 bits
 - headers[1].ecn: invalid format: illegal conversion from hex string '0x01' to 2 bits; expected between 5 and 8 bits
@@ -1198,11 +1194,10 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 - headers[1].fragment_offset: invalid format: illegal conversion from hex string '0x0000000000000' to 13 bits; expected between 49 and 52 bits
 - headers[1].ipv4_source: invalid format: Invalid IPv4 address: '0x0a000001'
 - headers[1].ipv4_destination: invalid format: Invalid IPv4 address: '0x14000003'
-- headers[1].total_length: Must be 0x0028, but was 0x0034 instead.
+- headers[1].total_length: Must be 0x0032, but was 0x0034 instead.
 - headers[1].checksum: Couldn't compute expected checksum: INVALID_ARGUMENT: missing '0x'-prefix in hexadecimal string: ''
 
-PadPacketToMinimumSize(packet) = true
-new payload: "0x00112233445566778899aabbccddeeff000000000000"
+PadPacketToMinimumSize(packet) = false
 
 UpdateMissingComputedFields(packet) = true
 packet =
@@ -1231,7 +1226,7 @@ headers {
     uninterpreted_options: "0x12345678"
   }
 }
-payload: "0x00112233445566778899aabbccddeeff000000000000"
+payload: "A somewhat longer payload."
 
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - headers[1].dscp: invalid format: illegal conversion from hex string '0x011011' to 6 bits; expected between 21 and 24 bits
@@ -1240,7 +1235,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 - headers[1].fragment_offset: invalid format: illegal conversion from hex string '0x0000000000000' to 13 bits; expected between 49 and 52 bits
 - headers[1].ipv4_source: invalid format: Invalid IPv4 address: '0x0a000001'
 - headers[1].ipv4_destination: invalid format: Invalid IPv4 address: '0x14000003'
-- headers[1].total_length: Must be 0x002e, but was 0x0034 instead.
+- headers[1].total_length: Must be 0x0032, but was 0x0034 instead.
 - headers[1].checksum: Couldn't compute expected checksum: INVALID_ARGUMENT: illegal conversion from hex string '0x011011' to 6 bits; expected between 21 and 24 bits
 
 Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
@@ -1250,7 +1245,7 @@ Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - headers[1].fragment_offset: invalid format: illegal conversion from hex string '0x0000000000000' to 13 bits; expected between 49 and 52 bits
 - headers[1].ipv4_source: invalid format: Invalid IPv4 address: '0x0a000001'
 - headers[1].ipv4_destination: invalid format: Invalid IPv4 address: '0x14000003'
-- headers[1].total_length: Must be 0x002e, but was 0x0034 instead.
+- headers[1].total_length: Must be 0x0032, but was 0x0034 instead.
 - headers[1].checksum: Couldn't compute expected checksum: INVALID_ARGUMENT: illegal conversion from hex string '0x011011' to 6 bits; expected between 21 and 24 bits
 
 ================================================================================
@@ -1279,7 +1274,7 @@ headers {
     ipv4_destination: "20.0.0.3"
   }
 }
-payload: "0xabcd"
+payload: "Hi"
 
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
@@ -1292,7 +1287,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 - headers[1].version: Must be 0x4, but was 0x3 instead.
 
 PadPacketToMinimumSize(packet) = true
-new payload: "0xabcd000000000000000000000000000000000000000000000000"
+new payload: "Hi\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
 
 UpdateMissingComputedFields(packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].checksum: illegal conversion from hex string '0x6k' to 4 bits; expected between 5 and 8 bits
 
@@ -1321,16 +1316,16 @@ headers {
     ipv6_destination: "f::f"
   }
 }
-payload: "0xabcd"
+payload: "Hello"
 
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
-- headers[0].: expected at least 46 bytes of Ethernet payload, but got only 42
+- headers[0].: expected at least 46 bytes of Ethernet payload, but got only 45
 - headers[1].version: missing
 - headers[1].payload_length: missing
 
 PadPacketToMinimumSize(packet) = true
-new payload: "0xabcd00000000"
+new payload: "Hello\000"
 
 UpdateMissingComputedFields(packet) = true
 packet =
@@ -1354,7 +1349,7 @@ headers {
     ipv6_destination: "f::f"
   }
 }
-payload: "0xabcd00000000"
+payload: "Hello\000"
 
 ValidatePacket(packet) = OK
 
@@ -1385,11 +1380,10 @@ headers {
     ipv6_destination: ":"
   }
 }
-payload: "0xabcd"
+payload: "I am the payload"
 
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
-- headers[0].: expected at least 46 bytes of Ethernet payload, but got only 42
 - headers[1].dscp: invalid format: missing '0x'-prefix in hexadecimal string: '1b'
 - headers[1].ecn: invalid format: missing '0x'-prefix in hexadecimal string: '0b01'
 - headers[1].flow_label: invalid format: illegal conversion from hex string '0x1234' to 20 bits; expected between 13 and 16 bits
@@ -1398,10 +1392,9 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 - headers[1].ipv6_source: invalid format: invalid IPv6 address: '20.0.0.3'
 - headers[1].ipv6_destination: invalid format: invalid IPv6 address: ':'
 - headers[1].version: Must be 0x6, but was 0x4 instead.
-- headers[1].payload_length: Must be 0x0002, but was 0x0000 instead.
+- headers[1].payload_length: Must be 0x0010, but was 0x0000 instead.
 
-PadPacketToMinimumSize(packet) = true
-new payload: "0xabcd00000000"
+PadPacketToMinimumSize(packet) = false
 
 UpdateMissingComputedFields(packet) = false
 
@@ -1414,7 +1407,7 @@ Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - headers[1].ipv6_source: invalid format: invalid IPv6 address: '20.0.0.3'
 - headers[1].ipv6_destination: invalid format: invalid IPv6 address: ':'
 - headers[1].version: Must be 0x6, but was 0x4 instead.
-- headers[1].payload_length: Must be 0x0006, but was 0x0000 instead.
+- headers[1].payload_length: Must be 0x0010, but was 0x0000 instead.
 
 ================================================================================
 Proto packet test: IPv6 packet with IPv4 ethertype
@@ -1448,7 +1441,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 - headers[1]: expected Ipv4Header (because the previous header demands it), got Ipv6Header
 
 PadPacketToMinimumSize(packet) = true
-new payload: "0x000000000000"
+new payload: "\000\000\000\000\000\000"
 
 UpdateMissingComputedFields(packet) = false
 
@@ -1468,7 +1461,7 @@ headers {
     ethertype: "0x86dd"
   }
 }
-payload: "0xabcd"
+payload: "hi"
 
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
@@ -1476,7 +1469,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 - headers[1]: header missing - expected Ipv6Header
 
 PadPacketToMinimumSize(packet) = true
-new payload: "0xabcd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
+new payload: "hi\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
 
 UpdateMissingComputedFields(packet) = false
 
@@ -1514,7 +1507,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 - headers[1].protocol_length: missing
 
 PadPacketToMinimumSize(packet) = true
-new payload: "0x000000000000000000000000000000000000"
+new payload: "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
 
 UpdateMissingComputedFields(packet) = true
 packet =
@@ -1538,7 +1531,7 @@ headers {
     target_protocol_address: "1.2.3.5"
   }
 }
-payload: "0x000000000000000000000000000000000000"
+payload: "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
 
 ValidatePacket(packet) = OK
 
@@ -1579,7 +1572,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 - headers[1].hardware_type: Must be 0x04, but was 0x05 instead.
 
 PadPacketToMinimumSize(packet) = true
-new payload: "0x000000000000000000000000000000000000"
+new payload: "\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
 
 UpdateMissingComputedFields(packet) = false
 
@@ -1621,7 +1614,7 @@ headers {
     rest_of_header: "0x1e600000"
   }
 }
-payload: "0x335e3ab8000042ac08090a0b0c0d0e0f101112131415"
+payload: "ICMPv4 packet without computed fields"
 
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
@@ -1648,13 +1641,13 @@ headers {
     ihl: "0x5"
     dscp: "0x00"
     ecn: "0x0"
-    total_length: "0x0032"
+    total_length: "0x0041"
     identification: "0xaafb"
     flags: "0x2"
     fragment_offset: "0x0000"
     ttl: "0xfc"
     protocol: "0x01"
-    checksum: "0xfa52"
+    checksum: "0xfa43"
     ipv4_source: "139.133.233.2"
     ipv4_destination: "139.133.217.110"
   }
@@ -1663,11 +1656,11 @@ headers {
   icmp_header {
     type: "0x00"
     code: "0x00"
-    checksum: "0xce73"
+    checksum: "0x8f2d"
     rest_of_header: "0x1e600000"
   }
 }
-payload: "0x335e3ab8000042ac08090a0b0c0d0e0f101112131415"
+payload: "ICMPv4 packet without computed fields"
 
 ValidatePacket(packet) = OK
 
@@ -1703,7 +1696,7 @@ headers {
     rest_of_header: "0x110d0000"
   }
 }
-payload: "0x000102030405060708090a0b0c0d0e0f101112131415"
+payload: "ICMPv6 packet without computed fields"
 
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
@@ -1728,7 +1721,7 @@ headers {
     dscp: "0x00"
     ecn: "0x0"
     flow_label: "0x00000"
-    payload_length: "0x001e"
+    payload_length: "0x002d"
     next_header: "0x3a"
     hop_limit: "0x40"
     ipv6_source: "2001:db8:0:12::1"
@@ -1739,11 +1732,11 @@ headers {
   icmp_header {
     type: "0x80"
     code: "0x00"
-    checksum: "0xa487"
+    checksum: "0xc07d"
     rest_of_header: "0x110d0000"
   }
 }
-payload: "0x000102030405060708090a0b0c0d0e0f101112131415"
+payload: "ICMPv6 packet without computed fields"
 
 ValidatePacket(packet) = OK
 
@@ -1768,17 +1761,15 @@ headers {
     rest_of_header: "0x110d0000"
   }
 }
-payload: "0x000102030405060708090a0b0c0d0e0f101112131415"
+payload: "ICMP packet without a preceding IP header"
 
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
-- headers[0].: expected at least 46 bytes of Ethernet payload, but got only 30
 - headers[1].checksum: missing
 - headers[1].checksum: ICMP header must be preceded by IP header for checksum to be defined; found EthernetHeader at headers[0] instead
 - headers[1]: expected Ipv6Header (because the previous header demands it), got IcmpHeader
 
-PadPacketToMinimumSize(packet) = true
-new payload: "0x000102030405060708090a0b0c0d0e0f10111213141500000000000000000000000000000000"
+PadPacketToMinimumSize(packet) = false
 
 UpdateMissingComputedFields(packet) = INVALID_ARGUMENT: IcmpHeaderChecksum(packet, icmp_header_index = 1): expected packet.headers[udp_header_index - 1] to be an IP header, got EthernetHeader
 
@@ -1823,7 +1814,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 - headers[2].protocol_length: missing
 
 PadPacketToMinimumSize(packet) = true
-new payload: "0x0000000000000000000000000000"
+new payload: "\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
 
 UpdateMissingComputedFields(packet) = true
 packet =
@@ -1855,7 +1846,7 @@ headers {
     target_protocol_address: "1.2.3.5"
   }
 }
-payload: "0x0000000000000000000000000000"
+payload: "\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
 
 ValidatePacket(packet) = OK
 

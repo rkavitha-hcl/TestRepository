@@ -20,9 +20,8 @@ package packetlib;
 message Packet {
   // Headers in order, starting with outermost header. Can be empty.
   repeated Header headers = 1;
-  // Payload is a sequence of uninterpreted bytes in hexadecimal format, e.g.
-  // "" or "0x00" or "0xfa0c".
-  string payload = 2;
+  // Arbitrary sequence of raw, uninterpreted bytes.
+  bytes payload = 2;
   // Explanation why parsing has stopped early due to a feature that is not
   // supported. Describes a problem with the first set of bytes in `payload`.
   // Only used in the output of parsing functions, and is ignored during

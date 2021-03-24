@@ -102,7 +102,11 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
     if (auto padded = PadPacketToMinimumSize(packet); padded.ok()) {
       std::cout << (*padded ? "true" : "false") << std::endl;
       if (*padded) {
-        std::cout << "new payload: \"" << packet.payload() << "\"" << std::endl;
+        // To print the payload in protobuf style, we put it in an otherwise
+        // empty packet.
+        Packet payload_only;
+        payload_only.set_payload(packet.payload());
+        std::cout << "new " << payload_only.ShortDebugString() << std::endl;
       }
     } else {
       std::cout << padded.status() << std::endl;
@@ -506,7 +510,7 @@ void RunProtoPacketTests() {
                            checksum: "0x35c5"
                          }
                        }
-                       payload: "0x4869"
+                       payload: "Hi"
                      )PB"));
 
   RunProtoPacketTest("UDP header not preceded by IP header",
@@ -526,7 +530,7 @@ void RunProtoPacketTests() {
                            checksum: "0x35c5"
                          }
                        }
-                       payload: "0x4869"
+                       payload: "Hi"
                      )PB"));
 
   RunProtoPacketTest(
@@ -557,7 +561,7 @@ void RunProtoPacketTests() {
         headers {
           udp_header { source_port: "0x0014" destination_port: "0x000a" }
         }
-        payload: "0x4869"
+        payload: "Some random payload."
       )PB"));
 
   RunProtoPacketTest(
@@ -587,7 +591,7 @@ void RunProtoPacketTests() {
         headers {
           udp_header { source_port: "0x0014" destination_port: "0x000a" }
         }
-        payload: "0x4869"
+        payload: "Hi"
       )PB"));
 
   RunProtoPacketTest("IPv4 without computed fields",
@@ -612,7 +616,7 @@ void RunProtoPacketTests() {
                            ipv4_destination: "20.0.0.3"
                          }
                        }
-                       payload: "0xabcd"
+                       payload: "payloads everywhere"
                      )PB"));
 
   RunProtoPacketTest("Ipv4 empty ihl, invalid options",
@@ -641,7 +645,7 @@ void RunProtoPacketTests() {
                            uninterpreted_options: "0x12"
                          }
                        }
-                       payload: "0x00112233445566778899aabbccddeeff"
+                       payload: "A somewhat longer payload."
                      )PB"));
 
   RunProtoPacketTest("Ipv4 empty ihl, valid options",
@@ -670,7 +674,7 @@ void RunProtoPacketTests() {
                            uninterpreted_options: "0x12345678"
                          }
                        }
-                       payload: "0x00112233445566778899aabbccddeeff"
+                       payload: "A somewhat longer payload."
                      )PB"));
 
   RunProtoPacketTest("IPv4 with various invalid fields",
@@ -696,7 +700,7 @@ void RunProtoPacketTests() {
                            ipv4_destination: "20.0.0.3"
                          }
                        }
-                       payload: "0xabcd"
+                       payload: "Hi"
                      )PB"));
 
   RunProtoPacketTest("IPv6 without computed fields",
@@ -719,7 +723,7 @@ void RunProtoPacketTests() {
                            ipv6_destination: "f::f"
                          }
                        }
-                       payload: "0xabcd"
+                       payload: "Hello"
                      )PB"));
 
   RunProtoPacketTest("IPv6 with various invalid fields",
@@ -744,7 +748,7 @@ void RunProtoPacketTests() {
                            ipv6_destination: ":"
                          }
                        }
-                       payload: "0xabcd"
+                       payload: "I am the payload"
                      )PB"));
 
   RunProtoPacketTest("IPv6 packet with IPv4 ethertype",
@@ -780,7 +784,7 @@ void RunProtoPacketTests() {
                            ethertype: "0x86dd"
                          }
                        }
-                       payload: "0xabcd"
+                       payload: "hi"
                      )PB"));
 
   RunProtoPacketTest("ARP packet without computed fields",
@@ -854,7 +858,7 @@ void RunProtoPacketTests() {
         headers {
           icmp_header { type: "0x00" code: "0x00" rest_of_header: "0x1e600000" }
         }
-        payload: "0x335e3ab8000042ac08090a0b0c0d0e0f101112131415"
+        payload: "ICMPv4 packet without computed fields"
       )PB"));
   RunProtoPacketTest(
       "ICMPv6 packet without computed fields",
@@ -880,7 +884,7 @@ void RunProtoPacketTests() {
         headers {
           icmp_header { type: "0x80" code: "0x00" rest_of_header: "0x110d0000" }
         }
-        payload: "0x000102030405060708090a0b0c0d0e0f101112131415"
+        payload: "ICMPv6 packet without computed fields"
       )PB"));
   RunProtoPacketTest(
       "ICMP packet without a preceding IP header",
@@ -895,7 +899,7 @@ void RunProtoPacketTests() {
         headers {
           icmp_header { type: "0x80" code: "0x00" rest_of_header: "0x110d0000" }
         }
-        payload: "0x000102030405060708090a0b0c0d0e0f101112131415"
+        payload: "ICMP packet without a preceding IP header"
       )PB"));
   RunProtoPacketTest("VLAN ARP packet",
                      gutil::ParseProtoOrDie<Packet>(
