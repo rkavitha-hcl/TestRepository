@@ -25,6 +25,8 @@
 namespace p4_symbolic {
 namespace {
 
+using ::testing::IsEmpty;
+
 class SaiDeparserTest : public testing::TestWithParam<sai::SwitchRole> {
  public:
   void SetUp() override {
@@ -48,7 +50,7 @@ TEST_P(SaiDeparserTest, DeparseIngressAndEgressHeadersWithoutConstraints) {
   }
 }
 
-TEST_P(SaiDeparserTest, Ipv4PacketParserIntegrationTest) {
+TEST_P(SaiDeparserTest, Ipv4UdpPacketParserIntegrationTest) {
   // Add parse constraints.
   {
     ASSERT_OK_AND_ASSIGN(auto parse_constraints,
@@ -56,11 +58,12 @@ TEST_P(SaiDeparserTest, Ipv4PacketParserIntegrationTest) {
     for (auto& constraint : parse_constraints) state_->solver->add(constraint);
   }
 
-  // Add IPv4 constraint.
+  // Add IPv4 + UDP constraint.
   {
     ASSERT_OK_AND_ASSIGN(SaiFields fields,
                          GetSaiFields(state_->context.ingress_headers));
     state_->solver->add(fields.headers.ipv4.valid);
+    state_->solver->add(fields.headers.udp.valid);
   }
 
   // Solve and deparse.
@@ -69,12 +72,14 @@ TEST_P(SaiDeparserTest, Ipv4PacketParserIntegrationTest) {
   ASSERT_OK_AND_ASSIGN(std::string raw_packet,
                        SaiDeparser(state_->context.ingress_headers, model));
 
-  // Check we indeed got an IPv4 packet.
+  // Check we indeed got an IPv4 UDP packet.
   packetlib::Packet packet = packetlib::ParsePacket(raw_packet);
   LOG(INFO) << "Z3-generated packet = " << packet.DebugString();
-  ASSERT_GE(packet.headers_size(), 2);
+  ASSERT_GE(packet.headers_size(), 3);
   ASSERT_TRUE(packet.headers(0).has_ethernet_header());
   ASSERT_TRUE(packet.headers(1).has_ipv4_header());
+  ASSERT_TRUE(packet.headers(2).has_udp_header());
+  ASSERT_THAT(packet.payload(), IsEmpty());
 }
 
 INSTANTIATE_TEST_SUITE_P(Instantiation, SaiDeparserTest,

@@ -103,6 +103,13 @@ absl::StatusOr<SaiFields> GetSaiFields(const SymbolicPerPacketState& state) {
       .src_addr = get_field("ipv4.src_addr"),
       .dst_addr = get_field("ipv4.dst_addr"),
   };
+  auto udp = SaiUdp{
+      .valid = get_field("udp.$valid$"),
+      .src_port = get_field("udp.src_port"),
+      .dst_port = get_field("udp.dst_port"),
+      .hdr_length = get_field("udp.hdr_length"),
+      .checksum = get_field("udp.checksum"),
+  };
   auto local_metadata = SaiLocalMetadata{
       .admit_to_l3 = get_metadata_field("admit_to_l3"),
       .vrf_id = get_metadata_field("vrf_id"),
@@ -118,7 +125,7 @@ absl::StatusOr<SaiFields> GetSaiFields(const SymbolicPerPacketState& state) {
                             });
   }
   return SaiFields{
-      .headers = SaiHeaders{.ethernet = ethernet, .ipv4 = ipv4},
+      .headers = SaiHeaders{.ethernet = ethernet, .ipv4 = ipv4, .udp = udp},
       .local_metadata = local_metadata,
   };
 }

@@ -18,6 +18,7 @@
 #include <vector>
 
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "gutil/status.h"
 #include "p4_symbolic/sai/fields.h"
 #include "p4_symbolic/symbolic/operators.h"
@@ -36,6 +37,7 @@ absl::StatusOr<std::vector<z3::expr>> EvaluateSaiParser(
   ASSIGN_OR_RETURN(SaiFields fields, GetSaiFields(state));
   SaiEthernet& ethernet = fields.headers.ethernet;
   SaiIpv4& ipv4 = fields.headers.ipv4;
+  SaiUdp& udp = fields.headers.udp;
   z3::expr bv_true = Z3Context().bv_val(1, 1);
   z3::expr bv_false = Z3Context().bv_val(0, 1);
 
@@ -47,6 +49,19 @@ absl::StatusOr<std::vector<z3::expr>> EvaluateSaiParser(
   // `parse_ethernet` state.
   constraints.push_back(ethernet.valid == Z3Context().bool_val(true));
   constraints.push_back(ipv4.valid == (ethernet.ether_type == 0x0800));
+  // TODO: Add IPv6 and ARP.
+
+  // `parse_ipv{4,6}` states.
+  constraints.push_back(udp.valid == (ipv4.valid && ipv4.protocol == 0x11));
+
+  // For now, all other headers are not parsed, and hence invalid.
+  for (auto& [field, header_valid] : state) {
+    if (absl::EndsWith(field, "$valid$") &&
+        !absl::StrContains(field, "ethernet") &&
+        !absl::StrContains(field, "ipv4") && !absl::StrContains(field, "udp")) {
+      constraints.push_back(!header_valid);
+    }
+  }
 
   // TODO: clean up old code.
   //   // Set initial value for vrf.

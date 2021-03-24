@@ -52,10 +52,20 @@ struct SaiIpv4 {
   z3::expr dst_addr;
 };
 
+// Symbolic version of `struct udp_t` in headers.p4.
+struct SaiUdp {
+  z3::expr valid;
+  z3::expr src_port;
+  z3::expr dst_port;
+  z3::expr hdr_length;
+  z3::expr checksum;
+};
+
 // Symbolic version of `struct headers_t` in metadata.p4.
 struct SaiHeaders {
   SaiEthernet ethernet;
   SaiIpv4 ipv4;
+  SaiUdp udp;
 };
 
 // Symbolic version of `struct local_metadata_t` in metadata.p4.

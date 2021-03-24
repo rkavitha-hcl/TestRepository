@@ -22,6 +22,22 @@ namespace p4_symbolic {
 
 namespace {
 
+absl::StatusOr<bool> EvalBool(const z3::expr& bool_expr,
+                              const z3::model& model) {
+  auto value = model.eval(bool_expr, true).bool_value();
+  switch (value) {
+    case Z3_L_FALSE:
+      return false;
+    case Z3_L_TRUE:
+      return true;
+    default:
+      break;
+  }
+  return gutil::InternalErrorBuilder()
+         << "boolean expression '" << bool_expr
+         << "' evaluated to unexpected Boolean value " << value;
+}
+
 template <size_t num_bits>
 absl::StatusOr<std::bitset<num_bits>> EvalBitvector(const z3::expr& bv_expr,
                                                     const z3::model& model) {
@@ -54,7 +70,8 @@ absl::Status Deparse(const z3::expr& field, const z3::model& model,
 
 absl::Status Deparse(const SaiEthernet& header, const z3::model& model,
                      pdpi::BitString& result) {
-  if (model.eval(header.valid, true).bool_value()) {
+  ASSIGN_OR_RETURN(bool valid, EvalBool(header.valid, model));
+  if (valid) {
     RETURN_IF_ERROR(Deparse<48>(header.dst_addr, model, result));
     RETURN_IF_ERROR(Deparse<48>(header.src_addr, model, result));
     RETURN_IF_ERROR(Deparse<16>(header.ether_type, model, result));
@@ -64,7 +81,8 @@ absl::Status Deparse(const SaiEthernet& header, const z3::model& model,
 
 absl::Status Deparse(const SaiIpv4& header, const z3::model& model,
                      pdpi::BitString& result) {
-  if (model.eval(header.valid, true).bool_value()) {
+  ASSIGN_OR_RETURN(bool valid, EvalBool(header.valid, model));
+  if (valid) {
     RETURN_IF_ERROR(Deparse<4>(header.version, model, result));
     RETURN_IF_ERROR(Deparse<4>(header.ihl, model, result));
     RETURN_IF_ERROR(Deparse<6>(header.dscp, model, result));
@@ -84,6 +102,18 @@ absl::Status Deparse(const SaiIpv4& header, const z3::model& model,
   return absl::OkStatus();
 }
 
+absl::Status Deparse(const SaiUdp& header, const z3::model& model,
+                     pdpi::BitString& result) {
+  ASSIGN_OR_RETURN(bool valid, EvalBool(header.valid, model));
+  if (valid) {
+    RETURN_IF_ERROR(Deparse<16>(header.src_port, model, result));
+    RETURN_IF_ERROR(Deparse<16>(header.dst_port, model, result));
+    RETURN_IF_ERROR(Deparse<16>(header.hdr_length, model, result));
+    RETURN_IF_ERROR(Deparse<16>(header.checksum, model, result));
+  }
+  return absl::OkStatus();
+}
+
 }  // namespace
 
 absl::StatusOr<std::string> SaiDeparser(
@@ -97,7 +127,9 @@ absl::StatusOr<std::string> SaiDeparser(const SaiFields& packet,
   pdpi::BitString result;
   RETURN_IF_ERROR(Deparse(packet.headers.ethernet, model, result));
   RETURN_IF_ERROR(Deparse(packet.headers.ipv4, model, result));
-  return result.ToByteString();
+  RETURN_IF_ERROR(Deparse(packet.headers.udp, model, result));
+  ASSIGN_OR_RETURN(std::string bytes, result.ToByteString());
+  return bytes;
 }
 
 }  // namespace p4_symbolic
