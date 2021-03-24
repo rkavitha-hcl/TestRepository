@@ -1096,7 +1096,18 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
     ir.mutable_meter_config()->set_pburst(pi.meter_config().pburst());
   }
 
-  // TODO: Validate and translate counters.
+  // Validate and translate counters.
+  if (!table.has_counter() && pi.has_counter_data()) {
+    return InvalidArgumentErrorBuilder()
+           << "Table \"" << ir.table_name()
+           << "\" does not have a counter, but table entry contained counter "
+              "data.";
+  }
+  if (pi.has_counter_data()) {
+    ir.mutable_counter_data()->set_byte_count(pi.counter_data().byte_count());
+    ir.mutable_counter_data()->set_packet_count(
+        pi.counter_data().packet_count());
+  }
 
   return ir;
 }
@@ -1403,7 +1414,18 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
     pi.mutable_meter_config()->set_pburst(ir.meter_config().pburst());
   }
 
-  // TODO: Validate and translate counters.
+  // Validate and translate counters.
+  if (!table.has_counter() && ir.has_counter_data()) {
+    return InvalidArgumentErrorBuilder()
+           << "Table \"" << ir.table_name()
+           << "\" does not have a counter, but table entry contained counter "
+              "data.";
+  }
+  if (ir.has_counter_data()) {
+    pi.mutable_counter_data()->set_byte_count(ir.counter_data().byte_count());
+    pi.mutable_counter_data()->set_packet_count(
+        ir.counter_data().packet_count());
+  }
 
   return pi;
 }

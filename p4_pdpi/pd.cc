@@ -685,7 +685,7 @@ absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
       }
       default:
         return InvalidArgumentErrorBuilder()
-               << "Invalid counter unit: " << ir_table_info.meter().unit();
+               << "Invalid counter unit: " << ir_table_info.counter().unit();
     }
   }
 

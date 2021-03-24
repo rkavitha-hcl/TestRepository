@@ -467,6 +467,28 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                           }
                         }
                       )PB"));
+
+  RunPiTableEntryTest(info, "counter in a table with no counters",
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                        table_id: 33554438
+                        match {
+                          field_id: 1
+                          lpm { value: "\xff\x00" prefix_len: 24 }
+                        }
+                        action {
+                          action_profile_action_set {
+                            action_profile_actions {
+                              action {
+                                action_id: 16777217
+                                params { param_id: 1 value: "\000\000\000\010" }
+                                params { param_id: 2 value: "\000\000\000\011" }
+                              }
+                              weight: 24
+                            }
+                          }
+                        }
+                        counter_data { byte_count: 4213 }
+                      )PB"));
 }
 
 static void RunIrTests(const pdpi::IrP4Info info) {
@@ -905,6 +927,7 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                         priority: 32
                         action { name: "NoAction" }
                       )PB"));
+
   RunIrTableEntryTest(info, "action set with negative weight",
                       gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
                         table_name: "wcmp_table"
@@ -932,6 +955,7 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           }
                         }
                       )PB"));
+
   RunIrTableEntryTest(info, "action set with invalid action",
                       gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
                         table_name: "wcmp_table"
@@ -958,6 +982,35 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             weight: -1
                           }
                         }
+                      )PB"));
+
+  RunIrTableEntryTest(info, "counter in a table with no counters",
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                        table_name: "wcmp_table"
+                        matches {
+                          name: "ipv4"
+                          lpm {
+                            value { ipv4: "0.0.255.0" }
+                            prefix_length: 24
+                          }
+                        }
+                        action_set {
+                          actions {
+                            action {
+                              name: "do_thing_1"
+                              params {
+                                name: "arg2"
+                                value { hex_str: "0x00000008" }
+                              }
+                              params {
+                                name: "arg1"
+                                value { hex_str: "0x00000009" }
+                              }
+                            }
+                            weight: 24
+                          }
+                        }
+                        counter_data { byte_count: 4213 }
                       )PB"));
 }
 
@@ -1326,6 +1379,53 @@ static void RunPdTests(const pdpi::IrP4Info info) {
       )PB"),
       INPUT_IS_VALID);
 
+  RunPdTableEntryTest(
+      info, "table entry with a byte counter",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+        count_and_meter_table_entry {
+          match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
+          action { count_and_meter {} }
+          byte_counter: 567
+        }
+      )PB"),
+      INPUT_IS_VALID);
+
+  RunPdTableEntryTest(
+      info, "table entry with a packet counter",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+        count_and_meter_table_entry {
+          match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
+          action { count_and_meter {} }
+          packet_counter: 789
+        }
+      )PB"),
+      INPUT_IS_VALID);
+
+  RunPdTableEntryTest(
+      info, "table entry with a counter (both units)",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+        count_and_meter_table_entry {
+          match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
+          action { count_and_meter {} }
+          byte_counter: 567
+          packet_counter: 789
+        }
+      )PB"),
+      INPUT_IS_VALID);
+
+  RunPdTableEntryTest(
+      info, "table entry with counters and meters",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+        count_and_meter_table_entry {
+          match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
+          action { count_and_meter {} }
+          meter_config { bytes_per_second: 123 burst_bytes: 345 }
+          byte_counter: 567
+          packet_counter: 789
+        }
+      )PB"),
+      INPUT_IS_VALID);
+
   RunPdTableEntryTest(info, "exact match with empty string for Format::STRING",
                       gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
                         exact_table_entry {
@@ -1399,21 +1499,6 @@ static void RunPdTests(const pdpi::IrP4Info info) {
         }
       )PB"),
       INPUT_IS_VALID);
-
-  // TODO: implement counters
-  /*
-  RunPdTableEntryTest(
-      info, "table entry with counters and meters",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
-        count_and_meter_table_entry {
-          match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
-          action { count_and_meter {} }
-          byte_counter: 567
-          packet_counter: 789
-        }
-      )PB"),
-      INPUT_IS_VALID);
-      */
 }
 
 int main(int argc, char** argv) {

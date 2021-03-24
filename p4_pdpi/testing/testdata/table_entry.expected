@@ -747,6 +747,44 @@ action {
 INVALID_ARGUMENT: Action ID 16777218 is not a valid action for this table
 
 =========================================================================
+counter in a table with no counters
+=========================================================================
+
+--- PI (Input):
+table_id: 33554438
+match {
+  field_id: 1
+  lpm {
+    value: "\377\000"
+    prefix_len: 24
+  }
+}
+action {
+  action_profile_action_set {
+    action_profile_actions {
+      action {
+        action_id: 16777217
+        params {
+          param_id: 1
+          value: "\000\000\000\010"
+        }
+        params {
+          param_id: 2
+          value: "\000\000\000\t"
+        }
+      }
+      weight: 24
+    }
+  }
+}
+counter_data {
+  byte_count: 4213
+}
+
+--- PI is invalid/unsupported:
+INVALID_ARGUMENT: Table "wcmp_table" does not have a counter, but table entry contained counter data.
+
+=========================================================================
 empty IR
 =========================================================================
 
@@ -1533,6 +1571,48 @@ action_set {
 
 --- IR (converting to PI) is invalid/unsupported:
 NOT_FOUND: Key not found; Action "invalid_do_thing_1" does not exist in P4Info
+
+=========================================================================
+counter in a table with no counters
+=========================================================================
+
+--- IR (Input):
+table_name: "wcmp_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "0.0.255.0"
+    }
+    prefix_length: 24
+  }
+}
+action_set {
+  actions {
+    action {
+      name: "do_thing_1"
+      params {
+        name: "arg2"
+        value {
+          hex_str: "0x00000008"
+        }
+      }
+      params {
+        name: "arg1"
+        value {
+          hex_str: "0x00000009"
+        }
+      }
+    }
+    weight: 24
+  }
+}
+counter_data {
+  byte_count: 4213
+}
+
+--- IR (converting to PI) is invalid/unsupported:
+INVALID_ARGUMENT: Table "wcmp_table" does not have a counter, but table entry contained counter data.
 
 =========================================================================
 empty PD
@@ -3073,6 +3153,252 @@ meter_config {
   cburst: 345
   pir: 123
   pburst: 345
+}
+
+
+=========================================================================
+table entry with a byte counter
+=========================================================================
+
+--- PD (Input):
+count_and_meter_table_entry {
+  match {
+    ipv4 {
+      value: "16.36.50.0"
+      prefix_length: 24
+    }
+  }
+  action {
+    count_and_meter {
+    }
+  }
+  byte_counter: 567
+}
+
+--- IR:
+table_name: "count_and_meter_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "16.36.50.0"
+    }
+    prefix_length: 24
+  }
+}
+action {
+  name: "count_and_meter"
+}
+counter_data {
+  byte_count: 567
+}
+
+--- PI:
+table_id: 33554439
+match {
+  field_id: 1
+  lpm {
+    value: "\020$2\000"
+    prefix_len: 24
+  }
+}
+action {
+  action {
+    action_id: 16777220
+  }
+}
+counter_data {
+  byte_count: 567
+}
+
+
+=========================================================================
+table entry with a packet counter
+=========================================================================
+
+--- PD (Input):
+count_and_meter_table_entry {
+  match {
+    ipv4 {
+      value: "16.36.50.0"
+      prefix_length: 24
+    }
+  }
+  action {
+    count_and_meter {
+    }
+  }
+  packet_counter: 789
+}
+
+--- IR:
+table_name: "count_and_meter_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "16.36.50.0"
+    }
+    prefix_length: 24
+  }
+}
+action {
+  name: "count_and_meter"
+}
+counter_data {
+  packet_count: 789
+}
+
+--- PI:
+table_id: 33554439
+match {
+  field_id: 1
+  lpm {
+    value: "\020$2\000"
+    prefix_len: 24
+  }
+}
+action {
+  action {
+    action_id: 16777220
+  }
+}
+counter_data {
+  packet_count: 789
+}
+
+
+=========================================================================
+table entry with a counter (both units)
+=========================================================================
+
+--- PD (Input):
+count_and_meter_table_entry {
+  match {
+    ipv4 {
+      value: "16.36.50.0"
+      prefix_length: 24
+    }
+  }
+  action {
+    count_and_meter {
+    }
+  }
+  byte_counter: 567
+  packet_counter: 789
+}
+
+--- IR:
+table_name: "count_and_meter_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "16.36.50.0"
+    }
+    prefix_length: 24
+  }
+}
+action {
+  name: "count_and_meter"
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+
+--- PI:
+table_id: 33554439
+match {
+  field_id: 1
+  lpm {
+    value: "\020$2\000"
+    prefix_len: 24
+  }
+}
+action {
+  action {
+    action_id: 16777220
+  }
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+
+
+=========================================================================
+table entry with counters and meters
+=========================================================================
+
+--- PD (Input):
+count_and_meter_table_entry {
+  match {
+    ipv4 {
+      value: "16.36.50.0"
+      prefix_length: 24
+    }
+  }
+  action {
+    count_and_meter {
+    }
+  }
+  meter_config {
+    bytes_per_second: 123
+    burst_bytes: 345
+  }
+  byte_counter: 567
+  packet_counter: 789
+}
+
+--- IR:
+table_name: "count_and_meter_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "16.36.50.0"
+    }
+    prefix_length: 24
+  }
+}
+action {
+  name: "count_and_meter"
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+
+--- PI:
+table_id: 33554439
+match {
+  field_id: 1
+  lpm {
+    value: "\020$2\000"
+    prefix_len: 24
+  }
+}
+action {
+  action {
+    action_id: 16777220
+  }
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
 }
 
 
