@@ -28,9 +28,12 @@
 #include "absl/strings/str_format.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
+#include "gutil/status.h"
+#include "p4/config/v1/p4info.pb.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/symbolic/action.h"
 #include "p4_symbolic/symbolic/operators.h"
+#include "p4_symbolic/symbolic/values.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
@@ -158,14 +161,17 @@ absl::StatusOr<z3::expr> EvaluateSingleMatch(
         absl::StrCat("Found match with non-standard type"));
   }
 
+  absl::Status mismatch =
+      gutil::InvalidArgumentErrorBuilder()
+      << "match on field '" << field_name << "' must be of type "
+      << p4::config::v1::MatchField::MatchType_Name(
+             match_definition.match_type())
+      << " according to the table definition, but got entry with match: "
+      << match_definition.ShortDebugString();
+
   switch (match_definition.match_type()) {
     case p4::config::v1::MatchField::EXACT: {
-      if (match.match_value_case() != pdpi::IrMatch::kExact) {
-        return absl::InvalidArgumentError(
-            absl::StrCat("Match definition in table has type \"Exact\" but its "
-                         "invocation in TableEntry has a different type ",
-                         match_definition.DebugString()));
-      }
+      if (match.match_value_case() != pdpi::IrMatch::kExact) return mismatch;
       ASSIGN_OR_RETURN(z3::expr value_expression,
                        values::FormatP4RTValue(
                            field_name, match_definition.type_name().name(),
@@ -174,12 +180,7 @@ absl::StatusOr<z3::expr> EvaluateSingleMatch(
     }
 
     case p4::config::v1::MatchField::LPM: {
-      if (match.match_value_case() != pdpi::IrMatch::kLpm) {
-        return absl::InvalidArgumentError(
-            absl::StrCat("Match definition in table has type \"LPM\" but its "
-                         "invocation in TableEntry has a different type ",
-                         match_definition.DebugString()));
-      }
+      if (match.match_value_case() != pdpi::IrMatch::kLpm) return mismatch;
 
       ASSIGN_OR_RETURN(z3::expr value_expression,
                        values::FormatBmv2Value(match.lpm().value()));
@@ -189,12 +190,7 @@ absl::StatusOr<z3::expr> EvaluateSingleMatch(
     }
 
     case p4::config::v1::MatchField::TERNARY: {
-      if (match.match_value_case() != pdpi::IrMatch::kTernary) {
-        return absl::InvalidArgumentError(
-            absl::StrCat("Match definition in table has type \"TERNARY\" but "
-                         "its invocation in TableEntry has a different type ",
-                         match_definition.DebugString()));
-      }
+      if (match.match_value_case() != pdpi::IrMatch::kTernary) return mismatch;
 
       ASSIGN_OR_RETURN(z3::expr mask_expression,
                        values::FormatBmv2Value(match.ternary().mask()));
@@ -203,6 +199,13 @@ absl::StatusOr<z3::expr> EvaluateSingleMatch(
       ASSIGN_OR_RETURN(z3::expr masked_field,
                        operators::BitAnd(field_expression, mask_expression));
       return operators::Eq(masked_field, value_expression);
+    }
+
+    case p4::config::v1::MatchField::OPTIONAL: {
+      if (match.match_value_case() != pdpi::IrMatch::kOptional) return mismatch;
+      ASSIGN_OR_RETURN(z3::expr value_expression,
+                       values::FormatBmv2Value(match.optional().value()));
+      return operators::Eq(field_expression, value_expression);
     }
 
     default:
