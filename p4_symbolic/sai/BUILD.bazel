@@ -104,7 +104,6 @@ cc_library(
     name = "deparser",
     srcs = ["deparser.cc"],
     hdrs = ["deparser.h"],
-    visibility = ["//p4_symbolic:__subpackages__"],
     deps = [
         ":fields",
         "//gutil:status",

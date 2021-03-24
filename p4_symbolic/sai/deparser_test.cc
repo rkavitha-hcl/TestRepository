@@ -66,12 +66,11 @@ TEST_P(SaiDeparserTest, Ipv4PacketParserIntegrationTest) {
   // Solve and deparse.
   ASSERT_EQ(state_->solver->check(), z3::check_result::sat);
   auto model = state_->solver->get_model();
-  ASSERT_OK_AND_ASSIGN(pdpi::BitString raw_packet,
+  ASSERT_OK_AND_ASSIGN(std::string raw_packet,
                        SaiDeparser(state_->context.ingress_headers, model));
-  ASSERT_OK_AND_ASSIGN(std::string bytes, raw_packet.ToByteString());
 
   // Check we indeed got an IPv4 packet.
-  packetlib::Packet packet = packetlib::ParsePacket(bytes);
+  packetlib::Packet packet = packetlib::ParsePacket(raw_packet);
   LOG(INFO) << "Z3-generated packet = " << packet.DebugString();
   ASSERT_GE(packet.headers_size(), 2);
   ASSERT_TRUE(packet.headers(0).has_ethernet_header());

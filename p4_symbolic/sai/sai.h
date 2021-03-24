@@ -16,7 +16,7 @@ namespace p4_symbolic {
 // to only use ports from the list.
 absl::StatusOr<std::unique_ptr<symbolic::SolverState>> EvaluateSaiPipeline(
     sai::SwitchRole role, const std::vector<p4::v1::TableEntry>& entries,
-    const std::vector<int>& physical_ports);
+    const std::vector<int>& physical_ports = {});
 
 }  // namespace p4_symbolic
 

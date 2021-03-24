@@ -86,18 +86,18 @@ absl::Status Deparse(const SaiIpv4& header, const z3::model& model,
 
 }  // namespace
 
-absl::StatusOr<pdpi::BitString> SaiDeparser(
+absl::StatusOr<std::string> SaiDeparser(
     const symbolic::SymbolicPerPacketState& packet, const z3::model& model) {
   ASSIGN_OR_RETURN(SaiFields fields, GetSaiFields(packet));
   return SaiDeparser(fields, model);
 }
 
-absl::StatusOr<pdpi::BitString> SaiDeparser(const SaiFields& packet,
-                                            const z3::model& model) {
+absl::StatusOr<std::string> SaiDeparser(const SaiFields& packet,
+                                        const z3::model& model) {
   pdpi::BitString result;
   RETURN_IF_ERROR(Deparse(packet.headers.ethernet, model, result));
   RETURN_IF_ERROR(Deparse(packet.headers.ipv4, model, result));
-  return result;
+  return result.ToByteString();
 }
 
 }  // namespace p4_symbolic
