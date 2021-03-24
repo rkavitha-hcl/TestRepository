@@ -40,7 +40,7 @@ class FakePacketIoTest : public testing::Test {
   void SetUp() override {
     p4rt_service_ = absl::make_unique<test_lib::P4RuntimeGrpcService>();
     const std::string address =
-        absl::StrCat("127.0.0.1:", p4rt_service_->GrpcPort());
+        absl::StrCat("localhost:", p4rt_service_->GrpcPort());
     auto stub =
         pdpi::CreateP4RuntimeStub(address, grpc::InsecureChannelCredentials());
     ASSERT_OK_AND_ASSIGN(
@@ -173,7 +173,7 @@ TEST_F(FakePacketIoTest, PacketOutFailForSecondary) {
       *request.mutable_packet(),
       pdpi::PdPacketOutToPi(sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
                             packet_out));
-  std::string address = absl::StrCat("127.0.0.1:", p4rt_service_->GrpcPort());
+  std::string address = absl::StrCat("localhost:", p4rt_service_->GrpcPort());
   auto channel =
       grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
   auto stub = P4Runtime::NewStub(channel);

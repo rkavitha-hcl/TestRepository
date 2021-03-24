@@ -23,7 +23,7 @@ namespace {
 class ForwardingPipelineConfigTest : public testing::Test {
  protected:
   void SetUp() override {
-    std::string address = absl::StrCat("127.0.0.1:", p4rt_service_.GrpcPort());
+    std::string address = absl::StrCat("localhost:", p4rt_service_.GrpcPort());
     LOG(INFO) << "Opening P4RT connection to " << address << ".";
     auto stub =
         pdpi::CreateP4RuntimeStub(address, grpc::InsecureChannelCredentials());

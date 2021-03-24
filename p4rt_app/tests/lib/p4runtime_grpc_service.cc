@@ -69,7 +69,7 @@ P4RuntimeGrpcService::P4RuntimeGrpcService() {
       std::move(fake_packetio_interface));
 
   // Component tests will use an insecure connection for the service.
-  std::string server_address = absl::StrCat("[::]:", GrpcPort());
+  std::string server_address = absl::StrCat("localhost:", GrpcPort());
   std::shared_ptr<grpc::ServerCredentials> creds =
       grpc::InsecureServerCredentials();
 

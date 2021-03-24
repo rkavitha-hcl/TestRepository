@@ -41,7 +41,7 @@ p4::v1::Uint128 GetElectionId(int value) {
 class ArbitrationTest : public testing::Test {
  protected:
   void SetUp() override {
-    std::string address = absl::StrCat("127.0.0.1:", p4rt_service_.GrpcPort());
+    std::string address = absl::StrCat("localhost:", p4rt_service_.GrpcPort());
     auto channel =
         grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
     LOG(INFO) << "Creating P4Runtime::Stub for " << address << ".";
