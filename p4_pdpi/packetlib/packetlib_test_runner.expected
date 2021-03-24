@@ -40,8 +40,9 @@ headers {
 }
 payload: "0x0102"
 reasons_invalid: "headers[0].ethertype: value 0x0001 is <= 1500 and should thus match payload size, but payload size is 2 bytes"
-reasons_invalid: "headers[0].: expected at least 46 bytes of Ethernet payload, but got only 2"
 
+PadPacketToMinimumSize(packet) = false
+UpdateAllComputedFields(packet) = false
 ================================================================================
 Parsing test: Ethernet packet (unsupported EtherType)
 ================================================================================
@@ -61,6 +62,9 @@ headers {
 reason_unsupported: "ethernet_header.ethertype 0x0842: unsupported"
 reasons_invalid: "headers[0].: expected at least 46 bytes of Ethernet payload, but got only 0"
 
+PadPacketToMinimumSize(packet) = true
+UpdateAllComputedFields(packet) = false
+ValidatePacket(packet) = OK
 ================================================================================
 Parsing test: IPv4 packet (invalid)
 ================================================================================
@@ -116,6 +120,9 @@ reasons_invalid: "headers[0].: expected at least 46 bytes of Ethernet payload, b
 reasons_invalid: "headers[1].total_length: Must be 0x0016, but was 0x6fc6 instead."
 reasons_invalid: "headers[1].checksum: Must be 0x78f5, but was 0x1234 instead."
 
+PadPacketToMinimumSize(packet) = true
+UpdateAllComputedFields(packet) = true
+ValidatePacket(packet) = OK
 ================================================================================
 Parsing test: IPv4 packet (valid)
 ================================================================================
@@ -222,6 +229,9 @@ reasons_invalid: "headers[1].total_length: Must be 0x0020, but was 0x0073 instea
 reasons_invalid: "headers[2].length: Must be 0x000c, but was 0x005f instead."
 reasons_invalid: "headers[2].checksum: Must be 0xf399, but was 0x279f instead."
 
+PadPacketToMinimumSize(packet) = true
+UpdateAllComputedFields(packet) = true
+ValidatePacket(packet) = OK
 ================================================================================
 Parsing test: IPv4 packet with options (valid)
 ================================================================================
@@ -332,6 +342,12 @@ reasons_invalid: "headers[1].uninterpreted_options: found 8 bits, but expected m
 reasons_invalid: "headers[1].ihl: Correct value undefined since uninterpreted_options is invalid."
 reasons_invalid: "headers[1].total_length: Must be 0x0015, but was 0x0018 instead."
 
+PadPacketToMinimumSize(packet) = true
+UpdateAllComputedFields(packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].ihl: uninterpreted_options field is invalid
+ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- headers[1].uninterpreted_options: found 8 bits, but expected multiple of 32 bits
+- headers[1].ihl: Correct value undefined since uninterpreted_options is invalid.
+- headers[1].total_length: Must be 0x002e, but was 0x0018 instead.
 ================================================================================
 Parsing test: IPv6 packet (invalid)
 ================================================================================
@@ -379,6 +395,9 @@ reasons_invalid: "headers[0].: expected at least 46 bytes of Ethernet payload, b
 reasons_invalid: "headers[1].version: Must be 0x6, but was 0x4 instead."
 reasons_invalid: "headers[1].payload_length: Must be 0x0001, but was 0x0000 instead."
 
+PadPacketToMinimumSize(packet) = true
+UpdateAllComputedFields(packet) = true
+ValidatePacket(packet) = OK
 ================================================================================
 Parsing test: IPv6 packet (valid)
 ================================================================================
@@ -818,7 +837,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 
 PadPacketToMinimumSize(packet) = false
 
-UpdateComputedFields(packet) = false
+UpdateMissingComputedFields(packet) = false
 
 Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - headers[0].checksum: UDP header must be preceded by IP header for checksum to be defined; found no header instead
@@ -847,18 +866,14 @@ payload: "0x4869"
 
 -- OUTPUT ----------------------------------------------------------------------
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
-- headers[0].: expected at least 46 bytes of Ethernet payload, but got only 10
 - headers[1].checksum: UDP header must be preceded by IP header for checksum to be defined; found EthernetHeader at headers[0] instead
 - headers[1]: expected no header (because the previous header demands either no header or an unsupported header), got UdpHeader
 
-PadPacketToMinimumSize(packet) = true
-new payload: "0x4869000000000000000000000000000000000000000000000000000000000000000000000000"
+PadPacketToMinimumSize(packet) = false
 
-UpdateComputedFields(packet) = false
+UpdateMissingComputedFields(packet) = false
 
 Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
-- headers[0].ethertype: value 0x000a is <= 1500 and should thus match payload size, but payload size is 46 bytes
-- headers[1].length: Must be 0x002e, but was 0x000a instead.
 - headers[1].checksum: UDP header must be preceded by IP header for checksum to be defined; found EthernetHeader at headers[0] instead
 - headers[1]: expected no header (because the previous header demands either no header or an unsupported header), got UdpHeader
 
@@ -908,7 +923,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 PadPacketToMinimumSize(packet) = true
 new payload: "0x486900000000000000000000000000000000"
 
-UpdateComputedFields(packet) = true
+UpdateMissingComputedFields(packet) = true
 packet =
 headers {
   ethernet_header {
@@ -989,7 +1004,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 
 PadPacketToMinimumSize(packet) = false
 
-UpdateComputedFields(packet) = true
+UpdateMissingComputedFields(packet) = true
 packet =
 headers {
   ethernet_header {
@@ -1065,7 +1080,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 PadPacketToMinimumSize(packet) = true
 new payload: "0xabcd000000000000000000000000000000000000000000000000"
 
-UpdateComputedFields(packet) = true
+UpdateMissingComputedFields(packet) = true
 packet =
 headers {
   ethernet_header {
@@ -1138,7 +1153,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 PadPacketToMinimumSize(packet) = true
 new payload: "0x00112233445566778899aabbccddeeff000000000000000000"
 
-UpdateComputedFields(packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].ihl: uninterpreted_options field is invalid
+UpdateMissingComputedFields(packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].ihl: uninterpreted_options field is invalid
 
 Serialize(Packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].ihl: uninterpreted_options field is invalid
 
@@ -1189,7 +1204,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 PadPacketToMinimumSize(packet) = true
 new payload: "0x00112233445566778899aabbccddeeff000000000000"
 
-UpdateComputedFields(packet) = true
+UpdateMissingComputedFields(packet) = true
 packet =
 headers {
   ethernet_header {
@@ -1279,7 +1294,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 PadPacketToMinimumSize(packet) = true
 new payload: "0xabcd000000000000000000000000000000000000000000000000"
 
-UpdateComputedFields(packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].checksum: illegal conversion from hex string '0x6k' to 4 bits; expected between 5 and 8 bits
+UpdateMissingComputedFields(packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].checksum: illegal conversion from hex string '0x6k' to 4 bits; expected between 5 and 8 bits
 
 Serialize(Packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].checksum: illegal conversion from hex string '0x6k' to 4 bits; expected between 5 and 8 bits
 
@@ -1317,7 +1332,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 PadPacketToMinimumSize(packet) = true
 new payload: "0xabcd00000000"
 
-UpdateComputedFields(packet) = true
+UpdateMissingComputedFields(packet) = true
 packet =
 headers {
   ethernet_header {
@@ -1388,7 +1403,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 PadPacketToMinimumSize(packet) = true
 new payload: "0xabcd00000000"
 
-UpdateComputedFields(packet) = false
+UpdateMissingComputedFields(packet) = false
 
 Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - headers[1].dscp: invalid format: missing '0x'-prefix in hexadecimal string: '1b'
@@ -1435,7 +1450,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 PadPacketToMinimumSize(packet) = true
 new payload: "0x000000000000"
 
-UpdateComputedFields(packet) = false
+UpdateMissingComputedFields(packet) = false
 
 Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - headers[1].payload_length: Must be 0x0006, but was 0x0000 instead.
@@ -1463,7 +1478,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 PadPacketToMinimumSize(packet) = true
 new payload: "0xabcd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"
 
-UpdateComputedFields(packet) = false
+UpdateMissingComputedFields(packet) = false
 
 Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - headers[1]: header missing - expected Ipv6Header
@@ -1501,7 +1516,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 PadPacketToMinimumSize(packet) = true
 new payload: "0x000000000000000000000000000000000000"
 
-UpdateComputedFields(packet) = true
+UpdateMissingComputedFields(packet) = true
 packet =
 headers {
   ethernet_header {
@@ -1566,7 +1581,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 PadPacketToMinimumSize(packet) = true
 new payload: "0x000000000000000000000000000000000000"
 
-UpdateComputedFields(packet) = false
+UpdateMissingComputedFields(packet) = false
 
 Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - headers[1].hardware_type: Must be 0x0001, but was 0x0002 instead.
@@ -1618,7 +1633,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 
 PadPacketToMinimumSize(packet) = false
 
-UpdateComputedFields(packet) = true
+UpdateMissingComputedFields(packet) = true
 packet =
 headers {
   ethernet_header {
@@ -1698,7 +1713,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 
 PadPacketToMinimumSize(packet) = false
 
-UpdateComputedFields(packet) = true
+UpdateMissingComputedFields(packet) = true
 packet =
 headers {
   ethernet_header {
@@ -1765,7 +1780,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 PadPacketToMinimumSize(packet) = true
 new payload: "0x000102030405060708090a0b0c0d0e0f10111213141500000000000000000000000000000000"
 
-UpdateComputedFields(packet) = INVALID_ARGUMENT: IcmpHeaderChecksum(packet, icmp_header_index = 1): expected packet.headers[udp_header_index - 1] to be an IP header, got EthernetHeader
+UpdateMissingComputedFields(packet) = INVALID_ARGUMENT: IcmpHeaderChecksum(packet, icmp_header_index = 1): expected packet.headers[udp_header_index - 1] to be an IP header, got EthernetHeader
 
 Serialize(Packet) = INVALID_ARGUMENT: IcmpHeaderChecksum(packet, icmp_header_index = 1): expected packet.headers[udp_header_index - 1] to be an IP header, got EthernetHeader
 
@@ -1810,7 +1825,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 PadPacketToMinimumSize(packet) = true
 new payload: "0x0000000000000000000000000000"
 
-UpdateComputedFields(packet) = true
+UpdateMissingComputedFields(packet) = true
 packet =
 headers {
   ethernet_header {
@@ -1858,7 +1873,7 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 
 PadPacketToMinimumSize(packet) = false
 
-UpdateComputedFields(packet) = false
+UpdateMissingComputedFields(packet) = false
 
 Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - Packet is empty.

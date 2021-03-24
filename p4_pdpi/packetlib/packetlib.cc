@@ -528,35 +528,25 @@ void EthernetHeaderInvalidReasons(const EthernetHeader& header,
   bool ethertype_invalid = HexStringInvalidReasons<kEthernetEthertypeBitwidth>(
       header.ethertype(), absl::StrCat(field_prefix, "ethertype"), output);
 
-  // Check EtherType, see https://en.wikipedia.org/wiki/EtherType.
-  if (!ethertype_invalid) {
-    auto ethertype = pdpi::HexStringToInt(header.ethertype());
-    if (!ethertype.ok()) {
-      LOG(DFATAL) << field_prefix
-                  << "ethertype invalid despite previous check: "
-                  << ethertype.status();
-      output.push_back(absl::StrCat(field_prefix, "ethertype: INTERNAL ERROR: ",
-                                    ethertype.status().ToString()));
-    } else if (*ethertype <= 1500) {
-      // `+1` to skip this (and previous) headers in the calculation.
-      if (auto size = PacketSizeInBytes(packet, header_index + 1); !size.ok()) {
-        output.push_back(absl::StrCat("packet size could not be computed: ",
-                                      size.status().ToString()));
-      } else if (*ethertype != *size) {
-        output.push_back(
-            absl::StrFormat("%sethertype: value %s is <= 1500 and should thus "
-                            "match payload size, but payload size is %d bytes",
-                            field_prefix, header.ethertype(), *size));
-      }
-    }
-  }
-
-  // Check minimum payload size.
+  // Check EtherType and minimum payload size, see
+  // https://en.wikipedia.org/wiki/EtherType.
   if (auto size = PacketSizeInBytes(packet, header_index + 1); !size.ok()) {
     output.push_back(absl::StrCat(
         field_prefix,
         ": couldn't compute payload size: ", size.status().ToString()));
-  } else if (*size < kMinNumBytesInEthernetPayload) {
+  } else if (auto ethertype = pdpi::HexStringToInt(header.ethertype());
+             !ethertype_invalid && !ethertype.ok()) {
+    LOG(DFATAL) << field_prefix << "ethertype invalid despite previous check: "
+                << ethertype.status();
+    output.push_back(absl::StrCat(field_prefix, "ethertype: INTERNAL ERROR: ",
+                                  ethertype.status().ToString()));
+  } else if (*ethertype <= 1500 && *size != *ethertype) {
+    output.push_back(
+        absl::StrFormat("%sethertype: value %s is <= 1500 and should thus "
+                        "match payload size, but payload size is %d bytes",
+                        field_prefix, header.ethertype(), *size));
+
+  } else if (*ethertype > 1500 && *size < kMinNumBytesInEthernetPayload) {
     output.push_back(absl::StrCat(
         field_prefix, ": expected at least ", kMinNumBytesInEthernetPayload,
         " bytes of Ethernet payload, but got only ", *size));
@@ -1237,14 +1227,14 @@ absl::StatusOr<std::string> RawSerializePacket(const Packet& packet) {
 
 absl::StatusOr<std::string> SerializePacket(Packet packet) {
   RETURN_IF_ERROR(PadPacketToMinimumSize(packet).status());
-  RETURN_IF_ERROR(UpdateComputedFields(packet).status());
+  RETURN_IF_ERROR(UpdateMissingComputedFields(packet).status());
   RETURN_IF_ERROR(ValidatePacket(packet));
   return RawSerializePacket(packet);
 }
 
 // ---- Computed field logic ---------------------------------------------------
 
-absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
+absl::StatusOr<bool> UpdateComputedFields(Packet& packet, bool overwrite) {
   bool changes = false;
 
   int header_index = 0;
@@ -1254,11 +1244,11 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
     switch (header.header_case()) {
       case Header::kIpv4Header: {
         Ipv4Header& ipv4_header = *header.mutable_ipv4_header();
-        if (ipv4_header.version().empty()) {
+        if (ipv4_header.version().empty() || overwrite) {
           ipv4_header.set_version("0x4");
           changes = true;
         }
-        if (ipv4_header.ihl().empty()) {
+        if (ipv4_header.ihl().empty() || overwrite) {
           absl::string_view options = ipv4_header.uninterpreted_options();
           if (options.empty()) {
             ipv4_header.set_ihl("0x5");
@@ -1276,14 +1266,14 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
                    << "ihl: uninterpreted_options field is invalid";
           }
         }
-        if (ipv4_header.total_length().empty()) {
+        if (ipv4_header.total_length().empty() || overwrite) {
           ASSIGN_OR_RETURN(int size, PacketSizeInBytes(packet, header_index),
                            _.SetPrepend() << error_prefix << "total_length: ");
           ipv4_header.set_total_length(pdpi::BitsetToHexString(
               std::bitset<kIpTotalLengthBitwidth>(size)));
           changes = true;
         }
-        if (ipv4_header.checksum().empty()) {
+        if (ipv4_header.checksum().empty() || overwrite) {
           ASSIGN_OR_RETURN(int checksum, Ipv4HeaderChecksum(ipv4_header),
                            _.SetPrepend() << error_prefix << "checksum: ");
           ipv4_header.set_checksum(pdpi::BitsetToHexString(
@@ -1294,11 +1284,11 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
       }
       case Header::kIpv6Header: {
         Ipv6Header& ipv6_header = *header.mutable_ipv6_header();
-        if (ipv6_header.version().empty()) {
+        if (ipv6_header.version().empty() || overwrite) {
           ipv6_header.set_version("0x6");
           changes = true;
         }
-        if (ipv6_header.payload_length().empty()) {
+        if (ipv6_header.payload_length().empty() || overwrite) {
           // `+1` to skip the IPv6 header and previous headers in calculation.
           ASSIGN_OR_RETURN(
               int size, PacketSizeInBytes(packet, header_index + 1),
@@ -1311,14 +1301,14 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
       }
       case Header::kUdpHeader: {
         UdpHeader& udp_header = *header.mutable_udp_header();
-        if (udp_header.length().empty()) {
+        if (udp_header.length().empty() || overwrite) {
           ASSIGN_OR_RETURN(int size, PacketSizeInBytes(packet, header_index),
                            _.SetPrepend() << error_prefix << "length: ");
           udp_header.set_length(
               pdpi::BitsetToHexString(std::bitset<kUdpLengthBitwidth>(size)));
           changes = true;
         }
-        if (udp_header.checksum().empty()) {
+        if (udp_header.checksum().empty() || overwrite) {
           ASSIGN_OR_RETURN(int checksum,
                            UdpHeaderChecksum(packet, header_index),
                            _.SetPrepend() << error_prefix << "checksum: ");
@@ -1330,19 +1320,19 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
       }
       case Header::kArpHeader: {
         ArpHeader& arp_header = *header.mutable_arp_header();
-        if (arp_header.hardware_type().empty()) {
+        if (arp_header.hardware_type().empty() || overwrite) {
           arp_header.set_hardware_type("0x0001");
           changes = true;
         }
-        if (arp_header.protocol_type().empty()) {
+        if (arp_header.protocol_type().empty() || overwrite) {
           arp_header.set_protocol_type("0x0800");
           changes = true;
         }
-        if (arp_header.hardware_length().empty()) {
+        if (arp_header.hardware_length().empty() || overwrite) {
           arp_header.set_hardware_length("0x06");
           changes = true;
         }
-        if (arp_header.protocol_length().empty()) {
+        if (arp_header.protocol_length().empty() || overwrite) {
           arp_header.set_protocol_length("0x04");
           changes = true;
         }
@@ -1350,7 +1340,7 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
       }
       case Header::kIcmpHeader: {
         IcmpHeader& icmp_header = *header.mutable_icmp_header();
-        if (icmp_header.checksum().empty()) {
+        if (icmp_header.checksum().empty() || overwrite) {
           ASSIGN_OR_RETURN(int checksum,
                            IcmpHeaderChecksum(packet, header_index));
           icmp_header.set_checksum(pdpi::BitsetToHexString(
@@ -1375,18 +1365,33 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet) {
   return changes;
 }
 
+absl::StatusOr<bool> UpdateMissingComputedFields(Packet& packet) {
+  return UpdateComputedFields(packet, /*overwrite=*/false);
+}
+
+absl::StatusOr<bool> UpdateAllComputedFields(Packet& packet) {
+  return UpdateComputedFields(packet, /*overwrite=*/true);
+}
+
 absl::StatusOr<bool> PadPacketToMinimumSize(Packet& packet) {
   if (packet.headers().empty()) return false;
   switch (packet.headers(0).header_case()) {
     case Header::kEthernetHeader: {
+      const auto& header = packet.headers(0).ethernet_header();
       if (auto size = PacketSizeInBytes(packet, 1); !size.ok()) {
         return gutil::InvalidArgumentErrorBuilder()
                << "couldn't compute packet size: " << size.status();
-      } else if (*size >= kMinNumBytesInEthernetPayload) {
-        return false;
+      } else if (auto ethertype = pdpi::HexStringToInt(header.ethertype());
+                 !ethertype.ok()) {
+        return gutil::InvalidArgumentErrorBuilder()
+               << "couldn't parse ethertype: " << ethertype.status();
       } else {
+        int target_payload_size = *ethertype <= 1500
+                                      ? *ethertype - kEthernetHeaderBitwidth / 8
+                                      : kMinNumBytesInEthernetPayload;
+        if (*size >= target_payload_size) return false;
         std::string padding =
-            std::string(2 * (kMinNumBytesInEthernetPayload - *size), '0');
+            std::string(2 * (target_payload_size - *size), '0');
         if (packet.payload().empty()) {
           packet.set_payload(absl::StrCat("0x", padding));
         } else {

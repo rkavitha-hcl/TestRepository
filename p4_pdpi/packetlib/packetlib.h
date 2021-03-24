@@ -48,8 +48,8 @@ std::vector<std::string> PacketInvalidReasons(const Packet& packet);
 
 // Seralizes a given packet. The packet may miss computed fields, which will be
 // filled in automatically when missing (but not changed if they are present).
-// Serialization succeeds iff `ValidatePacket(packet).ok()` after
-// calling `PadPacketToMinimumSize(packet); UpdateComputedFields(packet)`.
+// Serialization succeeds iff `ValidatePacket(packet).ok()` after calling
+// `PadPacketToMinimumSize(packet); UpdateMisssingComputedFields(packet)`.
 // An error status is returned otherwise.
 absl::StatusOr<std::string> SerializePacket(Packet packet);
 
@@ -64,7 +64,11 @@ absl::StatusOr<std::string> RawSerializePacket(const Packet& packet);
 // already present are not modified. Returns true iff any changes where made.
 // Fails if fields that are required for determining computed fields are missing
 // or invalid.
-absl::StatusOr<bool> UpdateComputedFields(Packet& packet);
+absl::StatusOr<bool> UpdateMissingComputedFields(Packet& packet);
+
+// Like `UpdateMissingComputedFields`, but also overwrites comuted fields
+// that are already present.
+absl::StatusOr<bool> UpdateAllComputedFields(Packet& packet);
 
 // If the given packet must have a minimum size based on its headers (e.g., an
 // Ethernet payload can be no smaller than 46 bytes), and if the packet size can
@@ -74,7 +78,7 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet);
 // If no padding is required, leaves the packet unmodified and returns false.
 //
 // Note: This function may invalidate computed fields (e.g., checksum and length
-// fields) and should be called prior to `UpdateComputedFields`.
+// fields) and should be called prior to `Update*ComputedFields`.
 absl::StatusOr<bool> PadPacketToMinimumSize(Packet& packet);
 
 // Returns the size of the given packet in bits, starting at the nth header and

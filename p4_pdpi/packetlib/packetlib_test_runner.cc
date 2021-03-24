@@ -45,24 +45,47 @@ void RunPacketParseTest(const std::string& name,
   Packet packet = ParsePacket(*byte_string);
   std::cout << packet.DebugString() << "\n";
 
-  // Check roundtrip if parsing succeeded.
-  if (!packet.reasons_invalid().empty()) return;
-  auto byte_string_after_roundtrip = SerializePacket(packet);
-  if (!byte_string_after_roundtrip.ok()) {
-    std::cout << kRoundtripHeader << byte_string_after_roundtrip.status()
-              << "\n";
-  } else if (*byte_string_after_roundtrip != *byte_string) {
-    std::cout << kRoundtripHeader
-              << "Original packet does not match packet after parsing and "
-              << "reserialization.\nOriginal packet:\n"
-              << absl::BytesToHexString(*byte_string)
-              << "\nParsed and reserialized packet:\n"
-              << absl::BytesToHexString(*byte_string_after_roundtrip) << "\n";
+  // Check roundtrip if parsing succeeded, or try to fix packet otherwise.
+  if (packet.reasons_invalid().empty()) {
+    auto byte_string_after_roundtrip = SerializePacket(packet);
+    if (!byte_string_after_roundtrip.ok()) {
+      std::cout << kRoundtripHeader << byte_string_after_roundtrip.status()
+                << "\n";
+    } else if (*byte_string_after_roundtrip != *byte_string) {
+      std::cout << kRoundtripHeader
+                << "Original packet does not match packet after parsing and "
+                << "reserialization.\nOriginal packet:\n"
+                << absl::BytesToHexString(*byte_string)
+                << "\nParsed and reserialized packet:\n"
+                << absl::BytesToHexString(*byte_string_after_roundtrip) << "\n";
+    }
+  } else {
+    // The packet is invalid. Try to fix it.
+    auto padded = PadPacketToMinimumSize(packet);
+    std::cout << "PadPacketToMinimumSize(packet) = ";
+    if (padded.ok()) {
+      std::cout << (*padded ? "true" : "false") << "\n";
+    } else {
+      std::cout << padded.status() << "\n";
+    }
+    auto updated = UpdateAllComputedFields(packet);
+    std::cout << "UpdateAllComputedFields(packet) = ";
+    if (updated.ok()) {
+      std::cout << (*updated ? "true" : "false") << "\n";
+    } else {
+      std::cout << updated.status() << "\n";
+    }
+    if ((padded.ok() && *padded) || (updated.ok() && *updated)) {
+      packet.clear_reason_unsupported();
+      packet.clear_reasons_invalid();
+      std::cout << "ValidatePacket(packet) = " << ValidatePacket(packet)
+                << "\n";
+    }
   }
 }
 
 // Validates the packet, and if it's not valid, attempts to
-// UpdateComputedFields and revalidate.
+// UpdateAllComputedFields and revalidate.
 // Then attempt to serialize the packet, and if this succeeds, parse the
 // serialized packet back and verify that it matches the original packet.
 void RunProtoPacketTest(const std::string& name, Packet packet) {
@@ -85,8 +108,8 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
       std::cout << padded.status() << std::endl;
     }
 
-    std::cout << std::endl << "UpdateComputedFields(packet) = ";
-    if (auto updated = UpdateComputedFields(packet); updated.ok()) {
+    std::cout << std::endl << "UpdateMissingComputedFields(packet) = ";
+    if (auto updated = UpdateMissingComputedFields(packet); updated.ok()) {
       std::cout << (*updated ? "true" : "false") << std::endl;
       if (*updated) {
         std::cout << "packet =" << std::endl
