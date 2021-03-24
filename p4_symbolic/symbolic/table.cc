@@ -33,6 +33,7 @@
 #include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/symbolic/action.h"
 #include "p4_symbolic/symbolic/operators.h"
+#include "p4_symbolic/symbolic/symbolic.h"
 #include "p4_symbolic/symbolic/values.h"
 #include "z3++.h"
 
@@ -269,6 +270,20 @@ absl::StatusOr<z3::expr> EvaluateTableEntryCondition(
   return condition_expression;
 }
 
+absl::Status EvaluateSingeTableEntryAction(
+    const pdpi::IrActionInvocation &action,
+    const google::protobuf::Map<std::string, ir::Action> &actions,
+    SymbolicPerPacketState *state, values::P4RuntimeTranslator *translator,
+    const z3::expr &guard) {
+  // Check that the action invoked by entry exists.
+  if (actions.count(action.name()) != 1) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "unknown action '" << action.name() << "'";
+  }
+  return action::EvaluateAction(actions.at(action.name()), action.params(),
+                                state, translator, guard);
+}
+
 // Constructs a symbolic expressions that represents the action invocation
 // corresponding to this entry.
 absl::Status EvaluateTableEntryAction(
@@ -276,19 +291,41 @@ absl::Status EvaluateTableEntryAction(
     const google::protobuf::Map<std::string, ir::Action> &actions,
     SymbolicPerPacketState *state, values::P4RuntimeTranslator *translator,
     const z3::expr &guard) {
-  // Check that the action invoked by entry exists.
-  const std::string &table_name = table.table_definition().preamble().name();
-  const std::string &action_name = entry.action().name();
-  if (actions.count(action_name) != 1) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Found a match entry ", entry.DebugString(), " in table",
-                     table_name, " referring to unknown action ", action_name));
+  switch (entry.type_case()) {
+    case pdpi::IrTableEntry::kAction:
+      RETURN_IF_ERROR(EvaluateSingeTableEntryAction(entry.action(), actions,
+                                                    state, translator, guard))
+              .SetPrepend()
+          << "In table entry '" << entry.ShortDebugString() << "':";
+      return absl::OkStatus();
+    case pdpi::IrTableEntry::kActionSet: {
+      auto &action_set = entry.action_set().actions();
+      // For action sets, we introduce a new free integer variable "selector"
+      // whose value determines which action is executed: to a first
+      // approximation, action i is executed iff `selector == i`.
+      std::string selector_name =
+          absl::StrCat("action selector for ", entry.DebugString());
+      z3::expr selector = Z3Context().int_const(selector_name.c_str());
+      z3::expr unselected = Z3Context().bool_val(true);
+      for (int i = 0; i < action_set.size(); ++i) {
+        auto &action = action_set.at(i).action();
+        bool is_last_action = i == action_set.size() - 1;
+        z3::expr selected = is_last_action ? unselected : (selector == i);
+        unselected = unselected && !selected;
+        RETURN_IF_ERROR(EvaluateSingeTableEntryAction(action, actions, state,
+                                                      translator,
+                                                      guard && selected))
+                .SetPrepend()
+            << "In table entry '" << entry.ShortDebugString() << "':";
+      }
+      return absl::OkStatus();
+    }
+    default:
+      break;
   }
-
-  // Instantiate the action's symbolic expression with the entry values.
-  const ir::Action &action = actions.at(action_name);
-  return action::EvaluateAction(action, entry.action().params(), state,
-                                translator, guard);
+  return gutil::InvalidArgumentErrorBuilder()
+         << "unexpected or missing action in table entry: "
+         << entry.DebugString();
 }
 
 }  // namespace
