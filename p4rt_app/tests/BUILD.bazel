@@ -24,7 +24,7 @@ package(
 cc_test(
     name = "acl_table_test",
     srcs = ["acl_table_test.cc"],
-    tags = ["requires-net:loopback"],
+    tags = ["exclusive"],
     deps = [
         "//gutil:proto",
         "//gutil:status_matchers",
@@ -40,7 +40,7 @@ cc_test(
 cc_test(
     name = "arbitration_test",
     srcs = ["arbitration_test.cc"],
-    tags = ["requires-net:loopback"],
+    tags = ["exclusive"],
     deps = [
         "//gutil:status",
         "//gutil:status_matchers",
@@ -54,7 +54,7 @@ cc_test(
 cc_test(
     name = "action_set_test",
     srcs = ["action_set_test.cc"],
-    tags = ["requires-net:loopback"],
+    tags = ["exclusive"],
     deps = [
         "//gutil:proto",
         "//gutil:proto_matchers",
@@ -71,7 +71,7 @@ cc_test(
 cc_test(
     name = "fixed_l3_tables_test",
     srcs = ["fixed_l3_tables_test.cc"],
-    tags = ["requires-net:loopback"],
+    tags = ["exclusive"],
     deps = [
         "//gutil:proto",
         "//gutil:proto_matchers",
@@ -88,7 +88,7 @@ cc_test(
 cc_test(
     name = "forwarding_pipeline_config_test",
     srcs = ["forwarding_pipeline_config_test.cc"],
-    tags = ["requires-net:loopback"],
+    tags = ["exclusive"],
     deps = [
         "//gutil:status_matchers",
         "//p4_pdpi:entity_management",
@@ -101,7 +101,7 @@ cc_test(
 cc_test(
     name = "response_path_test",
     srcs = ["response_path_test.cc"],
-    tags = ["requires-net:loopback"],
+    tags = ["exclusive"],
     deps = [
         "//gutil:proto",
         "//gutil:status_matchers",
@@ -153,7 +153,7 @@ cc_binary(
 cc_test(
     name = "packetio_test",
     srcs = ["packetio_test.cc"],
-    tags = ["requires-net:loopback"],
+    tags = ["exclusive"],
     deps = [
         "//gutil:proto",
         "//gutil:proto_matchers",
