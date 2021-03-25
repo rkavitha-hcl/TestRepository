@@ -226,8 +226,7 @@ message AclIngressTableEntry {
   Action action = 2;
   int32 priority = 3;
   BytesMeterConfig meter_config = 4;
-  int64 byte_counter = 6;
-  int64 packet_counter = 7;
+  BytesAndPacketsCounterData counter_data = 6;
   bytes controller_metadata = 8;
 }
 
@@ -260,8 +259,7 @@ message AclLookupTableEntry {
   }
   Action action = 2;
   int32 priority = 3;
-  int64 byte_counter = 6;
-  int64 packet_counter = 7;
+  BytesAndPacketsCounterData counter_data = 6;
   bytes controller_metadata = 8;
 }
 
@@ -280,8 +278,7 @@ message AclLinkqualTableEntry {
   }
   Action action = 2;
   int32 priority = 3;
-  int64 byte_counter = 6;
-  int64 packet_counter = 7;
+  BytesAndPacketsCounterData counter_data = 6;
   bytes controller_metadata = 8;
 }
 
@@ -417,6 +414,25 @@ message PacketsMeterConfig {
   int64 packets_per_second = 1;
   // Committed/peak burst size.
   int64 burst_packets = 2;
+}
+
+// -- Counter data -------------------------------------------------------------
+
+message BytesCounterData {
+  // Number of bytes.
+  int64 byte_count = 1;
+}
+
+message PacketsCounterData {
+  // Number of packets.
+  int64 packet_count = 1;
+}
+
+message BytesAndPacketsCounterData {
+  // Number of bytes.
+  int64 byte_count = 1;
+  // Number of packets.
+  int64 packet_count = 2;
 }
 
 // -- RPC messages -------------------------------------------------------------

@@ -259,14 +259,14 @@ StatusOr<std::string> GetTableMessage(const IrTableDefinition& table) {
   if (table.has_counter()) {
     switch (table.counter().unit()) {
       case p4::config::v1::CounterSpec::BYTES:
-        absl::StrAppend(&result, "  int64 byte_counter = 6;\n");
+        absl::StrAppend(&result, "  BytesCounterData counter_data = 6;\n");
         break;
       case p4::config::v1::CounterSpec::PACKETS:
-        absl::StrAppend(&result, "  int64 packet_counter = 7;\n");
+        absl::StrAppend(&result, "  PacketsCounterData counter_data = 6;\n");
         break;
       case p4::config::v1::CounterSpec::BOTH:
-        absl::StrAppend(&result, "  int64 byte_counter = 6;\n");
-        absl::StrAppend(&result, "  int64 packet_counter = 7;\n");
+        absl::StrAppend(&result,
+                        "  BytesAndPacketsCounterData counter_data = 6;\n");
         break;
       default:
         return InvalidArgumentErrorBuilder()
@@ -495,6 +495,27 @@ message PacketsMeterConfig {
   int64 packets_per_second = 1;
   // Committed/peak burst size.
   int64 burst_packets = 2;
+}
+)");
+
+  // Counter messages.
+  absl::StrAppend(&result, HeaderComment("Counter data"));
+  absl::StrAppend(&result, R"(
+message BytesCounterData {
+  // Number of bytes.
+  int64 byte_count = 1;
+}
+
+message PacketsCounterData {
+  // Number of packets.
+  int64 packet_count = 1;
+}
+
+message BytesAndPacketsCounterData {
+  // Number of bytes.
+  int64 byte_count = 1;
+  // Number of packets.
+  int64 packet_count = 2;
 }
 )");
 

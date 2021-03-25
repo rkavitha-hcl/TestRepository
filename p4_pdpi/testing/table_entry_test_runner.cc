@@ -1385,7 +1385,7 @@ static void RunPdTests(const pdpi::IrP4Info info) {
         count_and_meter_table_entry {
           match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
           action { count_and_meter {} }
-          byte_counter: 567
+          counter_data { byte_count: 567 }
         }
       )PB"),
       INPUT_IS_VALID);
@@ -1396,7 +1396,7 @@ static void RunPdTests(const pdpi::IrP4Info info) {
         count_and_meter_table_entry {
           match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
           action { count_and_meter {} }
-          packet_counter: 789
+          counter_data { packet_count: 789 }
         }
       )PB"),
       INPUT_IS_VALID);
@@ -1407,8 +1407,7 @@ static void RunPdTests(const pdpi::IrP4Info info) {
         count_and_meter_table_entry {
           match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
           action { count_and_meter {} }
-          byte_counter: 567
-          packet_counter: 789
+          counter_data { byte_count: 567 packet_count: 789 }
         }
       )PB"),
       INPUT_IS_VALID);
@@ -1420,8 +1419,7 @@ static void RunPdTests(const pdpi::IrP4Info info) {
           match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
           action { count_and_meter {} }
           meter_config { bytes_per_second: 123 burst_bytes: 345 }
-          byte_counter: 567
-          packet_counter: 789
+          counter_data { byte_count: 567 packet_count: 789 }
         }
       )PB"),
       INPUT_IS_VALID);

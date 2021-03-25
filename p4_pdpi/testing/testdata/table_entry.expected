@@ -3172,7 +3172,9 @@ count_and_meter_table_entry {
     count_and_meter {
     }
   }
-  byte_counter: 567
+  counter_data {
+    byte_count: 567
+  }
 }
 
 --- IR:
@@ -3228,7 +3230,9 @@ count_and_meter_table_entry {
     count_and_meter {
     }
   }
-  packet_counter: 789
+  counter_data {
+    packet_count: 789
+  }
 }
 
 --- IR:
@@ -3284,8 +3288,10 @@ count_and_meter_table_entry {
     count_and_meter {
     }
   }
-  byte_counter: 567
-  packet_counter: 789
+  counter_data {
+    byte_count: 567
+    packet_count: 789
+  }
 }
 
 --- IR:
@@ -3347,8 +3353,10 @@ count_and_meter_table_entry {
     bytes_per_second: 123
     burst_bytes: 345
   }
-  byte_counter: 567
-  packet_counter: 789
+  counter_data {
+    byte_count: 567
+    packet_count: 789
+  }
 }
 
 --- IR:

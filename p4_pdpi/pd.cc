@@ -665,21 +665,23 @@ absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
   }
 
   if (ir_table_info.has_counter() && ir.has_counter_data()) {
+    ASSIGN_OR_RETURN(auto *counter_data,
+                     GetMutableMessage(pd_table, "counter_data"));
     switch (ir_table_info.counter().unit()) {
       case p4::config::v1::CounterSpec_Unit_BYTES: {
-        RETURN_IF_ERROR(SetInt64Field(pd_table, "byte_counter",
+        RETURN_IF_ERROR(SetInt64Field(counter_data, "byte_count",
                                       ir.counter_data().byte_count()));
         break;
       }
       case p4::config::v1::CounterSpec_Unit_PACKETS: {
-        RETURN_IF_ERROR(SetInt64Field(pd_table, "packet_counter",
+        RETURN_IF_ERROR(SetInt64Field(counter_data, "packet_count",
                                       ir.counter_data().packet_count()));
         break;
       }
       case p4::config::v1::CounterSpec_Unit_BOTH: {
-        RETURN_IF_ERROR(SetInt64Field(pd_table, "byte_counter",
+        RETURN_IF_ERROR(SetInt64Field(counter_data, "byte_count",
                                       ir.counter_data().byte_count()));
-        RETURN_IF_ERROR(SetInt64Field(pd_table, "packet_counter",
+        RETURN_IF_ERROR(SetInt64Field(counter_data, "packet_count",
                                       ir.counter_data().packet_count()));
         break;
       }
@@ -1185,39 +1187,45 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
   }
 
   if (ir_table_info.has_counter()) {
-    switch (ir_table_info.counter().unit()) {
-      case p4::config::v1::CounterSpec_Unit_BYTES: {
-        ASSIGN_OR_RETURN(const auto &pd_byte_counter,
-                         GetInt64Field(*pd_table, "byte_counter"));
-        if (pd_byte_counter != 0) {
-          ir.mutable_counter_data()->set_byte_count(pd_byte_counter);
+    ASSIGN_OR_RETURN(bool pd_has_counter_data,
+                     HasField(*pd_table, "counter_data"));
+    if (pd_has_counter_data) {
+      ASSIGN_OR_RETURN(const auto *counter_data,
+                       GetMessageField(*pd_table, "counter_data"));
+      switch (ir_table_info.counter().unit()) {
+        case p4::config::v1::CounterSpec_Unit_BYTES: {
+          ASSIGN_OR_RETURN(const auto &pd_byte_counter,
+                           GetInt64Field(*counter_data, "byte_count"));
+          if (pd_byte_counter != 0) {
+            ir.mutable_counter_data()->set_byte_count(pd_byte_counter);
+          }
+          break;
         }
-        break;
+        case p4::config::v1::CounterSpec_Unit_PACKETS: {
+          ASSIGN_OR_RETURN(const auto &pd_packet_counter,
+                           GetInt64Field(*counter_data, "packet_count"));
+          if (pd_packet_counter != 0) {
+            ir.mutable_counter_data()->set_packet_count(pd_packet_counter);
+          }
+          break;
+        }
+        case p4::config::v1::CounterSpec_Unit_BOTH: {
+          ASSIGN_OR_RETURN(const auto &pd_byte_counter,
+                           GetInt64Field(*counter_data, "byte_count"));
+          if (pd_byte_counter != 0) {
+            ir.mutable_counter_data()->set_byte_count(pd_byte_counter);
+          }
+          ASSIGN_OR_RETURN(const auto &pd_packet_counter,
+                           GetInt64Field(*counter_data, "packet_count"));
+          if (pd_packet_counter != 0) {
+            ir.mutable_counter_data()->set_packet_count(pd_packet_counter);
+          }
+          break;
+        }
+        default:
+          return InvalidArgumentErrorBuilder()
+                 << "Invalid counter unit: " << ir_table_info.meter().unit();
       }
-      case p4::config::v1::CounterSpec_Unit_PACKETS: {
-        ASSIGN_OR_RETURN(const auto &pd_packet_counter,
-                         GetInt64Field(*pd_table, "packet_counter"));
-        if (pd_packet_counter != 0) {
-          ir.mutable_counter_data()->set_packet_count(pd_packet_counter);
-        }
-        break;
-      }
-      case p4::config::v1::CounterSpec_Unit_BOTH: {
-        ASSIGN_OR_RETURN(const auto &pd_byte_counter,
-                         GetInt64Field(*pd_table, "byte_counter"));
-        if (pd_byte_counter != 0) {
-          ir.mutable_counter_data()->set_byte_count(pd_byte_counter);
-        }
-        ASSIGN_OR_RETURN(const auto &pd_packet_counter,
-                         GetInt64Field(*pd_table, "packet_counter"));
-        if (pd_packet_counter != 0) {
-          ir.mutable_counter_data()->set_packet_count(pd_packet_counter);
-        }
-        break;
-      }
-      default:
-        return InvalidArgumentErrorBuilder()
-               << "Invalid counter unit: " << ir_table_info.meter().unit();
     }
   }
   return ir;
