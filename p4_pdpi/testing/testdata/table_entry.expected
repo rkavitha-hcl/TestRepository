@@ -25,7 +25,7 @@ missing matches
 table_id: 33554433
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Expected 2 mandatory match conditions but found 0 instead
+INVALID_ARGUMENT: Expected 2 mandatory match conditions but found 0 instead. Missing matches: ipv4, ipv6.
 
 =========================================================================
 invalid match type - expect exact
@@ -811,7 +811,7 @@ missing matches
 table_name: "id_test_table"
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Expected 2 mandatory match conditions but found 0 instead
+INVALID_ARGUMENT: Expected 2 mandatory match conditions but found 0 instead. Missing matches: ipv4, ipv6.
 
 =========================================================================
 invalid match type - expect exact

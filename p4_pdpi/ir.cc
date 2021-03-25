@@ -149,11 +149,12 @@ StatusOr<uint32_t> GetNumberInAnnotation(
   return result.value();
 }
 
-int GetNumMandatoryMatches(const IrTableDefinition &table) {
-  int mandatory_matches = 0;
+absl::flat_hash_set<std::string> GetMandatoryMatches(
+    const IrTableDefinition &table) {
+  absl::flat_hash_set<std::string> mandatory_matches;
   for (const auto &iter : table.match_fields_by_name()) {
     if (iter.second.match_field().match_type() == MatchField::EXACT) {
-      mandatory_matches += 1;
+      mandatory_matches.insert(iter.second.match_field().name());
     }
   }
   return mandatory_matches;
@@ -987,6 +988,38 @@ StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info &p4_info) {
   return info;
 }
 
+namespace {
+std::vector<std::string> GetMissingMatches(
+    const absl::flat_hash_set<std::string> &actual_matches,
+    absl::flat_hash_set<std::string> expected_matches) {
+  // Erase actual matches from expected_mandatory_matches.
+  // Whatever remains are the missing matches.
+  absl::erase_if(expected_matches,
+                 [&](const auto &k) { return actual_matches.contains(k); });
+
+  // Convert to a vector so we can sort the matches to ensure stability.
+  std::vector<std::string> missing_matches(expected_matches.begin(),
+                                           expected_matches.end());
+  std::sort(missing_matches.begin(), missing_matches.end());
+  return missing_matches;
+}
+
+absl::Status CheckMandatoryMatches(
+    const absl::flat_hash_set<std::string> &actual_matches,
+    const IrTableDefinition &table) {
+  auto expected_matches = GetMandatoryMatches(table);
+  if (actual_matches.size() != expected_matches.size()) {
+    auto missing_matches = GetMissingMatches(actual_matches, expected_matches);
+    return InvalidArgumentErrorBuilder()
+           << "Expected " << expected_matches.size()
+           << " mandatory match conditions but found " << actual_matches.size()
+           << " instead. Missing matches: "
+           << absl::StrJoin(missing_matches, ", ") << ".";
+  }
+  return absl::OkStatus();
+}
+}  // namespace
+
 StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
                                         const p4::v1::TableEntry &pi) {
   IrTableEntry ir;
@@ -998,7 +1031,7 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
 
   // Validate and translate the matches
   absl::flat_hash_set<uint32_t> used_field_ids;
-  int mandatory_matches = 0;
+  absl::flat_hash_set<std::string> mandatory_matches;
   for (const auto &pi_match : pi.match()) {
     RETURN_IF_ERROR(gutil::InsertIfUnique(
         used_field_ids, pi_match.field_id(),
@@ -1015,17 +1048,11 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
     *ir.add_matches() = match_entry;
 
     if (match.match_field().match_type() == MatchField::EXACT) {
-      ++mandatory_matches;
+      mandatory_matches.insert(match.match_field().name());
     }
   }
 
-  int expected_mandatory_matches = GetNumMandatoryMatches(table);
-  if (mandatory_matches != expected_mandatory_matches) {
-    return InvalidArgumentErrorBuilder()
-           << "Expected " << expected_mandatory_matches
-           << " mandatory match conditions but found " << mandatory_matches
-           << " instead";
-  }
+  RETURN_IF_ERROR(CheckMandatoryMatches(mandatory_matches, table));
 
   if (table.requires_priority()) {
     if (pi.priority() <= 0) {
@@ -1317,8 +1344,7 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
   pi.set_table_id(table.preamble().id());
 
   // Validate and translate the matches
-  absl::flat_hash_set<std::string> used_field_names;
-  int mandatory_matches = 0;
+  absl::flat_hash_set<std::string> used_field_names, mandatory_matches;
   for (const auto &ir_match : ir.matches()) {
     RETURN_IF_ERROR(gutil::InsertIfUnique(
         used_field_names, ir_match.name(),
@@ -1337,18 +1363,11 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
     *pi.add_match() = match_entry;
 
     if (match.match_field().match_type() == MatchField::EXACT) {
-      ++mandatory_matches;
+      mandatory_matches.insert(match.match_field().name());
     }
   }
 
-  int expected_mandatory_matches = GetNumMandatoryMatches(table);
-  if (mandatory_matches != expected_mandatory_matches) {
-    return InvalidArgumentErrorBuilder()
-           << "Expected " << expected_mandatory_matches
-           << " mandatory match conditions but found " << mandatory_matches
-           << " instead";
-  }
-
+  RETURN_IF_ERROR(CheckMandatoryMatches(mandatory_matches, table));
   if (table.requires_priority()) {
     if (ir.priority() <= 0) {
       return InvalidArgumentErrorBuilder()
