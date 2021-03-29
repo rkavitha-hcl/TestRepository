@@ -332,57 +332,57 @@ static void RunReadRequestTests(pdpi::IrP4Info info) {
                        gutil::ParseProtoOrDie<p4::v1::ReadRequest>(""));
 
   RunPiReadRequestTest(info, "no entities",
-                       gutil::ParseProtoOrDie<p4::v1::ReadRequest>(R"PB(
+                       gutil::ParseProtoOrDie<p4::v1::ReadRequest>(R"pb(
                          device_id: 10
-                       )PB"));
+                       )pb"));
 
   RunPiReadRequestTest(info, "wrong entities",
-                       gutil::ParseProtoOrDie<p4::v1::ReadRequest>(R"PB(
+                       gutil::ParseProtoOrDie<p4::v1::ReadRequest>(R"pb(
                          device_id: 10
                          entities { action_profile_member {} }
-                       )PB"));
+                       )pb"));
 
   RunPiReadRequestTest(info, "multiple table entries",
-                       gutil::ParseProtoOrDie<p4::v1::ReadRequest>(R"PB(
+                       gutil::ParseProtoOrDie<p4::v1::ReadRequest>(R"pb(
                          device_id: 10
                          entities { table_entry {} }
                          entities { table_entry {} }
-                       )PB"));
+                       )pb"));
 
   // There are no invalid IR read requests, so no RunIrReadRequestTest is
   // needed.
 
   RunPdReadRequestTest(info, "no meter, no counter",
-                       gutil::ParseProtoOrDie<pdpi::ReadRequest>(R"PB(
+                       gutil::ParseProtoOrDie<pdpi::ReadRequest>(R"pb(
                          device_id: 10
-                       )PB"),
+                       )pb"),
                        INPUT_IS_VALID);
   RunPdReadRequestTest(info, "meter, no counter",
-                       gutil::ParseProtoOrDie<pdpi::ReadRequest>(R"PB(
+                       gutil::ParseProtoOrDie<pdpi::ReadRequest>(R"pb(
                          device_id: 10
                          read_meter_configs: true
-                       )PB"),
+                       )pb"),
                        INPUT_IS_VALID);
   RunPdReadRequestTest(info, "no meter, counter",
-                       gutil::ParseProtoOrDie<pdpi::ReadRequest>(R"PB(
+                       gutil::ParseProtoOrDie<pdpi::ReadRequest>(R"pb(
                          device_id: 10
                          read_counter_data: true
-                       )PB"),
+                       )pb"),
                        INPUT_IS_VALID);
 }
 
 static void RunReadResponseTests(pdpi::IrP4Info info) {
   RunPiReadResponseTest(info, "wrong entity",
-                        gutil::ParseProtoOrDie<p4::v1::ReadResponse>(R"PB(
+                        gutil::ParseProtoOrDie<p4::v1::ReadResponse>(R"pb(
                           entities { action_profile_member {} }
-                        )PB"));
+                        )pb"));
 
   // Invalid IR read responses are tested in table_entry_test.cc, so no
   // RunIrReadResponseTest is needed.
 
   RunPdReadResponseTest(
       info, "valid ternary table",
-      gutil::ParseProtoOrDie<pdpi::ReadResponse>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::ReadResponse>(R"pb(
         table_entries {
           ternary_table_entry {
             match { normal { value: "0x052" mask: "0x273" } }
@@ -390,11 +390,11 @@ static void RunReadResponseTests(pdpi::IrP4Info info) {
             action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
           }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdReadResponseTest(
-      info, "multiple tables", gutil::ParseProtoOrDie<pdpi::ReadResponse>(R"PB(
+      info, "multiple tables", gutil::ParseProtoOrDie<pdpi::ReadResponse>(R"pb(
         table_entries {
           ternary_table_entry {
             match { normal { value: "0x052" mask: "0x273" } }
@@ -409,30 +409,30 @@ static void RunReadResponseTests(pdpi::IrP4Info info) {
             action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
           }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 }
 
 static void RunUpdateTests(pdpi::IrP4Info info) {
-  RunPiUpdateTest(info, "empty", gutil::ParseProtoOrDie<p4::v1::Update>(R"PB(
-                  )PB"));
+  RunPiUpdateTest(info, "empty", gutil::ParseProtoOrDie<p4::v1::Update>(R"pb(
+                  )pb"));
 
   RunPiUpdateTest(info, "missing type",
-                  gutil::ParseProtoOrDie<p4::v1::Update>(R"PB(
+                  gutil::ParseProtoOrDie<p4::v1::Update>(R"pb(
                     entity { table_entry {} }
-                  )PB"));
+                  )pb"));
 
   RunPiUpdateTest(info, "wrong entity",
-                  gutil::ParseProtoOrDie<p4::v1::Update>(R"PB(
+                  gutil::ParseProtoOrDie<p4::v1::Update>(R"pb(
                     type: INSERT
                     entity { action_profile_member {} }
-                  )PB"));
+                  )pb"));
 
   // Invalid IR update table_entries are tested in table_entry_test.cc and
   // invalid type is tested in PD tests. No RunIrUpdateTest is needed.
 
   RunPdUpdateTest(
-      info, "missing type", gutil::ParseProtoOrDie<pdpi::Update>(R"PB(
+      info, "missing type", gutil::ParseProtoOrDie<pdpi::Update>(R"pb(
         table_entry {
           ternary_table_entry {
             match { normal { value: "0x052" mask: "0x273" } }
@@ -440,11 +440,11 @@ static void RunUpdateTests(pdpi::IrP4Info info) {
             action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
           }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_INVALID);
 
   RunPdUpdateTest(
-      info, "valid ternary table", gutil::ParseProtoOrDie<pdpi::Update>(R"PB(
+      info, "valid ternary table", gutil::ParseProtoOrDie<pdpi::Update>(R"pb(
         type: MODIFY
         table_entry {
           ternary_table_entry {
@@ -453,41 +453,41 @@ static void RunUpdateTests(pdpi::IrP4Info info) {
             action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
           }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 }
 
 static void RunWriteRequestTests(pdpi::IrP4Info info) {
   RunPiWriteRequestTest(info, "invalid role_id",
-                        gutil::ParseProtoOrDie<p4::v1::WriteRequest>(R"PB(
+                        gutil::ParseProtoOrDie<p4::v1::WriteRequest>(R"pb(
                           role_id: 1
-                        )PB"));
+                        )pb"));
 
   RunPiWriteRequestTest(info, "invalid atomicity",
-                        gutil::ParseProtoOrDie<p4::v1::WriteRequest>(R"PB(
+                        gutil::ParseProtoOrDie<p4::v1::WriteRequest>(R"pb(
                           role_id: 0
                           atomicity: ROLLBACK_ON_ERROR
-                        )PB"));
+                        )pb"));
 
   // Invalid updates values are tested in RunUpdateTests.
   // Invalid IR WriteRequests are tested in PD tests. No RunIrWriteRequestTest
   // is needed.
 
   RunPdWriteRequestTest(info, "empty",
-                        gutil::ParseProtoOrDie<pdpi::WriteRequest>(R"PB(
-                        )PB"),
+                        gutil::ParseProtoOrDie<pdpi::WriteRequest>(R"pb(
+                        )pb"),
                         INPUT_IS_VALID);
 
   RunPdWriteRequestTest(info, "missing updates",
-                        gutil::ParseProtoOrDie<pdpi::WriteRequest>(R"PB(
+                        gutil::ParseProtoOrDie<pdpi::WriteRequest>(R"pb(
                           device_id: 134
                           election_id { high: 23413 low: 2312 }
-                        )PB"),
+                        )pb"),
                         INPUT_IS_VALID);
 
   RunPdWriteRequestTest(
       info, "valid ternary table update",
-      gutil::ParseProtoOrDie<pdpi::WriteRequest>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::WriteRequest>(R"pb(
         device_id: 113
         election_id { high: 1231 low: 77989 }
         updates {
@@ -500,10 +500,10 @@ static void RunWriteRequestTests(pdpi::IrP4Info info) {
             }
           }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
   RunPdWriteRequestTest(
-      info, "multiple updates", gutil::ParseProtoOrDie<pdpi::WriteRequest>(R"PB(
+      info, "multiple updates", gutil::ParseProtoOrDie<pdpi::WriteRequest>(R"pb(
         device_id: 113
         election_id { high: 1231 low: 77989 }
         updates {
@@ -526,7 +526,7 @@ static void RunWriteRequestTests(pdpi::IrP4Info info) {
             }
           }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 }
 
@@ -554,17 +554,17 @@ static void RunWriteRpcStatusTest() {
 
   // Use p4 errors below to construct google::rpc::status
   p4::v1::Error ok_p4_error =
-      gutil::ParseProtoOrDie<p4::v1::Error>(R"PB(canonical_code: 0)PB");
+      gutil::ParseProtoOrDie<p4::v1::Error>(R"pb(canonical_code: 0)pb");
   p4::v1::Error resource_exhausted_p4_error =
-      gutil::ParseProtoOrDie<p4::v1::Error>(R"PB(canonical_code: 8
-                                                 message: "table is full")PB");
+      gutil::ParseProtoOrDie<p4::v1::Error>(R"pb(canonical_code: 8
+                                                 message: "table is full")pb");
   p4::v1::Error ok_p4_error_message_with_message =
-      gutil::ParseProtoOrDie<p4::v1::Error>(R"PB(canonical_code: 0
-                                                 message: "some message")PB");
+      gutil::ParseProtoOrDie<p4::v1::Error>(R"pb(canonical_code: 0
+                                                 message: "some message")pb");
   p4::v1::Error non_ok_p4_error_with_no_message =
-      gutil::ParseProtoOrDie<p4::v1::Error>(R"PB(canonical_code: 2)PB");
+      gutil::ParseProtoOrDie<p4::v1::Error>(R"pb(canonical_code: 2)pb");
   p4::v1::Error p4_error_with_invalid_canonical_code =
-      gutil::ParseProtoOrDie<p4::v1::Error>(R"PB(canonical_code: 42)PB");
+      gutil::ParseProtoOrDie<p4::v1::Error>(R"pb(canonical_code: 42)pb");
 
   std::vector<p4::v1::Error> all_ok_p4_errors{ok_p4_error, ok_p4_error,
                                               ok_p4_error};
@@ -630,7 +630,7 @@ static void RunWriteRpcStatusTest() {
 
   RunInvalidIrFailToTranslateToGrpcTest(
       "IR rpc_response has ok code but non empty message",
-      gutil::ParseProtoOrDie<pdpi::IrWriteRpcStatus>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::IrWriteRpcStatus>(R"pb(
         rpc_response: {
           statuses: { code: OK }
           statuses: { code: OK }
@@ -638,10 +638,10 @@ static void RunWriteRpcStatusTest() {
           statuses: { code: OK message: "error_message" }
           statuses: { code: OK message: "error_message" }
         }
-      )PB"));
+      )pb"));
   RunInvalidIrFailToTranslateToGrpcTest(
       "IR rpc_response has status with invalid code",
-      gutil::ParseProtoOrDie<pdpi::IrWriteRpcStatus>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::IrWriteRpcStatus>(R"pb(
         rpc_response: {
           statuses: { code: OK }
           statuses: { code: OK }
@@ -649,25 +649,25 @@ static void RunWriteRpcStatusTest() {
           statuses: { code: OK }
           statuses: { code: 42 message: "42 is invalid" }
         }
-      )PB"));
+      )pb"));
   RunInvalidIrFailToTranslateToGrpcTest(
       "IR rpc_wide_error has invalid code",
-      gutil::ParseProtoOrDie<pdpi::IrWriteRpcStatus>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::IrWriteRpcStatus>(R"pb(
         rpc_wide_error: { code: 42 message: "invalid_code" }
-      )PB"));
+      )pb"));
   RunInvalidIrFailToTranslateToGrpcTest(
       "IR rpc_wide_error should not have ok status",
-      gutil::ParseProtoOrDie<pdpi::IrWriteRpcStatus>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::IrWriteRpcStatus>(R"pb(
         rpc_wide_error: { code: 0 message: "ok_code" }
-      )PB"));
+      )pb"));
 
   RunPdWriteRpcStatusTest("PD rpc_wide error has invalid code",
-                          gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"PB(
+                          gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"pb(
                             rpc_wide_error: { code: 42 message: "bad_code" }
-                          )PB"),
+                          )pb"),
                           5, INPUT_IS_INVALID);
   RunPdWriteRpcStatusTest("non-ok status with empty message should fail",
-                          gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"PB(
+                          gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"pb(
                             rpc_response: {
                               statuses: { code: OK }
                               statuses: { code: OK }
@@ -675,10 +675,10 @@ static void RunWriteRpcStatusTest() {
                               statuses: { code: OK message: "error_message" }
                               statuses: { code: OK message: "error_message" }
                             }
-                          )PB"),
+                          )pb"),
                           5, INPUT_IS_INVALID);
   RunPdWriteRpcStatusTest("invalid status in rpc response",
-                          gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"PB(
+                          gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"pb(
                             rpc_response: {
                               statuses: { code: 42 }
                               statuses: { code: OK }
@@ -686,13 +686,13 @@ static void RunWriteRpcStatusTest() {
                               statuses: { code: OK }
                               statuses: { code: UNKNOWN }
                             }
-                          )PB"),
+                          )pb"),
                           5, INPUT_IS_INVALID);
 
   // Tests translation of PD with all ok status should success when
   // number_of_update_status matches with the repeated statuses field in PD
   RunPdWriteRpcStatusTest("all reads status ok",
-                          gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"PB(
+                          gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"pb(
                             rpc_response: {
                               statuses: { code: OK }
                               statuses: { code: OK }
@@ -700,42 +700,42 @@ static void RunWriteRpcStatusTest() {
                               statuses: { code: OK }
                               statuses: { code: OK }
                             }
-                          )PB"),
+                          )pb"),
                           5, INPUT_IS_VALID);
   // RPC-wide error tests
   RunPdWriteRpcStatusTest("rpc-wide error with ok status code",
-                          gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"PB(
+                          gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"pb(
                             rpc_wide_error: { code: 0 message: "code is ok" }
-                          )PB"),
+                          )pb"),
                           5, INPUT_IS_INVALID);
   RunPdWriteRpcStatusTest("rpc-wide error with invalid status code",
-                          gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"PB(
+                          gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"pb(
                             rpc_wide_error: { code: 42 message: "bad_code" }
-                          )PB"),
+                          )pb"),
                           5, INPUT_IS_INVALID);
   RunPdWriteRpcStatusTest(
       "rpc-wide error with ABORTED status",
-      gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"pb(
         rpc_wide_error: { code: 10 message: "int value of ABORTED is 10" }
-      )PB"),
+      )pb"),
       5, INPUT_IS_VALID);
 
   // Mix of successful and failed batch write update.
   // This is the same error status in p4RT spec example.
   RunPdWriteRpcStatusTest(
       "mix of successful and failed write update",
-      gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"pb(
         rpc_response: {
           statuses: { code: 8 message: "Table is full." }
           statuses: { code: 0 }
           statuses: { code: 6 message: "Entity already exists." }
 
         }
-      )PB"),
+      )pb"),
       3, INPUT_IS_VALID);
 
   RunPdWriteRpcStatusTest(
-      "all write failed", gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"PB(
+      "all write failed", gutil::ParseProtoOrDie<pdpi::WriteRpcStatus>(R"pb(
         rpc_response: {
           statuses: { code: RESOURCE_EXHAUSTED message: "Table is full." }
           statuses: {
@@ -744,79 +744,79 @@ static void RunWriteRpcStatusTest() {
           }
           statuses: { code: ALREADY_EXISTS message: "entry already exists." }
         }
-      )PB"),
+      )pb"),
       3, INPUT_IS_VALID);
 }
 
 static void RunStreamMessageRequestTests(pdpi::IrP4Info info) {
   RunPiStreamMessageRequestTest(
       info, "unsupported update",
-      gutil::ParseProtoOrDie<p4::v1::StreamMessageRequest>(R"PB(
+      gutil::ParseProtoOrDie<p4::v1::StreamMessageRequest>(R"pb(
         digest_ack { digest_id: 1 list_id: 3 }
-      )PB"));
+      )pb"));
 
   RunPdStreamMessageRequestTest(
-      info, "empty", gutil::ParseProtoOrDie<pdpi::StreamMessageRequest>(R"PB(
-      )PB"),
+      info, "empty", gutil::ParseProtoOrDie<pdpi::StreamMessageRequest>(R"pb(
+      )pb"),
       INPUT_IS_INVALID);
 
   // Invalid packet values are tested in packet_io_test.cc.
   RunPdStreamMessageRequestTest(
       info, "arbitration",
-      gutil::ParseProtoOrDie<pdpi::StreamMessageRequest>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::StreamMessageRequest>(R"pb(
         arbitration {
           device_id: 5314
           election_id { high: 0 low: 234123 }
           status { code: 0 }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdStreamMessageRequestTest(
-      info, "packet", gutil::ParseProtoOrDie<pdpi::StreamMessageRequest>(R"PB(
+      info, "packet", gutil::ParseProtoOrDie<pdpi::StreamMessageRequest>(R"pb(
         packet {
           payload: "1"
           metadata { submit_to_ingress: "0x1" egress_port: "eth-1/2/3" }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 }
 
 static void RunStreamMessageResponseTests(pdpi::IrP4Info info) {
   RunPiStreamMessageResponseTest(
       info, "unsupported update",
-      gutil::ParseProtoOrDie<p4::v1::StreamMessageResponse>(R"PB(
+      gutil::ParseProtoOrDie<p4::v1::StreamMessageResponse>(R"pb(
         digest { digest_id: 1 list_id: 3 }
-      )PB"));
+      )pb"));
 
   RunPdStreamMessageResponseTest(
-      info, "empty", gutil::ParseProtoOrDie<pdpi::StreamMessageResponse>(R"PB(
-      )PB"),
+      info, "empty", gutil::ParseProtoOrDie<pdpi::StreamMessageResponse>(R"pb(
+      )pb"),
       INPUT_IS_INVALID);
 
   // Invalid packet values are tested in packet_io_test.cc.
   RunPdStreamMessageResponseTest(
       info, "arbitration",
-      gutil::ParseProtoOrDie<pdpi::StreamMessageResponse>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::StreamMessageResponse>(R"pb(
         arbitration {
           device_id: 5314
           election_id { high: 0 low: 234123 }
           status { code: 0 }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdStreamMessageResponseTest(
-      info, "packet", gutil::ParseProtoOrDie<pdpi::StreamMessageResponse>(R"PB(
+      info, "packet", gutil::ParseProtoOrDie<pdpi::StreamMessageResponse>(R"pb(
         packet {
           payload: "1"
           metadata { ingress_port: "0x034" target_egress_port: "eth-1/2/3" }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdStreamMessageResponseTest(
-      info, "error", gutil::ParseProtoOrDie<pdpi::StreamMessageResponse>(R"PB(
+      info, "error", gutil::ParseProtoOrDie<pdpi::StreamMessageResponse>(R"pb(
         error {
           status { code: 1 message: "This is an error." }
           packet_out {
@@ -824,7 +824,7 @@ static void RunStreamMessageResponseTests(pdpi::IrP4Info info) {
             metadata { submit_to_ingress: "0x1" egress_port: "eth-1/2/3" }
           }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 }
 

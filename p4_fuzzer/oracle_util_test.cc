@@ -42,7 +42,7 @@ SwitchState EmptyState() {
 // action arguments.
 TableEntry GetIngressAclTableEntry(int match, int action) {
   pdpi::IrTableEntry ir_table_entry =
-      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
         table_name: "acl_ingress_table"
         matches {
           name: "is_ipv4"
@@ -63,7 +63,7 @@ TableEntry GetIngressAclTableEntry(int match, int action) {
             value { str: "session" }
           }
         }
-      )PB");
+      )pb");
   *ir_table_entry.mutable_action()
        ->mutable_params(0)
        ->mutable_value()

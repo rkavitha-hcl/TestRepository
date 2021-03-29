@@ -27,7 +27,7 @@ using ::google::protobuf::util::MessageDifferencer;
 
 // Verifies if the PacketIo metadata info match the expected values.
 absl::Status ValidatePacketIo(const p4::config::v1::P4Info& p4info) {
-  constexpr char kExpectedPacketIo[] = R"proto(
+  constexpr char kExpectedPacketIo[] = R"pb(
     controller_packet_metadata {
       preamble {
         id: 81826293
@@ -61,7 +61,7 @@ absl::Status ValidatePacketIo(const p4::config::v1::P4Info& p4info) {
       metadata { id: 2 name: "submit_to_ingress" bitwidth: 1 }
       metadata { id: 3 name: "unused_pad" bitwidth: 7 }
     }
-  )proto";
+  )pb";
 
   p4::config::v1::P4Info expected_p4info;
   if (!TextFormat::ParseFromString(kExpectedPacketIo, &expected_p4info)) {
@@ -93,7 +93,7 @@ absl::Status ValidatePacketIo(const p4::config::v1::P4Info& p4info) {
 
 // Verifies if the P4info types match the expected values.
 absl::Status ValidateTypes(const p4::config::v1::P4Info& p4info) {
-  constexpr char kExpectedTypes[] = R"proto(
+  constexpr char kExpectedTypes[] = R"pb(
     type_info {
       new_types {
         key: "neighbor_id_t"
@@ -120,7 +120,7 @@ absl::Status ValidateTypes(const p4::config::v1::P4Info& p4info) {
         value { translated_type { sdn_string {} } }
       }
     }
-  )proto";
+  )pb";
   p4::config::v1::P4Info expected_p4info;
   if (!TextFormat::ParseFromString(kExpectedTypes, &expected_p4info)) {
     return gutil::InternalErrorBuilder() << "Invalid Type validation info.";

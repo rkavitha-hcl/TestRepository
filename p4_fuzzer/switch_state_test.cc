@@ -128,23 +128,23 @@ TEST(SwitchStateTest, GetIdsForMatchField) {
   ASSERT_THAT(state.GetIdsForMatchField(field), testing::IsEmpty());
 
   pdpi::TableEntry entry1 = gutil::ParseProtoOrDie<pdpi::TableEntry>(
-      R"PB(
+      R"pb(
         referred_table_entry {
           match { id: "some-id" }
           action { do_thing_4 {} }
         }
-      )PB");
+      )pb");
   ASSERT_OK(state.ApplyUpdate(MakePiUpdate(info, Update::INSERT, entry1)));
   ASSERT_THAT(state.GetIdsForMatchField(field),
               testing::UnorderedElementsAre("some-id"));
 
   pdpi::TableEntry entry2 = gutil::ParseProtoOrDie<pdpi::TableEntry>(
-      R"PB(
+      R"pb(
         referred_table_entry {
           match { id: "other-id" }
           action { do_thing_4 {} }
         }
-      )PB");
+      )pb");
   ASSERT_OK(state.ApplyUpdate(MakePiUpdate(info, Update::INSERT, entry2)));
   ASSERT_THAT(state.GetIdsForMatchField(field),
               testing::UnorderedElementsAre("some-id", "other-id"));

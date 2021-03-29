@@ -70,64 +70,64 @@ static void RunPdPacketOutTest(const pdpi::IrP4Info& info,
 
 static void RunPacketInTests(pdpi::IrP4Info info) {
   RunPiPacketInTest(info, "duplicate id",
-                    gutil::ParseProtoOrDie<p4::v1::PacketIn>(R"PB(
+                    gutil::ParseProtoOrDie<p4::v1::PacketIn>(R"pb(
                       payload: "1"
                       metadata { metadata_id: 1 value: "\x34" }
                       metadata { metadata_id: 1 value: "\x34" }
-                    )PB"));
+                    )pb"));
 
   RunPiPacketInTest(info, "extra metadata",
-                    gutil::ParseProtoOrDie<p4::v1::PacketIn>(R"PB(
+                    gutil::ParseProtoOrDie<p4::v1::PacketIn>(R"pb(
                       payload: "1"
                       metadata { metadata_id: 1 value: "\x34" }
                       metadata { metadata_id: 2 value: "\x23" }
                       metadata { metadata_id: 3 value: "\x124" }
-                    )PB"));
+                    )pb"));
   RunPiPacketInTest(info, "missing metadata",
-                    gutil::ParseProtoOrDie<p4::v1::PacketIn>(R"PB(
+                    gutil::ParseProtoOrDie<p4::v1::PacketIn>(R"pb(
                       payload: "1"
                       metadata { metadata_id: 1 value: "\x34" }
-                    )PB"));
+                    )pb"));
   RunPdPacketInTest(
-      info, "ok", gutil::ParseProtoOrDie<pdpi::PacketIn>(R"PB(
+      info, "ok", gutil::ParseProtoOrDie<pdpi::PacketIn>(R"pb(
         payload: "1"
         metadata { ingress_port: "0x034" target_egress_port: "eth-1/2/3" }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
   RunPdPacketInTest(
       info, "Format::STRING with null characters",
-      gutil::ParseProtoOrDie<pdpi::PacketIn>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::PacketIn>(R"pb(
         payload: "1"
         metadata { ingress_port: "0x034" target_egress_port: "\00423" }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 }
 
 static void RunPacketOutTests(pdpi::IrP4Info info) {
   RunPiPacketOutTest(info, "duplicate id",
-                     gutil::ParseProtoOrDie<p4::v1::PacketOut>(R"PB(
+                     gutil::ParseProtoOrDie<p4::v1::PacketOut>(R"pb(
                        payload: "1"
                        metadata { metadata_id: 1 value: "\x1" }
                        metadata { metadata_id: 1 value: "\x1" }
-                     )PB"));
+                     )pb"));
 
   RunPiPacketOutTest(info, "missing metadata",
-                     gutil::ParseProtoOrDie<p4::v1::PacketOut>(R"PB(
+                     gutil::ParseProtoOrDie<p4::v1::PacketOut>(R"pb(
                        payload: "1"
                        metadata { metadata_id: 1 value: "\x1" }
-                     )PB"));
+                     )pb"));
   RunPiPacketOutTest(info, "extra metadata",
-                     gutil::ParseProtoOrDie<p4::v1::PacketOut>(R"PB(
+                     gutil::ParseProtoOrDie<p4::v1::PacketOut>(R"pb(
                        payload: "1"
                        metadata { metadata_id: 1 value: "\x0" }
                        metadata { metadata_id: 2 value: "\x1" }
                        metadata { metadata_id: 3 value: "\x1" }
-                     )PB"));
+                     )pb"));
   RunPdPacketOutTest(
-      info, "ok", gutil::ParseProtoOrDie<pdpi::PacketOut>(R"PB(
+      info, "ok", gutil::ParseProtoOrDie<pdpi::PacketOut>(R"pb(
         payload: "1"
         metadata { submit_to_ingress: "0x1" egress_port: "eth-1/2/3" }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 }
 

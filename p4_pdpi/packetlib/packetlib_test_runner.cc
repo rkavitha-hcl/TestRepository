@@ -148,7 +148,7 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
 }
 
 void RunPacketParseTests() {
-  RunPacketParseTest("Ethernet packet (valid)", R"PB(
+  RunPacketParseTest("Ethernet packet (valid)", R"pb(
     # ethernet header
     ethernet_destination: 0xaabbccddeeff
     ethernet_source: 0x112233445566
@@ -157,25 +157,25 @@ void RunPacketParseTests() {
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd
-  )PB");
+  )pb");
 
-  RunPacketParseTest("Ethernet packet (invalid)", R"PB(
+  RunPacketParseTest("Ethernet packet (invalid)", R"pb(
     # ethernet header
     ethernet_destination: 0xaabbccddeeff
     ethernet_source: 0x112233445566
     ether_type: 0x0001  # This means size(payload) = 1 byte.
     # payload
     payload: 0x0102  # 2 bytes, but ether_type says 1 byte & minimum size is 46.
-  )PB");
+  )pb");
 
-  RunPacketParseTest("Ethernet packet (unsupported EtherType)", R"PB(
+  RunPacketParseTest("Ethernet packet (unsupported EtherType)", R"pb(
     # ethernet header
     ethernet_destination: 0xaabbccddeeff
     ethernet_source: 0x112233445566
     ether_type: 0x0842  # Wake-on-LAN
-  )PB");
+  )pb");
 
-  RunPacketParseTest("IPv4 packet (invalid)", R"PB(
+  RunPacketParseTest("IPv4 packet (invalid)", R"pb(
     # ethernet header
     ethernet_destination: 0xaabbccddeeff
     ethernet_source: 0x112233445566
@@ -196,9 +196,9 @@ void RunPacketParseTests() {
     ipv4_destination: 0x14000003
     # other headers:
     payload: 0x1234
-  )PB");
+  )pb");
 
-  RunPacketParseTest("IPv4 packet (valid)", R"PB(
+  RunPacketParseTest("IPv4 packet (valid)", R"pb(
     # ethernet header
     ethernet_destination: 0xaabbccddeeff
     ethernet_source: 0x112233445566
@@ -220,9 +220,9 @@ void RunPacketParseTests() {
     # payload:
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
-  )PB");
+  )pb");
 
-  RunPacketParseTest("IPv4 packet (checksum example)", R"PB(
+  RunPacketParseTest("IPv4 packet (checksum example)", R"pb(
     # Taken from
     # wikipedia.org/wiki/IPv4_header_checksum#Calculating_the_IPv4_header_checksum
     #
@@ -233,9 +233,9 @@ void RunPacketParseTests() {
     # IPv4 header and payload
     ipv4_header: 0x 4500 0073 0000 4000 4011 b861 c0a8 0001 c0a8 00c7
     payload: 0x 0035 e97c 005f 279f 1e4b 8180
-  )PB");
+  )pb");
 
-  RunPacketParseTest("IPv4 packet with options (valid)", R"PB(
+  RunPacketParseTest("IPv4 packet with options (valid)", R"pb(
     # Ethernet header
     ethernet_destination: 0xaabbccddeeff
     ethernet_source: 0x112233445566
@@ -258,9 +258,9 @@ void RunPacketParseTests() {
     # Payload
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
-  )PB");
+  )pb");
 
-  RunPacketParseTest("IPv4 packet with options (too short)", R"PB(
+  RunPacketParseTest("IPv4 packet with options (too short)", R"pb(
     # Ethernet header
     ethernet_destination: 0xaabbccddeeff
     ethernet_source: 0x112233445566
@@ -280,9 +280,9 @@ void RunPacketParseTests() {
     ipv4_source: 0x0a000001
     ipv4_destination: 0x14000003
     uninterpreted_suffix: 0x11  # Should be 32 bits, but is only 8 bits.
-  )PB");
+  )pb");
 
-  RunPacketParseTest("IPv6 packet (invalid)", R"PB(
+  RunPacketParseTest("IPv6 packet (invalid)", R"pb(
     # ethernet header
     ethernet_destination: 0xffeeddccbbaa
     ethernet_source: 0x554433221100
@@ -299,9 +299,9 @@ void RunPacketParseTests() {
     ipv6_destination: 0x88889999aaaabbbbccccddddeeeeffff
     # other headers:
     payload: 0x12
-  )PB");
+  )pb");
 
-  RunPacketParseTest("IPv6 packet (valid)", R"PB(
+  RunPacketParseTest("IPv6 packet (valid)", R"pb(
     # ethernet header
     ethernet_destination: 0xffeeddccbbaa
     ethernet_source: 0x554433221100
@@ -319,9 +319,9 @@ void RunPacketParseTests() {
     # other headers:
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
-  )PB");
+  )pb");
 
-  RunPacketParseTest("UDP packet (valid)", R"PB(
+  RunPacketParseTest("UDP packet (valid)", R"pb(
     # Taken from
     # www.securitynik.com/2015/08/calculating-udp-checksum-with-taste-of.html
     # --------------------------------------------------------------------------
@@ -351,9 +351,9 @@ void RunPacketParseTests() {
     # Payload
     payload: 0x4869                                             # "Hi" in ASCII
     payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff  # Padding
-  )PB");
+  )pb");
 
-  RunPacketParseTest("TCP packet (valid)", R"PB(
+  RunPacketParseTest("TCP packet (valid)", R"pb(
     # Taken from
     # www.erg.abdn.ac.uk/users/gorry/course/inet-pages/packet-decode3.html
     # --------------------------------------------------------------------------
@@ -389,9 +389,9 @@ void RunPacketParseTests() {
     options: 0x 0204 05b4
     # Payload
     payload: 0x 11 22
-  )PB");
+  )pb");
 
-  RunPacketParseTest("ARP Packet (Valid)", R"PB(
+  RunPacketParseTest("ARP Packet (Valid)", R"pb(
     # Ethernet header
     ethernet_destination: 0x ff ff ff ff ff ff
     ethernet_source: 0x 00 11 22 33 44 55
@@ -408,9 +408,9 @@ void RunPacketParseTests() {
     target_protocol_address: 0x 0a 00 00 02
     # Payload
     payload: 0x 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-  )PB");
+  )pb");
 
-  RunPacketParseTest("ICMPv4 Packet (Valid)", R"PB(
+  RunPacketParseTest("ICMPv4 Packet (Valid)", R"pb(
     # Taken from
     # www.erg.abdn.ac.uk/users/gorry/course/inet-pages/packet-dec1.html
     # --------------------------------------------------------------------------
@@ -441,8 +441,8 @@ void RunPacketParseTests() {
     payload: 0x 33 5e 3a b8 00 00 42 ac 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14
     payload: 0x 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25 26 27 28 29
     payload: 0x 2a 2b 2c 2d 2e 2f 30 31 32 33 34 35 36 37
-  )PB");
-  RunPacketParseTest("ICMPv6 Packet (Valid)", R"PB(
+  )pb");
+  RunPacketParseTest("ICMPv6 Packet (Valid)", R"pb(
     # Taken from
     # www.cloudshark.org/captures/e98730aee1fb
     # --------------------------------------------------------------------------
@@ -469,9 +469,9 @@ void RunPacketParseTests() {
     payload: 0x 00 01 02 03 04 05 06 07 08 09 0a 0b 0c 0d 0e 0f 10 11 12 13 14
     payload: 0x 15 16 17 18 19 1a 1b 1c 1d 1e 1f 20 21 22 23 24 25 26 27 28 29
     payload: 0x 2a 2b 2c 2d 2e 2f 30 31 32 33
-  )PB");
+  )pb");
 
-  RunPacketParseTest("VLAN Packet with ARP (Valid)", R"PB(
+  RunPacketParseTest("VLAN Packet with ARP (Valid)", R"pb(
     # Taken from
     # www.cloudshark.org/captures/e7f1b8c0b434
     # --------------------------------------------------------------------------
@@ -496,12 +496,12 @@ void RunPacketParseTests() {
     target_protocol_address: 0x c0 a8 7b 01
     # Payload
     payload: 0x 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
-  )PB");
+  )pb");
 }
 
 void RunProtoPacketTests() {
   RunProtoPacketTest("UDP header not preceded by other header",
-                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                     gutil::ParseProtoOrDie<Packet>(R"pb(
                        headers {
                          udp_header {
                            source_port: "0x0014"
@@ -511,10 +511,10 @@ void RunProtoPacketTests() {
                          }
                        }
                        payload: "Hi"
-                     )PB"));
+                     )pb"));
 
   RunProtoPacketTest("UDP header not preceded by IP header",
-                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                     gutil::ParseProtoOrDie<Packet>(R"pb(
                        headers {
                          ethernet_header {
                            ethernet_destination: "aa:bb:cc:dd:ee:ff"
@@ -531,11 +531,11 @@ void RunProtoPacketTests() {
                          }
                        }
                        payload: "Hi"
-                     )PB"));
+                     )pb"));
 
   RunProtoPacketTest(
       "UDP header empty length and checksum",
-      gutil::ParseProtoOrDie<Packet>(R"PB(
+      gutil::ParseProtoOrDie<Packet>(R"pb(
         headers {
           ethernet_header {
             ethernet_destination: "aa:bb:cc:dd:ee:ff"
@@ -562,12 +562,12 @@ void RunProtoPacketTests() {
           udp_header { source_port: "0x0014" destination_port: "0x000a" }
         }
         payload: "Some random payload."
-      )PB"));
+      )pb"));
 
   RunProtoPacketTest(
       "UDP header illegally succeeding IPv6 header whose next_header is not "
       "UDP",
-      gutil::ParseProtoOrDie<Packet>(R"PB(
+      gutil::ParseProtoOrDie<Packet>(R"pb(
         headers {
           ethernet_header {
             ethernet_destination: "aa:bb:cc:dd:ee:ff"
@@ -592,10 +592,10 @@ void RunProtoPacketTests() {
           udp_header { source_port: "0x0014" destination_port: "0x000a" }
         }
         payload: "Hi"
-      )PB"));
+      )pb"));
 
   RunProtoPacketTest("IPv4 without computed fields",
-                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                     gutil::ParseProtoOrDie<Packet>(R"pb(
                        headers {
                          ethernet_header {
                            ethernet_destination: "aa:bb:cc:dd:ee:ff"
@@ -617,10 +617,10 @@ void RunProtoPacketTests() {
                          }
                        }
                        payload: "payloads everywhere"
-                     )PB"));
+                     )pb"));
 
   RunProtoPacketTest("Ipv4 empty ihl, invalid options",
-                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                     gutil::ParseProtoOrDie<Packet>(R"pb(
                        headers {
                          ethernet_header {
                            ethernet_destination: "aa:bb:cc:dd:ee:ff"
@@ -646,10 +646,10 @@ void RunProtoPacketTests() {
                          }
                        }
                        payload: "A somewhat longer payload."
-                     )PB"));
+                     )pb"));
 
   RunProtoPacketTest("Ipv4 empty ihl, valid options",
-                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                     gutil::ParseProtoOrDie<Packet>(R"pb(
                        headers {
                          ethernet_header {
                            ethernet_destination: "aa:bb:cc:dd:ee:ff"
@@ -675,10 +675,10 @@ void RunProtoPacketTests() {
                          }
                        }
                        payload: "A somewhat longer payload."
-                     )PB"));
+                     )pb"));
 
   RunProtoPacketTest("IPv4 with various invalid fields",
-                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                     gutil::ParseProtoOrDie<Packet>(R"pb(
                        headers {
                          ethernet_header {
                            ethernet_destination: "aa:bb:cc:dd:ee:ff"
@@ -701,10 +701,10 @@ void RunProtoPacketTests() {
                          }
                        }
                        payload: "Hi"
-                     )PB"));
+                     )pb"));
 
   RunProtoPacketTest("IPv6 without computed fields",
-                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                     gutil::ParseProtoOrDie<Packet>(R"pb(
                        headers {
                          ethernet_header {
                            ethernet_destination: "aa:bb:cc:dd:ee:ff"
@@ -724,10 +724,10 @@ void RunProtoPacketTests() {
                          }
                        }
                        payload: "Hello"
-                     )PB"));
+                     )pb"));
 
   RunProtoPacketTest("IPv6 with various invalid fields",
-                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                     gutil::ParseProtoOrDie<Packet>(R"pb(
                        headers {
                          ethernet_header {
                            ethernet_destination: "aa:bb:cc:dd:ee:ff"
@@ -749,10 +749,10 @@ void RunProtoPacketTests() {
                          }
                        }
                        payload: "I am the payload"
-                     )PB"));
+                     )pb"));
 
   RunProtoPacketTest("IPv6 packet with IPv4 ethertype",
-                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                     gutil::ParseProtoOrDie<Packet>(R"pb(
                        headers {
                          ethernet_header {
                            ethernet_destination: "aa:bb:cc:dd:ee:ff"
@@ -773,10 +773,10 @@ void RunProtoPacketTests() {
                            ipv6_destination: "f::f"
                          }
                        }
-                     )PB"));
+                     )pb"));
 
   RunProtoPacketTest("IPv6 packet without IPv6 header",
-                     gutil::ParseProtoOrDie<Packet>(R"PB(
+                     gutil::ParseProtoOrDie<Packet>(R"pb(
                        headers {
                          ethernet_header {
                            ethernet_destination: "aa:bb:cc:dd:ee:ff"
@@ -785,11 +785,11 @@ void RunProtoPacketTests() {
                          }
                        }
                        payload: "hi"
-                     )PB"));
+                     )pb"));
 
   RunProtoPacketTest("ARP packet without computed fields",
                      gutil::ParseProtoOrDie<Packet>(
-                         R"PB(
+                         R"pb(
                            headers {
                              ethernet_header {
                                ethernet_destination: "ff:ff:ff:ff:ff:ff"
@@ -806,10 +806,10 @@ void RunProtoPacketTests() {
                                target_protocol_address: "1.2.3.5"
                              }
                            }
-                         )PB"));
+                         )pb"));
   RunProtoPacketTest("ARP packet with unsupported computed field values",
                      gutil::ParseProtoOrDie<Packet>(
-                         R"PB(
+                         R"pb(
                            headers {
                              ethernet_header {
                                ethernet_destination: "ff:ff:ff:ff:ff:ff"
@@ -830,11 +830,11 @@ void RunProtoPacketTests() {
                                target_protocol_address: "1.2.3.5"
                              }
                            }
-                         )PB"));
+                         )pb"));
 
   RunProtoPacketTest(
       "ICMPv4 packet without computed fields",
-      gutil::ParseProtoOrDie<Packet>(R"PB(
+      gutil::ParseProtoOrDie<Packet>(R"pb(
         headers {
           ethernet_header {
             ethernet_destination: "08:00:20:86:35:4b"
@@ -859,10 +859,10 @@ void RunProtoPacketTests() {
           icmp_header { type: "0x00" code: "0x00" rest_of_header: "0x1e600000" }
         }
         payload: "ICMPv4 packet without computed fields"
-      )PB"));
+      )pb"));
   RunProtoPacketTest(
       "ICMPv6 packet without computed fields",
-      gutil::ParseProtoOrDie<Packet>(R"PB(
+      gutil::ParseProtoOrDie<Packet>(R"pb(
         headers {
           ethernet_header {
             ethernet_destination: "c2:01:51:fa:00:00"
@@ -885,10 +885,10 @@ void RunProtoPacketTests() {
           icmp_header { type: "0x80" code: "0x00" rest_of_header: "0x110d0000" }
         }
         payload: "ICMPv6 packet without computed fields"
-      )PB"));
+      )pb"));
   RunProtoPacketTest(
       "ICMP packet without a preceding IP header",
-      gutil::ParseProtoOrDie<Packet>(R"PB(
+      gutil::ParseProtoOrDie<Packet>(R"pb(
         headers {
           ethernet_header {
             ethernet_destination: "c2:01:51:fa:00:00"
@@ -900,10 +900,10 @@ void RunProtoPacketTests() {
           icmp_header { type: "0x80" code: "0x00" rest_of_header: "0x110d0000" }
         }
         payload: "ICMP packet without a preceding IP header"
-      )PB"));
+      )pb"));
   RunProtoPacketTest("VLAN ARP packet",
                      gutil::ParseProtoOrDie<Packet>(
-                         R"PB(
+                         R"pb(
                            headers {
                              ethernet_header {
                                ethernet_destination: "ff:ff:ff:ff:ff:ff"
@@ -928,10 +928,10 @@ void RunProtoPacketTests() {
                                target_protocol_address: "1.2.3.5"
                              }
                            }
-                         )PB"));
+                         )pb"));
 
   RunProtoPacketTest("Uninitialized (empty packet) - should be invalid",
-                     gutil::ParseProtoOrDie<Packet>(R"PB()PB"));
+                     gutil::ParseProtoOrDie<Packet>(R"pb()pb"));
 }
 
 void main() {

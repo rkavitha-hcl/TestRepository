@@ -1,30 +1,32 @@
-"""Third party dependencies."""
+"""Third party dependencies.
+
+Please read carefully before adding new dependencies:
+- Any dependency can break all of pins-infra. Please be mindful of that before
+  adding new dependencies. Try to stick to stable versions of widely used libraries.
+  Do not depend on private repositories and forks.
+- Fix dependencies to a specific version or commit, so upstream changes cannot break
+  pins-infra. Prefer releases over arbitrary commits when both are available.
+"""
 
 load("@bazel_tools//tools/build_defs/repo:git.bzl", "git_repository")
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def pins_infra_deps():
     """Sets up 3rd party workspaces needed to build PINS infrastructure."""
-    if not native.existing_rule("sonic_swss_common"):
-        git_repository(
-            name = "sonic_swss_common",
-            branch = "pins/202012_20210206",
-            remote = "git@github.com:pins/sonic-swss-common.git",
-        )
     if not native.existing_rule("com_github_grpc_grpc"):
-        git_repository(
+        http_archive(
             name = "com_github_grpc_grpc",
-            remote = "https://github.com/grpc/grpc",
             # Move to newer commit to avoid the use of com_github_google_re2.
-            commit = "565520443bdbda0b8ac28337a4904f3f20276305",
-            shallow_since = "1614649991 -0800",
+            url = "https://github.com/grpc/grpc/archive/565520443bdbda0b8ac28337a4904f3f20276305.zip",
+            strip_prefix = "grpc-565520443bdbda0b8ac28337a4904f3f20276305",
+            sha256 = "7206cc8e4511620fe70da7234bc98d6a4cd2eb226a7914f68fdbd991ffe38d34",
         )
     if not native.existing_rule("com_google_absl"):
         http_archive(
             name = "com_google_absl",
-            url = "https://github.com/abseil/abseil-cpp/archive/20200923.tar.gz",
-            strip_prefix = "abseil-cpp-20200923",
-            sha256 = "b3744a4f7a249d5eaf2309daad597631ce77ea62e0fc6abffbab4b4c3dc0fc08",
+            url = "https://github.com/abseil/abseil-cpp/archive/refs/tags/20210324.rc1.tar.gz",
+            strip_prefix = "abseil-cpp-20210324.rc1",
+            sha256 = "7e0cf185ddd0459e8e55a9c51a548e859d98c0d7533de374bf038e4c7434f682",
         )
     if not native.existing_rule("com_google_googletest"):
         http_archive(
@@ -41,18 +43,19 @@ def pins_infra_deps():
             sha256 = "6dd0f6b20094910fbb7f1f7908688df01af2d4f6c5c21331b9f636048674aebf",
         )
     if not native.existing_rule("com_googlesource_code_re2"):
-        git_repository(
+        http_archive(
             name = "com_googlesource_code_re2",
-            commit = "72f110e82ccf3a9ae1c9418bfb447c3ba1cf95c2",
-            remote = "https://github.com/google/re2",
-            shallow_since = "1614161110 +0000",
+            # Newest commit on "absl" branch as of 2021-03-25.
+            url = "https://github.com/google/re2/archive/72f110e82ccf3a9ae1c9418bfb447c3ba1cf95c2.zip",
+            strip_prefix = "re2-72f110e82ccf3a9ae1c9418bfb447c3ba1cf95c2",
+            sha256 = "146bf2e8796317843106a90543356c1baa4b48236a572e39971b839172f6270e",
         )
     if not native.existing_rule("com_google_googleapis"):
-        git_repository(
+        http_archive(
             name = "com_google_googleapis",
-            commit = "dd244bb3a5023a4a9290b21dae6b99020c026123",
-            remote = "https://github.com/googleapis/googleapis",
-            shallow_since = "1591402163 -0700",
+            url = "https://github.com/googleapis/googleapis/archive/f405c718d60484124808adb7fb5963974d654bb4.zip",
+            strip_prefix = "googleapis-f405c718d60484124808adb7fb5963974d654bb4",
+            sha256 = "406b64643eede84ce3e0821a1d01f66eaf6254e79cb9c4f53be9054551935e79",
         )
     if not native.existing_rule("com_github_google_glog"):
         http_archive(
@@ -71,43 +74,47 @@ def pins_infra_deps():
             sha256 = "34af2f15cf7367513b352bdcd2493ab14ce43692d2dcd9dfc499492966c64dcf",
         )
     if not native.existing_rule("com_github_gnmi"):
-        git_repository(
-            name = "com_github_gnmi",
-            commit = "6a51fc9396af4bb9d7b3c4cf6e9718b81ba77e80",
-            # TODO: Upstream changes from this private repo to official gnmi repo.
-            remote = "https://github.com/vamsipunati/gnmi.git",
-        )
-    if not native.existing_rule("rules_proto"):
         http_archive(
-            name = "rules_proto",
-            urls = [
-                "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
-                "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
-            ],
-            strip_prefix = "rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313",
-            sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
+            name = "com_github_gnmi",
+            # Newest commit on master on 2020-09-10.
+            # TODO: Upstream changes from this private repo to official gnmi repo.
+            url = "https://github.com/vamsipunati/gnmi/archive/6a51fc9396af4bb9d7b3c4cf6e9718b81ba77e80.zip",
+            strip_prefix = "gnmi-6a51fc9396af4bb9d7b3c4cf6e9718b81ba77e80",
+            sha256 = "0d3efaf85c5a2bc57474ac7900d965eec5a89416d76970f0f462f3fce15bfafc",
+        )
+    if not native.existing_rule("com_github_gnoi"):
+        http_archive(
+            name = "com_github_gnoi",
+            # Newest commit on master on 2020-09-10.
+            # TODO: Upstream changes from this private repo to official gnoi repo.
+            url = "https://github.com/vamsipunati/gnoi/archive/f4d40a9c9e7422e488af69490a1f85970e43f325.zip",
+            strip_prefix = "gnoi-f4d40a9c9e7422e488af69490a1f85970e43f325",
+            sha256 = "f44deb4ccb947a14eaf7bc2560c8b8b2d01974b1370e26bcfc14ea015c2fbc6b",
         )
     if not native.existing_rule("com_github_p4lang_p4c"):
-        git_repository(
+        http_archive(
             name = "com_github_p4lang_p4c",
             # Newest commit on master on 2020-09-10.
-            commit = "557b77f8c41fc5ee1158710eda1073d84f5acf53",
-            remote = "https://github.com/p4lang/p4c",
-            shallow_since = "1599773698 -0700",
+            url = "https://github.com/p4lang/p4c/archive/557b77f8c41fc5ee1158710eda1073d84f5acf53.zip",
+            strip_prefix = "p4c-557b77f8c41fc5ee1158710eda1073d84f5acf53",
+            sha256 = "c0b39fe2a3f394a87ff8fd055df4b5f1d19790bfa27a6cff68f484380746363e",
         )
     if not native.existing_rule("com_github_p4lang_p4runtime"):
+        # We frequently need bleeding-edge, unreleased version of P4Runtime, so we use a commit
+        # rather than a release.
         http_archive(
             name = "com_github_p4lang_p4runtime",
-            urls = ["https://github.com/p4lang/p4runtime/archive/v1.3.0.tar.gz"],
-            strip_prefix = "p4runtime-1.3.0/proto",
-            sha256 = "09d826e868b1c18e47ff1b5c3d9c6afc5fa7b7a3f856f9d2d9273f38f4fc87e2",
+            # 8235f is the newest commit on master as of 2021-03-29.
+            urls = ["https://github.com/p4lang/p4runtime/archive/8235f892c1834a685dd5401d1dc2820d16403f0a.zip"],
+            strip_prefix = "p4runtime-8235f892c1834a685dd5401d1dc2820d16403f0a/proto",
+            sha256 = "38df245cc546e087df675b0fc8437718fe250bd18f6ba3be45a3a1dee3102aa2",
         )
     if not native.existing_rule("com_github_p4lang_p4_constraints"):
-        git_repository(
+        http_archive(
             name = "com_github_p4lang_p4_constraints",
-            # Newest commit on master on 2021-03-05.
-            commit = "3c02ca5750acf9af814cc12b4ad0547d452ed831",
-            remote = "https://github.com/p4lang/p4-constraints",
+            urls = ["https://github.com/p4lang/p4-constraints/archive/refs/tags/v1.0.0.tar.gz"],
+            strip_prefix = "p4-constraints-1.0.0",
+            sha256 = "1693e65336059e760a6179b80850560a63df347e08d559a8d7be4cd579ccbebe",
         )
     if not native.existing_rule("com_github_nlohmann_json"):
         http_archive(
@@ -127,6 +134,7 @@ def pins_infra_deps():
             url = "https://github.com/open-source-parsers/jsoncpp/archive/1.9.4.zip",
             strip_prefix = "jsoncpp-1.9.4",
             build_file = "@//:bazel/BUILD.jsoncpp.bazel",
+            sha256 = "6da6cdc026fe042599d9fce7b06ff2c128e8dd6b8b751fca91eb022bce310880",
         )
     if not native.existing_rule("com_github_ivmai_cudd"):
         http_archive(
@@ -135,12 +143,6 @@ def pins_infra_deps():
             strip_prefix = "cudd-cudd-3.0.0",
             sha256 = "5fe145041c594689e6e7cf4cd623d5f2b7c36261708be8c9a72aed72cf67acce",
             urls = ["https://github.com/ivmai/cudd/archive/cudd-3.0.0.tar.gz"],
-        )
-    if not native.existing_rule("rules_foreign_cc"):
-        http_archive(
-            name = "rules_foreign_cc",
-            strip_prefix = "rules_foreign_cc-master",
-            url = "https://github.com/bazelbuild/rules_foreign_cc/archive/master.zip",
         )
     if not native.existing_rule("com_gnu_gmp"):
         http_archive(
@@ -158,11 +160,29 @@ def pins_infra_deps():
             sha256 = "8c1c49a1eccf5d8b952dadadba3552b0eac67482b8a29eaad62aa7343a0732c3",
             build_file = "@//:bazel/BUILD.z3.bazel",
         )
-    if not native.existing_rule("com_github_gnoi"):
+    if not native.existing_rule("rules_foreign_cc"):
+        http_archive(
+            name = "rules_foreign_cc",
+            sha256 = "d54742ffbdc6924f222d2179f0e10e911c5c659c4ae74158e9fe827aad862ac6",
+            strip_prefix = "rules_foreign_cc-0.2.0",
+            url = "https://github.com/bazelbuild/rules_foreign_cc/archive/0.2.0.tar.gz",
+        )
+    if not native.existing_rule("rules_proto"):
+        http_archive(
+            name = "rules_proto",
+            urls = [
+                "https://mirror.bazel.build/github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+                "https://github.com/bazelbuild/rules_proto/archive/97d8af4dc474595af3900dd85cb3a29ad28cc313.tar.gz",
+            ],
+            strip_prefix = "rules_proto-97d8af4dc474595af3900dd85cb3a29ad28cc313",
+            sha256 = "602e7161d9195e50246177e7c55b2f39950a9cf7366f74ed5f22fd45750cd208",
+        )
+    if not native.existing_rule("sonic_swss_common"):
+        # We use `git_repository` over `http_archive` only because this is a private repo
+        # requiring SSH authentication.
         git_repository(
-            name = "com_github_gnoi",
-            commit = "f4d40a9c9e7422e488af69490a1f85970e43f325",
-            # TODO: Upstream changes from this private repo to official gnoi repo.
-            remote = "https://github.com/vamsipunati/gnoi.git",
-            shallow_since = "1610343230 -0800",
+            name = "sonic_swss_common",
+            commit = "13d617f02ad7212427cd3d4249d32158190595ee",
+            remote = "git@github.com:pins/sonic-swss-common.git",
+            shallow_since = "1616719037 -0700",
         )

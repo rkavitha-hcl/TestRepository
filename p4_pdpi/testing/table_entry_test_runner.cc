@@ -58,81 +58,81 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                       gutil::ParseProtoOrDie<p4::v1::TableEntry>(""));
 
   RunPiTableEntryTest(info, "invalid table id",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 431
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "missing matches",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554433
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "invalid match type - expect exact",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554433
                         match {
                           field_id: 1
                           lpm { value: "\xff\x22" prefix_len: 24 }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "invalid match type - expect lpm",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554436
                         match {
                           field_id: 1
                           ternary { value: "\xff\x22" mask: "\xd3\x54\x12" }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "invalid match type - expect ternary",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554435
                         match {
                           field_id: 1
                           exact { value: "\xff\x22" }
                         }
                         priority: 32
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "invalid match type - expect optional",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554441
                         match {
                           field_id: 1
                           lpm { value: "\xff\x22" prefix_len: 24 }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "invalid match field id",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554433
                         match {
                           field_id: 11
                           exact { value: "\xff\x22" }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "invalid bytestring value",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554433
                         match {
                           field_id: 2
                           exact { value: "\xff\x22\x43\x45\x32" }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "invalid prefix length",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554436
                         match {
                           field_id: 1
                           lpm { value: "\xff\x22" prefix_len: 40 }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "duplicate match field id",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554433
                         match {
                           field_id: 1
@@ -142,49 +142,49 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                           field_id: 1
                           exact { value: "\x10\x24\x32\x52" }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "lpm value - masked bits set",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554436
                         match {
                           field_id: 1
                           lpm { value: "\x10\x43\x23\x12" prefix_len: 24 }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "ternary value too long",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554435
                         match {
                           field_id: 1
                           ternary { value: "\x42\x12" mask: "\xff" }
                         }
                         priority: 32
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "ternary value and mask too long",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554435
                         match {
                           field_id: 1
                           ternary { value: "\x42\x12" mask: "\xff\xff" }
                         }
                         priority: 32
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "ternary value - masked bits set",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554435
                         match {
                           field_id: 1
                           ternary { value: "\x01\x00" mask: "\x00\xff" }
                         }
                         priority: 32
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "missing action",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554433
                         match {
                           field_id: 1
@@ -194,10 +194,10 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                           field_id: 2
                           exact { value: "\x10\x24\x32\x52" }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "invalid action",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554433
                         match {
                           field_id: 1
@@ -208,10 +208,10 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                           exact { value: "\x10\x24\x32\x52" }
                         }
                         action { action_profile_member_id: 12 }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "action set in table with action",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554433
                         match {
                           field_id: 1
@@ -233,10 +233,10 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                             }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "action in table with action set",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554438
                         match {
                           field_id: 1
@@ -249,10 +249,10 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                             params { param_id: 2 value: "\000\000\000\011" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "missing action id",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554433
                         match {
                           field_id: 1
@@ -263,10 +263,10 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                           exact { value: "\x10\x24\x32\x52" }
                         }
                         action { action { action_id: 1 } }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "invalid action id",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554433
                         match {
                           field_id: 1
@@ -277,10 +277,10 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                           exact { value: "\x10\x24\x32\x52" }
                         }
                         action { action { action_id: 16777219 } }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "missing action params",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554433
                         match {
                           field_id: 1
@@ -296,10 +296,10 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                             params { param_id: 1 value: "\x54" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "duplicate action param id",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554433
                         match {
                           field_id: 1
@@ -316,10 +316,10 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                             params { param_id: 1 value: "\x65" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "invalid action param id",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554433
                         match {
                           field_id: 1
@@ -336,20 +336,20 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                             params { param_id: 2 value: "\x23" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "zero lpm prefix length",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554436
                         match {
                           field_id: 1
                           lpm { value: "\x10\x32\x41\x5" prefix_len: 0 }
                         }
                         action { action { action_id: 21257015 } }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "zero ternary mask",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554435
                         match {
                           field_id: 1
@@ -363,10 +363,10 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                             params { param_id: 2 value: "\x23" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "zero priority",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554435
                         match {
                           field_id: 1
@@ -380,10 +380,10 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                             params { param_id: 2 value: "\x23" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "negative priority",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554435
                         match {
                           field_id: 1
@@ -397,10 +397,10 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                             params { param_id: 2 value: "\x23" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "absent priority",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554435
                         match {
                           field_id: 1
@@ -413,10 +413,10 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                             params { param_id: 2 value: "\x23" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "unexpected priority",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554436
                         match {
                           field_id: 1
@@ -424,10 +424,10 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                         }
                         priority: 32
                         action { action { action_id: 21257015 } }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "action set with negative weight",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554438
                         match {
                           field_id: 1
@@ -445,10 +445,10 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                             }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "action set with invalid action",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554438
                         match {
                           field_id: 1
@@ -466,10 +466,10 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                             }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunPiTableEntryTest(info, "counter in a table with no counters",
-                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554438
                         match {
                           field_id: 1
@@ -488,7 +488,7 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                           }
                         }
                         counter_data { byte_count: 4213 }
-                      )PB"));
+                      )pb"));
 }
 
 static void RunIrTests(const pdpi::IrP4Info info) {
@@ -496,17 +496,17 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                       gutil::ParseProtoOrDie<pdpi::IrTableEntry>(""));
 
   RunIrTableEntryTest(info, "invalid table name",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "invalid"
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "missing matches",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "id_test_table"
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "invalid match type - expect exact",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "id_test_table"
                         matches {
                           name: "ipv6"
@@ -515,10 +515,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             prefix_length: 96
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "invalid match type - expect optional",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "optional_table"
                         matches {
                           name: "ipv6"
@@ -527,10 +527,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             prefix_length: 96
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "invalid match type - expect lpm",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "lpm2_table"
                         matches {
                           name: "ipv6"
@@ -539,38 +539,38 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             mask { ipv6: "::00d3:5412" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "invalid match type - expect ternary",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "ternary_table"
                         matches {
                           name: "ipv6"
                           exact { ipv6: "::ff22" }
                         }
                         priority: 32
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "invalid match field name",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "id_test_table"
                         matches {
                           name: "invalid"
                           exact { ipv6: "::ff22" }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "invalid IR value",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "id_test_table"
                         matches {
                           name: "ipv4"
                           exact { ipv6: "::ff22" }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "invalid prefix length",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "lpm1_table"
                         matches {
                           name: "ipv4"
@@ -579,10 +579,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             prefix_length: 40
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "duplicate match field name",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "id_test_table"
                         matches {
                           name: "ipv6"
@@ -592,10 +592,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           name: "ipv6"
                           exact { ipv4: "10.24.32.52" }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "lpm value - masked bits set",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "lpm1_table"
                         matches {
                           name: "ipv4"
@@ -604,10 +604,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             prefix_length: 24
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "ternary value too long",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "ternary_table"
                         matches {
                           name: "normal"
@@ -617,10 +617,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           }
                         }
                         priority: 32
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "ternary value and mask too long",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "ternary_table"
                         matches {
                           name: "normal"
@@ -630,10 +630,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           }
                         }
                         priority: 32
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "ternary value - masked bits set",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "ternary_table"
                         matches {
                           name: "ipv6"
@@ -643,10 +643,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           }
                         }
                         priority: 32
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "missing action",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "id_test_table"
                         matches {
                           name: "ipv6"
@@ -656,10 +656,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           name: "ipv4"
                           exact { ipv4: "10.24.32.52" }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "missing action name",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "id_test_table"
                         matches {
                           name: "ipv6"
@@ -670,10 +670,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           exact { ipv4: "10.24.32.52" }
                         }
                         action {}
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "invalid action name",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "id_test_table"
                         matches {
                           name: "ipv6"
@@ -684,10 +684,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           exact { ipv4: "10.24.32.52" }
                         }
                         action { name: "invalid" }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "missing action params",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "id_test_table"
                         matches {
                           name: "ipv6"
@@ -704,10 +704,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             value { hex_str: "0x01234567" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "duplicate action param name",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "id_test_table"
                         matches {
                           name: "ipv6"
@@ -728,10 +728,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             value { hex_str: "0x01234568" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "invalid action param name",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "id_test_table"
                         matches {
                           name: "ipv6"
@@ -752,10 +752,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             value { hex_str: "0x01234568" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "action set in table with action",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "id_test_table"
                         matches {
                           name: "ipv6"
@@ -781,10 +781,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             weight: 1
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "action in table with action set",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "wcmp_table"
                         matches {
                           name: "ipv4"
@@ -804,10 +804,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             value { hex_str: "0x01234568" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "zero lpm prefix length",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "lpm1_table"
                         matches {
                           name: "ipv4"
@@ -817,10 +817,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           }
                         }
                         action { name: "NoAction" }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "zero ternary mask",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "ternary_table"
                         matches {
                           name: "normal"
@@ -841,10 +841,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             value { hex_str: "0x01234568" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "zero priority",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "ternary_table"
                         matches {
                           name: "normal"
@@ -865,10 +865,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             value { hex_str: "0x01234568" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "negative priority",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "ternary_table"
                         matches {
                           name: "normal"
@@ -889,10 +889,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             value { hex_str: "0x01234568" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "absent priority",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "ternary_table"
                         matches {
                           name: "normal"
@@ -912,10 +912,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             value { hex_str: "0x01234568" }
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "unexpected priority",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "lpm1_table"
                         matches {
                           name: "ipv4"
@@ -926,10 +926,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                         }
                         priority: 32
                         action { name: "NoAction" }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "action set with negative weight",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "wcmp_table"
                         matches {
                           name: "ipv4"
@@ -954,10 +954,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             weight: -1
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "action set with invalid action",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "wcmp_table"
                         matches {
                           name: "ipv4"
@@ -982,10 +982,10 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                             weight: -1
                           }
                         }
-                      )PB"));
+                      )pb"));
 
   RunIrTableEntryTest(info, "counter in a table with no counters",
-                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "wcmp_table"
                         matches {
                           name: "ipv4"
@@ -1011,7 +1011,7 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                           }
                         }
                         counter_data { byte_count: 4213 }
-                      )PB"));
+                      )pb"));
 }
 
 static void RunPdTests(const pdpi::IrP4Info info) {
@@ -1020,19 +1020,19 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(info, "missing matches",
-                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
                         id_test_table_entry {}
-                      )PB"),
+                      )pb"),
                       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(
-      info, "missing action", gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      info, "missing action", gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         id_test_table_entry { match { ipv6: "::ff22" ipv4: "16.36.50.82" } }
-      )PB"),
+      )pb"),
       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(info, "exact match missing",
-                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
                         id_test_table_entry {
                           match { ipv6: "::ff22" }
                           action {
@@ -1045,41 +1045,41 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                             }
                           }
                         }
-                      )PB"),
+                      )pb"),
                       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(
       info, "negative prefix length",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         lpm2_table_entry {
           match { ipv6 { value: "ffff::abcd:0:0" prefix_length: -4 } }
           action { NoAction {} }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(
       info, "prefix length too large",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         lpm2_table_entry {
           match { ipv6 { value: "ffff::abcd:0:0" prefix_length: 132 } }
           action { NoAction {} }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(
-      info, "zero prefix length", gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      info, "zero prefix length", gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         lpm2_table_entry {
           match { ipv6 { value: "ffff::abcd:0:0" prefix_length: 0 } }
           action { NoAction {} }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(
       info, "ternary entry with zero mask",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         ternary_table_entry {
           match {
             normal { value: "0x052" mask: "0x000" }
@@ -1090,22 +1090,22 @@ static void RunPdTests(const pdpi::IrP4Info info) {
           priority: 32
           action { do_thing_3 { arg1: "0x23" arg2: "0x0251" } }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(
       info, "lpm value - masked bits set",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         lpm2_table_entry {
           match { ipv6 { value: "ffff::abcd:0:aabb" prefix_length: 96 } }
           action { NoAction {} }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(
       info, "ternary value - masked bits set",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         ternary_table_entry {
           match {
             normal { value: "0x052" mask: "0x001" }
@@ -1116,23 +1116,23 @@ static void RunPdTests(const pdpi::IrP4Info info) {
           priority: 32
           action { do_thing_3 { arg1: "0x23" arg2: "0x0251" } }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(
       info, "action with missing arguments",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         id_test_table_entry {
           match { ipv6: "::ff22" ipv4: "16.36.50.82" }
           action {
             do_thing_2 { normal: "0x054" mac: "00:11:22:33:44:55" str: "hello" }
           }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(info, "action with wrong argument format",
-                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
                         id_test_table_entry {
                           match { ipv6: "::ff22" ipv4: "16.36.50.82" }
                           action {
@@ -1145,12 +1145,12 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                             }
                           }
                         }
-                      )PB"),
+                      )pb"),
                       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(
       info, "ternary table with zero priority",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         ternary_table_entry {
           match {
             normal { value: "0x052" mask: "0x273" }
@@ -1161,12 +1161,12 @@ static void RunPdTests(const pdpi::IrP4Info info) {
           priority: 0
           action { do_thing_3 { arg1: "0x23" arg2: "0x0251" } }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(
       info, "ternary table with negative priority",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         ternary_table_entry {
           match {
             normal { value: "0x052" mask: "0x273" }
@@ -1177,12 +1177,12 @@ static void RunPdTests(const pdpi::IrP4Info info) {
           priority: -43
           action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(
       info, "ternary table with priority absent",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         ternary_table_entry {
           match {
             normal { value: "0x052" mask: "0x273" }
@@ -1192,12 +1192,12 @@ static void RunPdTests(const pdpi::IrP4Info info) {
           }
           action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(
       info, "wcmp table with negative weight",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         wcmp_table_entry {
           match { ipv4 { value: "0.0.255.0" prefix_length: 24 } }
           wcmp_actions {
@@ -1205,12 +1205,12 @@ static void RunPdTests(const pdpi::IrP4Info info) {
             weight: -1
           }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_INVALID);
 
   RunPdTableEntryTest(
       info, "valid wcmp table with choice of action",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         wcmp2_table_entry {
           match { ipv4 { value: "0.0.255.0" prefix_length: 24 } }
           wcmp_actions {
@@ -1222,12 +1222,12 @@ static void RunPdTests(const pdpi::IrP4Info info) {
             weight: 2
           }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
       info, "valid wcmp table with watch_port",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         wcmp2_table_entry {
           match { ipv4 { value: "0.0.255.0" prefix_length: 24 } }
           wcmp_actions {
@@ -1240,11 +1240,11 @@ static void RunPdTests(const pdpi::IrP4Info info) {
             weight: 2
           }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
-      info, "valid wcmp table", gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      info, "valid wcmp table", gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         wcmp_table_entry {
           match { ipv4 { value: "0.0.255.0" prefix_length: 24 } }
           wcmp_actions {
@@ -1256,11 +1256,11 @@ static void RunPdTests(const pdpi::IrP4Info info) {
             weight: 2
           }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(info, "exact matches of all formats",
-                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
                         exact_table_entry {
                           match {
                             normal: "0x054"
@@ -1271,45 +1271,45 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                           }
                           action { NoAction {} }
                         }
-                      )PB"),
+                      )pb"),
                       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
       info, "valid optional table missing a match",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         optional_table_entry {
           match { ipv6 { value: "3242::fee2" } }
           action { do_thing_1 { arg2: "0x01234567" arg1: "0x01234568" } }
           priority: 32
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
       info, "ternary with wildcard",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         ternary_table_entry {
           match { normal { value: "0x052" mask: "0x273" } }
           priority: 32
           action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
-      info, "metadata", gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      info, "metadata", gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         ternary_table_entry {
           match { normal { value: "0x052" mask: "0x273" } }
           priority: 32
           controller_metadata: "abc"
           action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
       info, "ternary table for all formats",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         ternary_table_entry {
           match {
             normal { value: "0x052" mask: "0x273" }
@@ -1320,29 +1320,29 @@ static void RunPdTests(const pdpi::IrP4Info info) {
           priority: 32
           action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
-      info, "ipv4 LPM table", gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      info, "ipv4 LPM table", gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         lpm1_table_entry {
           match { ipv4 { value: "10.43.12.0" prefix_length: 24 } }
           action { NoAction {} }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
-      info, "ipv6 LPM table", gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      info, "ipv6 LPM table", gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         lpm2_table_entry {
           match { ipv6 { value: "ffff::abcd:0:0" prefix_length: 96 } }
           action { NoAction {} }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(info, "action with all formats as arguments",
-                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
                         id_test_table_entry {
                           match { ipv6: "::ff22" ipv4: "16.36.50.82" }
                           action {
@@ -1355,77 +1355,77 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                             }
                           }
                         }
-                      )PB"),
+                      )pb"),
                       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
       info, "table entry without counters and meters",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         count_and_meter_table_entry {
           match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
           action { count_and_meter {} }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
       info, "table entry with a meter",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         count_and_meter_table_entry {
           match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
           action { count_and_meter {} }
           meter_config { bytes_per_second: 123 burst_bytes: 345 }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
       info, "table entry with a byte counter",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         count_and_meter_table_entry {
           match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
           action { count_and_meter {} }
           counter_data { byte_count: 567 }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
       info, "table entry with a packet counter",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         count_and_meter_table_entry {
           match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
           action { count_and_meter {} }
           counter_data { packet_count: 789 }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
       info, "table entry with a counter (both units)",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         count_and_meter_table_entry {
           match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
           action { count_and_meter {} }
           counter_data { byte_count: 567 packet_count: 789 }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
       info, "table entry with counters and meters",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         count_and_meter_table_entry {
           match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
           action { count_and_meter {} }
           meter_config { bytes_per_second: 123 burst_bytes: 345 }
           counter_data { byte_count: 567 packet_count: 789 }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(info, "exact match with empty string for Format::STRING",
-                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
                         exact_table_entry {
                           match {
                             normal: "0x054"
@@ -1436,22 +1436,22 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                           }
                           action { NoAction {} }
                         }
-                      )PB"),
+                      )pb"),
                       INPUT_IS_VALID);
 
   RunPdTableEntryTest(info, "ipv4 LPM table with /0",
-                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
                         lpm1_table_entry {
                           match {}
                           action { NoAction {} }
                         }
-                      )PB"),
+                      )pb"),
                       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
       info,
       "exact match with string containing null characters for Format::STRING",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         exact_table_entry {
           match {
             normal: "0x054"
@@ -1462,27 +1462,27 @@ static void RunPdTests(const pdpi::IrP4Info info) {
           }
           action { NoAction {} }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
       info,
       "optional match with string containing null characters for "
       "Format::STRING",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         optional_table_entry {
           match { str { value: "\000324" } }
           action { do_thing_1 { arg2: "0x01234567" arg1: "0x01234568" } }
           priority: 32
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 
   RunPdTableEntryTest(
       info,
       "valid wcmp table with watch_port containing null characters for "
       "Format::STRING",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"PB(
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
         wcmp2_table_entry {
           match { ipv4 { value: "0.0.255.0" prefix_length: 24 } }
           wcmp_actions {
@@ -1495,7 +1495,7 @@ static void RunPdTests(const pdpi::IrP4Info info) {
             weight: 2
           }
         }
-      )PB"),
+      )pb"),
       INPUT_IS_VALID);
 }
 

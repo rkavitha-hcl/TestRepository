@@ -14,20 +14,20 @@ using ::testing::Not;
 TEST(ReadableByteStringTest, Positive) {
   // Note: we use PB even though these strings are not protobufs. They are
   // similar enough that the auto-formatter works pretty well though.
-  EXPECT_THAT(ReadableByteStringToByteString(R"PB(
+  EXPECT_THAT(ReadableByteStringToByteString(R"pb(
                 # comments are ignored
                 hex: 0x0123
                 bin: 0b00000010
                 # empty line
 
                 hex: 0x23  # comment at end of line
-              )PB"),
+              )pb"),
               IsOkAndHolds("\x01\x23\x02\x23"));
 
-  EXPECT_THAT(ReadableByteStringToByteString(R"PB(
+  EXPECT_THAT(ReadableByteStringToByteString(R"pb(
                 # no label
                 0x0800
-              )PB"),
+              )pb"),
               IsOkAndHolds(std::string("\x08\x00", 2)));
 
   EXPECT_THAT(ReadableByteStringToByteString(R"(
@@ -40,20 +40,20 @@ TEST(ReadableByteStringTest, Positive) {
 }
 
 TEST(ReadableByteStringTest, OnlyFullBytes) {
-  EXPECT_THAT(ReadableByteStringToByteString(R"PB(
+  EXPECT_THAT(ReadableByteStringToByteString(R"pb(
                 bin: 0b00
-              )PB"),
+              )pb"),
               Not(IsOk()));
 }
 
 TEST(ReadableByteStringTest, NoInvalidChars) {
-  EXPECT_THAT(ReadableByteStringToByteString(R"PB(
+  EXPECT_THAT(ReadableByteStringToByteString(R"pb(
                 bin: 0b2
-              )PB"),
+              )pb"),
               Not(IsOk()));
-  EXPECT_THAT(ReadableByteStringToByteString(R"PB(
+  EXPECT_THAT(ReadableByteStringToByteString(R"pb(
                 bin: 0xK
-              )PB"),
+              )pb"),
               Not(IsOk()));
 }
 

@@ -40,7 +40,7 @@ TEST_P(BertTest, StartBertFailsIfRequestParametersInvalid) {
 
   // TODO (b/182417612) : Select one operational state "up" port.
   gnoi::diag::StartBERTRequest valid_request =
-      gutil::ParseProtoOrDie<gnoi::diag::StartBERTRequest>(R"PROTO(
+      gutil::ParseProtoOrDie<gnoi::diag::StartBERTRequest>(R"pb(
         bert_operation_id: "OpId-1"
         per_port_requests {
           interface {
@@ -54,7 +54,7 @@ TEST_P(BertTest, StartBertFailsIfRequestParametersInvalid) {
           prbs_polynomial: PRBS_POLYNOMIAL_PRBS23
           test_duration_in_secs: 600
         }
-      )PROTO");
+      )pb");
   // Set a unique BERT operation id using current time.
   valid_request.set_bert_operation_id(
       absl::StrCat("OpId-", absl::ToUnixMillis(absl::Now())));
@@ -110,14 +110,14 @@ TEST_P(BertTest, StartBertFailsIfRequestParametersInvalid) {
     gnoi::diag::StartBERTRequest invalid_interface_request = valid_request;
     gnoi::types::Path invalid_interface =
         gutil::ParseProtoOrDie<gnoi::types::Path>(
-            R"PROTO(
+            R"pb(
               origin: "openconfig"
               elem { name: "interfaces" }
               elem {
                 name: "interface"
                 key { key: "name" value: "InvalidPort" }
               }
-            )PROTO");
+            )pb");
     invalid_interface_request.mutable_per_port_requests(0)
         ->mutable_interface()
         ->CopyFrom(invalid_interface);
@@ -142,7 +142,7 @@ TEST_P(BertTest, StartBertfailsIfPeerPortNotRunningBert) {
 
   // TODO (ashishksingh) : Select one operational state "up" port.
   gnoi::diag::StartBERTRequest bert_request =
-      gutil::ParseProtoOrDie<gnoi::diag::StartBERTRequest>(R"PROTO(
+      gutil::ParseProtoOrDie<gnoi::diag::StartBERTRequest>(R"pb(
         bert_operation_id: "OpId-1"
         per_port_requests {
           interface {
@@ -156,7 +156,7 @@ TEST_P(BertTest, StartBertfailsIfPeerPortNotRunningBert) {
           prbs_polynomial: PRBS_POLYNOMIAL_PRBS23
           test_duration_in_secs: 180
         }
-      )PROTO");
+      )pb");
   // Set a random BERT operation id.
   bert_request.set_bert_operation_id(
       absl::StrCat("OpId-", absl::ToUnixMillis(absl::Now())));

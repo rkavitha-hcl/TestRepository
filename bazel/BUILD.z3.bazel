@@ -1,4 +1,4 @@
-load("@rules_foreign_cc//tools/build_defs:configure.bzl", "configure_make")
+load("@rules_foreign_cc//foreign_cc:defs.bzl", "configure_make")
 
 filegroup(
     name = "all",
@@ -7,7 +7,6 @@ filegroup(
 
 configure_make(
     name = "api",
-    binaries = ["z3"],
     # Bazel redacts certain cc macros such as __DATA__ and __TIMESTAMP__
     # since they will cause the compiled code to have timestamps or other
     # similar information in it, causing the compilation to be
@@ -37,6 +36,7 @@ configure_make(
         "make -j8",  # Use -j8, hardcoded but otherwise it will be too slow.
         "make install",
     ],
-    shared_libraries = ["libz3.so"],
+    out_binaries = ["z3"],
+    out_shared_libs = ["libz3.so"],
     visibility = ["//visibility:public"],
 )

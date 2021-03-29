@@ -1,4 +1,4 @@
-load("@rules_foreign_cc//tools/build_defs:configure.bzl", "configure_make")
+load("@rules_foreign_cc//foreign_cc:defs.bzl", "configure_make")
 
 filegroup(
     name = "all",
@@ -10,6 +10,6 @@ configure_make(
     configure_options = ["--enable-obj"],
     lib_name = "libcudd",
     lib_source = ":all",
-    make_commands = ["make install"],
+    make_commands = ["make install -j8"],
     visibility = ["//visibility:public"],
 )

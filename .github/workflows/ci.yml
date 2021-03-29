@@ -55,3 +55,7 @@ jobs:
 
     - name: Build
       run: ./$BAZEL ${{ matrix.bazelcmd }} //... --test_output=errors --distinct_host_configuration=false
+
+    - name: Compress cache
+      # This deletes cached archives while keeping the build cache.
+      run: rm -rf $(./$BAZEL info repository_cache)

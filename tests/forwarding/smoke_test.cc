@@ -33,12 +33,12 @@ namespace {
 TEST_P(SmokeTestFixture,
        DISABLED_InstallDefaultRouteForEmptyStringVrfShouldSucceed) {
   const sai::TableEntry pd_entry = gutil::ParseProtoOrDie<sai::TableEntry>(
-      R"PB(
+      R"pb(
         ipv4_table_entry {
           match { vrf_id: "" }
           action { drop {} }
         }
-      )PB");
+      )pb");
 
   ASSERT_OK_AND_ASSIGN(const p4::v1::TableEntry pi_entry,
                        pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));
@@ -50,7 +50,7 @@ TEST_P(SmokeTestFixture, DISABLED_Bug181149419) {
   // Adding 8 mirror sessions should succeed.
   for (int i = 0; i < 8; i++) {
     sai::TableEntry pd_entry = gutil::ParseProtoOrDie<sai::TableEntry>(
-        R"PB(
+        R"pb(
           mirror_session_table_entry {
             match { mirror_session_id: "session" }
             action {
@@ -65,7 +65,7 @@ TEST_P(SmokeTestFixture, DISABLED_Bug181149419) {
               }
             }
           }
-        )PB");
+        )pb");
     pd_entry.mutable_mirror_session_table_entry()
         ->mutable_match()
         ->set_mirror_session_id(absl::StrCat("session-", i));
@@ -77,7 +77,7 @@ TEST_P(SmokeTestFixture, DISABLED_Bug181149419) {
   // Adding one entry above the limit will fail.
   {
     sai::TableEntry pd_entry = gutil::ParseProtoOrDie<sai::TableEntry>(
-        R"PB(
+        R"pb(
           mirror_session_table_entry {
             match { mirror_session_id: "session-9" }
             action {
@@ -92,7 +92,7 @@ TEST_P(SmokeTestFixture, DISABLED_Bug181149419) {
               }
             }
           }
-        )PB");
+        )pb");
 
     ASSERT_OK_AND_ASSIGN(const p4::v1::TableEntry pi_entry,
                          pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));
@@ -102,7 +102,7 @@ TEST_P(SmokeTestFixture, DISABLED_Bug181149419) {
   // Adding ACL entries that use the 8 mirrors should all succeed.
   for (int i = 0; i < 8; i++) {
     sai::TableEntry pd_entry = gutil::ParseProtoOrDie<sai::TableEntry>(
-        R"PB(
+        R"pb(
           acl_ingress_table_entry {
             match {
               is_ipv4 { value: "0x1" }
@@ -112,7 +112,7 @@ TEST_P(SmokeTestFixture, DISABLED_Bug181149419) {
             action { mirror { mirror_session_id: "session-1" } }
             priority: 2100
           }
-        )PB");
+        )pb");
     pd_entry.mutable_acl_ingress_table_entry()
         ->mutable_action()
         ->mutable_mirror()
@@ -130,14 +130,14 @@ TEST_P(SmokeTestFixture, DISABLED_Bug181149419) {
 
 TEST_P(SmokeTestFixture, InsertTableEntry) {
   const sai::TableEntry pd_entry = gutil::ParseProtoOrDie<sai::TableEntry>(
-      R"PB(
+      R"pb(
         router_interface_table_entry {
           match { router_interface_id: "router-interface-1" }
           action {
             set_port_and_src_mac { port: "1" src_mac: "02:2a:10:00:00:03" }
           }
         }
-      )PB");
+      )pb");
 
   ASSERT_OK_AND_ASSIGN(const p4::v1::TableEntry pi_entry,
                        pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));
@@ -146,14 +146,14 @@ TEST_P(SmokeTestFixture, InsertTableEntry) {
 
 TEST_P(SmokeTestFixture, InsertTableEntryWithRandomCharacterId) {
   sai::TableEntry pd_entry = gutil::ParseProtoOrDie<sai::TableEntry>(
-      R"PB(
+      R"pb(
         router_interface_table_entry {
           match { router_interface_id: "\x01\x33\x00\xff,\":'}(*{+-" }
           action {
             set_port_and_src_mac { port: "1" src_mac: "02:2a:10:00:00:03" }
           }
         }
-      )PB");
+      )pb");
 
   ASSERT_OK_AND_ASSIGN(const p4::v1::TableEntry pi_entry,
                        pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));

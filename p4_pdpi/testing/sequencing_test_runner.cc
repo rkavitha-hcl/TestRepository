@@ -155,7 +155,7 @@ int main(int argc, char** argv) {
 
   SequenceTest(info, "Empty input", {});
   SequenceTest(info, "Insert(a) -> Insert(a)",
-               {R"PB(
+               {R"pb(
                   type: INSERT
                   table_entry {
                     referring_table_entry {
@@ -168,8 +168,8 @@ int main(int argc, char** argv) {
                       }
                     }
                   }
-                )PB",
-                R"PB(
+                )pb",
+                R"pb(
                   type: INSERT
                   table_entry {
                     referred_table_entry {
@@ -177,9 +177,9 @@ int main(int argc, char** argv) {
                       action { do_thing_4 {} }
                     }
                   }
-                )PB"});
+                )pb"});
   SequenceTest(info, "Delete(a) -> Delete(a)",
-               {R"PB(
+               {R"pb(
                   type: DELETE
                   table_entry {
                     referring_table_entry {
@@ -192,8 +192,8 @@ int main(int argc, char** argv) {
                       }
                     }
                   }
-                )PB",
-                R"PB(
+                )pb",
+                R"pb(
                   type: DELETE
                   table_entry {
                     referred_table_entry {
@@ -201,11 +201,11 @@ int main(int argc, char** argv) {
                       action { do_thing_4 {} }
                     }
                   }
-                )PB"});
+                )pb"});
   SequenceTest(info,
                "Test case with 1 entry in the first batch and multiple ones in "
                "the second batch. Used to verify the API is stable.",
-               {R"PB(
+               {R"pb(
                   type: DELETE
                   table_entry {
                     referring_table_entry {
@@ -218,8 +218,8 @@ int main(int argc, char** argv) {
                       }
                     }
                   }
-                )PB",
-                R"PB(
+                )pb",
+                R"pb(
                   type: DELETE
                   table_entry {
                     referred_table_entry {
@@ -227,8 +227,8 @@ int main(int argc, char** argv) {
                       action { do_thing_4 {} }
                     }
                   }
-                )PB",
-                R"PB(
+                )pb",
+                R"pb(
                   type: DELETE
                   table_entry {
                     referred_table_entry {
@@ -236,9 +236,9 @@ int main(int argc, char** argv) {
                       action { do_thing_4 {} }
                     }
                   }
-                )PB"});
+                )pb"});
   SequenceTest(info, "Insert(a), Insert(not-a)",
-               {R"PB(
+               {R"pb(
                   type: INSERT
                   table_entry {
                     referring_table_entry {
@@ -251,8 +251,8 @@ int main(int argc, char** argv) {
                       }
                     }
                   }
-                )PB",
-                R"PB(
+                )pb",
+                R"pb(
                   type: INSERT
                   table_entry {
                     referred_table_entry {
@@ -260,10 +260,10 @@ int main(int argc, char** argv) {
                       action { do_thing_4 {} }
                     }
                   }
-                )PB"});
+                )pb"});
   SequenceTest(
       info, "Insert(a) -> Insert(a), Insert(different table)",
-      {R"PB(
+      {R"pb(
          type: INSERT
          table_entry {
            referring_table_entry {
@@ -276,8 +276,8 @@ int main(int argc, char** argv) {
              }
            }
          }
-       )PB",
-       R"PB(
+       )pb",
+       R"pb(
          type: INSERT
          table_entry {
            referred_table_entry {
@@ -285,8 +285,8 @@ int main(int argc, char** argv) {
              action { do_thing_4 {} }
            }
          }
-       )PB",
-       R"PB(
+       )pb",
+       R"pb(
          type: INSERT
          table_entry {
            lpm2_table_entry {
@@ -294,9 +294,9 @@ int main(int argc, char** argv) {
              action { NoAction {} }
            }
          }
-       )PB"});
+       )pb"});
   SequenceTest(info, "Insert(a) -> Insert(a), Insert(b) -> Insert(b)",
-               {R"PB(
+               {R"pb(
                   type: INSERT
                   table_entry {
                     referring_table_entry {
@@ -309,8 +309,8 @@ int main(int argc, char** argv) {
                       }
                     }
                   }
-                )PB",
-                R"PB(
+                )pb",
+                R"pb(
                   type: INSERT
                   table_entry {
                     referred_table_entry {
@@ -318,8 +318,8 @@ int main(int argc, char** argv) {
                       action { do_thing_4 {} }
                     }
                   }
-                )PB",
-                R"PB(
+                )pb",
+                R"pb(
                   type: INSERT
                   table_entry {
                     referring_table_entry {
@@ -332,8 +332,8 @@ int main(int argc, char** argv) {
                       }
                     }
                   }
-                )PB",
-                R"PB(
+                )pb",
+                R"pb(
                   type: INSERT
                   table_entry {
                     referred_table_entry {
@@ -341,11 +341,11 @@ int main(int argc, char** argv) {
                       action { do_thing_4 {} }
                     }
                   }
-                )PB"});
+                )pb"});
   SequenceTest(info,
                "Insert(a) -> Insert(a), Insert(a) -> Insert(a) (i.e., two "
                "inserts pointing to the same insert)",
-               {R"PB(
+               {R"pb(
                   type: INSERT
                   table_entry {
                     referring_table_entry {
@@ -358,8 +358,8 @@ int main(int argc, char** argv) {
                       }
                     }
                   }
-                )PB",
-                R"PB(
+                )pb",
+                R"pb(
                   type: INSERT
                   table_entry {
                     referred_table_entry {
@@ -367,8 +367,8 @@ int main(int argc, char** argv) {
                       action { do_thing_4 {} }
                     }
                   }
-                )PB",
-                R"PB(
+                )pb",
+                R"pb(
                   type: INSERT
                   table_entry {
                     referring_table_entry {
@@ -381,10 +381,10 @@ int main(int argc, char** argv) {
                       }
                     }
                   }
-                )PB"});
+                )pb"});
 
   SequenceTest(info, "A referring to B using a match field",
-               {R"PB(
+               {R"pb(
                   type: INSERT
                   table_entry {
                     referring2_table_entry {
@@ -392,8 +392,8 @@ int main(int argc, char** argv) {
                       action { do_thing_4 {} }
                     }
                   }
-                )PB",
-                R"PB(
+                )pb",
+                R"pb(
                   type: INSERT
                   table_entry {
                     referred_table_entry {
@@ -401,10 +401,10 @@ int main(int argc, char** argv) {
                       action { do_thing_4 {} }
                     }
                   }
-                )PB"});
+                )pb"});
 
   SortTest(info, "A referring to B",
-           {R"PB(
+           {R"pb(
               referring_table_entry {
                 match { val: "0x001" }
                 action {
@@ -414,16 +414,16 @@ int main(int argc, char** argv) {
                   }
                 }
               }
-            )PB",
-            R"PB(
+            )pb",
+            R"pb(
               referred_table_entry {
                 match { id: "key-a" }
                 action { do_thing_4 {} }
               }
-            )PB"});
+            )pb"});
 
   SortTest(info, "A referring to B twice",
-           {R"PB(
+           {R"pb(
               referring_table_entry {
                 match { val: "0x001" }
                 action {
@@ -433,13 +433,13 @@ int main(int argc, char** argv) {
                   }
                 }
               }
-            )PB",
-            R"PB(
+            )pb",
+            R"pb(
               referred_table_entry {
                 match { id: "key-a" }
                 action { do_thing_4 {} }
               }
-            )PB"});
+            )pb"});
 
   // TODO: Add negative test (where updates and P4Info are out of sync).
 
