@@ -24,15 +24,34 @@ using ::gutil::IsOkAndHolds;
 
 constexpr int kFuzzerIterations = 10000;
 
+using FuzzerTemplateInput = std::pair<std::string, std::string>;
+
 // We use templates to help the fuzzer come up with parsable packets, otherwise
 // one usually can only parse the first header. Templates are readable bit
 // strings, but with ? for random hex characters.
-constexpr char kIpv4PacketTemplate[] = R"R(
+std::string TemplateForEthertype(std::string ethertype) {
+  return absl::StrCat(R"R(
   # ethernet header
   ethernet_source: 0x????????????
   ethernet_destination: 0x????????????
-  ether_type : 0x0800
-)R";
+  ether_type:
+)R",
+                      ethertype);
+}
+std::vector<FuzzerTemplateInput> AllFuzzerTemplateInputs() {
+  std::vector<FuzzerTemplateInput> result;
+
+  // No template.
+  result.push_back({"random", ""});
+
+  // Known ether types.
+  result.push_back({"ipv4", TemplateForEthertype("0x0800")});
+  result.push_back({"ipv6", TemplateForEthertype("0x86dd")});
+  result.push_back({"arp", TemplateForEthertype("0x0806")});
+  result.push_back({"vlan", TemplateForEthertype("0x8100")});
+
+  return result;
+}
 
 std::string RandomPacket(absl::BitGen& gen,
                          const std::string& packet_template = "") {
@@ -125,8 +144,7 @@ TEST_P(PacketlibFuzzerTest, RandomPacketStringParseAndSerializeRoundtrip) {
 
 INSTANTIATE_TEST_SUITE_P(
     Templates, PacketlibFuzzerTest,
-    testing::ValuesIn(std::vector<std::pair<std::string, std::string>>(
-        {{"random", ""}, {"IPv4", kIpv4PacketTemplate}})),
+    testing::ValuesIn(AllFuzzerTemplateInputs()),
     [](const testing::TestParamInfo<PacketlibFuzzerTest::ParamType>& info) {
       return info.param.first;
     });
