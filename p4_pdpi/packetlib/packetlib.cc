@@ -1617,4 +1617,115 @@ absl::StatusOr<int> IcmpHeaderChecksum(Packet packet, int icmp_header_index) {
   return OnesComplementChecksum(std::move(data));
 }
 
+std::string EtherType(uint32_t ether_type) {
+  return ValidateAndConvertToHexString<kEthernetEthertypeBitwidth>(ether_type);
+}
+
+std::string IpVersion(uint32_t version) {
+  return ValidateAndConvertToHexString<kIpVersionBitwidth>(version);
+}
+
+std::string IpIhl(uint32_t ihl) {
+  return ValidateAndConvertToHexString<kIpIhlBitwidth>(ihl);
+}
+
+std::string IpDscp(uint32_t dscp) {
+  return ValidateAndConvertToHexString<kIpDscpBitwidth>(dscp);
+}
+
+std::string IpEcn(uint32_t ecn) {
+  return ValidateAndConvertToHexString<kIpEcnBitwidth>(ecn);
+}
+
+std::string IpTotalLength(uint32_t total_length) {
+  return ValidateAndConvertToHexString<kIpTotalLengthBitwidth>(total_length);
+}
+
+std::string IpIdentification(uint32_t identification) {
+  return ValidateAndConvertToHexString<kIpIdentificationBitwidth>(
+      identification);
+}
+
+std::string IpFlags(uint32_t flag) {
+  return ValidateAndConvertToHexString<kIpFlagsBitwidth>(flag);
+}
+
+std::string IpFragmentOffset(uint32_t fragment_offset) {
+  return ValidateAndConvertToHexString<kIpFragmentOffsetBitwidth>(
+      fragment_offset);
+}
+
+std::string IpTtl(uint32_t ttl) {
+  return ValidateAndConvertToHexString<kIpTtlBitwidth>(ttl);
+}
+
+std::string IpProtocol(uint32_t protocol) {
+  return ValidateAndConvertToHexString<kIpProtocolBitwidth>(protocol);
+}
+
+std::string IpChecksum(uint32_t checksum) {
+  return ValidateAndConvertToHexString<kIpChecksumBitwidth>(checksum);
+}
+
+std::string IpFlowLabel(uint32_t flow_label) {
+  return ValidateAndConvertToHexString<kIpFlowLabelBitwidth>(flow_label);
+}
+
+std::string IpPayloadLength(uint32_t payload_length) {
+  return ValidateAndConvertToHexString<kIpPayloadLengthBitwidth>(
+      payload_length);
+}
+
+std::string IpNextHeader(uint32_t next_header) {
+  return ValidateAndConvertToHexString<kIpNextHeaderBitwidth>(next_header);
+}
+
+std::string IpHopLimit(uint32_t hop_limit) {
+  return ValidateAndConvertToHexString<kIpHopLimitBitwidth>(hop_limit);
+}
+
+std::string UdpPort(uint32_t udp_port) {
+  return ValidateAndConvertToHexString<kUdpPortBitwidth>(udp_port);
+}
+
+std::string UdpChecksum(uint32_t checksum) {
+  return ValidateAndConvertToHexString<kUdpChecksumBitwidth>(checksum);
+}
+
+std::string UdpLength(uint32_t udp_length) {
+  return ValidateAndConvertToHexString<kUdpLengthBitwidth>(udp_length);
+}
+
+std::string TcpPort(uint32_t tcp_port) {
+  return ValidateAndConvertToHexString<kTcpPortBitwidth>(tcp_port);
+}
+
+std::string ArpType(uint32_t type) {
+  return ValidateAndConvertToHexString<kArpTypeBitwidth>(type);
+}
+
+std::string ArpLength(uint32_t length) {
+  return ValidateAndConvertToHexString<kArpLengthBitwidth>(length);
+}
+
+std::string ArpOperation(uint32_t operation) {
+  return ValidateAndConvertToHexString<kArpOperationBitwidth>(operation);
+}
+
+std::string IcmpType(uint32_t type) {
+  return ValidateAndConvertToHexString<kIcmpTypeBitwidth>(type);
+}
+
+std::string IcmpCode(uint32_t code) {
+  return ValidateAndConvertToHexString<kIcmpCodeBitwidth>(code);
+}
+
+std::string IcmpChecksum(uint32_t checksum) {
+  return ValidateAndConvertToHexString<kIcmpChecksumBitwidth>(checksum);
+}
+
+std::string IcmpRestOfHeader(uint32_t rest_of_header) {
+  return ValidateAndConvertToHexString<kIcmpRestOfHeaderBitwidth>(
+      rest_of_header);
+}
 }  // namespace packetlib

@@ -1,0 +1,162 @@
+#include <net/ethernet.h>
+#include <netinet/in.h>
+
+#include <cstdint>
+#include <string>
+
+#include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
+#include "gmock/gmock.h"
+#include "gtest/gtest.h"
+#include "gutil/status_matchers.h"
+#include "p4_pdpi/packetlib/bit_widths.h"
+#include "p4_pdpi/packetlib/packetlib.h"
+
+namespace packetlib {
+namespace {
+
+const absl::string_view kEthernetSourceAddress = "8:0:20:86:35:4b";
+const absl::string_view kEthernetDestinationAddress = "0:e0:f7:26:3f:e9";
+
+TEST(PacketLib, BitWidthTest) {
+  for (int bit_shift = 18; bit_shift >= 5; bit_shift -= 3) {
+    // Generate test input data with `bit_shift + 1` bits.
+    int input =
+        (1 << bit_shift) | (1 << (bit_shift - 3) | (1 << (bit_shift - 5)));
+    const std::string expected_error_message = absl::StrFormat(
+        "Input has been truncated because maximum allowable "
+        "bitwidth for this field is %d but input has %d bits: %d",
+        kIpVersionBitwidth, bit_shift + 1, input);
+    ASSERT_DEBUG_DEATH(IpVersion(input), expected_error_message);
+  }
+}
+
+TEST(PacketLib, UdpWithIpv4Header) {
+  packetlib::Packet packet;
+
+  EthernetHeader* eth = packet.add_headers()->mutable_ethernet_header();
+  eth->set_ethertype(EtherType(ETHERTYPE_IP));
+  eth->set_ethernet_source(std::string(kEthernetSourceAddress));
+  eth->set_ethernet_destination(std::string(kEthernetDestinationAddress));
+
+  Ipv4Header* ipv4 = packet.add_headers()->mutable_ipv4_header();
+  ipv4->set_version(IpVersion(4));
+  ipv4->set_ihl(IpIhl(5));
+  ipv4->set_ipv4_source("192.168.0.31");
+  ipv4->set_ipv4_destination("192.168.0.30");
+  ipv4->set_ttl(IpTtl(0x10));
+  ipv4->set_dscp(IpDscp(3));
+  ipv4->set_protocol(IpProtocol(IPPROTO_UDP));
+  ipv4->set_ecn(IpEcn(2));
+  ipv4->set_identification(IpIdentification(0));
+  ipv4->set_flags(IpFlags(3));
+  ipv4->set_fragment_offset(IpFragmentOffset(1234));
+
+  UdpHeader* udp = packet.add_headers()->mutable_udp_header();
+  udp->set_source_port(UdpPort(0x0014));
+  udp->set_destination_port(UdpPort(0x000a));
+  udp->set_length(UdpLength(0x001a));
+  ASSERT_OK(packetlib::SerializePacket(packet));
+}
+
+TEST(PacketLib, UdpWithIpv6Header) {
+  packetlib::Packet packet;
+  EthernetHeader* eth = packet.add_headers()->mutable_ethernet_header();
+  eth->set_ethertype(EtherType(ETHERTYPE_IPV6));
+  eth->set_ethernet_source(std::string(kEthernetSourceAddress));
+  eth->set_ethernet_destination(std::string(kEthernetDestinationAddress));
+
+  Ipv6Header* ipv6 = packet.add_headers()->mutable_ipv6_header();
+  ipv6->set_ipv6_source("5:6:7:8::");
+  ipv6->set_ipv6_destination("2607:f8b0:c150:8114::");
+  ipv6->set_flow_label(IpFlowLabel(0x12345));
+  ipv6->set_next_header(IpNextHeader(17));
+  ipv6->set_hop_limit(IpHopLimit(32));
+  ipv6->set_dscp(IpDscp(3));
+  ipv6->set_ecn(IpEcn(0));
+  UdpHeader* udp = packet.add_headers()->mutable_udp_header();
+  udp->set_source_port(UdpPort(0));
+  udp->set_destination_port(UdpPort(0));
+  ASSERT_OK(packetlib::SerializePacket(packet));
+}
+
+TEST(PacketLib, TcpWithIpv4Header) {
+  packetlib::Packet packet;
+
+  EthernetHeader* eth = packet.add_headers()->mutable_ethernet_header();
+  eth->set_ethertype(EtherType(ETHERTYPE_IP));
+  eth->set_ethernet_source(std::string(kEthernetSourceAddress));
+  eth->set_ethernet_destination(std::string(kEthernetDestinationAddress));
+
+  Ipv4Header* ipv4 = packet.add_headers()->mutable_ipv4_header();
+  ipv4->set_ihl(IpIhl(0x5));
+  ipv4->set_ipv4_source("139.133.217.110");
+  ipv4->set_ipv4_destination("139.133.233.2");
+  ipv4->set_ttl(IpTtl(0xff));
+  ipv4->set_dscp(IpDscp(3));
+  ipv4->set_protocol(IpProtocol(IPPROTO_TCP));
+  ipv4->set_ecn(IpEcn(1));
+  ipv4->set_identification(IpIdentification(0x08b8));
+  ipv4->set_total_length(IpTotalLength(0x002e));
+  ipv4->set_flags(IpFlags(1));
+  ipv4->set_checksum(IpChecksum(0xae88));
+  ipv4->set_fragment_offset(IpFragmentOffset(0x0b00));
+
+  TcpHeaderPrefix* tcp = packet.add_headers()->mutable_tcp_header_prefix();
+  tcp->set_source_port(TcpPort(0x9005));
+  tcp->set_destination_port(TcpPort(0x0017));
+  ASSERT_OK(packetlib::SerializePacket(packet));
+}
+
+TEST(PacketLib, ArpWithIpv4Header) {
+  packetlib::Packet packet;
+
+  EthernetHeader* eth = packet.add_headers()->mutable_ethernet_header();
+  eth->set_ethertype(EtherType(ETHERTYPE_ARP));
+  eth->set_ethernet_source(std::string(kEthernetSourceAddress));
+  eth->set_ethernet_destination(std::string(kEthernetDestinationAddress));
+
+  ArpHeader* arp = packet.add_headers()->mutable_arp_header();
+  arp->set_hardware_type(ArpType(0x0001));
+  arp->set_protocol_type(ArpType(ETHERTYPE_IP));
+  arp->set_hardware_length(ArpLength(0x06));
+  arp->set_protocol_length(ArpLength(0x04));
+  arp->set_operation(ArpOperation(0x0001));
+  arp->set_sender_hardware_address("00:53:ff:ff:aa:aa");
+  arp->set_sender_protocol_address("10.0.0.11");
+  arp->set_target_hardware_address("00:00:00:00:00:00");
+  arp->set_target_protocol_address("10.0.0.22");
+  ASSERT_OK(packetlib::SerializePacket(packet));
+}
+
+TEST(PacketLib, ICMPWithIpv4Header) {
+  packetlib::Packet packet;
+
+  EthernetHeader* eth = packet.add_headers()->mutable_ethernet_header();
+  eth->set_ethertype(EtherType(ETHERTYPE_IP));
+  eth->set_ethernet_source(std::string(kEthernetSourceAddress));
+  eth->set_ethernet_destination(std::string(kEthernetDestinationAddress));
+
+  Ipv4Header* ipv4 = packet.add_headers()->mutable_ipv4_header();
+  ipv4->set_ihl(IpIhl(0x5));
+  ipv4->set_ipv4_source("139.133.217.110");
+  ipv4->set_ipv4_destination("139.133.233.2");
+  ipv4->set_ttl(IpTtl(252));
+  ipv4->set_dscp(IpDscp(2));
+  ipv4->set_protocol(IpProtocol(IPPROTO_ICMP));
+  ipv4->set_ecn(IpEcn(2));
+  ipv4->set_identification(IpIdentification(0x08b8));
+  ipv4->set_total_length(IpTotalLength(0x002e));
+  ipv4->set_flags(IpFlags(2));
+  ipv4->set_fragment_offset(IpFragmentOffset(0));
+
+  IcmpHeader* icmp = packet.add_headers()->mutable_icmp_header();
+  icmp->set_type(IcmpType(0));
+  icmp->set_code(IcmpCode(10));
+  icmp->set_checksum(IcmpChecksum(0xfff5));
+  icmp->set_rest_of_header(IcmpRestOfHeader(0));
+  ASSERT_OK(packetlib::SerializePacket(packet));
+}
+
+}  // namespace
+}  // namespace packetlib

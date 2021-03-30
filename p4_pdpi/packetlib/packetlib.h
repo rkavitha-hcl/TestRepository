@@ -1,9 +1,15 @@
 #ifndef GOOGLE_P4_PDPI_PACKETLIB_PACKETLIB_H_
 #define GOOGLE_P4_PDPI_PACKETLIB_PACKETLIB_H_
 
+#include <cstdint>
+
+#include "absl/numeric/bits.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "glog/logging.h"
+#include "p4_pdpi/packetlib/bit_widths.h"
 #include "p4_pdpi/packetlib/packetlib.pb.h"
+#include "p4_pdpi/string_encodings/hex_string.h"
 
 namespace packetlib {
 
@@ -115,6 +121,51 @@ absl::StatusOr<int> UdpHeaderChecksum(Packet packet, int udp_header_index);
 absl::StatusOr<int> IcmpHeaderChecksum(Packet packet, int icmp_header_index);
 
 std::string HeaderCaseName(Header::HeaderCase header_case);
+
+// Helper functions to translate the header fields to hex string. It abstracts
+// the bitwidth limitation away from the client and provides the validation that
+// checks if the input data is truncated because its bit width exceeds the
+// limitation.
+std::string EtherType(uint32_t ether_type);
+std::string IpVersion(uint32_t version);
+std::string IpIhl(uint32_t ihl);
+std::string IpDscp(uint32_t dscp);
+std::string IpEcn(uint32_t ecn);
+std::string IpTotalLength(uint32_t total_length);
+std::string IpIdentification(uint32_t identification);
+std::string IpFlags(uint32_t flag);
+std::string IpFragmentOffset(uint32_t fragment_offset);
+std::string IpTtl(uint32_t ttl);
+std::string IpProtocol(uint32_t protocol);
+std::string IpChecksum(uint32_t checksum);
+std::string IpFlowLabel(uint32_t flow_label);
+std::string IpPayloadLength(uint32_t payload_length);
+std::string IpNextHeader(uint32_t next_header);
+std::string IpHopLimit(uint32_t hop_limit);
+std::string UdpPort(uint32_t udp_port);
+std::string UdpChecksum(uint32_t checksum);
+std::string UdpLength(uint32_t udp_length);
+std::string TcpPort(uint32_t tcp_port);
+std::string ArpType(uint32_t type);
+std::string ArpLength(uint32_t length);
+std::string ArpOperation(uint32_t operation);
+std::string IcmpType(uint32_t type);
+std::string IcmpCode(uint32_t code);
+std::string IcmpChecksum(uint32_t checksum);
+std::string IcmpRestOfHeader(uint32_t rest_of_header);
+
+template <int bit_limit>
+std::string ValidateAndConvertToHexString(uint32_t input) {
+  int bit_width = absl::bit_width(input);
+  if (bit_width > bit_limit) {
+    LOG(DFATAL)
+        << "Input has been truncated because maximum allowable bitwidth "
+           "for this field is "
+        << bit_limit << " but input has " << bit_width << " bits: " << input;
+  }
+
+  return pdpi::BitsetToHexString(std::bitset<bit_limit>(input));
+}
 
 }  // namespace packetlib
 
