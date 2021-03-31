@@ -66,6 +66,7 @@ absl::Status DoInsert(swss::ProducerStateTableInterface& vrf_table,
   if (!vrf_id.has_value()) return absl::OkStatus();
 
   // If the request is using the default VRF ID then there is nothing to do.
+  // TODO: remove
   if (vrf_id.value().empty()) return absl::OkStatus();
 
   // If the VRF ID is already used by another table entry then we only increment
@@ -118,6 +119,7 @@ absl::Status DoDecrement(
   if (!vrf_id.has_value()) return absl::OkStatus();
 
   // If the request is using the default VRF ID then there is nothing to do.
+  // TODO: remove
   if (vrf_id.value().empty()) return absl::OkStatus();
 
   // If we cannot find the reference count then something is wrong.

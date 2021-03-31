@@ -95,8 +95,7 @@ TEST_F(FixedL3TableTest, SupportRouterInterfaceTableFlows) {
       p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
       IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
 
-  // TODO: remove along with p4runtime_tweaks.cc. This is a sanity check to
-  // verify port id tweaks can also be read back correctly.
+  // Sanity check that port_id_t translations are read back correctly.
   p4::v1::ReadRequest read_request;
   read_request.add_entities()->mutable_table_entry();
   ASSERT_OK_AND_ASSIGN(
@@ -213,7 +212,7 @@ TEST_F(FixedL3TableTest, SupportIpv4TableFlow) {
   auto expected_entry = test_lib::AppDbEntryBuilder{}
                             .SetTableName("FIXED_IPV4_TABLE")
                             .AddMatchField("ipv4_dst", "10.81.8.0/23")
-                            .AddMatchField("vrf_id", "50")
+                            .AddMatchField("vrf_id", "p4rt-50")
                             .SetAction("set_nexthop_id")
                             .AddActionParam("nexthop_id", "8");
 
@@ -221,6 +220,16 @@ TEST_F(FixedL3TableTest, SupportIpv4TableFlow) {
   EXPECT_THAT(
       p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
       IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
+
+  // Sanity check that vrf_id_t translations are read back correctly.
+  p4::v1::ReadRequest read_request;
+  read_request.add_entities()->mutable_table_entry();
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::ReadResponse read_response,
+      pdpi::SetIdAndSendPiReadRequest(p4rt_session_.get(), read_request));
+  ASSERT_EQ(read_response.entities_size(), 1);  // Only one write.
+  EXPECT_THAT(read_response.entities(0),
+              EqualsProto(request.updates(0).entity()));
 }
 
 TEST_F(FixedL3TableTest, SupportIpv6TableFlow) {
@@ -258,7 +267,7 @@ TEST_F(FixedL3TableTest, SupportIpv6TableFlow) {
   auto expected_entry = test_lib::AppDbEntryBuilder{}
                             .SetTableName("FIXED_IPV6_TABLE")
                             .AddMatchField("ipv6_dst", "2002:a17:506:c114::/64")
-                            .AddMatchField("vrf_id", "80")
+                            .AddMatchField("vrf_id", "p4rt-80")
                             .SetAction("set_nexthop_id")
                             .AddActionParam("nexthop_id", "20");
 
@@ -303,7 +312,7 @@ TEST_F(FixedL3TableTest, TableEntryInsertReadAndRemove) {
   auto expected_entry = test_lib::AppDbEntryBuilder{}
                             .SetTableName("FIXED_IPV6_TABLE")
                             .AddMatchField("ipv6_dst", "2002:a17:506:c114::/64")
-                            .AddMatchField("vrf_id", "80")
+                            .AddMatchField("vrf_id", "p4rt-80")
                             .SetAction("set_nexthop_id")
                             .AddActionParam("nexthop_id", "20");
 
@@ -377,7 +386,7 @@ TEST_F(FixedL3TableTest, TableEntryModify) {
   auto expected_entry = test_lib::AppDbEntryBuilder{}
                             .SetTableName("FIXED_IPV6_TABLE")
                             .AddMatchField("ipv6_dst", "2002:a17:506:c114::/64")
-                            .AddMatchField("vrf_id", "80");
+                            .AddMatchField("vrf_id", "p4rt-80");
 
   // The insert write request should not fail, and once complete the entry
   // should exist in the P4RT AppDb table.
@@ -513,6 +522,62 @@ TEST_F(FixedL3TableTest, InvalidPortIdFails) {
   EXPECT_THAT(
       pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request),
       StatusIs(absl::StatusCode::kUnknown, HasSubstr("#1: INVALID_ARGUMENT")));
+}
+
+// TODO: remove special handling when ONF no longer relies on it.
+TEST_F(FixedL3TableTest, SupportDefaultVrf) {
+  // P4 write request.
+  p4::v1::WriteRequest request;
+  ASSERT_OK(gutil::ReadProtoFromString(
+      R"pb(updates {
+             type: INSERT
+             entity {
+               table_entry {
+                 table_id: 33554501
+                 match {
+                   field_id: 1
+                   exact { value: "vrf-0" }
+                 }
+                 match {
+                   field_id: 2
+                   lpm {
+                     value: " \002\n\027\005\006\301\024\000\000\000\000\000\000\000\000"
+                     prefix_len: 64
+                   }
+                 }
+                 action {
+                   action {
+                     action_id: 16777221
+                     params { param_id: 1 value: "20" }
+                   }
+                 }
+               }
+             }
+           })pb",
+      &request));
+
+  // Expected P4RT AppDb entry.
+  auto expected_entry = test_lib::AppDbEntryBuilder{}
+                            .SetTableName("FIXED_IPV6_TABLE")
+                            .AddMatchField("ipv6_dst", "2002:a17:506:c114::/64")
+                            .AddMatchField("vrf_id", "")
+                            .SetAction("set_nexthop_id")
+                            .AddActionParam("nexthop_id", "20");
+
+  EXPECT_OK(pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_THAT(
+      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
+      IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
+
+  // Sanity check that the default vrf is translated back correctly.
+  p4::v1::ReadRequest read_request;
+  read_request.add_entities()->mutable_table_entry();
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::ReadResponse read_response,
+      pdpi::SetIdAndSendPiReadRequest(p4rt_session_.get(), read_request));
+  ASSERT_EQ(read_response.entities_size(), 1);  // Only one write.
+  EXPECT_THAT(read_response.entities(0),
+              EqualsProto(request.updates(0).entity()));
 }
 
 }  // namespace

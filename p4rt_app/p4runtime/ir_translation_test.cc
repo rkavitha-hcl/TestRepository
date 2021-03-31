@@ -162,6 +162,97 @@ TEST(PortTranslationTest, OptionalMatchField) {
   EXPECT_EQ(table_entry.matches(0).optional().value().str(), "Ethernet4");
 }
 
+TEST(VrfTranslationTest, ActionParameters) {
+  pdpi::IrTableEntry table_entry;
+  ASSERT_TRUE(TextFormat::ParseFromString(
+      R"pb(
+        table_name: "acl_lookup_table"
+        action {
+          name: "set_vrf"
+          params {
+            name: "vrf_id"
+            value { str: "vrf-1" }
+          }
+        })pb",
+      &table_entry));
+
+  boost::bimap<std::string, std::string> translation_map;
+  ASSERT_OK(TranslateTableEntry(
+      TranslateTableEntryOptions{
+          .direction = TranslationDirection::kForOrchAgent,
+          .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+          .port_map = translation_map},
+      table_entry));
+  ASSERT_EQ(table_entry.action().params_size(), 1);
+  EXPECT_EQ(table_entry.action().params(0).value().str(), "p4rt-vrf-1");
+}
+
+TEST(VrfTranslationTest, ExactMatchField) {
+  pdpi::IrTableEntry table_entry;
+  ASSERT_TRUE(TextFormat::ParseFromString(
+      R"pb(
+        table_name: "ipv6_table"
+        matches {
+          name: "vrf_id"
+          exact { str: "80" }
+        })pb",
+      &table_entry));
+
+  boost::bimap<std::string, std::string> translation_map;
+  ASSERT_OK(TranslateTableEntry(
+      TranslateTableEntryOptions{
+          .direction = TranslationDirection::kForOrchAgent,
+          .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+          .port_map = translation_map},
+      table_entry));
+  ASSERT_EQ(table_entry.matches_size(), 1);
+  EXPECT_EQ(table_entry.matches(0).exact().str(), "p4rt-80");
+}
+
+TEST(VrfTranslationTest, InvalidMatchTypeFails) {
+  pdpi::IrTableEntry table_entry;
+  ASSERT_TRUE(TextFormat::ParseFromString(
+      R"pb(
+        table_name: "ipv6_table"
+        matches {
+          name: "vrf_id"
+          optional { value { str: "80" } }
+        })pb",
+      &table_entry));
+
+  boost::bimap<std::string, std::string> translation_map;
+  EXPECT_THAT(
+      TranslateTableEntry(
+          TranslateTableEntryOptions{
+              .direction = TranslationDirection::kForOrchAgent,
+              .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+              .port_map = translation_map},
+          table_entry),
+      StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(VrfTranslationTest, InvalidFieldFormatFails) {
+  pdpi::IrTableEntry table_entry;
+  ASSERT_TRUE(TextFormat::ParseFromString(
+      R"pb(
+        table_name: "ipv6_table"
+        matches {
+          name: "vrf_id"
+          exact { hex_str: "80" }
+        })pb",
+      &table_entry));
+
+  boost::bimap<std::string, std::string> translation_map;
+  EXPECT_THAT(
+      TranslateTableEntry(
+          TranslateTableEntryOptions{
+              .direction = TranslationDirection::kForOrchAgent,
+              .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+              .port_map = translation_map},
+          table_entry),
+      StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
 TEST(IrTranslationTest, InvalidTableNameFails) {
   pdpi::IrTableEntry table_entry;
   ASSERT_TRUE(TextFormat::ParseFromString(R"pb(table_name: "sample_name"

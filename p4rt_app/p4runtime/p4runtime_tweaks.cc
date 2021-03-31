@@ -153,18 +153,6 @@ pdpi::IrTableEntry P4RuntimeTweaks::ForOrchAgent(pdpi::IrTableEntry entry) {
     }
   }
 
-  // Tweak vrf_id for any match field:
-  //   overwrite any VRF_ID to use the default.
-  //
-  // TODO: remove once we install VRF IDs through pink-path.
-  for (auto& match : *entry.mutable_matches()) {
-    if (match.name() == "vrf_id" && match.exact().str() == "vrf-0") {
-      LOG(WARNING) << "Replacing vrf_id " << match.exact().str()
-                   << " with the default VRF.";
-      *match.mutable_exact()->mutable_str() = "";
-    }
-  }
-
   return entry;
 }
 
@@ -191,16 +179,6 @@ absl::StatusOr<pdpi::IrTableEntry> P4RuntimeTweaks::ForController(
                      << " with " << pi_id << ".";
         param.mutable_value()->set_str(pi_id);
       }
-    }
-  }
-
-  // Revert vrf_id for any match field.
-  // TODO: remove once we install VRF IDs through pink-path.
-  for (auto& match : *entry.mutable_matches()) {
-    if (match.name() == "vrf_id" && match.exact().str().empty()) {
-      LOG(WARNING) << "Replacing vrf_id " << match.exact().str()
-                   << " with vrf-0.";
-      *match.mutable_exact()->mutable_str() = "vrf-0";
     }
   }
 

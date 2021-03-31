@@ -235,55 +235,5 @@ TEST(P4RuntimeTweaksTableEntryTest,
               gutil::IsOkAndHolds(gutil::EqualsProto(controller_entry)));
 }
 
-TEST(P4RuntimeTweaksTableEntryTest, ForOrchAgentReplacesVrf0WithDefaultVrf) {
-  pdpi::IrTableEntry entry;
-  google::protobuf::TextFormat::ParseFromString(
-      R"pb(table_name: "table"
-           matches {
-             name: "vrf_id"
-             exact { str: "vrf-0" }
-           }
-           action {
-             params {
-               name: "param"
-               value { str: "value" }
-             }
-           })pb",
-      &entry);
-
-  pdpi::IrTableEntry orchagent_entry = entry;
-  orchagent_entry.mutable_matches(0)->mutable_exact()->set_str("");
-
-  P4RuntimeTweaks p4runtime_tweaks;
-  EXPECT_THAT(p4runtime_tweaks.ForOrchAgent(entry),
-              gutil::EqualsProto(orchagent_entry));
-}
-
-TEST(P4RuntimeTweaksTableEntryTest, ForControllerReplacesDefaultVrfWithVrf0) {
-  pdpi::IrTableEntry controller_entry;
-  google::protobuf::TextFormat::ParseFromString(
-      R"pb(table_name: "table"
-           matches {
-             name: "vrf_id"
-             exact { str: "vrf-0" }
-           }
-           action {
-             params {
-               name: "param"
-               value { str: "value" }
-             }
-           })pb",
-      &controller_entry);
-
-  P4RuntimeTweaks p4runtime_tweaks;
-  pdpi::IrTableEntry orchagent_entry =
-      p4runtime_tweaks.ForOrchAgent(controller_entry);
-  ASSERT_THAT(orchagent_entry,
-              Not(gutil::EqualsProto(controller_entry)));  // Sanity check.
-
-  EXPECT_THAT(p4runtime_tweaks.ForController(orchagent_entry),
-              gutil::IsOkAndHolds(gutil::EqualsProto(controller_entry)));
-}
-
 }  // namespace
 }  // namespace p4rt_app

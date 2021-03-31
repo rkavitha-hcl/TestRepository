@@ -74,13 +74,13 @@ TEST_F(AclTableTest, SetVrfFlowCreatesVrfTableEntry) {
                             .SetTableName("ACL_ACL_LOOKUP_TABLE")
                             .SetPriority(2000)
                             .SetAction("set_vrf")
-                            .AddActionParam("vrf_id", "20");
+                            .AddActionParam("vrf_id", "p4rt-20");
   EXPECT_THAT(
       p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
       IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
 
   // Verify the VRF ID exists.
-  EXPECT_OK(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("20"));
+  EXPECT_OK(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"));
 }
 
 TEST_F(AclTableTest, VrfTableEntriesPersistsWhileInUse) {
@@ -122,7 +122,7 @@ TEST_F(AclTableTest, VrfTableEntriesPersistsWhileInUse) {
   // Insert both flows and verify the VRF ID exists.
   EXPECT_OK(
       pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), insert_request));
-  EXPECT_OK(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("20"))
+  EXPECT_OK(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"))
       << "VRF ID was never created.";
 
   // Delete one request, but because the other still uses the VRF ID it should
@@ -132,7 +132,7 @@ TEST_F(AclTableTest, VrfTableEntriesPersistsWhileInUse) {
   delete_request.mutable_updates(0)->set_type(p4::v1::Update::DELETE);
   EXPECT_OK(
       pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), delete_request));
-  EXPECT_OK(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("20"))
+  EXPECT_OK(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"))
       << "VRF ID is still in use and should still exist.";
 
   // Finally, delete the other request, and verify the VRF ID is also removed.
@@ -141,7 +141,7 @@ TEST_F(AclTableTest, VrfTableEntriesPersistsWhileInUse) {
   delete_request.mutable_updates(0)->set_type(p4::v1::Update::DELETE);
   EXPECT_OK(
       pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), delete_request));
-  EXPECT_THAT(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("20"),
+  EXPECT_THAT(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"),
               StatusIs(absl::StatusCode::kNotFound));
 }
 
