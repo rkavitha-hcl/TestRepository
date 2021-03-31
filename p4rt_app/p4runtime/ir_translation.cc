@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "p4rt_app/p4runtime/port_translation.h"
+#include "p4rt_app/p4runtime/ir_translation.h"
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
@@ -21,18 +21,17 @@
 #include "gutil/collections.h"
 #include "gutil/status.h"
 #include "p4_pdpi/ir.h"
+#include "p4_pdpi/ir.pb.h"
 
 namespace p4rt_app {
 namespace {
 
-// TODO: We should be relying on the type, not the field name.
-bool IsPortName(absl::string_view name) {
-  return (name == "port") || (name == "watch_port") || (name == "in_port") ||
-         (name == "out_port") || (name == "dst_port");
+bool IsPortType(const p4::config::v1::P4NamedType& type) {
+  return type.name() == "port_id_t";
 }
 
 absl::Status TranslatePortValue(
-    PortTranslationDirection direction,
+    TranslationDirection direction,
     const boost::bimap<std::string, std::string>& port_map,
     pdpi::IrValue& value) {
   switch (value.format_case()) {
@@ -50,45 +49,60 @@ absl::Status TranslatePortValue(
   return absl::OkStatus();
 }
 
-absl::Status TranslatePortsInAction(
-    PortTranslationDirection direction,
-    const boost::bimap<std::string, std::string>& port_map,
-    pdpi::IrActionInvocation& action) {
+absl::Status TranslateAction(const TranslateTableEntryOptions& options,
+                             const pdpi::IrTableDefinition& table_def,
+                             pdpi::IrActionInvocation& action) {
+  // Find the action definition from the ir table definition.
+  absl::optional<pdpi::IrActionDefinition> action_def;
+  for (const auto& entry_action : table_def.entry_actions()) {
+    if (entry_action.action().preamble().alias() == action.name()) {
+      action_def = entry_action.action();
+    }
+  }
+  if (!action_def.has_value()) {
+    return gutil::InternalErrorBuilder()
+           << "Could not find action definition for " << action.name() << ".";
+  }
+
   for (auto& param : *action.mutable_params()) {
-    if (IsPortName(param.name())) {
-      RETURN_IF_ERROR(
-          TranslatePortValue(direction, port_map, *param.mutable_value()))
+    // If the paramter field isn't a port then ignore it.
+    const pdpi::IrActionDefinition::IrActionParamDefinition* param_def =
+        gutil::FindOrNull(action_def->params_by_name(), param.name());
+    if (param_def == nullptr) {
+      return gutil::InternalErrorBuilder()
+             << "Could not find action param definition for " << param.name()
+             << ".";
+    }
+    if (IsPortType(param_def->param().type_name())) {
+      RETURN_IF_ERROR(TranslatePortValue(options.direction, options.port_map,
+                                         *param.mutable_value()))
           << " For action paramter " << param.name() << ".";
     }
   }
   return absl::OkStatus();
 }
 
-absl::Status TranslatePortsInActionSet(
-    PortTranslationDirection direction,
-    const boost::bimap<std::string, std::string>& port_map,
-    pdpi::IrActionSet& action_set) {
+absl::Status TranslateActionSet(const TranslateTableEntryOptions& options,
+                                const pdpi::IrTableDefinition& table_def,
+                                pdpi::IrActionSet& action_set) {
   for (auto& action : *action_set.mutable_actions()) {
     RETURN_IF_ERROR(
-        TranslatePortsInAction(direction, port_map, *action.mutable_action()));
+        TranslateAction(options, table_def, *action.mutable_action()));
 
     if (!action.watch_port().empty()) {
       ASSIGN_OR_RETURN(*action.mutable_watch_port(),
-                       TranslatePort(direction, port_map, action.watch_port()));
+                       TranslatePort(options.direction, options.port_map,
+                                     action.watch_port()));
     }
   }
   return absl::OkStatus();
 }
 
-absl::Status TranslatePortsInMatchFields(
-    PortTranslationDirection direction,
+absl::Status TranslatePortInMatchField(
+    TranslationDirection direction,
     const boost::bimap<std::string, std::string>& port_map,
     pdpi::IrMatch& match) {
-  // If the match field name isn't for a port then ignore it.
-  if (!IsPortName(match.name())) return absl::OkStatus();
-
-  // Otherwise, we expect the port field to be an exact match or optional
-  // field.
+  // We expect the port field to be an exact match or optional field.
   switch (match.match_value_case()) {
     case pdpi::IrMatch::kExact:
       RETURN_IF_ERROR(
@@ -108,14 +122,33 @@ absl::Status TranslatePortsInMatchFields(
   return absl::OkStatus();
 }
 
+absl::Status TranslateMatchField(const TranslateTableEntryOptions& options,
+                                 const pdpi::IrTableDefinition& table_def,
+                                 pdpi::IrMatch& match) {
+  // Get the match field definition to check the field type.
+  const pdpi::IrMatchFieldDefinition* match_def =
+      gutil::FindOrNull(table_def.match_fields_by_name(), match.name());
+  if (match_def == nullptr) {
+    return gutil::InternalErrorBuilder()
+           << "Could not find match field definition for " << match.name()
+           << ".";
+  }
+
+  if (IsPortType(match_def->match_field().type_name())) {
+    RETURN_IF_ERROR(
+        TranslatePortInMatchField(options.direction, options.port_map, match));
+  }
+  return absl::OkStatus();
+}
+
 }  // namespace
 
 absl::StatusOr<std::string> TranslatePort(
-    PortTranslationDirection direction,
+    TranslationDirection direction,
     const boost::bimap<std::string, std::string>& port_map,
     const std::string& port_key) {
   switch (direction) {
-    case PortTranslationDirection::kForController: {
+    case TranslationDirection::kForController: {
       auto value = port_map.left.find(port_key);
       if (value == port_map.left.end()) {
         return gutil::InvalidArgumentErrorBuilder()
@@ -125,7 +158,7 @@ absl::StatusOr<std::string> TranslatePort(
       }
       return value->second;
     }
-    case PortTranslationDirection::kForOrchAgent: {
+    case TranslationDirection::kForOrchAgent: {
       auto value = port_map.right.find(port_key);
       if (value == port_map.right.end()) {
         return gutil::InvalidArgumentErrorBuilder()
@@ -140,22 +173,29 @@ absl::StatusOr<std::string> TranslatePort(
                                           "unsupported direction was selected.";
 }
 
-absl::Status TranslatePortIdAndNames(
-    PortTranslationDirection direction,
-    const boost::bimap<std::string, std::string>& port_map,
-    pdpi::IrTableEntry& entry) {
-  // Handle match fields..
+absl::Status TranslateTableEntry(const TranslateTableEntryOptions& options,
+                                 pdpi::IrTableEntry& entry) {
+  // Get the IR table definition for the table entry.
+  const pdpi::IrTableDefinition* ir_table_def = gutil::FindOrNull(
+      options.ir_p4_info.tables_by_name(), entry.table_name());
+  if (ir_table_def == nullptr) {
+    return gutil::InternalErrorBuilder()
+           << "Could not find table definition for " << entry.table_name()
+           << ".";
+  }
+
+  // Handle match fields.
   for (auto& match : *entry.mutable_matches()) {
-    RETURN_IF_ERROR(TranslatePortsInMatchFields(direction, port_map, match));
+    RETURN_IF_ERROR(TranslateMatchField(options, *ir_table_def, match));
   }
 
   // Handle both a single action, and a action set.
   if (entry.has_action()) {
     RETURN_IF_ERROR(
-        TranslatePortsInAction(direction, port_map, *entry.mutable_action()));
+        TranslateAction(options, *ir_table_def, *entry.mutable_action()));
   } else if (entry.has_action_set()) {
-    RETURN_IF_ERROR(TranslatePortsInActionSet(direction, port_map,
-                                              *entry.mutable_action_set()));
+    RETURN_IF_ERROR(TranslateActionSet(options, *ir_table_def,
+                                       *entry.mutable_action_set()));
   }
 
   return absl::OkStatus();

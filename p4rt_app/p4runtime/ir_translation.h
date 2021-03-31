@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef P4RUNTIME_PORT_TRANSLATION_H_
-#define P4RUNTIME_PORT_TRANSLATION_H_
+#ifndef P4RUNTIME_IR_TRANSLATION_H_
+#define P4RUNTIME_IR_TRANSLATION_H_
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
@@ -21,26 +21,28 @@
 
 namespace p4rt_app {
 
-enum class PortTranslationDirection { kForController, kForOrchAgent };
+enum class TranslationDirection { kForController, kForOrchAgent };
 
-// Translates a single port field.
+struct TranslateTableEntryOptions {
+  const TranslationDirection& direction;
+  const pdpi::IrP4Info& ir_p4_info;
+
+  // boost::bimap<SONiC port name, controller ID>;
+  const boost::bimap<std::string, std::string>& port_map;
+};
+
+// Translates only a port string value.
 absl::StatusOr<std::string> TranslatePort(
-    PortTranslationDirection direction,
+    TranslationDirection direction,
     const boost::bimap<std::string, std::string>& port_map,
     const std::string& port_key);
 
-// Translates all the port field in a PDPI IrTableEntry based on a given port
-// mapping. The library assumes all port names are encoded as strings. If not
+// Translates all the port fields, and VRF ID in a PDPI IrTableEntry. The
+// library assumes all port names, and VRF IDs are encodded as strings. If not
 // it will return an InvalidArgument error.
-//
-// NOTE: when translating data for the OrchAgent to consume the mapping should
-//       be ids_to_names, and when translating for the controller the mapping
-//       should be names_to_ids.
-absl::Status TranslatePortIdAndNames(
-    PortTranslationDirection direction,
-    const boost::bimap<std::string, std::string>& port_map,
-    pdpi::IrTableEntry& entry);
+absl::Status TranslateTableEntry(const TranslateTableEntryOptions& options,
+                                 pdpi::IrTableEntry& entry);
 
 }  // namespace p4rt_app
 
-#endif  // P4RUNTIME_PORT_TRANSLATION_H_
+#endif  // P4RUNTIME_IR_TRANSLATION_H_

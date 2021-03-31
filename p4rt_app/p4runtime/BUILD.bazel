@@ -54,9 +54,9 @@ cc_library(
     srcs = ["p4runtime_impl.cc"],
     hdrs = ["p4runtime_impl.h"],
     deps = [
+        ":ir_translation",
         ":p4info_verification",
         ":p4runtime_tweaks",
-        ":port_translation",
         ":sdn_controller_manager",
         "//gutil:collections",
         "//gutil:status",
@@ -137,13 +137,14 @@ cc_test(
 )
 
 cc_library(
-    name = "port_translation",
-    srcs = ["port_translation.cc"],
-    hdrs = ["port_translation.h"],
+    name = "ir_translation",
+    srcs = ["ir_translation.cc"],
+    hdrs = ["ir_translation.h"],
     deps = [
         "//gutil:collections",
         "//gutil:status",
         "//p4_pdpi:ir",
+        "//p4_pdpi:ir_cc_proto",
         "@boost//:bimap",
         "@boost//:graph",
         "@com_github_google_glog//:glog",
@@ -155,11 +156,13 @@ cc_library(
 )
 
 cc_test(
-    name = "port_translation_test",
-    srcs = ["port_translation_test.cc"],
+    name = "ir_translation_test",
+    srcs = ["ir_translation_test.cc"],
     deps = [
-        ":port_translation",
+        ":ir_translation",
         "//gutil:status_matchers",
+        "//sai_p4/instantiations/google:sai_p4info_cc",
+        "//sai_p4/instantiations/google:switch_role",
         "@boost//:bimap",
         "@boost//:graph",
         "@com_github_google_glog//:glog",

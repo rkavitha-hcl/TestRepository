@@ -34,8 +34,8 @@
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_pdpi/utils/ir.h"
+#include "p4rt_app/p4runtime/ir_translation.h"
 #include "p4rt_app/p4runtime/p4info_verification.h"
-#include "p4rt_app/p4runtime/port_translation.h"
 #include "p4rt_app/sonic/app_db_acl_def_table_manager.h"
 #include "p4rt_app/sonic/packetio_port.h"
 #include "p4rt_app/sonic/response_handler.h"
@@ -77,13 +77,18 @@ absl::Status AppendTableEntryReads(
         sonic::ReadAppDbP4TableEntry(p4_info, redis_client, app_db_key));
     // TODO: This failure should put the switch into critical
     // state.
+
+    RETURN_IF_ERROR(TranslateTableEntry(
+        TranslateTableEntryOptions{
+            .direction = TranslationDirection::kForController,
+            .ir_p4_info = p4_info,
+            .port_map = port_translation_map},
+        ir_table_entry));
+
     ASSIGN_OR_RETURN(pdpi::IrTableEntry tweaked_entry,
                      tweak->ForController(ir_table_entry),
                      _ << "Failed to tweak IrTableEntry: "
                        << ir_table_entry.ShortDebugString());
-    RETURN_IF_ERROR(
-        TranslatePortIdAndNames(PortTranslationDirection::kForController,
-                                port_translation_map, tweaked_entry));
     ASSIGN_OR_RETURN(
         *response.add_entities()->mutable_table_entry(),
         pdpi::IrTableEntryToPi(p4_info, tweaked_entry),
@@ -157,9 +162,12 @@ absl::StatusOr<pdpi::IrTableEntry> DoPiTableEntryToIr(
     const boost::bimap<std::string, std::string>& port_translation_map) {
   ASSIGN_OR_RETURN(pdpi::IrTableEntry ir_table_entry,
                    pdpi::PiTableEntryToIr(p4_info, pi_table_entry));
-  RETURN_IF_ERROR(
-      TranslatePortIdAndNames(PortTranslationDirection::kForOrchAgent,
-                              port_translation_map, ir_table_entry));
+  RETURN_IF_ERROR(TranslateTableEntry(
+      TranslateTableEntryOptions{
+          .direction = TranslationDirection::kForOrchAgent,
+          .ir_p4_info = p4_info,
+          .port_map = port_translation_map},
+      ir_table_entry));
   return ir_table_entry;
 }
 
@@ -266,7 +274,7 @@ absl::Status SendPacketOut(
   } else {
     // Use egress_port_id attribute value.
     ASSIGN_OR_RETURN(sonic_port_name,
-                     TranslatePort(PortTranslationDirection::kForOrchAgent,
+                     TranslatePort(TranslationDirection::kForOrchAgent,
                                    port_translation_map, egress_port_id));
   }
 
@@ -635,7 +643,7 @@ absl::StatusOr<std::thread> P4RuntimeImpl::StartReceive(bool use_genetlink) {
              const std::string& payload) -> absl::Status {
     // Convert Sonic port name to controller port number.
     ASSIGN_OR_RETURN(std::string source_port_id,
-                     TranslatePort(PortTranslationDirection::kForController,
+                     TranslatePort(TranslationDirection::kForController,
                                    port_translation_map_, source_port_name),
                      _.SetCode(absl::StatusCode::kInternal).LogError()
                          << "Failed to parse source port");
@@ -645,7 +653,7 @@ absl::StatusOr<std::thread> P4RuntimeImpl::StartReceive(bool use_genetlink) {
     std::string target_port_id = source_port_id;
     if (!target_port_name.empty()) {
       ASSIGN_OR_RETURN(target_port_id,
-                       TranslatePort(PortTranslationDirection::kForController,
+                       TranslatePort(TranslationDirection::kForController,
                                      port_translation_map_, target_port_name),
                        _.SetCode(absl::StatusCode::kInternal).LogError()
                            << "Failed to parse target port");
