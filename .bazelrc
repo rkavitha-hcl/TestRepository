@@ -5,14 +5,6 @@ test --host_cxxopt='-std=c++17'
 run --cxxopt='-std=c++17'
 run --host_cxxopt='-std=c++17'
 
-# Required for UPB (libprotobuf_mutator dependency) to compile.
-build --copt='-Wno-error=stringop-truncation'
-build --host_copt='-Wno-error=stringop-truncation'
-test --copt='-Wno-error=stringop-truncation'
-test --host_copt='-Wno-error=stringop-truncation'
-run --copt='-Wno-error=stringop-truncation'
-run --host_copt='-Wno-error=stringop-truncation'
-
 # To allow loops with int and comparison against a .size() that's size_t.
 build --copt='-Wno-error=sign-compare'
 build --host_copt='-Wno-error=sign-compare'
