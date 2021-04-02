@@ -29,14 +29,7 @@ namespace p4rt_app {
 // NOTE: THIS CLASS SHOULD BE REMOVED BEFORE FINAL RELEASE
 class P4RuntimeTweaks {
  public:
-  // Pass by value since we're going to have to copy it anyway.
-  pdpi::IrTableEntry ForOrchAgent(pdpi::IrTableEntry entry);
-  absl::StatusOr<pdpi::IrTableEntry> ForController(pdpi::IrTableEntry entry);
-
   static void ForOrchAgent(pdpi::IrP4Info& p4_info);
-
- private:
-  absl::flat_hash_map<std::string, std::string> neighbor_id_cache_;
 };
 
 }  // namespace p4rt_app

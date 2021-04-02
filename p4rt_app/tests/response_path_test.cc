@@ -61,7 +61,7 @@ TEST_F(ResponsePathTest, InsertRequestFails) {
                  }
                  match {
                    field_id: 2
-                   exact { value: "1" }
+                   exact { value: "fe80::021a:11ff:fe17:5f80" }
                  }
                  action {
                    action {

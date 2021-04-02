@@ -122,7 +122,7 @@ TEST_F(FixedL3TableTest, SupportNeighborAndNexthopTableFlows) {
                  }
                  match {
                    field_id: 2
-                   exact { value: "1" }
+                   exact { value: "fe80::021a:11ff:fe17:5f80" }
                  }
                  action {
                    action {
@@ -147,7 +147,7 @@ TEST_F(FixedL3TableTest, SupportNeighborAndNexthopTableFlows) {
                    action {
                      action_id: 16777219
                      params { param_id: 1 value: "8" }
-                     params { param_id: 2 value: "1" }
+                     params { param_id: 2 value: "fe80::021a:11ff:fe17:5f80" }
                    }
                  }
                }

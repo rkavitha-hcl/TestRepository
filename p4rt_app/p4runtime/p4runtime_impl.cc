@@ -85,15 +85,10 @@ absl::Status AppendTableEntryReads(
             .port_map = port_translation_map},
         ir_table_entry));
 
-    ASSIGN_OR_RETURN(pdpi::IrTableEntry tweaked_entry,
-                     tweak->ForController(ir_table_entry),
-                     _ << "Failed to tweak IrTableEntry: "
-                       << ir_table_entry.ShortDebugString());
-    ASSIGN_OR_RETURN(
-        *response.add_entities()->mutable_table_entry(),
-        pdpi::IrTableEntryToPi(p4_info, tweaked_entry),
-        _ << "Original IrTableEntry: " << ir_table_entry.ShortDebugString()
-          << "Tweaked IrTableEntry: " << tweaked_entry.ShortDebugString());
+    ASSIGN_OR_RETURN(*response.add_entities()->mutable_table_entry(),
+                     pdpi::IrTableEntryToPi(p4_info, ir_table_entry),
+                     _ << "[PDPI] could not translate IR table entry to PI: "
+                       << ir_table_entry.DebugString());
   }
   return absl::OkStatus();
 }
@@ -195,7 +190,7 @@ sonic::AppDbUpdates PiTableEntryUpdatesToIr(
     int rpc_index = response->statuses_size() - 1;
     ir_updates.entries.push_back(
         sonic::AppDbEntry{.rpc_index = rpc_index,
-                          .entry = tweak->ForOrchAgent(*ir_table_entry),
+                          .entry = *ir_table_entry,
                           .update_type = update.type()});
   }
   return ir_updates;
