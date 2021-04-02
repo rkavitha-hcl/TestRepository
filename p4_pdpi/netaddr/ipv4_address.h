@@ -15,6 +15,10 @@ class Ipv4Address : public NetworkAddress<32, Ipv4Address> {
   // The default constructor returns the address with all bits set to zero.
   constexpr Ipv4Address() = default;
 
+  // Constructs address with the given bit representation.
+  explicit constexpr Ipv4Address(std::bitset<32> bits)
+      : NetworkAddress{std::move(bits)} {};
+
   // Ipv4Address(192, 168, 2, 1) constructs the IP address 192.168.2.1.
   explicit constexpr Ipv4Address(uint8_t byte4, uint8_t byte3, uint8_t byte2,
                                  uint8_t byte1)
@@ -29,9 +33,6 @@ class Ipv4Address : public NetworkAddress<32, Ipv4Address> {
 
   // Returns IP address in dot-decimal notation, e.g. "192.168.2.1".
   std::string ToString() const;
-
- protected:
-  using NetworkAddress::NetworkAddress;
 };
 
 }  // namespace netaddr

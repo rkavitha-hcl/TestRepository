@@ -6,6 +6,7 @@
 
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
+#include "p4_pdpi/netaddr/ipv6_address.h"
 #include "p4_pdpi/netaddr/network_address.h"
 
 namespace netaddr {
@@ -15,7 +16,11 @@ class MacAddress : public NetworkAddress<48, MacAddress> {
   // The default constructor returns the address with all bits set to zero.
   constexpr MacAddress() = default;
 
-  // MacAddress(0x01, 0x23, 0x45, 0x67, 0x89, 0xab) constructs the IP address
+  // Constructs address with the given bit representation.
+  explicit constexpr MacAddress(std::bitset<48> bits)
+      : NetworkAddress{std::move(bits)} {};
+
+  // MacAddress(0x01, 0x23, 0x45, 0x67, 0x89, 0xab) constructs the MAC address
   // 01:23:45:67:89:ab.
   explicit constexpr MacAddress(uint8_t byte6, uint8_t byte5, uint8_t byte4,
                                 uint8_t byte3, uint8_t byte2, uint8_t byte1)
@@ -33,8 +38,25 @@ class MacAddress : public NetworkAddress<48, MacAddress> {
   // Returns MAC address in dot-hexadecimal notation, e.g. "01:23:45:67:89:ab".
   std::string ToString() const;
 
- protected:
-  using NetworkAddress::NetworkAddress;
+  // If the given IPv6 address is a link-local address derived from a MAC
+  // address following RFC 4862, Section 5.3, returns the MAC address.
+  // Otherwise, returns an invalid argument error status.
+  static absl::StatusOr<MacAddress> OfLinkLocalIpv6Address(
+      const Ipv6Address& ipv6);
+
+  // Returns link-local IPv6 address for this MAC address, following
+  // RFC 4862, Section 5.3, and RFC4291, Section 2.5.1 & Appendix A.
+  Ipv6Address ToLinkLocalIpv6Address() const;
+
+  // If the given interface identifier is derived from a MAC address following
+  // RFC4291, Section 2.5.1 & Appendix A, returns the MAC address.
+  // Otherwise, return an invalid argument error status.
+  static absl::StatusOr<MacAddress> OfInterfaceId(
+      const std::bitset<64>& interface_id);
+
+  // Returns 64-bit interface identifier for this MAC address,
+  // following RFC4291, Section 2.5.1 & Appendix A.
+  std::bitset<64> ToInterfaceId() const;
 };
 
 }  // namespace netaddr

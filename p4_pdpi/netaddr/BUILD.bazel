@@ -82,6 +82,7 @@ cc_library(
     srcs = ["mac_address.cc"],
     hdrs = ["mac_address.h"],
     deps = [
+        ":ipv6_address",
         ":network_address",
         "//gutil:status",
         "@com_google_absl//absl/status:statusor",

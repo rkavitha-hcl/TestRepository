@@ -132,7 +132,7 @@ class NetworkAddress {
 
   // The default constructor returns the address with all bits set to zero.
   constexpr NetworkAddress() = default;
-  constexpr explicit NetworkAddress(std::bitset<num_bits> bits)
+  explicit constexpr NetworkAddress(std::bitset<num_bits> bits)
       : bits_{std::move(bits)} {};
 };
 

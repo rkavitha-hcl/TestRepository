@@ -15,6 +15,10 @@ class Ipv6Address : public NetworkAddress<128, Ipv6Address> {
   // The default constructor returns the address with all bits set to zero.
   constexpr Ipv6Address() = default;
 
+  // Constructs address with the given bit representation.
+  explicit constexpr Ipv6Address(std::bitset<128> bits)
+      : NetworkAddress{std::move(bits)} {};
+
   // Ipv6Address(0xffff, 0x1) constructs the IP address ffff:1::.
   explicit Ipv6Address(uint16_t hextet8, uint16_t hextet7 = 0,
                        uint16_t hextet6 = 0, uint16_t hextet5 = 0,
@@ -27,9 +31,6 @@ class Ipv6Address : public NetworkAddress<128, Ipv6Address> {
 
   // Returns address in IPv6 address notation, e.g. "2001:0db8:85a3::7334".
   std::string ToString() const;
-
- protected:
-  using NetworkAddress::NetworkAddress;
 };
 
 }  // namespace netaddr
