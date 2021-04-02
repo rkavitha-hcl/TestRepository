@@ -24,16 +24,18 @@ package(
 filegroup(
     name = "fixed",
     srcs = [
+        "bitwidths.p4",
         "headers.p4",
         "ids.h",
         "ipv4_checksum.p4",
         "l3_admit.p4",
         "metadata.p4",
+        "minimum_guaranteed_sizes.p4",
         "mirroring_clone.p4",
         "mirroring_encap.p4",
         "packet_rewrites.p4",
         "parser.p4",
-        "resource_limits.p4",
+        "roles.h",
         "routing.p4",
         "ttl.p4",
     ],
@@ -47,6 +49,14 @@ cc_library(
     hdrs = ["ids.h"],
     visibility = [
         "//platforms/networking/gpins/testing/blackbox/p4:__pkg__",
+        "//sai_p4/instantiations/google:__pkg__",
+    ],
+)
+
+cc_library(
+    name = "p4_roles",
+    hdrs = ["roles.h"],
+    visibility = [
         "//sai_p4/instantiations/google:__pkg__",
     ],
 )

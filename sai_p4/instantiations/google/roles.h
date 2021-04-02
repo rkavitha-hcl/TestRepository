@@ -1,0 +1,6 @@
+#ifndef GOOGLE_SAI_ROLES_P4_
+#define GOOGLE_SAI_ROLES_P4_
+
+#define P4RUNTIME_ROLE_LINKQUAL_APP "linkqual_app"
+
+#endif  // GOOGLE_SAI_ROLES_P4_

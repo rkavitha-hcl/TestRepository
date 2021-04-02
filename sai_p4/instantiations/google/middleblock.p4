@@ -1,4 +1,10 @@
 #include <v1model.p4>
+
+// These headers have to come first, to override their fixed counterparts.
+#include "roles.h"
+#include "bitwidths.p4"
+#include "minimum_guaranteed_sizes.p4"
+
 #include "../../fixed/headers.p4"
 #include "../../fixed/metadata.p4"
 #include "../../fixed/parser.p4"

@@ -3,7 +3,7 @@
 
 #include "ids.h"
 #include "headers.p4"
-#include "resource_limits.p4"
+#include "bitwidths.p4"
 
 // -- Translated Types ---------------------------------------------------------
 

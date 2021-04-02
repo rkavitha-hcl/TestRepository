@@ -5,7 +5,7 @@
 #include "../../fixed/headers.p4"
 #include "../../fixed/metadata.p4"
 #include "../../fixed/ids.h"
-#include "../../fixed/resource_limits.p4"
+#include "../../fixed/minimum_guaranteed_sizes.p4"
 
 #define ECMP_HASH_SEED 0
 #define ECMP_HASH_OFFSET 0

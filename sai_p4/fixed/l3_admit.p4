@@ -5,7 +5,8 @@
 #include "headers.p4"
 #include "metadata.p4"
 #include "ids.h"
-#include "resource_limits.p4"
+#include "roles.h"
+#include "minimum_guaranteed_sizes.p4"
 
 control l3_admit(in headers_t headers,
                  inout local_metadata_t local_metadata,
@@ -15,6 +16,7 @@ control l3_admit(in headers_t headers,
     local_metadata.admit_to_l3 = true;
   }
 
+  @p4runtime_role(P4RUNTIME_ROLE_ROUTING)
   @id(L3_ADMIT_TABLE_ID)
   table l3_admit_table {
     key = {
@@ -27,7 +29,7 @@ control l3_admit(in headers_t headers,
       @defaultonly NoAction;
     }
     const default_action = NoAction;
-    size = L3_ADMIT_TABLE_SIZE;
+    size = L3_ADMIT_TABLE_MINIMUM_GUARANTEED_SIZE;
   }
 
   apply {

@@ -5,7 +5,8 @@
 #include "../../fixed/headers.p4"
 #include "../../fixed/metadata.p4"
 #include "ids.h"
-#include "resource_limits.p4"
+#include "roles.h"
+#include "minimum_guaranteed_sizes.p4"
 
 control acl_linkqual(in headers_t headers,
                      inout local_metadata_t local_metadata,
@@ -30,6 +31,7 @@ control acl_linkqual(in headers_t headers,
     linkqual_counter.count();
   }
 
+  @p4runtime_role(P4RUNTIME_ROLE_SDN_CONTROLLER)
   @id(ACL_LINKQUAL_TABLE_ID)
   @sai_acl(INGRESS)
   table acl_linkqual_table {
@@ -48,7 +50,7 @@ control acl_linkqual(in headers_t headers,
     }
     counters = linkqual_counter;
     const default_action = NoAction;
-    size = ACL_LINKQUAL_TABLE_SIZE;
+    size = ACL_LINKQUAL_TABLE_MINIMUM_GUARANTEED_SIZE;
   }
 
   apply {

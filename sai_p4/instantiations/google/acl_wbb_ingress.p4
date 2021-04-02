@@ -5,7 +5,8 @@
 #include "../../fixed/headers.p4"
 #include "../../fixed/metadata.p4"
 #include "ids.h"
-#include "resource_limits.p4"
+#include "roles.h"
+#include "minimum_guaranteed_sizes.p4"
 
 control acl_wbb_ingress(in headers_t headers,
                          inout local_metadata_t local_metadata,
@@ -38,6 +39,7 @@ control acl_wbb_ingress(in headers_t headers,
     acl_wbb_ingress_counter.count();
   }
 
+  @p4runtime_role(P4RUNTIME_ROLE_SDN_CONTROLLER)
   @id(ACL_WBB_INGRESS_TABLE_ID)
   @sai_acl(INGRESS)
   @entry_restriction("
@@ -88,7 +90,7 @@ control acl_wbb_ingress(in headers_t headers,
     const default_action = NoAction;
     meters = acl_wbb_ingress_meter;
     counters = acl_wbb_ingress_counter;
-    size = ACL_WBB_INGRESS_TABLE_SIZE;
+    size = ACL_WBB_INGRESS_TABLE_MINIMUM_GUARANTEED_SIZE;
   }
 
   apply {

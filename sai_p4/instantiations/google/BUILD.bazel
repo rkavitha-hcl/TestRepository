@@ -151,7 +151,9 @@ MIDDLEBLOCK_DEPS = [
     "acl_lookup.p4",
     "hashing.p4",
     "ids.h",
-    "resource_limits.p4",
+    "roles.h",
+    "bitwidths.p4",
+    "minimum_guaranteed_sizes.p4",
     "//sai_p4/fixed",
 ]
 
@@ -159,7 +161,9 @@ WBB_DEPS = [
     "acl_wbb_ingress.p4",
     "hashing.p4",
     "ids.h",
-    "resource_limits.p4",
+    "roles.h",
+    "bitwidths.p4",
+    "minimum_guaranteed_sizes.p4",
     "//sai_p4/fixed",
 ]
 

@@ -5,7 +5,8 @@
 #include "headers.p4"
 #include "metadata.p4"
 #include "ids.h"
-#include "resource_limits.p4"
+#include "roles.h"
+#include "minimum_guaranteed_sizes.p4"
 
 // This control block models the L3 routing pipeline.
 //
@@ -54,6 +55,7 @@ control routing(in headers_t headers,
     local_metadata.packet_rewrites.dst_mac = dst_mac;
   }
 
+  @p4runtime_role(P4RUNTIME_ROLE_ROUTING)
   @id(ROUTING_NEIGHBOR_TABLE_ID)
   table neighbor_table {
     key = {
@@ -69,7 +71,7 @@ control routing(in headers_t headers,
       @defaultonly NoAction;
     }
     const default_action = NoAction;
-    size = NEIGHBOR_TABLE_SIZE;
+    size = NEIGHBOR_TABLE_MINIMUM_GUARANTEED_SIZE;
   }
 
   // Sets SAI_ROUTER_INTERFACE_ATTR_TYPE to SAI_ROUTER_INTERFACE_TYPE_PORT, and
@@ -84,6 +86,7 @@ control routing(in headers_t headers,
     local_metadata.packet_rewrites.src_mac = src_mac;
   }
 
+  @p4runtime_role(P4RUNTIME_ROLE_ROUTING)
   @id(ROUTING_ROUTER_INTERFACE_TABLE_ID)
   table router_interface_table {
     key = {
@@ -95,7 +98,7 @@ control routing(in headers_t headers,
       @defaultonly NoAction;
     }
     const default_action = NoAction;
-    size = ROUTER_INTERFACE_TABLE_SIZE;
+    size = ROUTER_INTERFACE_TABLE_MINIMUM_GUARANTEED_SIZE;
   }
 
   // Sets SAI_NEXT_HOP_ATTR_TYPE to SAI_NEXT_HOP_TYPE_IP, and
@@ -123,6 +126,7 @@ control routing(in headers_t headers,
     neighbor_id_value = neighbor_id;
   }
 
+  @p4runtime_role(P4RUNTIME_ROLE_ROUTING)
   @id(ROUTING_NEXTHOP_TABLE_ID)
   table nexthop_table {
     key = {
@@ -133,7 +137,7 @@ control routing(in headers_t headers,
       @defaultonly NoAction;
     }
     const default_action = NoAction;
-    size = NEXTHOP_TABLE_SIZE;
+    size = NEXTHOP_TABLE_MINIMUM_GUARANTEED_SIZE;
   }
 
   // When called from a route, sets SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION to
@@ -158,6 +162,7 @@ control routing(in headers_t headers,
                   WCMP_SELECTOR_INPUT_BITWIDTH)
       wcmp_group_selector;
 
+  @p4runtime_role(P4RUNTIME_ROLE_ROUTING)
   @id(ROUTING_WCMP_GROUP_TABLE_ID)
   @oneshot()
   table wcmp_group_table {
@@ -171,7 +176,7 @@ control routing(in headers_t headers,
     }
     const default_action = NoAction;
     implementation = wcmp_group_selector;
-    size = WCMP_GROUP_TABLE_SIZE;
+    size = WCMP_GROUP_TABLE_MINIMUM_GUARANTEED_SIZE;
   }
 
   // Sets SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION to SAI_PACKET_ACTION_DROP.
@@ -192,6 +197,7 @@ control routing(in headers_t headers,
     wcmp_group_id_value = wcmp_group_id;
   }
 
+  @p4runtime_role(P4RUNTIME_ROLE_ROUTING)
   @id(ROUTING_IPV4_TABLE_ID)
   table ipv4_table {
     key = {
@@ -209,6 +215,7 @@ control routing(in headers_t headers,
     const default_action = drop;
   }
 
+  @p4runtime_role(P4RUNTIME_ROLE_ROUTING)
   @id(ROUTING_IPV6_TABLE_ID)
   table ipv6_table {
     key = {

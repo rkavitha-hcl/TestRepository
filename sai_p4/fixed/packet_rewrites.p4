@@ -4,7 +4,7 @@
 #include <v1model.p4>
 #include "headers.p4"
 #include "metadata.p4"
-#include "resource_limits.p4"
+#include "minimum_guaranteed_sizes.p4"
 
 // This control block applies the rewrites computed during the the ingress
 // stage to the actual packet.

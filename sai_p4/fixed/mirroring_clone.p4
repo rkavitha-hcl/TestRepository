@@ -5,7 +5,8 @@
 #include "headers.p4"
 #include "metadata.p4"
 #include "ids.h"
-#include "resource_limits.p4"
+#include "roles.h"
+#include "minimum_guaranteed_sizes.p4"
 
 control mirroring_clone(inout headers_t headers,
                         inout local_metadata_t local_metadata,
@@ -43,6 +44,7 @@ control mirroring_clone(inout headers_t headers,
     local_metadata.mirroring_tos = tos;
   }
 
+  @p4runtime_role(P4RUNTIME_ROLE_MIRRORING)
   @id(MIRROR_SESSION_TABLE_ID)
   table mirror_session_table {
     key = {
@@ -54,7 +56,7 @@ control mirroring_clone(inout headers_t headers,
       @defaultonly NoAction;
     }
     const default_action = NoAction;
-    size = MIRROR_SESSION_TABLE_SIZE;
+    size = MIRROR_SESSION_TABLE_MINIMUM_GUARANTEED_SIZE;
   }
 
   @id(MIRRORING_SET_PRE_SESSION_ACTION_ID)
@@ -62,6 +64,7 @@ control mirroring_clone(inout headers_t headers,
     pre_session = id;
   }
 
+  @p4runtime_role(P4RUNTIME_ROLE_PACKET_REPLICATION_ENGINE)
   @id(MIRROR_PORT_TO_PRE_SESSION_TABLE_ID)
   table mirror_port_to_pre_session_table {
     key = {

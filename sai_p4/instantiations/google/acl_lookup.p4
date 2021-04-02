@@ -5,7 +5,8 @@
 #include "../../fixed/headers.p4"
 #include "../../fixed/metadata.p4"
 #include "ids.h"
-#include "resource_limits.p4"
+#include "roles.h"
+#include "minimum_guaranteed_sizes.p4"
 
 control acl_lookup(in headers_t headers,
                    inout local_metadata_t local_metadata,
@@ -24,6 +25,7 @@ control acl_lookup(in headers_t headers,
     acl_lookup_counter.count();
   }
 
+  @p4runtime_role(P4RUNTIME_ROLE_SDN_CONTROLLER)
   @id(ACL_LOOKUP_TABLE_ID)
   @sai_acl(LOOKUP)
   @entry_restriction("
@@ -64,7 +66,7 @@ control acl_lookup(in headers_t headers,
     }
     const default_action = NoAction;
     counters = acl_lookup_counter;
-    size = ACL_LOOKUP_TABLE_SIZE;
+    size = ACL_LOOKUP_TABLE_MINIMUM_GUARANTEED_SIZE;
   }
 
   apply {
