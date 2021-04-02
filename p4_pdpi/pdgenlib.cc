@@ -370,7 +370,8 @@ bool IsActionUnused(const IrActionDefinition& action,
 }  // namespace
 
 StatusOr<std::string> IrP4InfoToPdProto(const IrP4Info& info,
-                                        const std::string& package) {
+                                        const std::string& package,
+                                        const std::vector<std::string>& roles) {
   std::string result = "";
 
   // Header comment.
@@ -419,15 +420,20 @@ message Optional {
 }
 )");
 
-  // Sort tables by ID.
+  // Filter by role and sort by ID.
   std::vector<IrTableDefinition> tables;
   for (const auto& [id, table] : Ordered(info.tables_by_id())) {
-    tables.push_back(table);
+    if (absl::c_find(roles, table.role()) != roles.end()) {
+      tables.push_back(table);
+    }
   }
   std::sort(tables.begin(), tables.end(),
             [](const IrTableDefinition& a, const IrTableDefinition& b) {
               return a.preamble().id() < b.preamble().id();
             });
+  if (tables.empty()) {
+    return InvalidArgumentErrorBuilder() << "No tables, cannot generate PD";
+  }
 
   // Sort actions by ID.
   std::vector<IrActionDefinition> actions;
@@ -438,6 +444,9 @@ message Optional {
             [](const IrActionDefinition& a, const IrActionDefinition& b) {
               return a.preamble().id() < b.preamble().id();
             });
+  if (actions.empty()) {
+    return InvalidArgumentErrorBuilder() << "No actions, cannot generate PD";
+  }
 
   // Table messages.
   absl::StrAppend(&result, HeaderComment("Tables"), "\n");

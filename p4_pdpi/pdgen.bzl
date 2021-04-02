@@ -13,7 +13,7 @@
 # limitations under the License.
 """Rule for invoking the PD generator."""
 
-def p4_pd_proto(name, src, out, package, format = True, visibility = None):
+def p4_pd_proto(name, src, out, package, roles = [""], format = True, visibility = None):
     """Generates PD proto from p4info file."""
     pdgen = "//p4_pdpi:pdgen"
     p4info = ":" + src
@@ -22,11 +22,13 @@ def p4_pd_proto(name, src, out, package, format = True, visibility = None):
         $(location {pdgen})\\
             --p4info $(location {p4info})\\
             --package "{package}"\\
+            --roles "{roles}"\\
             > $(OUTS)
     """.format(
         p4info = p4info,
         package = package,
         pdgen = pdgen,
+        roles = ",".join(roles),
     )
 
     native.genrule(

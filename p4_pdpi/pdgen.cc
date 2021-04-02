@@ -23,6 +23,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "gutil/proto.h"
 #include "gutil/status.h"
@@ -33,8 +34,11 @@
 
 ABSL_FLAG(std::string, p4info, "", "p4info file (required)");
 ABSL_FLAG(std::string, package, "", "protobuf package name (required)");
+ABSL_FLAG(std::string, roles, "",
+          "the @p4runtime_role's for which to generate PD");
 
-constexpr char kUsage[] = "--p4info=<file> --package=<package>";
+constexpr char kUsage[] =
+    "--p4info=<file> --package=<package> --roles=<comma-separated-role-list>";
 
 using ::p4::config::v1::P4Info;
 
@@ -57,6 +61,10 @@ int main(int argc, char** argv) {
     return 1;
   }
 
+  // Roles
+  std::vector<std::string> roles =
+      absl::StrSplit(absl::GetFlag(FLAGS_roles), ',');
+
   // Parse p4info file.
   P4Info p4info;
   absl::Status status = gutil::ReadProtoFromFile(p4info_filename, &p4info);
@@ -76,7 +84,7 @@ int main(int argc, char** argv) {
 
   // Output PD proto.
   absl::StatusOr<std::string> status_or_pdproto =
-      pdpi::IrP4InfoToPdProto(info, package);
+      pdpi::IrP4InfoToPdProto(info, package, roles);
   if (!status_or_pdproto.ok()) {
     std::cerr << "Failed to generate PD proto: " << status_or_pdproto.status()
               << std::endl;

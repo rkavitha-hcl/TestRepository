@@ -99,6 +99,8 @@ message IrTableDefinition {
   IrCounter counter = 10;
   // Optional. Constant default action for this table. Cannot be overridden.
   IrActionDefinition const_default_action = 11;
+  // Optional. P4Runtime role of this table.
+  string role = 12;
 }
 
 // Describes a reference to an action (from a table).

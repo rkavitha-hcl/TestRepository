@@ -25,8 +25,9 @@ namespace pdpi {
 
 // Returns the PD proto definition for the given P4 info. May not be fully
 // formatted according to any style guide.
-absl::StatusOr<std::string> IrP4InfoToPdProto(const IrP4Info& info,
-                                              const std::string& package);
+absl::StatusOr<std::string> IrP4InfoToPdProto(
+    const IrP4Info& info, const std::string& package,
+    const std::vector<std::string>& roles);
 
 }  // namespace pdpi
 

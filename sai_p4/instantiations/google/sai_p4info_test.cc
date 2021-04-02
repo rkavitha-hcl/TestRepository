@@ -23,8 +23,12 @@ TEST(GetP4InfoTest, DoesNotCheckCrashAndP4ConstraintsAreParsable) {
 
 // GetIrP4Info contains a CHECK; ensure it doesn't fail.
 TEST(GetIrP4InfoTest, DoesNotCheckCrash) {
-  for (auto role : AllSwitchRoles()) {
-    GetIrP4Info(role);
+  for (auto instantiation : AllSwitchRoles()) {
+    auto info = GetIrP4Info(instantiation);
+    for (const auto& [name, table] : info.tables_by_name()) {
+      EXPECT_NE(table.role(), "")
+          << "Table '" << name << "' is missing a @p4runtime_role annotation.";
+    }
   }
 }
 

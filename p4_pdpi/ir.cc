@@ -903,6 +903,14 @@ StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info &p4_info) {
           const_default_action_reference.action();
     }
 
+    // Extract @p4runtime_role annotation.
+    for (absl::string_view annotation : table.preamble().annotations()) {
+      if (absl::ConsumePrefix(&annotation, "@p4runtime_role(\"") &&
+          absl::ConsumeSuffix(&annotation, "\")")) {
+        ir_table_definition.set_role(std::string(annotation));
+      }
+    }
+
     ir_table_definition.set_size(table.size());
     RETURN_IF_ERROR(gutil::InsertIfUnique(
         info.mutable_tables_by_id(), table_id, ir_table_definition,
