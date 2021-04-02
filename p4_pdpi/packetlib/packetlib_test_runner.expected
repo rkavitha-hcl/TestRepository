@@ -343,7 +343,7 @@ reasons_invalid: "headers[1].ihl: Correct value undefined since uninterpreted_op
 reasons_invalid: "headers[1].total_length: Must be 0x0015, but was 0x0018 instead."
 
 PadPacketToMinimumSize(packet) = true
-UpdateAllComputedFields(packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].ihl: uninterpreted_options field is invalid
+UpdateAllComputedFields(packet) = INVALID_ARGUMENT: Ipv4 header: failed to compute packet.headers[1].ihl: uninterpreted_options field is invalid
 ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
 - headers[1].uninterpreted_options: found 8 bits, but expected multiple of 32 bits
 - headers[1].ihl: Correct value undefined since uninterpreted_options is invalid.
@@ -1150,9 +1150,9 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 
 PadPacketToMinimumSize(packet) = false
 
-UpdateMissingComputedFields(packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].ihl: uninterpreted_options field is invalid
+UpdateMissingComputedFields(packet) = INVALID_ARGUMENT: Ipv4 header: failed to compute packet.headers[1].ihl: uninterpreted_options field is invalid
 
-Serialize(Packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].ihl: uninterpreted_options field is invalid
+Serialize(Packet) = INVALID_ARGUMENT: Ipv4 header: failed to compute packet.headers[1].ihl: uninterpreted_options field is invalid
 
 ================================================================================
 Proto packet test: Ipv4 empty ihl, valid options
@@ -1289,9 +1289,9 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 PadPacketToMinimumSize(packet) = true
 new payload: "Hi\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
 
-UpdateMissingComputedFields(packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].checksum: illegal conversion from hex string '0x6k' to 4 bits; expected between 5 and 8 bits
+UpdateMissingComputedFields(packet) = INVALID_ARGUMENT: Ipv4 header: failed to compute packet.headers[1].checksum: illegal conversion from hex string '0x6k' to 4 bits; expected between 5 and 8 bits
 
-Serialize(Packet) = INVALID_ARGUMENT: failed to compute packet.headers[1].checksum: illegal conversion from hex string '0x6k' to 4 bits; expected between 5 and 8 bits
+Serialize(Packet) = INVALID_ARGUMENT: Ipv4 header: failed to compute packet.headers[1].checksum: illegal conversion from hex string '0x6k' to 4 bits; expected between 5 and 8 bits
 
 ================================================================================
 Proto packet test: IPv6 without computed fields

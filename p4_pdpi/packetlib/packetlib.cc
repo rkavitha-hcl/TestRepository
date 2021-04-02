@@ -1235,10 +1235,11 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet, bool overwrite) {
 
   int header_index = 0;
   for (Header& header : *packet.mutable_headers()) {
-    const std::string error_prefix =
+    std::string error_prefix =
         absl::StrFormat("failed to compute packet.headers[%d].", header_index);
     switch (header.header_case()) {
       case Header::kIpv4Header: {
+        error_prefix = absl::StrCat("Ipv4 header: ", error_prefix);
         Ipv4Header& ipv4_header = *header.mutable_ipv4_header();
         if (ipv4_header.version().empty() || overwrite) {
           ipv4_header.set_version("0x4");
@@ -1279,6 +1280,7 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet, bool overwrite) {
         break;
       }
       case Header::kIpv6Header: {
+        error_prefix = absl::StrCat("Ipv6 header: ", error_prefix);
         Ipv6Header& ipv6_header = *header.mutable_ipv6_header();
         if (ipv6_header.version().empty() || overwrite) {
           ipv6_header.set_version("0x6");
@@ -1296,6 +1298,7 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet, bool overwrite) {
         break;
       }
       case Header::kUdpHeader: {
+        error_prefix = absl::StrCat("UDP header: ", error_prefix);
         UdpHeader& udp_header = *header.mutable_udp_header();
         if (udp_header.length().empty() || overwrite) {
           ASSIGN_OR_RETURN(int size, PacketSizeInBytes(packet, header_index),
@@ -1315,6 +1318,7 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet, bool overwrite) {
         break;
       }
       case Header::kArpHeader: {
+        error_prefix = absl::StrCat("ARP header: ", error_prefix);
         ArpHeader& arp_header = *header.mutable_arp_header();
         if (arp_header.hardware_type().empty() || overwrite) {
           arp_header.set_hardware_type("0x0001");
@@ -1335,6 +1339,7 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet, bool overwrite) {
         break;
       }
       case Header::kIcmpHeader: {
+        error_prefix = absl::StrCat("ICMP header: ", error_prefix);
         IcmpHeader& icmp_header = *header.mutable_icmp_header();
         if (icmp_header.checksum().empty() || overwrite) {
           ASSIGN_OR_RETURN(int checksum,
