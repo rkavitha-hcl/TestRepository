@@ -14,6 +14,7 @@
 #include "p4_fuzzer/annotation_util.h"
 #include "p4_fuzzer/mutation.h"
 #include "p4_pdpi/ir.pb.h"
+#include "p4_pdpi/netaddr/ipv6_address.h"
 #include "p4_pdpi/pd.h"
 #include "p4_pdpi/utils/ir.h"
 
@@ -60,15 +61,16 @@ inline int DivideRoundedUp(const unsigned int n, const unsigned int d) {
 }
 
 absl::StatusOr<p4::v1::ActionProfileAction> FuzzActionProfileAction(
-    absl::BitGen* gen, const pdpi::IrP4Info& ir_p4_info,
+    absl::BitGen* gen, const FuzzerConfig& config,
     const SwitchState& switch_state,
     const pdpi::IrTableDefinition& ir_table_info) {
   p4::v1::ActionProfileAction action;
 
   ASSIGN_OR_RETURN(
       *action.mutable_action(),
-      FuzzAction(gen, switch_state,
-                 ChooseNonDefaultActionRef(gen, ir_table_info).action()));
+      FuzzAction(
+          gen, config, switch_state,
+          ChooseNonDefaultActionRef(gen, config, ir_table_info).action()));
 
   action.set_weight(Uniform<int32_t>(*gen, 1, kActionProfileActionMaxWeight));
 
@@ -79,12 +81,11 @@ absl::StatusOr<p4::v1::ActionProfileAction> FuzzActionProfileAction(
 }
 
 // Returns the set of tables the fuzzer is fuzzing.
-std::vector<uint32_t> TablesUsedByFuzzer(const pdpi::IrP4Info& ir_p4_info) {
+std::vector<uint32_t> TablesUsedByFuzzer(const FuzzerConfig& config) {
   std::vector<uint32_t> table_ids;
 
-  for (auto& [key, table] : ir_p4_info.tables_by_id()) {
-    // The linkqual table is only used locally on the switch.
-    if (table.preamble().alias() == "acl_linkqual_table") continue;
+  for (auto& [key, table] : config.info.tables_by_id()) {
+    if (table.role() != config.role) continue;
     // TODO: the switch is currently having issues with this table.
     if (table.preamble().alias() == "mirror_session_table") continue;
     table_ids.push_back(key);
@@ -94,11 +95,11 @@ std::vector<uint32_t> TablesUsedByFuzzer(const pdpi::IrP4Info& ir_p4_info) {
 
 // Returns the table ids of tables that use one shot action selector
 // programming.
-std::vector<uint32_t> GetOneShotTableIds(const pdpi::IrP4Info& ir_p4_info) {
+std::vector<uint32_t> GetOneShotTableIds(const FuzzerConfig& config) {
   std::vector<uint32_t> table_ids;
 
-  for (uint32_t id : TablesUsedByFuzzer(ir_p4_info)) {
-    const auto& table = gutil::FindOrDie(ir_p4_info.tables_by_id(), id);
+  for (uint32_t id : TablesUsedByFuzzer(config)) {
+    const auto& table = gutil::FindOrDie(config.info.tables_by_id(), id);
     if (table.uses_oneshot()) {
       table_ids.push_back(id);
     }
@@ -108,12 +109,11 @@ std::vector<uint32_t> GetOneShotTableIds(const pdpi::IrP4Info& ir_p4_info) {
 }
 
 // Returns the table ids of tables that contain at least one exact match field.
-std::vector<uint32_t> GetMandatoryMatchTableIds(
-    const pdpi::IrP4Info& ir_p4_info) {
+std::vector<uint32_t> GetMandatoryMatchTableIds(const FuzzerConfig& config) {
   std::vector<uint32_t> table_ids;
 
-  for (uint32_t id : TablesUsedByFuzzer(ir_p4_info)) {
-    const auto& table = gutil::FindOrDie(ir_p4_info.tables_by_id(), id);
+  for (uint32_t id : TablesUsedByFuzzer(config)) {
+    const auto& table = gutil::FindOrDie(config.info.tables_by_id(), id);
     for (auto& [match_id, match] : table.match_fields_by_id()) {
       if (match.match_field().match_type() ==
           p4::config::v1::MatchField::EXACT) {
@@ -155,18 +155,20 @@ Update::Type FuzzUpdateType(absl::BitGen* gen, const SwitchState& state) {
 }
 
 // Randomly generates the table id of a non-empty table.
-int FuzzNonEmptyTableId(absl::BitGen* gen, const SwitchState& switch_state) {
+int FuzzNonEmptyTableId(absl::BitGen* gen, const FuzzerConfig& config,
+                        const SwitchState& switch_state) {
   CHECK(!switch_state.AllTablesEmpty())
       << "state: " << switch_state.SwitchStateSummary();
   int table_id;
   do {
-    table_id = FuzzTableId(gen, switch_state.GetIrP4Info());
+    table_id = FuzzTableId(gen, config);
   } while (switch_state.IsTableEmpty(table_id));
   return table_id;
 }
 
 // Randomly changes the table_entry, without affecting the key fields.
-void FuzzNonKeyFields(absl::BitGen* gen, TableEntry* table_entry) {
+void FuzzNonKeyFields(absl::BitGen* gen, const FuzzerConfig& config,
+                      TableEntry* table_entry) {
   // With some probability, don't modify the element at all.
   if (absl::Bernoulli(*gen, 0.5)) return;
 
@@ -180,9 +182,9 @@ void FuzzNonKeyFields(absl::BitGen* gen, TableEntry* table_entry) {
 
 // Randomly generates an INSERT or DELETE update. The update may be mutated (see
 // go/p4-fuzzer-design for mutation types).
-AnnotatedUpdate FuzzUpdate(absl::BitGen* gen, const pdpi::IrP4Info& ir_p4_info,
+AnnotatedUpdate FuzzUpdate(absl::BitGen* gen, const FuzzerConfig& config,
                            const SwitchState& switch_state) {
-  std::vector<uint32_t> table_ids = TablesUsedByFuzzer(ir_p4_info);
+  std::vector<uint32_t> table_ids = TablesUsedByFuzzer(config);
   CHECK_GT(table_ids.size(), 0)
       << "Cannot generate updates for program with no tables";
 
@@ -191,22 +193,22 @@ AnnotatedUpdate FuzzUpdate(absl::BitGen* gen, const pdpi::IrP4Info& ir_p4_info,
 
   if (absl::Bernoulli(*gen, kMutateUpdateProbability)) {
     do_mutate = true;
-    mutation = FuzzMutation(gen);
+    mutation = FuzzMutation(gen, config);
     switch (mutation) {
       case Mutation::INVALID_ACTION_SELECTOR_WEIGHT:
-        table_ids = GetOneShotTableIds(ir_p4_info);
+        table_ids = GetOneShotTableIds(config);
         if (table_ids.empty()) {
           // Retry.
-          return FuzzUpdate(gen, ir_p4_info, switch_state);
+          return FuzzUpdate(gen, config, switch_state);
         }
 
         break;
 
       case Mutation::MISSING_MANDATORY_MATCH_FIELD:
-        table_ids = GetMandatoryMatchTableIds(ir_p4_info);
+        table_ids = GetMandatoryMatchTableIds(config);
         if (table_ids.empty()) {
           // Retry.
-          return FuzzUpdate(gen, ir_p4_info, switch_state);
+          return FuzzUpdate(gen, config, switch_state);
         }
         break;
 
@@ -228,10 +230,10 @@ AnnotatedUpdate FuzzUpdate(absl::BitGen* gen, const pdpi::IrP4Info& ir_p4_info,
       // rendered invalid and the oracle incorporates this in its prediction of
       // switch behavior.
       absl::StatusOr<p4::v1::TableEntry> table_entry =
-          FuzzValidTableEntry(gen, ir_p4_info, switch_state, table_id);
+          FuzzValidTableEntry(gen, config, switch_state, table_id);
       if (!table_entry.ok()) {
         // Retry.
-        return FuzzUpdate(gen, ir_p4_info, switch_state);
+        return FuzzUpdate(gen, config, switch_state);
       }
 
       *update.mutable_entity()->mutable_table_entry() = *table_entry;
@@ -239,14 +241,14 @@ AnnotatedUpdate FuzzUpdate(absl::BitGen* gen, const pdpi::IrP4Info& ir_p4_info,
       break;
     }
     case Update::DELETE: {
-      const int table_id = FuzzNonEmptyTableId(gen, switch_state);
+      const int table_id = FuzzNonEmptyTableId(gen, config, switch_state);
       // Within a single call of FuzzWriteRequest, this might delete the same
       // entry multiple times.  This is fine, all but one of the deletes are
       // just invalid (and it is the oracle's job to know what the switch is
       // supposed to do with this).
       TableEntry table_entry =
           UniformFromVector(gen, switch_state.GetTableEntries(table_id));
-      FuzzNonKeyFields(gen, &table_entry);
+      FuzzNonKeyFields(gen, config, &table_entry);
       *update.mutable_entity()->mutable_table_entry() = table_entry;
       break;
     }
@@ -255,28 +257,35 @@ AnnotatedUpdate FuzzUpdate(absl::BitGen* gen, const pdpi::IrP4Info& ir_p4_info,
   }
 
   if (do_mutate) {
-    if (!MutateUpdate(gen, &update, ir_p4_info, switch_state, mutation).ok()) {
+    if (!MutateUpdate(gen, config, &update, switch_state, mutation).ok()) {
       // Retry mutating the update.
-      return FuzzUpdate(gen, ir_p4_info, switch_state);
+      return FuzzUpdate(gen, config, switch_state);
     }
 
-    return GetAnnotatedUpdate(ir_p4_info, update, /* mutations = */ {mutation});
+    return GetAnnotatedUpdate(config.info, update,
+                              /* mutations = */ {mutation});
   }
 
-  return GetAnnotatedUpdate(ir_p4_info, update, /* mutations = */ {});
+  return GetAnnotatedUpdate(config.info, update, /* mutations = */ {});
 }
 
 }  // namespace
 
 // Randomly generates a table id.
-int FuzzTableId(absl::BitGen* gen, const pdpi::IrP4Info& ir_p4_info) {
-  return UniformFromVector(gen, TablesUsedByFuzzer(ir_p4_info));
+int FuzzTableId(absl::BitGen* gen, const FuzzerConfig& config) {
+  return UniformFromVector(gen, TablesUsedByFuzzer(config));
 }
 
-Mutation FuzzMutation(absl::BitGen* gen) {
+Mutation FuzzMutation(absl::BitGen* gen, const FuzzerConfig& config) {
   std::vector<int> valid_indexes;
 
   for (int i = Mutation_MIN; i <= Mutation_MAX; ++i) {
+    // TODO: implement missing mutations.
+    if (i == Mutation::INVALID_NEIGHBOR_ID || i == Mutation::INVALID_PORT ||
+        i == Mutation::INVALID_REFERRING_ID ||
+        i == Mutation::INVALID_QOS_QUEUE || i == Mutation::DIFFERENT_ROLE) {
+      continue;
+    }
     if (Mutation_IsValid(i)) {
       valid_indexes.push_back(i);
     }
@@ -287,7 +296,8 @@ Mutation FuzzMutation(absl::BitGen* gen) {
 }
 
 pdpi::IrActionReference ChooseNonDefaultActionRef(
-    absl::BitGen* gen, const pdpi::IrTableDefinition& ir_table_info) {
+    absl::BitGen* gen, const FuzzerConfig& config,
+    const pdpi::IrTableDefinition& ir_table_info) {
   std::vector<pdpi::IrActionReference> refs;
 
   for (const auto& action_ref : ir_table_info.entry_actions()) {
@@ -365,15 +375,29 @@ std::string FuzzNonZeroBits(absl::BitGen* gen, int bits) {
 
 // Fuzzes a value, with special handling for ports and IDs.
 absl::StatusOr<std::string> FuzzValue(
-    absl::BitGen* gen, const SwitchState& switch_state,
+    absl::BitGen* gen, const FuzzerConfig& config,
+    const SwitchState& switch_state,
     const p4::config::v1::P4NamedType& type_name, int bits,
     const google::protobuf::RepeatedPtrField<pdpi::IrMatchFieldReference>&
         references,
     bool non_zero) {
   // A port: pick any valid port randomly.
   if (type_name.name() == "port_id_t") {
-    // TODO: fuzz ports more correctly
-    return "\x00\x01";
+    return UniformFromVector(gen, config.ports);
+  }
+
+  // A qos queue: pick any valid qos queue randomly.
+  if (type_name.name() == "qos_queue_t") {
+    return UniformFromVector(gen, config.qos_queues);
+  }
+
+  // A neighbor ID (not referring to anything): Pick a random IPv6 address.
+  if (type_name.name() == "neighbor_id_t" && references.empty()) {
+    std::bitset<128> ipv6_bits;
+    for (int i = 0; i < 128; ++i) {
+      ipv6_bits.set(i, absl::Uniform<int>(*gen, 0, 1));
+    }
+    return netaddr::Ipv6Address::OfBitset(ipv6_bits).ToString();
   }
 
   // A string ID (not referring to anything): Pick a fresh random ID.
@@ -414,7 +438,8 @@ uint64_t FuzzUint64(absl::BitGen* gen, int bits) {
   return BitsToUint64(FuzzBits(gen, bits, sizeof(uint64_t)));
 }
 
-p4::v1::FieldMatch FuzzTernaryFieldMatch(absl::BitGen* gen, int bits) {
+p4::v1::FieldMatch FuzzTernaryFieldMatch(absl::BitGen* gen,
+                                         const FuzzerConfig& config, int bits) {
   std::string mask = FuzzNonZeroBits(gen, bits);
   std::string value = FuzzBits(gen, bits);
 
@@ -428,6 +453,7 @@ p4::v1::FieldMatch FuzzTernaryFieldMatch(absl::BitGen* gen, int bits) {
 }
 
 p4::v1::FieldMatch FuzzLpmFieldMatch(absl::BitGen* gen,
+                                     const FuzzerConfig& config,
                                      const SwitchState& switch_state,
                                      int bits) {
   // Since /8, /16, /24, and /32 are common, we want to bias the fuzzer to
@@ -454,14 +480,15 @@ p4::v1::FieldMatch FuzzLpmFieldMatch(absl::BitGen* gen,
 }
 
 absl::StatusOr<p4::v1::FieldMatch> FuzzExactFieldMatch(
-    absl::BitGen* gen, const SwitchState& switch_state,
+    absl::BitGen* gen, const FuzzerConfig& config,
+    const SwitchState& switch_state,
     const pdpi::IrMatchFieldDefinition& ir_match_field_info) {
   p4::v1::FieldMatch match;
   p4::config::v1::MatchField field = ir_match_field_info.match_field();
   // Note that exact messages have to be provided, even if the value is 0.
   ASSIGN_OR_RETURN(
       std::string value,
-      FuzzValue(gen, switch_state, field.type_name(), field.bitwidth(),
+      FuzzValue(gen, config, switch_state, field.type_name(), field.bitwidth(),
                 ir_match_field_info.references(), /*non_zero=*/false));
 
   match.mutable_exact()->set_value(value);
@@ -469,20 +496,22 @@ absl::StatusOr<p4::v1::FieldMatch> FuzzExactFieldMatch(
 }
 
 absl::StatusOr<p4::v1::FieldMatch> FuzzOptionalFieldMatch(
-    absl::BitGen* gen, const SwitchState& switch_state,
+    absl::BitGen* gen, const FuzzerConfig& config,
+    const SwitchState& switch_state,
     const pdpi::IrMatchFieldDefinition& ir_match_field_info) {
   p4::v1::FieldMatch match;
   p4::config::v1::MatchField field = ir_match_field_info.match_field();
   ASSIGN_OR_RETURN(
       std::string value,
-      FuzzValue(gen, switch_state, field.type_name(), field.bitwidth(),
+      FuzzValue(gen, config, switch_state, field.type_name(), field.bitwidth(),
                 ir_match_field_info.references(), /*non_zero=*/true));
   match.mutable_optional()->set_value(value);
   return match;
 }
 
 absl::StatusOr<p4::v1::FieldMatch> FuzzFieldMatch(
-    absl::BitGen* gen, const SwitchState& switch_state,
+    absl::BitGen* gen, const FuzzerConfig& config,
+    const SwitchState& switch_state,
     const pdpi::IrMatchFieldDefinition& ir_match_field_info) {
   const p4::config::v1::MatchField& match_field_info =
       ir_match_field_info.match_field();
@@ -490,20 +519,21 @@ absl::StatusOr<p4::v1::FieldMatch> FuzzFieldMatch(
   p4::v1::FieldMatch match;
   switch (match_field_info.match_type()) {
     case p4::config::v1::MatchField::TERNARY: {
-      match = FuzzTernaryFieldMatch(gen, match_field_info.bitwidth());
+      match = FuzzTernaryFieldMatch(gen, config, match_field_info.bitwidth());
       break;
     }
     case p4::config::v1::MatchField::LPM: {
-      match = FuzzLpmFieldMatch(gen, switch_state, match_field_info.bitwidth());
+      match = FuzzLpmFieldMatch(gen, config, switch_state,
+                                match_field_info.bitwidth());
       break;
     }
     case p4::config::v1::MatchField::EXACT: {
-      ASSIGN_OR_RETURN(
-          match, FuzzExactFieldMatch(gen, switch_state, ir_match_field_info));
+      ASSIGN_OR_RETURN(match, FuzzExactFieldMatch(gen, config, switch_state,
+                                                  ir_match_field_info));
       break;
     }
     case p4::config::v1::MatchField::OPTIONAL: {
-      ASSIGN_OR_RETURN(match, FuzzOptionalFieldMatch(gen, switch_state,
+      ASSIGN_OR_RETURN(match, FuzzOptionalFieldMatch(gen, config, switch_state,
                                                      ir_match_field_info));
       break;
     }
@@ -515,7 +545,8 @@ absl::StatusOr<p4::v1::FieldMatch> FuzzFieldMatch(
 }
 
 absl::StatusOr<p4::v1::Action> FuzzAction(
-    absl::BitGen* gen, const SwitchState& switch_state,
+    absl::BitGen* gen, const FuzzerConfig& config,
+    const SwitchState& switch_state,
     const pdpi::IrActionDefinition& ir_action_info) {
   p4::v1::Action action;
   action.set_action_id(ir_action_info.preamble().id());
@@ -523,10 +554,11 @@ absl::StatusOr<p4::v1::Action> FuzzAction(
   for (auto& [id, ir_param] : ir_action_info.params_by_id()) {
     p4::v1::Action::Param* param = action.add_params();
     param->set_param_id(id);
-    ASSIGN_OR_RETURN(std::string value,
-                     FuzzValue(gen, switch_state, ir_param.param().type_name(),
-                               ir_param.param().bitwidth(),
-                               ir_param.references(), /*non_zero=*/false));
+    ASSIGN_OR_RETURN(
+        std::string value,
+        FuzzValue(gen, config, switch_state, ir_param.param().type_name(),
+                  ir_param.param().bitwidth(), ir_param.references(),
+                  /*non_zero=*/false));
     param->set_value(value);
   }
 
@@ -534,7 +566,7 @@ absl::StatusOr<p4::v1::Action> FuzzAction(
 }
 
 absl::StatusOr<p4::v1::ActionProfileActionSet> FuzzActionProfileActionSet(
-    absl::BitGen* gen, const pdpi::IrP4Info& ir_p4_info,
+    absl::BitGen* gen, const FuzzerConfig& config,
     const SwitchState& switch_state,
     const pdpi::IrTableDefinition& ir_table_info) {
   p4::v1::ActionProfileActionSet action_set;
@@ -545,14 +577,13 @@ absl::StatusOr<p4::v1::ActionProfileActionSet> FuzzActionProfileActionSet(
   for (auto i = 0; i < number_of_actions; i++) {
     ASSIGN_OR_RETURN(
         *action_set.add_action_profile_actions(),
-        FuzzActionProfileAction(gen, ir_p4_info, switch_state, ir_table_info));
+        FuzzActionProfileAction(gen, config, switch_state, ir_table_info));
   }
 
   return action_set;
 }
 
-void EnforceTableConstraints(absl::BitGen* gen,
-                             const pdpi::IrP4Info& ir_p4_info,
+void EnforceTableConstraints(absl::BitGen* gen, const FuzzerConfig& config,
                              const SwitchState& switch_state,
                              const pdpi::IrTableDefinition& ir_table_info,
                              TableEntry* table_entry) {
@@ -560,7 +591,7 @@ void EnforceTableConstraints(absl::BitGen* gen,
 }
 
 absl::StatusOr<TableEntry> FuzzValidTableEntry(
-    absl::BitGen* gen, const pdpi::IrP4Info& ir_p4_info,
+    absl::BitGen* gen, const FuzzerConfig& config,
     const SwitchState& switch_state,
     const pdpi::IrTableDefinition& ir_table_info) {
   TableEntry table_entry;
@@ -596,7 +627,7 @@ absl::StatusOr<TableEntry> FuzzValidTableEntry(
       continue;
     }
 
-    auto match = FuzzFieldMatch(gen, switch_state, match_field_info);
+    auto match = FuzzFieldMatch(gen, config, switch_state, match_field_info);
     if (match.ok()) {
       *table_entry.add_match() = *match;
     } else if (can_have_wildcard) {
@@ -607,7 +638,7 @@ absl::StatusOr<TableEntry> FuzzValidTableEntry(
     }
   }
 
-  EnforceTableConstraints(gen, ir_p4_info, switch_state, ir_table_info,
+  EnforceTableConstraints(gen, config, switch_state, ir_table_info,
                           &table_entry);
 
   // Generate the action.
@@ -615,13 +646,13 @@ absl::StatusOr<TableEntry> FuzzValidTableEntry(
     // Normal table, so choose a non-default action.
     ASSIGN_OR_RETURN(
         *table_entry.mutable_action()->mutable_action(),
-        FuzzAction(gen, switch_state,
-                   ChooseNonDefaultActionRef(gen, ir_table_info).action()));
+        FuzzAction(
+            gen, config, switch_state,
+            ChooseNonDefaultActionRef(gen, config, ir_table_info).action()));
   } else {
     ASSIGN_OR_RETURN(
         *table_entry.mutable_action()->mutable_action_profile_action_set(),
-        FuzzActionProfileActionSet(gen, ir_p4_info, switch_state,
-                                   ir_table_info));
+        FuzzActionProfileActionSet(gen, config, switch_state, ir_table_info));
   }
 
   // Set cookie and priority.
@@ -636,27 +667,25 @@ absl::StatusOr<TableEntry> FuzzValidTableEntry(
 }
 
 absl::StatusOr<TableEntry> FuzzValidTableEntry(absl::BitGen* gen,
-                                               const pdpi::IrP4Info& ir_p4_info,
+                                               const FuzzerConfig& config,
                                                const SwitchState& switch_state,
                                                const uint32_t table_id) {
   TableEntry entry;
   return FuzzValidTableEntry(
-      gen, ir_p4_info, switch_state,
-      gutil::FindOrDie(ir_p4_info.tables_by_id(), table_id));
+      gen, config, switch_state,
+      gutil::FindOrDie(config.info.tables_by_id(), table_id));
 }
 
 std::vector<AnnotatedTableEntry> ValidForwardingEntries(
-    absl::BitGen* gen, const pdpi::IrP4Info& ir_p4_info,
-    const int num_entries) {
+    absl::BitGen* gen, const FuzzerConfig& config, const int num_entries) {
   std::vector<AnnotatedTableEntry> entries;
-  SwitchState state(ir_p4_info);
+  SwitchState state(config.info);
 
   for (int i = 0; i < num_entries; ++i) {
     absl::StatusOr<p4::v1::TableEntry> entry;
 
     do {
-      entry = FuzzValidTableEntry(gen, ir_p4_info, state,
-                                  FuzzTableId(gen, ir_p4_info));
+      entry = FuzzValidTableEntry(gen, config, state, FuzzTableId(gen, config));
     } while (entry.ok() && state.GetTableEntry(*entry) != absl::nullopt);
     if (!entry.ok()) {
       // Failed to generate an entry, try again.
@@ -671,19 +700,19 @@ std::vector<AnnotatedTableEntry> ValidForwardingEntries(
     CHECK(state.ApplyUpdate(update).ok());  // Crash okay
 
     entries.push_back(
-        GetAnnotatedTableEntry(ir_p4_info, *entry, /*mutations = */ {}));
+        GetAnnotatedTableEntry(config.info, *entry, /*mutations = */ {}));
   }
 
   return entries;
 }
 
 AnnotatedWriteRequest FuzzWriteRequest(absl::BitGen* gen,
-                                       const pdpi::IrP4Info& ir_p4_info,
+                                       const FuzzerConfig& config,
                                        const SwitchState& switch_state) {
   AnnotatedWriteRequest request;
 
   while (absl::Bernoulli(*gen, kAddUpdateProbability)) {
-    *request.add_updates() = FuzzUpdate(gen, ir_p4_info, switch_state);
+    *request.add_updates() = FuzzUpdate(gen, config, switch_state);
     // TODO: For now, we only send requests of size <= 1. This makes
     // debugging easier.
     break;

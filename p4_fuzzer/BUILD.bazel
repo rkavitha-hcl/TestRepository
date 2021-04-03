@@ -121,6 +121,16 @@ cc_test(
 )
 
 cc_library(
+    name = "fuzzer_config",
+    hdrs = [
+        "fuzzer_config.h",
+    ],
+    deps = [
+        "//p4_pdpi:ir_cc_proto",
+    ],
+)
+
+cc_library(
     name = "mutation_and_fuzz_util",
     srcs = [
         "fuzz_util.cc",
@@ -133,9 +143,19 @@ cc_library(
     deps = [
         ":annotation_util",
         ":fuzzer_cc_proto",
+        ":fuzzer_config",
         ":switch_state",
+        "//gutil:collections",
+        "//gutil:status",
+        "//p4_pdpi:ir",
+        "//p4_pdpi:ir_cc_proto",
+        "//p4_pdpi:pd",
+        "//p4_pdpi/netaddr:ipv6_address",
+        "//p4_pdpi/utils:ir",
         "@com_github_google_glog//:glog",
-        "@com_google_protobuf//:protobuf_lite",
+        "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_github_p4lang_p4runtime//:p4types_cc_proto",
         "@com_google_absl//absl/algorithm:container",
         "@com_google_absl//absl/base",
         "@com_google_absl//absl/base:endian",
@@ -143,17 +163,7 @@ cc_library(
         "@com_google_absl//absl/random:distributions",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
-        # TODO: This target is not visible in google3.
-        # "//third_party/libprotobuf_mutator:libprotobuf_mutator_internals",
-        "@com_github_p4lang_p4runtime//:p4info_cc_proto",
-        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
-        "@com_github_p4lang_p4runtime//:p4types_cc_proto",
-        "//gutil:collections",
-        "//gutil:status",
-        "//p4_pdpi:ir",
-        "//p4_pdpi:ir_cc_proto",
-        "//p4_pdpi:pd",
-        "//p4_pdpi/utils:ir",
+        "@com_google_protobuf//:protobuf_lite",
     ],
 )
 
@@ -225,23 +235,6 @@ cc_test(
         "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "fuzzer_showcase_test",
-    srcs = [
-        "fuzzer_showcase_test.cc",
-    ],
-    deps = [
-        ":annotation_util",
-        ":fuzzer_cc_proto",
-        ":mutation_and_fuzz_util",
-        "//gutil:proto",
-        "//p4_pdpi:ir",
-        "//p4_pdpi:pd",
-        "//sai_p4/instantiations/google:sai_p4info_cc",
         "@com_google_googletest//:gtest_main",
     ],
 )
