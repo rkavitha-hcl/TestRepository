@@ -37,6 +37,7 @@
 #include "p4rt_app/p4runtime/ir_translation.h"
 #include "p4rt_app/p4runtime/p4info_verification.h"
 #include "p4rt_app/sonic/app_db_acl_def_table_manager.h"
+#include "p4rt_app/sonic/hashing.h"
 #include "p4rt_app/sonic/packetio_port.h"
 #include "p4rt_app/sonic/response_handler.h"
 #include "p4rt_app/utils/status_utility.h"
@@ -205,6 +206,10 @@ P4RuntimeImpl::P4RuntimeImpl(
     std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_p4rt,
     std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_vrf,
     std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_vrf,
+    std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_hash,
+    std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_hash,
+    std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_switch,
+    std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_switch,
     std::unique_ptr<sonic::PacketIoInterface> packetio_impl, bool use_genetlink)
     : app_db_client_(std::move(app_db_client)),
       state_db_client_(std::move(state_db_client)),
@@ -212,6 +217,10 @@ P4RuntimeImpl::P4RuntimeImpl(
       app_db_notifier_p4rt_(std::move(app_db_notifier_p4rt)),
       app_db_table_vrf_(std::move(app_db_table_vrf)),
       app_db_notifier_vrf_(std::move(app_db_notifier_vrf)),
+      app_db_table_hash_(std::move(app_db_table_hash)),
+      app_db_notifier_hash_(std::move(app_db_notifier_hash)),
+      app_db_table_switch_(std::move(app_db_table_switch)),
+      app_db_notifier_switch_(std::move(app_db_notifier_switch)),
       packetio_impl_(std::move(packetio_impl)) {
   controller_manager_ = absl::make_unique<SdnControllerManager>();
 
@@ -626,6 +635,16 @@ absl::Status P4RuntimeImpl::ApplyForwardingPipelineConfig(
           ir_write_response));
     }
   }
+
+  // Program hash table fields used for ECMP hashing.
+  ASSIGN_OR_RETURN(auto hash_fields,
+                   sonic::ProgramHashFieldTable(
+                       ir_p4info, *app_db_table_hash_, *app_db_notifier_hash_,
+                       *app_db_client_, *state_db_client_));
+  // Program hash algorithm and related fields for ECMP hashing.
+  RETURN_IF_ERROR(sonic::ProgramSwitchTable(
+      ir_p4info, hash_fields, *app_db_table_switch_, *app_db_notifier_switch_,
+      *app_db_client_, *state_db_client_));
   return absl::OkStatus();
 }
 

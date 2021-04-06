@@ -170,3 +170,19 @@ cc_test(
         "@com_google_protobuf//:protobuf",
     ],
 )
+
+cc_test(
+    name = "hashing_test",
+    srcs = ["hashing_test.cc"],
+    tags = ["exclusive"],
+    deps = [
+        "//gutil:status_matchers",
+        "//p4_pdpi:connection_management",
+        "//p4_pdpi:entity_management",
+        "//p4rt_app/sonic:hashing",
+        "//p4rt_app/tests/lib:p4runtime_grpc_service",
+        "//sai_p4/instantiations/google:sai_p4info_cc",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_protobuf//:protobuf",
+    ],
+)

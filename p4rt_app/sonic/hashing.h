@@ -5,6 +5,9 @@
 
 #include "absl/status/status.h"
 #include "p4_pdpi/ir.h"
+#include "swss/consumernotifierinterface.h"
+#include "swss/dbconnectorinterface.h"
+#include "swss/producerstatetableinterface.h"
 #include "swss/table.h"
 
 namespace p4rt_app {
@@ -15,7 +18,12 @@ struct EcmpHashEntry {
   std::vector<swss::FieldValueTuple> hash_value;
 };
 
-// Generate the APP_DB format for hash field entries to be written to
+// Returns true for Ipv4 hash key.
+bool IsIpv4HashKey(absl::string_view key);
+// Returns true for Ipv6 hash key.
+bool IsIpv6HashKey(absl::string_view key);
+
+// Generates the APP_DB format for hash field entries to be written to
 // HASH_TABLE.
 // sai_native_hash_field annotations.
 // @sai_ecmp_hash(SAI_SWITCH_ATTR_ECMP_HASH_IPV4)
@@ -31,7 +39,7 @@ struct EcmpHashEntry {
 absl::StatusOr<std::vector<EcmpHashEntry>> GenerateAppDbHashFieldEntries(
     const pdpi::IrP4Info& ir_p4info);
 
-// Generate the APP_DB format for hash value entries to be written to
+// Generates the APP_DB format for hash value entries to be written to
 // SWITCH_TABLE.
 // “switch”: {
 //    “ecmp_hash_algorithm”: “crc32_lo”,  # SAI_HASH_ALGORITHM_CRC32_LO
@@ -40,6 +48,26 @@ absl::StatusOr<std::vector<EcmpHashEntry>> GenerateAppDbHashFieldEntries(
 // }
 absl::StatusOr<std::vector<swss::FieldValueTuple>>
 GenerateAppDbHashValueEntries(const pdpi::IrP4Info& ir_p4info);
+
+// Programs the APP_DB entries (HASH_TABLE) that specifies which fields are
+// used for ECMP hashing (IPv4, IPv6), this creates the hash objects to
+// be used in the SWITCH_TABLE later.
+absl::StatusOr<std::vector<std::string>> ProgramHashFieldTable(
+    const pdpi::IrP4Info& ir_p4info,
+    swss::ProducerStateTableInterface& app_db_table_hash,
+    swss::ConsumerNotifierInterface& app_db_notifier_hash,
+    swss::DBConnectorInterface& app_db_client,
+    swss::DBConnectorInterface& state_db_client);
+
+// Programs the APP_DB enries (SWITCH_TABLE) with all ecmp hashing related
+// fields in the switch table, like algorithm, seed, offset and the hash field
+// object.
+absl::Status ProgramSwitchTable(
+    const pdpi::IrP4Info& ir_p4info, std::vector<std::string> hash_fields,
+    swss::ProducerStateTableInterface& app_db_table_switch,
+    swss::ConsumerNotifierInterface& app_db_notifier_switch,
+    swss::DBConnectorInterface& app_db_client,
+    swss::DBConnectorInterface& state_db_client);
 
 }  // namespace sonic
 }  // namespace p4rt_app

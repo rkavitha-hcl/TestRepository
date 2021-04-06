@@ -150,6 +150,18 @@ int main(int argc, char** argv) {
   auto notification_channel_vrf = absl::make_unique<swss::ConsumerNotifier>(
       "APPL_DB_VRF_TABLE_RESPONSE_CHANNEL", sonic_app_db.get());
 
+  // Create interfaces to interact with the AppDb HASH table.
+  auto app_db_table_hash = absl::make_unique<swss::ProducerStateTable>(
+      sonic_app_db.get(), "HASH_TABLE");
+  auto notification_channel_hash = absl::make_unique<swss::ConsumerNotifier>(
+      "APPL_DB_HASH_TABLE_RESPONSE_CHANNEL", sonic_app_db.get());
+
+  // Create interfaces to interact with the AppDb SWITCH table.
+  auto app_db_table_switch = absl::make_unique<swss::ProducerStateTable>(
+      sonic_app_db.get(), "SWITCH_TABLE");
+  auto notification_channel_switch = absl::make_unique<swss::ConsumerNotifier>(
+      "APPL_DB_SWITCH_TABLE_RESPONSE_CHANNEL", sonic_app_db.get());
+
   // Wait for PortInitDone to be done.
   p4rt_app::sonic::WaitForPortInitDone(*sonic_app_db);
 
@@ -166,6 +178,8 @@ int main(int argc, char** argv) {
       std::move(sonic_app_db), std::move(sonic_state_db),
       std::move(app_db_table_p4rt), std::move(notification_channel_p4rt),
       std::move(app_db_table_vrf), std::move(notification_channel_vrf),
+      std::move(app_db_table_hash), std::move(notification_channel_hash),
+      std::move(app_db_table_switch), std::move(notification_channel_switch),
       std::move(*packetio_impl_or), FLAGS_use_genetlink);
 
   // Start a P4 runtime server

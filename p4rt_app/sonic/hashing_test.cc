@@ -1,3 +1,17 @@
+// Copyright 2021 Google LLC
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 #include "p4rt_app/sonic/hashing.h"
 
 #include "gmock/gmock.h"
@@ -42,11 +56,11 @@ TEST(HashingTest, GenerateAppDbHashFieldEntriesOk) {
   pdpi::IrP4Info ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock);
   std::vector<EcmpHashEntry> expected_hash_fields = {
       {"compute_ecmp_hash_ipv6",
-       {{"hash_fields_list",
+       {{"hash_field_list",
          "[\"src_ipv6\",\"dst_ipv6\",\"l4_src_port\",\"l4_dst_port\"]"}}},
       {"compute_ecmp_hash_ipv4",
-       {{"hash_fields_list",
-         "[\"src_ipv4\",\"dst_ipv4\",\"l4_src_port\",\"l4_dst_port\"]"}}}};
+       {{"hash_field_list",
+         "[\"src_ip\",\"dst_ip\",\"l4_src_port\",\"l4_dst_port\"]"}}}};
   ASSERT_OK_AND_ASSIGN(auto actual_hash_fields,
                        GenerateAppDbHashFieldEntries(ir_p4_info));
   EXPECT_THAT(actual_hash_fields,
@@ -125,9 +139,8 @@ TEST(HashingTest, GenerateAppDbHashValueEntriesOk) {
   const pdpi::IrP4Info ir_p4_info =
       sai::GetIrP4Info(sai::SwitchRole::kMiddleblock);
   std::vector<swss::FieldValueTuple> expected_hash_value = {
-      {"ecmp_hash_algorithm", ""},
-      {"ecmp_hash_seed", ""},
-      {"ecmp_hash_offset", ""}};
+      {"ecmp_hash_algorithm", ""}, {"ecmp_hash_seed", ""},
+      /*{"ecmp_hash_offset", ""}*/};
   ASSERT_OK_AND_ASSIGN(auto actual_hash_value,
                        GenerateAppDbHashValueEntries(ir_p4_info));
   EXPECT_THAT(actual_hash_value, UnorderedPointwise(HashValuesAreEqual(false),
@@ -152,9 +165,8 @@ TEST(HashingTest, GenerateAppDbHashValueEntriesWithFieldsOk) {
            })pb",
       &ir_p4_info));
   std::vector<swss::FieldValueTuple> expected_hash_value = {
-      {"ecmp_hash_algorithm", "crc32_lo"},
-      {"ecmp_hash_seed", "1"},
-      {"ecmp_hash_offset", "2"}};
+      {"ecmp_hash_algorithm", "crc_32lo"}, {"ecmp_hash_seed", "1"},
+      /*{"ecmp_hash_offset", "2"}*/};
   ASSERT_OK_AND_ASSIGN(auto actual_hash_value,
                        GenerateAppDbHashValueEntries(ir_p4_info));
   EXPECT_THAT(actual_hash_value, UnorderedPointwise(HashValuesAreEqual(true),
@@ -246,7 +258,8 @@ TEST(HashingTest, GenerateAppDbHashValueEntriesDuplicateSeed) {
                        testing::HasSubstr("Duplicate hash algorithm seed")));
 }
 
-TEST(HashingTest, GenerateAppDbHashValueEntriesDuplicateOffset) {
+// TODO: Enable after OrchAgent support.
+TEST(HashingTest, DISABLED_GenerateAppDbHashValueEntriesDuplicateOffset) {
   pdpi::IrP4Info ir_p4_info;
   EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
       R"pb(actions_by_name {

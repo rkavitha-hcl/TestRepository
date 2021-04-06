@@ -64,6 +64,7 @@ cc_library(
         "//p4_pdpi/utils:ir",
         "//p4rt_app/sonic:app_db_acl_def_table_manager",
         "//p4rt_app/sonic:app_db_manager",
+        "//p4rt_app/sonic:hashing",
         "//p4rt_app/sonic:packetio_interface",
         "//p4rt_app/sonic:packetio_port",
         "//p4rt_app/sonic:response_handler",

@@ -304,6 +304,7 @@ cc_library(
     srcs = ["hashing.cc"],
     hdrs = ["hashing.h"],
     deps = [
+        ":response_handler",
         "//gutil:collections",
         "//gutil:status",
         "//p4_pdpi:ir",
@@ -324,7 +325,6 @@ cc_test(
         ":hashing",
         "//gutil:status_matchers",
         "//sai_p4/instantiations/google:sai_p4info_cc",
-        "@com_github_google_glog//:glog",
         "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf",
     ],

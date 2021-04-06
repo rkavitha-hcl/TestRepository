@@ -34,12 +34,16 @@ P4RuntimeGrpcService::P4RuntimeGrpcService() {
   const std::string kP4rtTableName = "P4RT";
   const std::string kPortTableName = "PORT_TABLE";
   const std::string kVrfTableName = "VRF_TABLE";
+  const std::string kHashTableName = "HASH_TABLE";
+  const std::string kSwitchTableName = "SWITCH_TABLE";
 
   // Create AppDb interfaces used by the P4RT App.
   auto fake_app_db_client = absl::make_unique<swss::FakeDBConnector>();
   fake_app_db_client->AddAppDbTable(kP4rtTableName, &fake_p4rt_table_);
   fake_app_db_client->AddAppDbTable(kPortTableName, &fake_port_table_);
   fake_app_db_client->AddAppDbTable(kVrfTableName, &fake_vrf_table_);
+  fake_app_db_client->AddAppDbTable(kHashTableName, &fake_hash_table_);
+  fake_app_db_client->AddAppDbTable(kSwitchTableName, &fake_switch_table_);
 
   // P4RT table.
   auto fake_app_db_table_p4rt = absl::make_unique<swss::FakeProducerStateTable>(
@@ -52,6 +56,19 @@ P4RuntimeGrpcService::P4RuntimeGrpcService() {
       kVrfTableName, &fake_vrf_table_);
   auto fake_notify_vrf =
       absl::make_unique<swss::FakeConsumerNotifier>(&fake_vrf_table_);
+
+  // HASH_TABLE table.
+  auto fake_app_db_table_hash = absl::make_unique<swss::FakeProducerStateTable>(
+      kHashTableName, &fake_hash_table_);
+  auto fake_notify_hash =
+      absl::make_unique<swss::FakeConsumerNotifier>(&fake_hash_table_);
+
+  // SWITCH_TABLE table.
+  auto fake_app_db_table_switch =
+      absl::make_unique<swss::FakeProducerStateTable>(kSwitchTableName,
+                                                      &fake_switch_table_);
+  auto fake_notify_switch =
+      absl::make_unique<swss::FakeConsumerNotifier>(&fake_switch_table_);
 
   // Create StateDb interfaces used by the P4RT App.
   auto fake_state_db_client = absl::make_unique<swss::FakeDBConnector>();
@@ -66,6 +83,8 @@ P4RuntimeGrpcService::P4RuntimeGrpcService() {
       std::move(fake_app_db_client), std::move(fake_state_db_client),
       std::move(fake_app_db_table_p4rt), std::move(fake_notify_p4rt),
       std::move(fake_app_db_table_vrf), std::move(fake_notify_vrf),
+      std::move(fake_app_db_table_hash), std::move(fake_notify_hash),
+      std::move(fake_app_db_table_switch), std::move(fake_notify_switch),
       std::move(fake_packetio_interface));
 
   // Component tests will use an insecure connection for the service.
@@ -100,6 +119,14 @@ swss::FakeSonicDbTable& P4RuntimeGrpcService::GetPortAppDbTable() {
 
 swss::FakeSonicDbTable& P4RuntimeGrpcService::GetVrfAppDbTable() {
   return fake_vrf_table_;
+}
+
+swss::FakeSonicDbTable& P4RuntimeGrpcService::GetHashAppDbTable() {
+  return fake_hash_table_;
+}
+
+swss::FakeSonicDbTable& P4RuntimeGrpcService::GetSwitchAppDbTable() {
+  return fake_switch_table_;
 }
 
 sonic::FakePacketIoInterface& P4RuntimeGrpcService::GetFakePacketIoInterface() {

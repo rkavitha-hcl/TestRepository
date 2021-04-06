@@ -7,6 +7,7 @@
 #include "gutil/collections.h"
 #include "gutil/status.h"
 #include "p4_pdpi/utils/annotation_parser.h"
+#include "p4rt_app/sonic/response_handler.h"
 #include "swss/json.h"
 #include "swss/json.hpp"
 
@@ -32,8 +33,8 @@ using ::gutil::InvalidArgumentErrorBuilder;
 absl::StatusOr<nlohmann::json> GenerateJsonHashFieldEntries(
     const std::vector<std::vector<std::string>>& parse_results) {
   const absl::flat_hash_map<std::string, std::string> hash_fields_map = {
-      {"SAI_NATIVE_HASH_FIELD_SRC_IPV4", "src_ipv4"},
-      {"SAI_NATIVE_HASH_FIELD_DST_IPV4", "dst_ipv4"},
+      {"SAI_NATIVE_HASH_FIELD_SRC_IPV4", "src_ip"},
+      {"SAI_NATIVE_HASH_FIELD_DST_IPV4", "dst_ip"},
       {"SAI_NATIVE_HASH_FIELD_SRC_IPV6", "src_ipv6"},
       {"SAI_NATIVE_HASH_FIELD_DST_IPV6", "dst_ipv6"},
       {"SAI_NATIVE_HASH_FIELD_L4_SRC_PORT", "l4_src_port"},
@@ -59,6 +60,14 @@ absl::StatusOr<nlohmann::json> GenerateJsonHashFieldEntries(
 
 }  // namespace
 
+bool IsIpv4HashKey(absl::string_view key) {
+  return absl::StrContains(key, "ipv4");
+}
+
+bool IsIpv6HashKey(absl::string_view key) {
+  return absl::StrContains(key, "ipv6");
+}
+
 // Generate the APP_DB format for hash field entries to be written to
 // HASH_TABLE.
 absl::StatusOr<std::vector<EcmpHashEntry>> GenerateAppDbHashFieldEntries(
@@ -76,7 +85,7 @@ absl::StatusOr<std::vector<EcmpHashEntry>> GenerateAppDbHashFieldEntries(
     } else {
       hash_entries.push_back(EcmpHashEntry(
           {actions.first, std::vector<swss::FieldValueTuple>(
-                              {{"hash_fields_list", (*json).dump()}})}));
+                              {{"hash_field_list", (*json).dump()}})}));
     }
   }
   if (hash_entries.empty()) {
@@ -92,7 +101,7 @@ GenerateAppDbHashValueEntries(const pdpi::IrP4Info& ir_p4info) {
   static constexpr char kEcmpHashSeed[] = "ecmp_hash_seed";
   static constexpr char kEcmpHashOffset[] = "ecmp_hash_offset";
   const absl::flat_hash_map<std::string, std::string> hash_alg_map = {
-      {"SAI_HASH_ALGORITHM_CRC_32LO", "crc32_lo"},
+      {"SAI_HASH_ALGORITHM_CRC_32LO", "crc_32lo"},
   };
 
   absl::flat_hash_set<std::string> hash_values_set;
@@ -130,8 +139,9 @@ GenerateAppDbHashValueEntries(const pdpi::IrP4Info& ir_p4info) {
         RETURN_IF_ERROR(gutil::InsertIfUnique(
             hash_values_set, std::string(kEcmpHashOffset),
             absl::StrCat("Duplicate hash algorithm offset specified.")));
-        hash_value_entries.push_back(
-            swss::FieldValueTuple({kEcmpHashOffset, hash_value.body}));
+        // TODO: Enable after OrchAGent support.
+        /*hash_value_entries.push_back(
+            swss::FieldValueTuple({kEcmpHashOffset, hash_value.body}));*/
       } else {
         return InvalidArgumentErrorBuilder()
                << "Not a valid hash value label: " << hash_value.label;
@@ -144,6 +154,96 @@ GenerateAppDbHashValueEntries(const pdpi::IrP4Info& ir_p4info) {
   }
 
   return hash_value_entries;
+}
+
+absl::StatusOr<std::vector<std::string>> ProgramHashFieldTable(
+    const pdpi::IrP4Info& ir_p4info,
+    swss::ProducerStateTableInterface& app_db_table_hash,
+    swss::ConsumerNotifierInterface& app_db_notifier_hash,
+    swss::DBConnectorInterface& app_db_client,
+    swss::DBConnectorInterface& state_db_client) {
+  // Get the key, value pairs of Hash field APP_DB entries.
+  ASSIGN_OR_RETURN(const auto entries,
+                   sonic::GenerateAppDbHashFieldEntries(ir_p4info));
+  std::vector<std::string> keys;
+  // Write to APP_DB.
+  for (const auto& entry : entries) {
+    // TODO: Enable after OrchAgent support.
+    if (IsIpv6HashKey(entry.hash_key)) continue;
+    app_db_table_hash.set(entry.hash_key, entry.hash_value);
+    keys.push_back(
+        absl::StrCat(app_db_table_hash.get_table_name(), ":", entry.hash_key));
+  }
+
+  pdpi::IrWriteResponse ir_write_response;
+  RETURN_IF_ERROR(sonic::GetAndProcessResponseNotification(
+      keys, keys.size(), app_db_notifier_hash, app_db_client, state_db_client,
+      ir_write_response));
+  // Pickup the hash field keys that were written(and ack'ed) successfully by
+  // OrchAgent.
+  std::vector<std::string> hash_field_keys;
+  int i = 0;
+  for (const auto& response : ir_write_response.statuses()) {
+    if (response.code() == google::rpc::Code::OK) {
+      // Add to valid set of hash field keys (strip the table name prefix).
+      hash_field_keys.push_back(keys.at(i).substr(keys.at(i).find(':') + 1));
+    } else {
+      // TODO: Raise critical error ?
+      return gutil::InternalErrorBuilder()
+             << "Got an error from Orchagent for hash field: " << keys.at(i)
+             << "error: " << response.message();
+    }
+    i++;
+  }
+  return hash_field_keys;
+}
+
+absl::Status ProgramSwitchTable(
+    const pdpi::IrP4Info& ir_p4info, std::vector<std::string> hash_fields,
+    swss::ProducerStateTableInterface& app_db_table_switch,
+    swss::ConsumerNotifierInterface& app_db_notifier_switch,
+    swss::DBConnectorInterface& app_db_client,
+    swss::DBConnectorInterface& state_db_client) {
+  static constexpr absl::string_view kSwitchTableEntryKey = "switch";
+  std::vector<swss::FieldValueTuple> switch_table_attrs;
+  // Get all the hash value related attributes like algorithm type, offset and
+  // seed value etc.
+  ASSIGN_OR_RETURN(switch_table_attrs,
+                   sonic::GenerateAppDbHashValueEntries(ir_p4info));
+
+  // Add the ecmp hash fields for Ipv4 & Ipv6.
+  for (const auto& hash_field_key : hash_fields) {
+    if (IsIpv4HashKey(hash_field_key)) {
+      switch_table_attrs.push_back(
+          swss::FieldValueTuple({"ecmp_hash_ipv4", hash_field_key}));
+    } else if (IsIpv6HashKey(hash_field_key)) {
+      switch_table_attrs.push_back(
+          swss::FieldValueTuple({"ecmp_hash_ipv6", hash_field_key}));
+    } else {
+      return InvalidArgumentErrorBuilder()
+             << "Invalid hash field key: " << hash_field_key;
+    }
+  }
+
+  // Write to switch table and process response.
+  std::vector<std::string> keys;
+  app_db_table_switch.set(/*key=*/std::string(kSwitchTableEntryKey),
+                          switch_table_attrs);
+  keys.push_back(absl::StrCat(app_db_table_switch.get_table_name(), ":",
+                              kSwitchTableEntryKey));
+  pdpi::IrWriteResponse ir_write_response;
+  RETURN_IF_ERROR(sonic::GetAndProcessResponseNotification(
+      keys, keys.size(), app_db_notifier_switch, app_db_client, state_db_client,
+      ir_write_response));
+  for (int i = 0; i < ir_write_response.statuses().size(); i++) {
+    if (ir_write_response.statuses(i).code() != google::rpc::Code::OK) {
+      // TODO: Raise critical error ?
+      return gutil::InternalErrorBuilder()
+             << "Got an error from Orchagent for SWITCH_TABLE: " << keys.at(i)
+             << "error: " << ir_write_response.statuses(i).message();
+    }
+  }
+  return absl::OkStatus();
 }
 
 }  // namespace sonic

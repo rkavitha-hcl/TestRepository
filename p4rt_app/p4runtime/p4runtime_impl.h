@@ -96,6 +96,10 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
       std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_p4rt,
       std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_vrf,
       std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_vrf,
+      std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_hash,
+      std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_hash,
+      std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_switch,
+      std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_switch,
       std::unique_ptr<sonic::PacketIoInterface> packetio_impl,
       bool use_genetlink = false);
   ~P4RuntimeImpl() override = default;
@@ -171,6 +175,18 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
   std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_vrf_
       ABSL_GUARDED_BY(server_state_lock_);
   std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_vrf_
+      ABSL_GUARDED_BY(server_state_lock_);
+
+  // A RedisDB interface to write entries into the HASH_TABLE AppDb table.
+  std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_hash_
+      ABSL_GUARDED_BY(server_state_lock_);
+  std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_hash_
+      ABSL_GUARDED_BY(server_state_lock_);
+
+  // A RedisDB interface to write entries into the SWITCH_TABLE AppDb table.
+  std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_switch_
+      ABSL_GUARDED_BY(server_state_lock_);
+  std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_switch_
       ABSL_GUARDED_BY(server_state_lock_);
 
   // Before using a VRF value in a P4 table the SONiC data plane needs to know
