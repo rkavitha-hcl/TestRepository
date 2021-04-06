@@ -12,7 +12,7 @@ constexpr int kEthernetHeaderBitwidth = 48 * 2 + 16;
 constexpr int kStandardIpv4HeaderBitwidth = 160;
 constexpr int kIpv6HeaderBitwidth = 320;
 constexpr int kUdpHeaderBitwidth = 64;
-constexpr int kTcpHeaderPrefixBitwidth = 32;
+constexpr int kStandardTcpHeaderBitwidth = 5 * 32;
 constexpr int kArpHeaderBitwidth = 28 * 8;
 constexpr int kIcmpHeaderBitwidth = 8 * 8;
 constexpr int kVlanHeaderBitwidth = 32;
@@ -50,6 +50,10 @@ constexpr int kUdpChecksumBitwidth = 16;
 
 // TCP constants.
 constexpr int kTcpPortBitwidth = 16;
+constexpr int kTcpSequenceNumberBitwidth = 32;
+constexpr int kTcpAcknowledgementNumberBitwidth = 32;
+constexpr int kTcpDataOffsetBitwidth = 4;
+constexpr int kTcpRestOfHeaderBitwidth = 60;
 
 // ARP constants.
 constexpr int kArpTypeBitwidth = 16;

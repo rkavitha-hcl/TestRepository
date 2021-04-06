@@ -102,9 +102,13 @@ TEST(PacketLib, TcpWithIpv4Header) {
   ipv4->set_checksum(IpChecksum(0xae88));
   ipv4->set_fragment_offset(IpFragmentOffset(0x0b00));
 
-  TcpHeaderPrefix* tcp = packet.add_headers()->mutable_tcp_header_prefix();
+  TcpHeader* tcp = packet.add_headers()->mutable_tcp_header();
   tcp->set_source_port(TcpPort(0x9005));
   tcp->set_destination_port(TcpPort(0x0017));
+  tcp->set_sequence_number(TcpSequenceNumber(12));
+  tcp->set_acknowledgement_number(TcpAcknowledgementNumber(55));
+  tcp->set_data_offset(TcpDataOffset(5));
+  tcp->set_rest_of_header(TcpRestOfHeader(0));
   ASSERT_OK(packetlib::SerializePacket(packet));
 }
 

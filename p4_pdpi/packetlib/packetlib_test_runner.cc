@@ -594,6 +594,35 @@ void RunProtoPacketTests() {
         payload: "Hi"
       )pb"));
 
+  RunProtoPacketTest("TCP header whose options field is not word-aligned",
+                     gutil::ParseProtoOrDie<Packet>(R"pb(
+                       headers {
+                         tcp_header {
+                           source_port: "0x0001"
+                           destination_port: "0x0002"
+                           sequence_number: "0x00000001"
+                           acknowledgement_number: "0x00000000"
+                           rest_of_header: "0x000000000000000"
+                           uninterpreted_options: "0x00"
+                         }
+                       }
+                     )pb"));
+
+  RunProtoPacketTest(
+      "TCP header whose options field is too long",
+      gutil::ParseProtoOrDie<Packet>(R"pb(
+        headers {
+          tcp_header {
+            source_port: "0x0001"
+            destination_port: "0x0002"
+            sequence_number: "0x00000001"
+            acknowledgement_number: "0x00000000"
+            rest_of_header: "0x000000000000000"
+            uninterpreted_options: "0x0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000"  # 11 * 32 bits
+          }
+        }
+      )pb"));
+
   RunProtoPacketTest("IPv4 without computed fields",
                      gutil::ParseProtoOrDie<Packet>(R"pb(
                        headers {

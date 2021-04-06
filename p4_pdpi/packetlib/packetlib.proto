@@ -53,7 +53,7 @@ message Header {
     Ipv4Header ipv4_header = 2;
     Ipv6Header ipv6_header = 3;
     UdpHeader udp_header = 4;
-    TcpHeaderPrefix tcp_header_prefix = 5;
+    TcpHeader tcp_header = 5;
     ArpHeader arp_header = 6;
     IcmpHeader icmp_header = 7;
     VlanHeader vlan_header = 8;
@@ -141,10 +141,15 @@ message UdpHeader {
   string checksum = 4;          // 16 bits (computed field)
 }
 
-// A (partial) TCP header.
-// We parse only the ports, and regard the rest of the header as "payload".
-// May be replaced by full TcpHeader when the need arises.
-message TcpHeaderPrefix {
-  string source_port = 1;       // 16 bits
-  string destination_port = 2;  // 16 bits
+// A TCP header.
+message TcpHeader {
+  string source_port = 1;             // 16 bits
+  string destination_port = 2;        // 16 bits
+  string sequence_number = 3;         // 32 bits
+  string acknowledgement_number = 4;  // 32 bits
+  string data_offset = 5;             // 4 bits (computed field)
+  string rest_of_header = 6;          // 60 bits.
+  // Empty string when data_offset = 5. Sequence of (data_offset - 5)
+  // uninterpreted 32-bit words in hex format when data_offset > 5.
+  string uninterpreted_options = 7;
 }

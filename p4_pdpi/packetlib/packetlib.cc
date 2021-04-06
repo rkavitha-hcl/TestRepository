@@ -71,7 +71,7 @@ absl::StatusOr<NextHeader> GetNextHeader(const VlanHeader& header) {
   return GetNextHeaderForEtherType("vlan_header", header.ethertype());
 }
 absl::StatusOr<NextHeader> GetNextHeader(const Ipv4Header& header) {
-  if (header.protocol() == "0x06") return Header::kTcpHeaderPrefix;
+  if (header.protocol() == "0x06") return Header::kTcpHeader;
   if (header.protocol() == "0x11") return Header::kUdpHeader;
   if (header.protocol() == "0x01") return Header::kIcmpHeader;
   return UnsupportedNextHeader{
@@ -79,7 +79,7 @@ absl::StatusOr<NextHeader> GetNextHeader(const Ipv4Header& header) {
                                 header.protocol())};
 }
 absl::StatusOr<NextHeader> GetNextHeader(const Ipv6Header& header) {
-  if (header.next_header() == "0x06") return Header::kTcpHeaderPrefix;
+  if (header.next_header() == "0x06") return Header::kTcpHeader;
   if (header.next_header() == "0x11") return Header::kUdpHeader;
   if (header.next_header() == "0x3a") return Header::kIcmpHeader;
   return UnsupportedNextHeader{
@@ -89,10 +89,8 @@ absl::StatusOr<NextHeader> GetNextHeader(const Ipv6Header& header) {
 absl::StatusOr<NextHeader> GetNextHeader(const UdpHeader& header) {
   return Header::HEADER_NOT_SET;
 }
-absl::StatusOr<NextHeader> GetNextHeader(const TcpHeaderPrefix& header) {
-  return UnsupportedNextHeader{.reason =
-                                   "TCP only partially supported -- parsing "
-                                   "prefix of header containing ports only"};
+absl::StatusOr<NextHeader> GetNextHeader(const TcpHeader& header) {
+  return Header::HEADER_NOT_SET;
 }
 absl::StatusOr<NextHeader> GetNextHeader(const ArpHeader& header) {
   return Header::HEADER_NOT_SET;
@@ -110,8 +108,8 @@ absl::StatusOr<NextHeader> GetNextHeader(const Header& header) {
       return GetNextHeader(header.ipv6_header());
     case Header::kUdpHeader:
       return GetNextHeader(header.udp_header());
-    case Header::kTcpHeaderPrefix:
-      return GetNextHeader(header.tcp_header_prefix());
+    case Header::kTcpHeader:
+      return GetNextHeader(header.tcp_header());
     case Header::kArpHeader:
       return GetNextHeader(header.arp_header());
     case Header::kIcmpHeader:
@@ -265,17 +263,41 @@ absl::StatusOr<UdpHeader> ParseUdpHeader(pdpi::BitString& data) {
 }
 
 // Parse a TCP header prefix, or return error if the packet is too small.
-absl::StatusOr<TcpHeaderPrefix> ParseTcpHeaderPrefix(pdpi::BitString& data) {
-  if (data.size() < kTcpHeaderPrefixBitwidth) {
+absl::StatusOr<TcpHeader> ParseTcpHeader(pdpi::BitString& data) {
+  if (data.size() < kStandardTcpHeaderBitwidth) {
     return gutil::InvalidArgumentErrorBuilder()
            << "Packet is too short to parse a TCP header next. Only "
            << data.size() << " bits left, need at least "
-           << kTcpHeaderPrefixBitwidth << ".";
+           << kStandardTcpHeaderBitwidth << ".";
   }
 
-  TcpHeaderPrefix header;
+  TcpHeader header;
   header.set_source_port(ParseBits(data, kTcpPortBitwidth));
   header.set_destination_port(ParseBits(data, kTcpPortBitwidth));
+  header.set_sequence_number(ParseBits(data, kTcpSequenceNumberBitwidth));
+  header.set_acknowledgement_number(
+      ParseBits(data, kTcpAcknowledgementNumberBitwidth));
+  header.set_data_offset(ParseBits(data, kTcpDataOffsetBitwidth));
+  header.set_rest_of_header(ParseBits(data, kTcpRestOfHeaderBitwidth));
+
+  // Parse suffix/options.
+  absl::StatusOr<int> offset = pdpi::HexStringToInt(header.data_offset());
+  if (!offset.ok()) {
+    LOG(DFATAL) << "SHOULD NEVER HAPPEN: data_offset badly formatted: "
+                << offset.status();
+    // Don't return error status so parsing is lossless despite error.
+    // The packet will be invalid, but this will be caught by validity checking.
+  } else if (*offset > 5) {
+    int options_bit_width = 32 * (*offset - 5);
+    // If the packet ends prematurely, we still parse what's there to maintain
+    // the property that parsing is lossless. The result is an invalid packet,
+    // since the IHL and the options length will be inconsistent, but this will
+    // be caught by the validity check.
+    if (data.size() < options_bit_width) {
+      options_bit_width = data.size();
+    }
+    header.set_uninterpreted_options(ParseBits(data, options_bit_width));
+  }
   return header;
 }
 
@@ -358,9 +380,8 @@ absl::StatusOr<Header> ParseHeader(Header::HeaderCase header_case,
       ASSIGN_OR_RETURN(*result.mutable_udp_header(), ParseUdpHeader(data));
       return result;
     }
-    case Header::kTcpHeaderPrefix: {
-      ASSIGN_OR_RETURN(*result.mutable_tcp_header_prefix(),
-                       ParseTcpHeaderPrefix(data));
+    case Header::kTcpHeader: {
+      ASSIGN_OR_RETURN(*result.mutable_tcp_header(), ParseTcpHeader(data));
       return result;
     }
     case Header::kArpHeader: {
@@ -504,12 +525,32 @@ bool Ipv4UninterpretedOptionsInvalidReasons(
   if (auto bytes = pdpi::HexStringToByteString(uninterpreted_options);
       !bytes.ok()) {
     output.push_back(absl::StrCat(
-        error_prefix, ": invalid format: ", bytes.status().message()));
+        error_prefix, "invalid format: ", bytes.status().message()));
     return true;
   } else if (int num_bits = bytes->size() * 8; num_bits % 32 != 0) {
-    output.push_back(absl::StrCat(error_prefix, ": found ", num_bits,
+    output.push_back(absl::StrCat(error_prefix, "found ", num_bits,
                                   " bits, but expected multiple of 32 bits"));
     return true;
+  }
+  return false;
+}
+
+bool TcpUninterpretedOptionsInvalidReasons(
+    absl::string_view uninterpreted_options, const std::string& error_prefix,
+    std::vector<std::string>& output) {
+  if (uninterpreted_options.empty()) return false;
+  if (auto bytes = pdpi::HexStringToByteString(uninterpreted_options);
+      !bytes.ok()) {
+    output.push_back(absl::StrCat(
+        error_prefix, "invalid format: ", bytes.status().message()));
+    return true;
+  } else if (int num_bits = bytes->size() * 8; num_bits % 32 != 0) {
+    output.push_back(absl::StrCat(error_prefix, "found ", num_bits,
+                                  " bits, but expected multiple of 32 bits"));
+    return true;
+  } else if (int num_words = num_bits / 32; num_words > 10) {
+    output.push_back(absl::StrCat(error_prefix, "found ", num_words,
+                                  " 32-bit words, but at most 10 are allowed"));
   }
   return false;
 }
@@ -532,7 +573,7 @@ void EthernetHeaderInvalidReasons(const EthernetHeader& header,
   if (auto size = PacketSizeInBytes(packet, header_index + 1); !size.ok()) {
     output.push_back(absl::StrCat(
         field_prefix,
-        ": couldn't compute payload size: ", size.status().ToString()));
+        "couldn't compute payload size: ", size.status().ToString()));
   } else if (auto ethertype = pdpi::HexStringToInt(header.ethertype());
              !ethertype_invalid && !ethertype.ok()) {
     LOG(DFATAL) << field_prefix << "ethertype invalid despite previous check: "
@@ -547,7 +588,7 @@ void EthernetHeaderInvalidReasons(const EthernetHeader& header,
 
   } else if (*ethertype > 1500 && *size < kMinNumBytesInEthernetPayload) {
     output.push_back(absl::StrCat(
-        field_prefix, ": expected at least ", kMinNumBytesInEthernetPayload,
+        field_prefix, "expected at least ", kMinNumBytesInEthernetPayload,
         " bytes of Ethernet payload, but got only ", *size));
   }
 }
@@ -588,7 +629,7 @@ void Ipv4HeaderInvalidReasons(const Ipv4Header& header,
                             output);
   bool options_invalid = Ipv4UninterpretedOptionsInvalidReasons(
       header.uninterpreted_options(),
-      absl::StrCat(field_prefix, "uninterpreted_options"), output);
+      absl::StrCat(field_prefix, "uninterpreted_options: "), output);
 
   // Check computed fields.
   if (!ihl_invalid) {
@@ -758,15 +799,50 @@ void UdpHeaderInvalidReasons(const UdpHeader& header,
   }
 }
 
-void TcpHeaderPrefixInvalidReasons(const TcpHeaderPrefix& header,
-                                   const std::string& field_prefix,
-                                   const Packet& packet, int header_index,
-                                   std::vector<std::string>& output) {
+void TcpHeaderInvalidReasons(const TcpHeader& header,
+                             const std::string& field_prefix,
+                             const Packet& packet, int header_index,
+                             std::vector<std::string>& output) {
   HexStringInvalidReasons<kUdpPortBitwidth>(
       header.source_port(), absl::StrCat(field_prefix, "source_port"), output);
   HexStringInvalidReasons<kUdpPortBitwidth>(
       header.destination_port(), absl::StrCat(field_prefix, "destination_port"),
       output);
+  HexStringInvalidReasons<kTcpSequenceNumberBitwidth>(
+      header.sequence_number(), absl::StrCat(field_prefix, "sequence_number"),
+      output);
+  HexStringInvalidReasons<kTcpAcknowledgementNumberBitwidth>(
+      header.acknowledgement_number(),
+      absl::StrCat(field_prefix, "acknowledgement_number"), output);
+  bool data_offset_invalid = HexStringInvalidReasons<kTcpDataOffsetBitwidth>(
+      header.data_offset(), absl::StrCat(field_prefix, "data_offset"), output);
+  HexStringInvalidReasons<kTcpRestOfHeaderBitwidth>(
+      header.rest_of_header(), absl::StrCat(field_prefix, "rest_of_header"),
+      output);
+  bool options_invalid = TcpUninterpretedOptionsInvalidReasons(
+      header.uninterpreted_options(),
+      absl::StrCat(field_prefix, "uninterpreted_options: "), output);
+
+  // Check computed fields.
+  if (!data_offset_invalid) {
+    if (options_invalid) {
+      output.push_back(absl::StrCat(field_prefix,
+                                    "data_offset: Correct value undefined "
+                                    "since uninterpreted_options is invalid."));
+    } else {
+      absl::string_view options = header.uninterpreted_options();
+      // 4 bits for every hex char after "0x"-prefix.
+      int options_bitwidth = options.empty() ? 0 : 4 * (options.size() - 2);
+      int num_32bit_words = 5 + options_bitwidth / 32;
+      std::string expected =
+          pdpi::BitsetToHexString<kIpIhlBitwidth>(num_32bit_words);
+      if (header.data_offset() != expected) {
+        output.push_back(absl::StrCat(field_prefix, "data_offset: Must be ",
+                                      expected, ", but was ",
+                                      header.data_offset(), " instead."));
+      }
+    }
+  }
 }
 
 void ArpHeaderInvalidReasons(const ArpHeader& header,
@@ -904,8 +980,8 @@ std::string HeaderCaseName(Header::HeaderCase header_case) {
       return "Ipv6Header";
     case Header::kUdpHeader:
       return "UdpHeader";
-    case Header::kTcpHeaderPrefix:
-      return "TcpHeaderPrefix";
+    case Header::kTcpHeader:
+      return "TcpHeader";
     case Header::kArpHeader:
       return "ArpHeader";
     case Header::kIcmpHeader:
@@ -941,62 +1017,62 @@ std::vector<std::string> PacketInvalidReasons(const Packet& packet) {
   int index = -1;
   for (const Header& header : packet.headers()) {
     index += 1;
-    const std::string header_prefix = absl::StrCat("headers[", index, "]: ");
-    const std::string field_prefix = absl::StrCat("headers[", index, "].");
+    const std::string error_prefix = absl::StrFormat(
+        "in %s headers[%d]: ", HeaderCaseName(header.header_case()), index);
 
     switch (header.header_case()) {
       case Header::kEthernetHeader:
-        EthernetHeaderInvalidReasons(header.ethernet_header(), field_prefix,
+        EthernetHeaderInvalidReasons(header.ethernet_header(), error_prefix,
                                      packet, index, result);
         break;
       case Header::kIpv4Header:
-        Ipv4HeaderInvalidReasons(header.ipv4_header(), field_prefix, packet,
+        Ipv4HeaderInvalidReasons(header.ipv4_header(), error_prefix, packet,
                                  index, result);
         break;
       case Header::kIpv6Header:
-        Ipv6HeaderInvalidReasons(header.ipv6_header(), field_prefix, packet,
+        Ipv6HeaderInvalidReasons(header.ipv6_header(), error_prefix, packet,
                                  index, result);
         break;
       case Header::kUdpHeader: {
-        UdpHeaderInvalidReasons(header.udp_header(), field_prefix, packet,
+        UdpHeaderInvalidReasons(header.udp_header(), error_prefix, packet,
                                 index, result);
         break;
       }
-      case Header::kTcpHeaderPrefix: {
-        TcpHeaderPrefixInvalidReasons(header.tcp_header_prefix(), field_prefix,
-                                      packet, index, result);
+      case Header::kTcpHeader: {
+        TcpHeaderInvalidReasons(header.tcp_header(), error_prefix, packet,
+                                index, result);
         break;
       }
       case Header::kArpHeader: {
-        ArpHeaderInvalidReasons(header.arp_header(), field_prefix, packet,
+        ArpHeaderInvalidReasons(header.arp_header(), error_prefix, packet,
                                 index, result);
         break;
       }
       case Header::kIcmpHeader: {
-        IcmpHeaderInvalidReasons(header.icmp_header(), field_prefix, packet,
+        IcmpHeaderInvalidReasons(header.icmp_header(), error_prefix, packet,
                                  index, result);
         break;
       }
       case Header::kVlanHeader: {
-        VlanHeaderInvalidReasons(header.vlan_header(), field_prefix, packet,
+        VlanHeaderInvalidReasons(header.vlan_header(), error_prefix, packet,
                                  index, result);
         break;
       }
       case Header::HEADER_NOT_SET:
-        result.push_back(absl::StrCat(header_prefix, "header uninitialized"));
+        result.push_back(absl::StrCat(error_prefix, "header uninitialized"));
         continue;  // skip expected_header_case check
     }
 
     // Check order of headers.
     if (expected_header_case == Header::HEADER_NOT_SET) {
       result.push_back(absl::StrCat(
-          header_prefix,
+          error_prefix,
           "expected no header (because the previous header demands either no "
           "header or an unsupported header), got ",
           HeaderCaseName(header.header_case())));
     } else if (header.header_case() != expected_header_case) {
       result.push_back(absl::StrCat(
-          header_prefix, "expected ", HeaderCaseName(expected_header_case),
+          error_prefix, "expected ", HeaderCaseName(expected_header_case),
           " (because the previous header demands it), got ",
           HeaderCaseName(header.header_case())));
     }
@@ -1117,12 +1193,23 @@ absl::Status SerializeUdpHeader(const UdpHeader& header,
   return absl::OkStatus();
 }
 
-absl::Status SerializeTcpHeaderPrefix(const TcpHeaderPrefix& header,
-                                      pdpi::BitString& output) {
+absl::Status SerializeTcpHeader(const TcpHeader& header,
+                                pdpi::BitString& output) {
   RETURN_IF_ERROR(
       SerializeBits<kTcpPortBitwidth>(header.source_port(), output));
   RETURN_IF_ERROR(
       SerializeBits<kTcpPortBitwidth>(header.destination_port(), output));
+  RETURN_IF_ERROR(SerializeBits<kTcpSequenceNumberBitwidth>(
+      header.sequence_number(), output));
+  RETURN_IF_ERROR(SerializeBits<kTcpAcknowledgementNumberBitwidth>(
+      header.acknowledgement_number(), output));
+  RETURN_IF_ERROR(
+      SerializeBits<kTcpDataOffsetBitwidth>(header.data_offset(), output));
+  RETURN_IF_ERROR(
+      SerializeBits<kTcpRestOfHeaderBitwidth>(header.rest_of_header(), output));
+  if (!header.uninterpreted_options().empty()) {
+    RETURN_IF_ERROR(output.AppendHexString(header.uninterpreted_options()));
+  }
   return absl::OkStatus();
 }
 
@@ -1183,8 +1270,8 @@ absl::Status SerializeHeader(const Header& header, pdpi::BitString& output) {
       return SerializeIpv6Header(header.ipv6_header(), output);
     case Header::kUdpHeader:
       return SerializeUdpHeader(header.udp_header(), output);
-    case Header::kTcpHeaderPrefix:
-      return SerializeTcpHeaderPrefix(header.tcp_header_prefix(), output);
+    case Header::kTcpHeader:
+      return SerializeTcpHeader(header.tcp_header(), output);
     case Header::kArpHeader:
       return SerializeArpHeader(header.arp_header(), output);
     case Header::kIcmpHeader:
@@ -1236,10 +1323,10 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet, bool overwrite) {
   int header_index = 0;
   for (Header& header : *packet.mutable_headers()) {
     std::string error_prefix =
-        absl::StrFormat("failed to compute packet.headers[%d].", header_index);
+        absl::StrFormat("%s: failed to compute packet.headers[%d].",
+                        HeaderCaseName(header.header_case()), header_index);
     switch (header.header_case()) {
       case Header::kIpv4Header: {
-        error_prefix = absl::StrCat("Ipv4 header: ", error_prefix);
         Ipv4Header& ipv4_header = *header.mutable_ipv4_header();
         if (ipv4_header.version().empty() || overwrite) {
           ipv4_header.set_version("0x4");
@@ -1280,7 +1367,6 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet, bool overwrite) {
         break;
       }
       case Header::kIpv6Header: {
-        error_prefix = absl::StrCat("Ipv6 header: ", error_prefix);
         Ipv6Header& ipv6_header = *header.mutable_ipv6_header();
         if (ipv6_header.version().empty() || overwrite) {
           ipv6_header.set_version("0x6");
@@ -1298,7 +1384,6 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet, bool overwrite) {
         break;
       }
       case Header::kUdpHeader: {
-        error_prefix = absl::StrCat("UDP header: ", error_prefix);
         UdpHeader& udp_header = *header.mutable_udp_header();
         if (udp_header.length().empty() || overwrite) {
           ASSIGN_OR_RETURN(int size, PacketSizeInBytes(packet, header_index),
@@ -1318,7 +1403,6 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet, bool overwrite) {
         break;
       }
       case Header::kArpHeader: {
-        error_prefix = absl::StrCat("ARP header: ", error_prefix);
         ArpHeader& arp_header = *header.mutable_arp_header();
         if (arp_header.hardware_type().empty() || overwrite) {
           arp_header.set_hardware_type("0x0001");
@@ -1339,7 +1423,6 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet, bool overwrite) {
         break;
       }
       case Header::kIcmpHeader: {
-        error_prefix = absl::StrCat("ICMP header: ", error_prefix);
         IcmpHeader& icmp_header = *header.mutable_icmp_header();
         if (icmp_header.checksum().empty() || overwrite) {
           ASSIGN_OR_RETURN(int checksum,
@@ -1350,8 +1433,36 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet, bool overwrite) {
         }
         break;
       }
+      case Header::kTcpHeader: {
+        TcpHeader& tcp_header = *header.mutable_tcp_header();
+        if (tcp_header.data_offset().empty() || overwrite) {
+          ASSIGN_OR_RETURN(int size, PacketSizeInBits(packet, header_index),
+                           _.SetPrepend() << error_prefix << "data_offset: ");
+          ASSIGN_OR_RETURN(int payload_size,
+                           PacketSizeInBits(packet, header_index + 1),
+                           _.SetPrepend() << error_prefix << "data_offset: ");
+          int data_offset_in_bits = size - payload_size;
+          if (data_offset_in_bits % 32 != 0) {
+            return gutil::InvalidArgumentErrorBuilder()
+                   << error_prefix << "data_offset: comuted offset of "
+                   << data_offset_in_bits
+                   << " bits is not a multiple of 32 bits; this indicates that "
+                   << "uninterpreted_options is of invalid length";
+          }
+          int data_offset = data_offset_in_bits / 32;
+          if (data_offset < 5 || data_offset > 15) {
+            return gutil::InvalidArgumentErrorBuilder()
+                   << "data_offset: computed offset of " << data_offset
+                   << " is outside of legal range [5, 15]; this indicates that "
+                   << "uninterpreted_options is of invalid length";
+          }
+          tcp_header.set_data_offset(
+              pdpi::BitsetToHexString<kTcpDataOffsetBitwidth>(data_offset));
+          changes = true;
+        }
+        break;
+      }
       case Header::kEthernetHeader:
-      case Header::kTcpHeaderPrefix:
       case Header::kVlanHeader:
         // No computed fields.
         break;
@@ -1399,7 +1510,7 @@ absl::StatusOr<bool> PadPacketToMinimumSize(Packet& packet) {
     case Header::kIpv4Header:
     case Header::kIpv6Header:
     case Header::kUdpHeader:
-    case Header::kTcpHeaderPrefix:
+    case Header::kTcpHeader:
     case Header::kArpHeader:
     case Header::kIcmpHeader:
     case Header::kVlanHeader:
@@ -1454,9 +1565,18 @@ absl::StatusOr<int> PacketSizeInBits(const Packet& packet,
       case Header::kUdpHeader:
         size += kUdpHeaderBitwidth;
         break;
-      case Header::kTcpHeaderPrefix:
-        size += kTcpHeaderPrefixBitwidth;
+      case Header::kTcpHeader: {
+        size += kStandardTcpHeaderBitwidth;
+        if (const auto& options = header->tcp_header().uninterpreted_options();
+            !options.empty()) {
+          ASSIGN_OR_RETURN(
+              auto bytes, pdpi::HexStringToByteString(options),
+              _.SetPrepend()
+                  << "failed to parse uninterpreted_options in TcpHeader: ");
+          size += 8 * bytes.size();
+        }
         break;
+      }
       case Header::kArpHeader:
         size += kArpHeaderBitwidth;
         break;
@@ -1488,8 +1608,8 @@ static absl::StatusOr<int> OnesComplementChecksum(pdpi::BitString data) {
   while (data.size() != 0) {
     ASSIGN_OR_RETURN(std::bitset<16> word, data.ConsumeBitset<16>(),
                      _.SetCode(absl::StatusCode::kInternal));
-    // This looks wrong because we're not taking the ones' complement, but turns
-    // out to work.
+    // This looks wrong because we're not taking the ones' complement, but
+    // turns out to work.
     sum += word.to_ulong();
   }
   // Add carry bits until sum fits into 16 bits.
@@ -1505,8 +1625,8 @@ absl::StatusOr<int> Ipv4HeaderChecksum(Ipv4Header header) {
   // sum of all 16-bit words in the header. For purposes of computing the
   // checksum, the value of the checksum field is zero.
 
-  // We compute the checksum by setting the checksum field to 0, serializing the
-  // header, and then going over all 16-bit words.
+  // We compute the checksum by setting the checksum field to 0, serializing
+  // the header, and then going over all 16-bit words.
   header.set_checksum("0x0000");
   pdpi::BitString data;
   RETURN_IF_ERROR(SerializeIpv4Header(header, data));
@@ -1703,6 +1823,25 @@ std::string UdpLength(uint32_t udp_length) {
 
 std::string TcpPort(uint32_t tcp_port) {
   return ValidateAndConvertToHexString<kTcpPortBitwidth>(tcp_port);
+}
+
+std::string TcpSequenceNumber(uint32_t sequence_number) {
+  return ValidateAndConvertToHexString<kTcpSequenceNumberBitwidth>(
+      sequence_number);
+}
+
+std::string TcpAcknowledgementNumber(uint32_t ackowledgement_number) {
+  return ValidateAndConvertToHexString<kTcpAcknowledgementNumberBitwidth>(
+      ackowledgement_number);
+}
+
+std::string TcpDataOffset(uint32_t data_offset) {
+  return ValidateAndConvertToHexString<kTcpDataOffsetBitwidth>(data_offset);
+}
+
+std::string TcpRestOfHeader(uint64_t rest_of_header) {
+  return ValidateAndConvertToHexString<kTcpRestOfHeaderBitwidth>(
+      rest_of_header);
 }
 
 std::string ArpType(uint32_t type) {

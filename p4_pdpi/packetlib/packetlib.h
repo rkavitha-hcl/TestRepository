@@ -146,6 +146,10 @@ std::string UdpPort(uint32_t udp_port);
 std::string UdpChecksum(uint32_t checksum);
 std::string UdpLength(uint32_t udp_length);
 std::string TcpPort(uint32_t tcp_port);
+std::string TcpSequenceNumber(uint32_t sequence_number);
+std::string TcpAcknowledgementNumber(uint32_t ackowledgement_number);
+std::string TcpDataOffset(uint32_t data_offset);
+std::string TcpRestOfHeader(uint64_t rest_of_header);
 std::string ArpType(uint32_t type);
 std::string ArpLength(uint32_t length);
 std::string ArpOperation(uint32_t operation);
@@ -154,8 +158,10 @@ std::string IcmpCode(uint32_t code);
 std::string IcmpChecksum(uint32_t checksum);
 std::string IcmpRestOfHeader(uint32_t rest_of_header);
 
+// -- END OF PUBLIC INTERFACE --------------------------------------------------
+
 template <int bit_limit>
-std::string ValidateAndConvertToHexString(uint32_t input) {
+std::string ValidateAndConvertToHexString(uint64_t input) {
   int bit_width = absl::bit_width(input);
   if (bit_width > bit_limit) {
     LOG(DFATAL)
