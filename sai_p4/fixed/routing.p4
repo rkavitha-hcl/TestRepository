@@ -234,9 +234,12 @@ control routing(in headers_t headers,
   }
 
   apply {
+    // Drop packets by default, then override in the router_interface_table.
+    // TODO: This should just be the default behavior of v1model:
+    // https://github.com/p4lang/behavioral-model/issues/992
+    mark_to_drop(standard_metadata);
+
     if (local_metadata.admit_to_l3) {
-      // Drop packets by default, then override in the router_interface_table.
-      mark_to_drop(standard_metadata);
 
       if (headers.ipv4.isValid()) {
         ipv4_table.apply();
