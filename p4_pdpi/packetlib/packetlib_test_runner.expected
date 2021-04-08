@@ -41,8 +41,9 @@ headers {
 payload: "\001\002"
 reasons_invalid: "in EthernetHeader headers[0]: ethertype: value 0x0001 is <= 1500 and should thus match payload size, but payload size is 2 bytes"
 
-PadPacketToMinimumSize(packet) = false
-UpdateAllComputedFields(packet) = false
+PadPacketToMinimumSize(packet) = true
+UpdateAllComputedFields(packet) = true
+ValidatePacket(packet) = OK
 ================================================================================
 Parsing test: Ethernet packet (unsupported EtherType)
 ================================================================================
@@ -873,11 +874,14 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 - in UdpHeader headers[1]: checksum: UDP header must be preceded by IP header for checksum to be defined; found EthernetHeader at headers[0] instead
 - in UdpHeader headers[1]: expected no header (because the previous header demands either no header or an unsupported header), got UdpHeader
 
-PadPacketToMinimumSize(packet) = false
+PadPacketToMinimumSize(packet) = true
+new payload: "Hi\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000\000"
 
 UpdateMissingComputedFields(packet) = false
 
 Serialize(Packet) = INVALID_ARGUMENT: Packet invalid for the following reasons:
+- in EthernetHeader headers[0]: ethertype: value 0x000a is <= 1500 and should thus match payload size, but payload size is 46 bytes
+- in UdpHeader headers[1]: length: Must be 0x002e, but was 0x000a instead.
 - in UdpHeader headers[1]: checksum: UDP header must be preceded by IP header for checksum to be defined; found EthernetHeader at headers[0] instead
 - in UdpHeader headers[1]: expected no header (because the previous header demands either no header or an unsupported header), got UdpHeader
 

@@ -82,6 +82,102 @@ TEST_P(SaiDeparserTest, Ipv4UdpPacketParserIntegrationTest) {
   ASSERT_THAT(packet.payload(), IsEmpty());
 }
 
+TEST_P(SaiDeparserTest, Ipv6TcpPacketParserIntegrationTest) {
+  // Add parse constraints.
+  {
+    ASSERT_OK_AND_ASSIGN(auto parse_constraints,
+                         EvaluateSaiParser(state_->context.ingress_headers));
+    for (auto& constraint : parse_constraints) state_->solver->add(constraint);
+  }
+
+  // Add IPv6 + UDP constraint.
+  {
+    ASSERT_OK_AND_ASSIGN(SaiFields fields,
+                         GetSaiFields(state_->context.ingress_headers));
+    state_->solver->add(!fields.headers.ipv4.valid);
+    state_->solver->add(fields.headers.tcp.valid);
+    // The only way to have an TCP packet that is not an IPv4 packet is to have
+    // an IPv6 packet.
+  }
+
+  // Solve and deparse.
+  ASSERT_EQ(state_->solver->check(), z3::check_result::sat);
+  auto model = state_->solver->get_model();
+  ASSERT_OK_AND_ASSIGN(std::string raw_packet,
+                       SaiDeparser(state_->context.ingress_headers, model));
+
+  // Check we indeed got an IPv6 TCP packet.
+  packetlib::Packet packet = packetlib::ParsePacket(raw_packet);
+  LOG(INFO) << "Z3-generated packet = " << packet.DebugString();
+  ASSERT_GE(packet.headers_size(), 3);
+  ASSERT_TRUE(packet.headers(0).has_ethernet_header());
+  ASSERT_TRUE(packet.headers(1).has_ipv6_header());
+  ASSERT_TRUE(packet.headers(2).has_tcp_header());
+  ASSERT_THAT(packet.payload(), IsEmpty());
+}
+
+TEST_P(SaiDeparserTest, ArpPacketParserIntegrationTest) {
+  // Add parse constraints.
+  {
+    ASSERT_OK_AND_ASSIGN(auto parse_constraints,
+                         EvaluateSaiParser(state_->context.ingress_headers));
+    for (auto& constraint : parse_constraints) state_->solver->add(constraint);
+  }
+
+  // Add ARP constraint.
+  {
+    ASSERT_OK_AND_ASSIGN(SaiFields fields,
+                         GetSaiFields(state_->context.ingress_headers));
+    state_->solver->add(fields.headers.arp.valid);
+  }
+
+  // Solve and deparse.
+  ASSERT_EQ(state_->solver->check(), z3::check_result::sat);
+  auto model = state_->solver->get_model();
+  ASSERT_OK_AND_ASSIGN(std::string raw_packet,
+                       SaiDeparser(state_->context.ingress_headers, model));
+
+  // Check we indeed got an ARP packet.
+  packetlib::Packet packet = packetlib::ParsePacket(raw_packet);
+  LOG(INFO) << "Z3-generated packet = " << packet.DebugString();
+  ASSERT_GE(packet.headers_size(), 2);
+  ASSERT_TRUE(packet.headers(0).has_ethernet_header());
+  ASSERT_TRUE(packet.headers(1).has_arp_header());
+  ASSERT_THAT(packet.payload(), IsEmpty());
+}
+
+TEST_P(SaiDeparserTest, IcmpPacketParserIntegrationTest) {
+  // Add parse constraints.
+  {
+    ASSERT_OK_AND_ASSIGN(auto parse_constraints,
+                         EvaluateSaiParser(state_->context.ingress_headers));
+    for (auto& constraint : parse_constraints) state_->solver->add(constraint);
+  }
+
+  // Add ICMP constraint.
+  {
+    ASSERT_OK_AND_ASSIGN(SaiFields fields,
+                         GetSaiFields(state_->context.ingress_headers));
+    state_->solver->add(fields.headers.icmp.valid);
+  }
+
+  // Solve and deparse.
+  ASSERT_EQ(state_->solver->check(), z3::check_result::sat);
+  auto model = state_->solver->get_model();
+  ASSERT_OK_AND_ASSIGN(std::string raw_packet,
+                       SaiDeparser(state_->context.ingress_headers, model));
+
+  // Check we indeed got an ARP packet.
+  packetlib::Packet packet = packetlib::ParsePacket(raw_packet);
+  LOG(INFO) << "Z3-generated packet = " << packet.DebugString();
+  ASSERT_GE(packet.headers_size(), 3);
+  ASSERT_TRUE(packet.headers(0).has_ethernet_header());
+  ASSERT_TRUE(packet.headers(1).has_ipv4_header() ||
+              packet.headers(1).has_ipv6_header());
+  ASSERT_TRUE(packet.headers(2).has_icmp_header());
+  ASSERT_THAT(packet.payload(), IsEmpty());
+}
+
 INSTANTIATE_TEST_SUITE_P(Instantiation, SaiDeparserTest,
                          testing::ValuesIn(sai::AllSwitchRoles()));
 

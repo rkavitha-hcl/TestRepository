@@ -235,6 +235,9 @@ control routing(in headers_t headers,
 
   apply {
     if (local_metadata.admit_to_l3) {
+      // Drop packets by default, then override in the router_interface_table.
+      mark_to_drop(standard_metadata);
+
       if (headers.ipv4.isValid()) {
         ipv4_table.apply();
       } else if (headers.ipv6.isValid()) {

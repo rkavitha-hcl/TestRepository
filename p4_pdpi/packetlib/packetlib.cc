@@ -1326,6 +1326,35 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet, bool overwrite) {
         absl::StrFormat("%s: failed to compute packet.headers[%d].",
                         HeaderCaseName(header.header_case()), header_index);
     switch (header.header_case()) {
+      case Header::kEthernetHeader: {
+        EthernetHeader& ethernet_header = *header.mutable_ethernet_header();
+        // Read current ethertype.
+        int ethertype = 0;
+        if (!ethernet_header.ethertype().empty()) {
+          ASSIGN_OR_RETURN(ethertype,
+                           pdpi::HexStringToInt(ethernet_header.ethertype()));
+        }
+        // If ethertype <= 1500, it must be equal to the payload size and we
+        // thus consider it a computed field that we should update.
+        // To avoid surprises, we only perform an update if the ethernet header
+        // is the final header, indicating that a size-encoding ethertype is
+        // indeed appropriate.
+        if ((ethernet_header.ethertype().empty() || overwrite) &&
+            ethertype <= 1500 && header_index == packet.headers_size() - 1) {
+          if (auto size = PacketSizeInBytes(packet, header_index + 1);
+              !size.ok()) {
+            return gutil::InvalidArgumentErrorBuilder()
+                   << "unable to compute payload size: " << size.status();
+          } else if (*size > 1500) {
+            return gutil::InvalidArgumentErrorBuilder()
+                   << "payload size " << *size << " exceeds MTU";
+          } else {
+            ethernet_header.set_ethertype(EtherType(*size));
+            changes = true;
+          }
+        }
+        break;
+      }
       case Header::kIpv4Header: {
         Ipv4Header& ipv4_header = *header.mutable_ipv4_header();
         if (ipv4_header.version().empty() || overwrite) {
@@ -1462,7 +1491,6 @@ absl::StatusOr<bool> UpdateComputedFields(Packet& packet, bool overwrite) {
         }
         break;
       }
-      case Header::kEthernetHeader:
       case Header::kVlanHeader:
         // No computed fields.
         break;
@@ -1489,21 +1517,15 @@ absl::StatusOr<bool> PadPacketToMinimumSize(Packet& packet) {
   if (packet.headers().empty()) return false;
   switch (packet.headers(0).header_case()) {
     case Header::kEthernetHeader: {
-      const auto& header = packet.headers(0).ethernet_header();
-      if (auto size = PacketSizeInBytes(packet, 1); !size.ok()) {
+      if (auto after_eth_size = PacketSizeInBytes(packet, 1);
+          !after_eth_size.ok()) {
         return gutil::InvalidArgumentErrorBuilder()
-               << "couldn't compute packet size: " << size.status();
-      } else if (auto ethertype = pdpi::HexStringToInt(header.ethertype());
-                 !ethertype.ok()) {
-        return gutil::InvalidArgumentErrorBuilder()
-               << "couldn't parse ethertype: " << ethertype.status();
+               << "couldn't compute packet size: " << after_eth_size.status();
       } else {
-        int target_payload_size = *ethertype <= 1500
-                                      ? *ethertype - kEthernetHeaderBitwidth / 8
-                                      : kMinNumBytesInEthernetPayload;
-        if (*size >= target_payload_size) return false;
-        std::string padding = std::string(target_payload_size - *size, '\0');
-        absl::StrAppend(packet.mutable_payload(), padding);
+        if (*after_eth_size >= kMinNumBytesInEthernetPayload) return false;
+        int target_payload_size = kMinNumBytesInEthernetPayload -
+                                  (*after_eth_size - packet.payload().size());
+        packet.mutable_payload()->resize(target_payload_size);
         return true;
       }
     }

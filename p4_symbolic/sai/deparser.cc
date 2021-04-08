@@ -102,6 +102,23 @@ absl::Status Deparse(const SaiIpv4& header, const z3::model& model,
   return absl::OkStatus();
 }
 
+absl::Status Deparse(const SaiIpv6& header, const z3::model& model,
+                     pdpi::BitString& result) {
+  ASSIGN_OR_RETURN(bool valid, EvalBool(header.valid, model));
+  if (valid) {
+    RETURN_IF_ERROR(Deparse<4>(header.version, model, result));
+    RETURN_IF_ERROR(Deparse<6>(header.dscp, model, result));
+    RETURN_IF_ERROR(Deparse<2>(header.ecn, model, result));
+    RETURN_IF_ERROR(Deparse<20>(header.flow_label, model, result));
+    RETURN_IF_ERROR(Deparse<16>(header.payload_length, model, result));
+    RETURN_IF_ERROR(Deparse<8>(header.next_header, model, result));
+    RETURN_IF_ERROR(Deparse<8>(header.hop_limit, model, result));
+    RETURN_IF_ERROR(Deparse<128>(header.src_addr, model, result));
+    RETURN_IF_ERROR(Deparse<128>(header.dst_addr, model, result));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status Deparse(const SaiUdp& header, const z3::model& model,
                      pdpi::BitString& result) {
   ASSIGN_OR_RETURN(bool valid, EvalBool(header.valid, model));
@@ -110,6 +127,55 @@ absl::Status Deparse(const SaiUdp& header, const z3::model& model,
     RETURN_IF_ERROR(Deparse<16>(header.dst_port, model, result));
     RETURN_IF_ERROR(Deparse<16>(header.hdr_length, model, result));
     RETURN_IF_ERROR(Deparse<16>(header.checksum, model, result));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Deparse(const SaiTcp& header, const z3::model& model,
+                     pdpi::BitString& result) {
+  ASSIGN_OR_RETURN(bool valid, EvalBool(header.valid, model));
+  if (valid) {
+    RETURN_IF_ERROR(Deparse<16>(header.src_port, model, result));
+    RETURN_IF_ERROR(Deparse<16>(header.dst_port, model, result));
+    RETURN_IF_ERROR(Deparse<32>(header.seq_no, model, result));
+    RETURN_IF_ERROR(Deparse<32>(header.ack_no, model, result));
+    RETURN_IF_ERROR(Deparse<4>(header.data_offset, model, result));
+    RETURN_IF_ERROR(Deparse<4>(header.res, model, result));
+    RETURN_IF_ERROR(Deparse<8>(header.flags, model, result));
+    RETURN_IF_ERROR(Deparse<16>(header.window, model, result));
+    RETURN_IF_ERROR(Deparse<16>(header.checksum, model, result));
+    RETURN_IF_ERROR(Deparse<16>(header.urgent_ptr, model, result));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Deparse(const SaiIcmp& header, const z3::model& model,
+                     pdpi::BitString& result) {
+  ASSIGN_OR_RETURN(bool valid, EvalBool(header.valid, model));
+  if (valid) {
+    RETURN_IF_ERROR(Deparse<8>(header.type, model, result));
+    RETURN_IF_ERROR(Deparse<8>(header.code, model, result));
+    RETURN_IF_ERROR(Deparse<16>(header.checksum, model, result));
+    // Rest of header. Not parsed by P4 SAI, so the best we can do is to always
+    // set it to zero.
+    result.AppendBits(std::bitset<32>(0));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status Deparse(const SaiArp& header, const z3::model& model,
+                     pdpi::BitString& result) {
+  ASSIGN_OR_RETURN(bool valid, EvalBool(header.valid, model));
+  if (valid) {
+    RETURN_IF_ERROR(Deparse<16>(header.hw_type, model, result));
+    RETURN_IF_ERROR(Deparse<16>(header.proto_type, model, result));
+    RETURN_IF_ERROR(Deparse<8>(header.hw_addr_len, model, result));
+    RETURN_IF_ERROR(Deparse<8>(header.proto_addr_len, model, result));
+    RETURN_IF_ERROR(Deparse<16>(header.opcode, model, result));
+    RETURN_IF_ERROR(Deparse<48>(header.sender_hw_addr, model, result));
+    RETURN_IF_ERROR(Deparse<32>(header.sender_proto_addr, model, result));
+    RETURN_IF_ERROR(Deparse<48>(header.target_hw_addr, model, result));
+    RETURN_IF_ERROR(Deparse<32>(header.target_proto_addr, model, result));
   }
   return absl::OkStatus();
 }
@@ -127,7 +193,11 @@ absl::StatusOr<std::string> SaiDeparser(const SaiFields& packet,
   pdpi::BitString result;
   RETURN_IF_ERROR(Deparse(packet.headers.ethernet, model, result));
   RETURN_IF_ERROR(Deparse(packet.headers.ipv4, model, result));
+  RETURN_IF_ERROR(Deparse(packet.headers.ipv6, model, result));
   RETURN_IF_ERROR(Deparse(packet.headers.udp, model, result));
+  RETURN_IF_ERROR(Deparse(packet.headers.tcp, model, result));
+  RETURN_IF_ERROR(Deparse(packet.headers.icmp, model, result));
+  RETURN_IF_ERROR(Deparse(packet.headers.arp, model, result));
   ASSIGN_OR_RETURN(std::string bytes, result.ToByteString());
   return bytes;
 }
