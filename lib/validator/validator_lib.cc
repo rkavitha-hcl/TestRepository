@@ -32,7 +32,7 @@ using Stub = ::p4::v1::P4Runtime::Stub;
 }  // namespace
 
 absl::Status Pingable(absl::string_view chassis_name, absl::Duration timeout) {
-  constexpr char kPingCommand[] = R"(fping -t $0 $1)";
+  constexpr char kPingCommand[] = R"(fping -t $0 $1; fping6 -t $0 $1)";
   FILE* in;
   char buff[1024];
   std::string pingCommand = absl::Substitute(
@@ -85,7 +85,7 @@ absl::Status P4rtAble(thinkit::Switch& thinkit_switch) {
   ASSIGN_OR_RETURN(std::unique_ptr<Stub> p4runtime_stub,
                    thinkit_switch.CreateP4RuntimeStub());
   return pdpi::P4RuntimeSession::Create(std::move(p4runtime_stub),
-                                        thinkit_switch.DeviceId(), 0)
+                                        thinkit_switch.DeviceId())
       .status();
 }
 
