@@ -160,9 +160,7 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
           error_messages.insert(absl::StrCat(
               google::rpc::Code_Name(status.code()), ": ", status.message()));
         } else {
-          // TODO: assert once the switch no longer tweaks the neighbor
-          // table id.
-          state.ApplyUpdate(update).IgnoreError();
+          ASSERT_OK(state.ApplyUpdate(update));
           num_ok_statuses += 1;
         }
 
