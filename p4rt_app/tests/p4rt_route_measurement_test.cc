@@ -160,7 +160,8 @@ class P4rtRouteTest : public Test {
     // Push P4 Info Config file if specified.
     if (FLAGS_push_config) {
       ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-          p4rt_session_.get(), sai::GetP4Info(sai::SwitchRole::kMiddleblock)));
+          p4rt_session_.get(),
+          sai::GetP4Info(sai::Instantiation::kMiddleblock)));
     }
     // Create the dependancy objects for ROUTE_ENTRY.
     // Create Router Intf object.

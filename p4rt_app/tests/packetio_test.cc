@@ -95,7 +95,7 @@ class FakePacketIoTest : public testing::Test {
 
 TEST_F(FakePacketIoTest, VerifyPacketIn) {
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-      p4rt_session_.get(), sai::GetP4Info(sai::SwitchRole::kMiddleblock)));
+      p4rt_session_.get(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
 
   std::vector<p4::v1::PacketIn> expected_packets;
   expected_packets.resize(2);
@@ -142,7 +142,7 @@ TEST_F(FakePacketIoTest, PacketOutFailBeforeP4InfoPush) {
   std::thread receive_thread(&FakePacketIoTest::ReadResponses, this,
                              /*expected_count=*/1);
   EXPECT_OK(SendPacketOut(0, "test packet1",
-                          sai::GetIrP4Info(sai::SwitchRole::kMiddleblock)));
+                          sai::GetIrP4Info(sai::Instantiation::kMiddleblock)));
   // Retry a few times to check if the expected error arrived.
   for (int i = 0; i < 10; i++) {
     if (actual_responses_.size() == 1) {
@@ -171,7 +171,7 @@ TEST_F(FakePacketIoTest, PacketOutFailForSecondary) {
   p4::v1::StreamMessageRequest request;
   ASSERT_OK_AND_ASSIGN(
       *request.mutable_packet(),
-      pdpi::PdPacketOutToPi(sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+      pdpi::PdPacketOutToPi(sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                             packet_out));
   std::string address = absl::StrCat("localhost:", p4rt_service_->GrpcPort());
   auto channel =
@@ -195,12 +195,12 @@ TEST_F(FakePacketIoTest, PacketOutFailForSecondary) {
 TEST_F(FakePacketIoTest, VerifyPacketOut) {
   // Needed for PacketOut.
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-      p4rt_session_.get(), sai::GetP4Info(sai::SwitchRole::kMiddleblock)));
+      p4rt_session_.get(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
 
   EXPECT_OK(SendPacketOut(0, "test packet1",
-                          sai::GetIrP4Info(sai::SwitchRole::kMiddleblock)));
+                          sai::GetIrP4Info(sai::Instantiation::kMiddleblock)));
   EXPECT_OK(SendPacketOut(0, "test packet2",
-                          sai::GetIrP4Info(sai::SwitchRole::kMiddleblock)));
+                          sai::GetIrP4Info(sai::Instantiation::kMiddleblock)));
 
   absl::StatusOr<std::vector<std::string>> packets_or;
   // Retry for a few times with delay since it takes a few msecs for Write

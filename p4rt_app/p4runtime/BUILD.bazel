@@ -163,8 +163,8 @@ cc_test(
     deps = [
         ":ir_translation",
         "//gutil:status_matchers",
+        "//sai_p4/instantiations/google:instantiations",
         "//sai_p4/instantiations/google:sai_p4info_cc",
-        "//sai_p4/instantiations/google:switch_role",
         "@boost//:bimap",
         "@boost//:graph",
         "@com_github_google_glog//:glog",

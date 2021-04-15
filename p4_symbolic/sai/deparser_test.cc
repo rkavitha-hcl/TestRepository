@@ -19,7 +19,7 @@
 #include "p4_symbolic/sai/parser.h"
 #include "p4_symbolic/sai/sai.h"
 #include "p4_symbolic/symbolic/symbolic.h"
-#include "sai_p4/instantiations/google/switch_role.h"
+#include "sai_p4/instantiations/google/instantiations.h"
 #include "z3++.h"
 
 namespace p4_symbolic {
@@ -27,14 +27,15 @@ namespace {
 
 using ::testing::IsEmpty;
 
-class SaiDeparserTest : public testing::TestWithParam<sai::SwitchRole> {
+class SaiDeparserTest : public testing::TestWithParam<sai::Instantiation> {
  public:
   void SetUp() override {
-    testing::TestWithParam<sai::SwitchRole>::SetUp();
-    sai::SwitchRole role = GetParam();
+    testing::TestWithParam<sai::Instantiation>::SetUp();
+    sai::Instantiation instantiation = GetParam();
     std::vector<p4::v1::TableEntry> entries;
     std::vector<int> ports;
-    ASSERT_OK_AND_ASSIGN(state_, EvaluateSaiPipeline(role, entries, ports));
+    ASSERT_OK_AND_ASSIGN(state_,
+                         EvaluateSaiPipeline(instantiation, entries, ports));
   }
 
  protected:
@@ -179,7 +180,7 @@ TEST_P(SaiDeparserTest, IcmpPacketParserIntegrationTest) {
 }
 
 INSTANTIATE_TEST_SUITE_P(Instantiation, SaiDeparserTest,
-                         testing::ValuesIn(sai::AllSwitchRoles()));
+                         testing::ValuesIn(sai::AllInstantiations()));
 
 }  // namespace
 }  // namespace p4_symbolic

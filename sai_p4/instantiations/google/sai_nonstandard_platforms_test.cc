@@ -5,7 +5,7 @@
 #include "gtest/gtest.h"
 #include "gutil/status_matchers.h"
 #include "p4/config/v1/p4info.pb.h"
-#include "sai_p4/instantiations/google/switch_role.h"
+#include "sai_p4/instantiations/google/instantiations.h"
 
 namespace sai {
 namespace {
@@ -17,18 +17,18 @@ constexpr NonstandardPlatform kAllPlatforms[] = {
 
 // GetNonstandardP4Config contains a CHECK; ensure it doesn't fail.
 TEST(GetNonstandardP4ConfigTest, DoesNotCheckCrashForAllPlatforms) {
-  for (auto role : AllSwitchRoles()) {
+  for (auto instantiation : AllInstantiations()) {
     for (auto platform : kAllPlatforms) {
-      GetNonstandardP4Config(role, platform);
+      GetNonstandardP4Config(instantiation, platform);
     }
   }
 }
 
 // GetNonstandardP4Info contains a CHECK; ensure it doesn't fail.
 TEST(GetNonstandardP4InfoTest, DoesNotCheckCrashForAllPlatforms) {
-  for (auto role : AllSwitchRoles()) {
+  for (auto instantiation : AllInstantiations()) {
     for (auto platform : kAllPlatforms) {
-      GetNonstandardP4Info(role, platform);
+      GetNonstandardP4Info(instantiation, platform);
     }
   }
 }

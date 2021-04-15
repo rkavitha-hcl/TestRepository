@@ -72,8 +72,8 @@ cc_library(
     hdrs = ["sai_p4info.h"],
     visibility = ["//visibility:public"],
     deps = [
+        ":instantiations",
         ":middleblock_p4info_embed",
-        ":switch_role",
         ":wbb_p4info_embed",
         "//p4_pdpi:ir",
         "//p4_pdpi:ir_cc_proto",
@@ -87,8 +87,8 @@ cc_library(
 )
 
 cc_library(
-    name = "switch_role",
-    hdrs = ["switch_role.h"],
+    name = "instantiations",
+    hdrs = ["instantiations.h"],
     visibility = ["//visibility:public"],
     deps = ["@com_github_google_glog//:glog"],
 )
@@ -244,8 +244,8 @@ cc_library(
     hdrs = ["sai_nonstandard_platforms.h"],
     visibility = ["//visibility:public"],
     deps = [
+        ":instantiations",
         ":sai_nonstandard_platforms_embed",
-        ":switch_role",
         "//p4_pdpi:ir_cc_proto",
         "@com_github_google_glog//:glog",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
@@ -277,8 +277,8 @@ cc_test(
     name = "sai_nonstandard_platforms_cc_test",
     srcs = ["sai_nonstandard_platforms_test.cc"],
     deps = [
+        ":instantiations",
         ":sai_nonstandard_platforms_cc",
-        ":switch_role",
         "//gutil:status_matchers",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
         "@com_google_absl//absl/strings",

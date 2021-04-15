@@ -53,7 +53,8 @@ MATCHER_P(HashValuesAreEqual, check_field_value, "") {
 }
 
 TEST(HashingTest, GenerateAppDbHashFieldEntriesOk) {
-  pdpi::IrP4Info ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock);
+  pdpi::IrP4Info ir_p4_info =
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   std::vector<EcmpHashEntry> expected_hash_fields = {
       {"compute_ecmp_hash_ipv6",
        {{"hash_field_list",
@@ -137,7 +138,7 @@ TEST(HashingTest, GenerateAppDbHashFieldEntriesWrongIdentifier) {
 
 TEST(HashingTest, GenerateAppDbHashValueEntriesOk) {
   const pdpi::IrP4Info ir_p4_info =
-      sai::GetIrP4Info(sai::SwitchRole::kMiddleblock);
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   std::vector<swss::FieldValueTuple> expected_hash_value = {
       {"ecmp_hash_algorithm", ""}, {"ecmp_hash_seed", ""},
       /*{"ecmp_hash_offset", ""}*/};

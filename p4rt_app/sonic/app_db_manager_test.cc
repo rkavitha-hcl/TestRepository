@@ -130,7 +130,7 @@ TEST_F(AppDbManagerTest, InsertTableEntry) {
 
   pdpi::IrWriteResponse response;
   EXPECT_OK(
-      UpdateAppDb(updates, sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+      UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                   mock_p4rt_table_, mock_p4rt_notification_,
                   mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
                   mock_vrf_notification_, &vrf_id_reference_count_, &response));
@@ -177,7 +177,7 @@ TEST_F(AppDbManagerTest, InsertDuplicateTableEntryFails) {
   pdpi::IrWriteResponse response;
   response.add_statuses();
   EXPECT_OK(
-      UpdateAppDb(updates, sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+      UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                   mock_p4rt_table_, mock_p4rt_notification_,
                   mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
                   mock_vrf_notification_, &vrf_id_reference_count_, &response));
@@ -223,7 +223,7 @@ TEST_F(AppDbManagerTest, ModifyNonExistentTableEntryFails) {
   pdpi::IrWriteResponse response;
   response.add_statuses();
   EXPECT_OK(
-      UpdateAppDb(updates, sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+      UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                   mock_p4rt_table_, mock_p4rt_notification_,
                   mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
                   mock_vrf_notification_, &vrf_id_reference_count_, &response));
@@ -269,7 +269,7 @@ TEST_F(AppDbManagerTest, DeleteNonExistentTableEntryFails) {
   pdpi::IrWriteResponse response;
   response.add_statuses();
   EXPECT_OK(
-      UpdateAppDb(updates, sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+      UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                   mock_p4rt_table_, mock_p4rt_notification_,
                   mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
                   mock_vrf_notification_, &vrf_id_reference_count_, &response));
@@ -291,7 +291,7 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntry) {
       .WillOnce(Return(app_db_entry.GetValueMap()));
 
   auto table_entry_status =
-      ReadAppDbP4TableEntry(sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+      ReadAppDbP4TableEntry(sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                             mock_redis_client, app_db_entry.GetKey());
   ASSERT_TRUE(table_entry_status.ok()) << table_entry_status.status();
   pdpi::IrTableEntry table_entry = table_entry_status.value();

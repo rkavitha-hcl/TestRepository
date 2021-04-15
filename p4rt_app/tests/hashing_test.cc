@@ -88,7 +88,7 @@ class HashingTest : public testing::Test {
 
 TEST_F(HashingTest, InsertAllHashTableAndSwitchTableOk) {
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-      p4rt_session_.get(), sai::GetP4Info(sai::SwitchRole::kMiddleblock)));
+      p4rt_session_.get(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
   auto hash_field_keys = p4rt_service_.GetHashAppDbTable().GetAllKeys();
   for (const auto& key : hash_field_keys) {
     if (sonic::IsIpv4HashKey(key)) {

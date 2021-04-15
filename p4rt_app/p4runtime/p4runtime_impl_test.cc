@@ -83,7 +83,8 @@ TEST(P4RuntimeImplTest, SendPacketOutEgressPortOk) {
   SetupPacketOutMetadata(egress_port, /*egress_bitwidth*/ 9,
                          /*submit_to_ingress*/ 0,
                          /*ingress_bitwidth*/ 1, packet);
-  pdpi::IrP4Info ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock);
+  pdpi::IrP4Info ir_p4_info =
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   int fd[2];
   EXPECT_GE(pipe(fd), 0);
   std::vector<std::unique_ptr<p4rt_app::sonic::PacketIoPortSockets>>
@@ -114,7 +115,8 @@ TEST(P4RuntimeImplTest, SendPacketOutIngressInjectOk) {
   SetupPacketOutMetadata(/*egress_port*/ 0, /*egress_bitwidth*/ 9,
                          /*submit_to_ingress*/ 1,
                          /*ingress_bitwidth*/ 1, packet);
-  pdpi::IrP4Info ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock);
+  pdpi::IrP4Info ir_p4_info =
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   int fd[2];
   EXPECT_GE(pipe(fd), 0);
   std::vector<std::unique_ptr<p4rt_app::sonic::PacketIoPortSockets>>
@@ -150,7 +152,8 @@ TEST(P4RuntimeImplTest, SendPacketOutDuplicateId) {
     iter->set_metadata_id(PACKET_OUT_EGRESS_PORT_ID);
   }
 
-  pdpi::IrP4Info ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock);
+  pdpi::IrP4Info ir_p4_info =
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   int fd[2];
   EXPECT_GE(pipe(fd), 0);
   std::vector<std::unique_ptr<p4rt_app::sonic::PacketIoPortSockets>>
@@ -179,7 +182,8 @@ TEST(P4RuntimeImplTest, SendPacketOutIdMismatch) {
     iter->set_metadata_id(prev_id + 100);
   }
 
-  pdpi::IrP4Info ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock);
+  pdpi::IrP4Info ir_p4_info =
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   int fd[2];
   EXPECT_GE(pipe(fd), 0);
   std::vector<std::unique_ptr<p4rt_app::sonic::PacketIoPortSockets>>
@@ -203,7 +207,8 @@ TEST(P4RuntimeImplTest, SendPacketOutMultipleValidValues) {
                          /*submit_to_ingress*/ 1,
                          /*ingress_bitwidth*/ 1, packet);
 
-  pdpi::IrP4Info ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock);
+  pdpi::IrP4Info ir_p4_info =
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   int fd[2];
   EXPECT_GE(pipe(fd), 0);
   std::vector<std::unique_ptr<p4rt_app::sonic::PacketIoPortSockets>>
@@ -233,7 +238,8 @@ TEST(P4RuntimeImplTest, SendPacketOutPortZero) {
                          /*submit_to_ingress*/ 0,
                          /*ingress_bitwidth*/ 1, packet);
 
-  pdpi::IrP4Info ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock);
+  pdpi::IrP4Info ir_p4_info =
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   int fd[2];
   EXPECT_GE(pipe(fd), 0);
   std::vector<std::unique_ptr<p4rt_app::sonic::PacketIoPortSockets>>
@@ -259,7 +265,8 @@ TEST(P4RuntimeImplTest, SendPacketOutPortZero) {
 }
 
 TEST(P4RuntimeImplTest, AddPacketInMetadataOk) {
-  pdpi::IrP4Info ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock);
+  pdpi::IrP4Info ir_p4_info =
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   std::string ingress_port = "1";
   std::string target_port = "1";
   ASSERT_OK_AND_ASSIGN(auto actual_packet,

@@ -39,7 +39,7 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
   thinkit::Switch& sut = GetMirrorTestbed().Sut();
   thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
 
-  pdpi::IrP4Info info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock);
+  pdpi::IrP4Info info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   FuzzerConfig config = {
       .info = info,
       .ports = {"1"},
@@ -61,7 +61,7 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
       std::unique_ptr<pdpi::P4RuntimeSession> session,
       pdpi::P4RuntimeSession::Create(std::move(stub), sut.DeviceId()));
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-      session.get(), sai::GetP4Info(sai::SwitchRole::kMiddleblock)));
+      session.get(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
 
   // Clear switch state.
   ASSERT_OK(pdpi::ClearTableEntries(session.get(), info));

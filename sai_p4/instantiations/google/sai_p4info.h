@@ -5,21 +5,21 @@
 
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_pdpi/ir.pb.h"
-#include "sai_p4/instantiations/google/switch_role.h"
+#include "sai_p4/instantiations/google/instantiations.h"
 
 namespace sai {
 
 // Returns a reference to a static P4info message for the SAI P4 program for the
-// given role. The reference is guaranteed to remain valid at all times. If a
-// invalid SwitchRole is provided, the method does a LOG(DFATAL) and returns an
-// empty P4Info.
-const p4::config::v1::P4Info& GetP4Info(SwitchRole role);
+// given instantiation. The reference is guaranteed to remain valid at all
+// times. If a invalid Instantiation is provided, the method does a LOG(DFATAL)
+// and returns an empty P4Info.
+const p4::config::v1::P4Info& GetP4Info(Instantiation instantiation);
 
 // Returns a reference to a static IrP4info message for the SAI P4 program.
 // The reference is guaranteed to remain valid at all times.  If a invalid
-// SwitchRole is provided, the method does a LOG(DFATAL) and returns an
+// Instantiation is provided, the method does a LOG(DFATAL) and returns an
 // empty IrP4Info.
-const pdpi::IrP4Info& GetIrP4Info(SwitchRole role);
+const pdpi::IrP4Info& GetIrP4Info(Instantiation instantiation);
 
 }  // namespace sai
 

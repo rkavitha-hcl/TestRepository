@@ -36,7 +36,7 @@ using ::testing::ContainerEq;
 using ::testing::UnorderedElementsAreArray;
 
 absl::StatusOr<pdpi::IrP4Info> GetCanonicalP4Info() {
-  return pdpi::CreateIrP4Info(sai::GetP4Info(sai::SwitchRole::kMiddleblock));
+  return pdpi::CreateIrP4Info(sai::GetP4Info(sai::Instantiation::kMiddleblock));
 }
 
 TEST(TranslatePdpiToAppDbTest, MatchKeyExact) {

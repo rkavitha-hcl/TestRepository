@@ -12,13 +12,17 @@ namespace {
 
 using ::p4::config::v1::P4Info;
 
-std::string P4ConfigName(SwitchRole role, NonstandardPlatform platform) {
-  return absl::StrFormat("sai_%s_%s.config.json", SwitchRoleToString(role),
+std::string P4ConfigName(Instantiation instantiation,
+                         NonstandardPlatform platform) {
+  return absl::StrFormat("sai_%s_%s.config.json",
+                         InstantiationToString(instantiation),
                          PlatformName(platform));
 }
 
-std::string P4infoName(SwitchRole role, NonstandardPlatform platform) {
-  return absl::StrFormat("sai_%s_%s.p4info.pb.txt", SwitchRoleToString(role),
+std::string P4infoName(Instantiation instantiation,
+                       NonstandardPlatform platform) {
+  return absl::StrFormat("sai_%s_%s.p4info.pb.txt",
+                         InstantiationToString(instantiation),
                          PlatformName(platform));
 }
 
@@ -35,24 +39,25 @@ std::string PlatformName(NonstandardPlatform platform) {
   return "";
 }
 
-std::string GetNonstandardP4Config(SwitchRole role,
+std::string GetNonstandardP4Config(Instantiation instantiation,
                                    NonstandardPlatform platform) {
   const gutil::FileToc* toc = sai_nonstandard_platforms_embed_create();
-  std::string key = P4ConfigName(role, platform);
+  std::string key = P4ConfigName(instantiation, platform);
   for (int i = 0; i < sai_nonstandard_platforms_embed_size(); ++i) {
     if (toc[i].name == key) return std::string(toc[i].data);
   }
-  LOG(DFATAL) << "couldn't find P4 config for role '"
-              << SwitchRoleToString(role) << "' and platform '"
+  LOG(DFATAL) << "couldn't find P4 config for instantiation '"
+              << InstantiationToString(instantiation) << "' and platform '"
               << PlatformName(platform) << "': key '" << key << "'"
               << " not found in table of contents";
   return "";
 }
 
-P4Info GetNonstandardP4Info(SwitchRole role, NonstandardPlatform platform) {
+P4Info GetNonstandardP4Info(Instantiation instantiation,
+                            NonstandardPlatform platform) {
   P4Info p4info;
   const gutil::FileToc* toc = sai_nonstandard_platforms_embed_create();
-  std::string key = P4infoName(role, platform);
+  std::string key = P4infoName(instantiation, platform);
   for (int i = 0; i < sai_nonstandard_platforms_embed_size(); ++i) {
     if (toc[i].name == key) {
       CHECK(  // Crash ok: TAP rules out failures.
@@ -62,9 +67,9 @@ P4Info GetNonstandardP4Info(SwitchRole role, NonstandardPlatform platform) {
       return p4info;
     }
   }
-  LOG(DFATAL) << "couldn't find P4 info for role '" << SwitchRoleToString(role)
-              << "' and platform '" << PlatformName(platform) << "': key '"
-              << key << "'"
+  LOG(DFATAL) << "couldn't find P4 info for instantiation '"
+              << InstantiationToString(instantiation) << "' and platform '"
+              << PlatformName(platform) << "': key '" << key << "'"
               << " not found in table of contents";
   return p4info;
 }

@@ -28,14 +28,14 @@ using ::p4::v1::WriteRequest;
 
 int AclIngressTableSize() {
   auto table = gutil::FindOrStatus(
-      sai::GetIrP4Info(sai::SwitchRole::kMiddleblock).tables_by_name(),
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock).tables_by_name(),
       "acl_ingress_table");
   CHECK(table.ok());  // Crash ok
   return table->size();
 }
 
 SwitchState EmptyState() {
-  return SwitchState(sai::GetIrP4Info(sai::SwitchRole::kMiddleblock));
+  return SwitchState(sai::GetIrP4Info(sai::Instantiation::kMiddleblock));
 }
 
 // Returns a ingress ACL table entry. Use integer arguments to vary match or
@@ -74,7 +74,7 @@ TableEntry GetIngressAclTableEntry(int match, int action) {
        ->mutable_ipv4() =
       netaddr::Ipv4Address::OfBitset(std::bitset<32>(match)).ToString();
   auto result = pdpi::IrTableEntryToPi(
-      sai::GetIrP4Info(sai::SwitchRole::kMiddleblock), ir_table_entry);
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock), ir_table_entry);
   CHECK(result.ok()) << result.status();  // Crash OK
   return *result;
 }
@@ -97,7 +97,7 @@ absl::Status Check(const std::vector<UpdateStatus>& updates,
     statuses.push_back(p4_error);
   }
   absl::optional<std::vector<std::string>> oracle =
-      WriteRequestOracle(sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+      WriteRequestOracle(sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                          request, statuses, state);
   if (valid) {
     if (oracle.has_value()) {
@@ -170,7 +170,7 @@ TEST(OracleUtilTest, DISABLED_SameKeyInBatch) {
 
 TEST(OracleUtilTest, BatchResources) {
   // Create a state that's full.
-  SwitchState full(sai::GetIrP4Info(sai::SwitchRole::kMiddleblock));
+  SwitchState full(sai::GetIrP4Info(sai::Instantiation::kMiddleblock));
   for (int i = 1; i <= AclIngressTableSize(); i++) {
     AddTableEntry(GetIngressAclTableEntry(/*match=*/i, /*action=*/0), &full);
   }
@@ -190,7 +190,7 @@ TEST(OracleUtilTest, BatchResources) {
 
 TEST(OracleUtilTest, BatchResourcesAlmostFull) {
   // Create a state that's almost full (1 entry remaining).
-  SwitchState almost_full(sai::GetIrP4Info(sai::SwitchRole::kMiddleblock));
+  SwitchState almost_full(sai::GetIrP4Info(sai::Instantiation::kMiddleblock));
   for (int i = 1; i <= AclIngressTableSize() - 1; i++) {
     AddTableEntry(GetIngressAclTableEntry(/*match=*/i, /*action=*/0),
                   &almost_full);

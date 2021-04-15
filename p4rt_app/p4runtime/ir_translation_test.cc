@@ -22,8 +22,8 @@
 #include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"
 #include "gutil/status_matchers.h"
+#include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
-#include "sai_p4/instantiations/google/switch_role.h"
 
 namespace p4rt_app {
 namespace {
@@ -73,7 +73,7 @@ TEST(PortTranslationTest, ActionParameters) {
   ASSERT_OK(TranslateTableEntry(
       TranslateTableEntryOptions{
           .direction = TranslationDirection::kForOrchAgent,
-          .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+          .ir_p4_info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
           .port_map = translation_map},
       table_entry));
   ASSERT_EQ(table_entry.action().params_size(), 1);
@@ -105,7 +105,7 @@ TEST(PortTranslationTest, ActionSetParameters) {
   ASSERT_OK(TranslateTableEntry(
       TranslateTableEntryOptions{
           .direction = TranslationDirection::kForOrchAgent,
-          .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+          .ir_p4_info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
           .port_map = translation_map},
       table_entry));
 
@@ -132,7 +132,7 @@ TEST(PortTranslationTest, ExactMatchField) {
   ASSERT_OK(TranslateTableEntry(
       TranslateTableEntryOptions{
           .direction = TranslationDirection::kForOrchAgent,
-          .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+          .ir_p4_info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
           .port_map = translation_map},
       table_entry));
   ASSERT_EQ(table_entry.matches_size(), 1);
@@ -155,7 +155,7 @@ TEST(PortTranslationTest, OptionalMatchField) {
   ASSERT_OK(TranslateTableEntry(
       TranslateTableEntryOptions{
           .direction = TranslationDirection::kForOrchAgent,
-          .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+          .ir_p4_info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
           .port_map = translation_map},
       table_entry));
   ASSERT_EQ(table_entry.matches_size(), 1);
@@ -180,7 +180,7 @@ TEST(VrfTranslationTest, ActionParameters) {
   ASSERT_OK(TranslateTableEntry(
       TranslateTableEntryOptions{
           .direction = TranslationDirection::kForOrchAgent,
-          .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+          .ir_p4_info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
           .port_map = translation_map},
       table_entry));
   ASSERT_EQ(table_entry.action().params_size(), 1);
@@ -202,7 +202,7 @@ TEST(VrfTranslationTest, ExactMatchField) {
   ASSERT_OK(TranslateTableEntry(
       TranslateTableEntryOptions{
           .direction = TranslationDirection::kForOrchAgent,
-          .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+          .ir_p4_info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
           .port_map = translation_map},
       table_entry));
   ASSERT_EQ(table_entry.matches_size(), 1);
@@ -225,7 +225,7 @@ TEST(VrfTranslationTest, InvalidMatchTypeFails) {
       TranslateTableEntry(
           TranslateTableEntryOptions{
               .direction = TranslationDirection::kForOrchAgent,
-              .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+              .ir_p4_info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
               .port_map = translation_map},
           table_entry),
       StatusIs(absl::StatusCode::kInvalidArgument));
@@ -247,7 +247,7 @@ TEST(VrfTranslationTest, InvalidFieldFormatFails) {
       TranslateTableEntry(
           TranslateTableEntryOptions{
               .direction = TranslationDirection::kForOrchAgent,
-              .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+              .ir_p4_info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
               .port_map = translation_map},
           table_entry),
       StatusIs(absl::StatusCode::kInvalidArgument));
@@ -270,7 +270,7 @@ TEST(IrTranslationTest, InvalidTableNameFails) {
       TranslateTableEntry(
           TranslateTableEntryOptions{
               .direction = TranslationDirection::kForOrchAgent,
-              .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+              .ir_p4_info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
               .port_map = translation_map},
           table_entry),
       StatusIs(absl::StatusCode::kInternal, HasSubstr("sample_name")));
@@ -295,7 +295,7 @@ TEST(IrTranslationTest, InvalidMatchFieldNameFails) {
       TranslateTableEntry(
           TranslateTableEntryOptions{
               .direction = TranslationDirection::kForOrchAgent,
-              .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+              .ir_p4_info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
               .port_map = translation_map},
           table_entry),
       StatusIs(absl::StatusCode::kInvalidArgument));
@@ -317,7 +317,7 @@ TEST(IrTranslationTest, InvalidMatchFieldTypeFails) {
       TranslateTableEntry(
           TranslateTableEntryOptions{
               .direction = TranslationDirection::kForOrchAgent,
-              .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+              .ir_p4_info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
               .port_map = translation_map},
           table_entry),
       StatusIs(absl::StatusCode::kInternal, HasSubstr("sample_field")));
@@ -342,7 +342,7 @@ TEST(IrTranslationTest, InvalidActionNameFails) {
       TranslateTableEntry(
           TranslateTableEntryOptions{
               .direction = TranslationDirection::kForOrchAgent,
-              .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+              .ir_p4_info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
               .port_map = translation_map},
           table_entry),
       StatusIs(absl::StatusCode::kInternal, HasSubstr("some_action")));
@@ -367,7 +367,7 @@ TEST(IrTranslationTest, InvalidActionParameterNameFails) {
       TranslateTableEntry(
           TranslateTableEntryOptions{
               .direction = TranslationDirection::kForOrchAgent,
-              .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+              .ir_p4_info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
               .port_map = translation_map},
           table_entry),
       StatusIs(absl::StatusCode::kInternal, HasSubstr("some_param")));
@@ -392,7 +392,7 @@ TEST(IrTranslationTest, ActionParametersWithUnsupportedFormatFails) {
       TranslateTableEntry(
           TranslateTableEntryOptions{
               .direction = TranslationDirection::kForController,
-              .ir_p4_info = sai::GetIrP4Info(sai::SwitchRole::kMiddleblock),
+              .ir_p4_info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
               .port_map = translation_map},
           table_entry),
       StatusIs(absl::StatusCode::kInvalidArgument));

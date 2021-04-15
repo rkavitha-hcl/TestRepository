@@ -14,8 +14,8 @@ namespace {
 
 // GetP4Info contains a CHECK; ensure it doesn't fail.
 TEST(GetP4InfoTest, DoesNotCheckCrashAndP4ConstraintsAreParsable) {
-  for (auto role : AllSwitchRoles()) {
-    auto info = GetP4Info(role);
+  for (auto instantiation : AllInstantiations()) {
+    auto info = GetP4Info(instantiation);
     ASSERT_OK_AND_ASSIGN(p4_constraints::ConstraintInfo constraint_info,
                          p4_constraints::P4ToConstraintInfo(info));
   }
@@ -23,7 +23,7 @@ TEST(GetP4InfoTest, DoesNotCheckCrashAndP4ConstraintsAreParsable) {
 
 // GetIrP4Info contains a CHECK; ensure it doesn't fail.
 TEST(GetIrP4InfoTest, DoesNotCheckCrash) {
-  for (auto instantiation : AllSwitchRoles()) {
+  for (auto instantiation : AllInstantiations()) {
     auto info = GetIrP4Info(instantiation);
     for (const auto& [name, table] : info.tables_by_name()) {
       EXPECT_NE(table.role(), "")

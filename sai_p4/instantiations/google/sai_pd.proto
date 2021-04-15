@@ -251,25 +251,6 @@ message AclLookupTableEntry {
   bytes controller_metadata = 8;
 }
 
-message AclLinkqualTableEntry {
-  message Match {
-    Ternary ether_type = 1;  // ternary match / Format::HEX_STRING / 16 bits
-    Ternary dst_mac = 2;     // ternary match / Format::MAC
-    Optional in_port = 3;    // optional match / Format::STRING
-  }
-  Match match = 1;
-  message Action {
-    oneof action {
-      LinkqualDropAction linkqual_drop = 1;
-      LinkqualSetPortAction linkqual_set_port = 2;
-    }
-  }
-  Action action = 2;
-  int32 priority = 3;
-  BytesAndPacketsCounterData counter_data = 6;
-  bytes controller_metadata = 8;
-}
-
 // -- Actions ------------------------------------------------------------------
 
 message SetDstMacAction {
@@ -332,12 +313,6 @@ message MirrorAction {
   string mirror_session_id = 1;  // Format::STRING
 }
 
-message LinkqualDropAction {}
-
-message LinkqualSetPortAction {
-  string port = 1;  // Format::STRING
-}
-
 // -- All tables ---------------------------------------------------------------
 
 message TableEntry {
@@ -352,7 +327,6 @@ message TableEntry {
     L3AdmitTableEntry l3_admit_table_entry = 71;
     AclIngressTableEntry acl_ingress_table_entry = 256;
     AclLookupTableEntry acl_lookup_table_entry = 257;
-    AclLinkqualTableEntry acl_linkqual_table_entry = 258;
   }
 }
 

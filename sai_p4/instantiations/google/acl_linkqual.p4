@@ -31,7 +31,7 @@ control acl_linkqual(in headers_t headers,
     linkqual_counter.count();
   }
 
-  @p4runtime_role(P4RUNTIME_ROLE_SDN_CONTROLLER)
+  @p4runtime_role(P4RUNTIME_ROLE_LINKQUAL_APP)
   @id(ACL_LINKQUAL_TABLE_ID)
   @sai_acl(INGRESS)
   table acl_linkqual_table {

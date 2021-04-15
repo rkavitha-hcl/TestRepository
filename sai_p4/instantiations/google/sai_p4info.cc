@@ -8,8 +8,8 @@
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
+#include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/middleblock_p4info_embed.h"
-#include "sai_p4/instantiations/google/switch_role.h"
 #include "sai_p4/instantiations/google/wbb_p4info_embed.h"
 
 namespace sai {
@@ -40,38 +40,40 @@ IrP4Info* CreateIrP4Info(const P4Info& info) {
 }  // namespace
 
 // Adapted from go/totw/128.
-const P4Info& GetP4Info(SwitchRole role) {
+const P4Info& GetP4Info(Instantiation instantiation) {
   // Safe static object initialization following go/totw/110.
-  static const absl::flat_hash_map<SwitchRole, P4Info*>* role_to_info = [] {
-    return new absl::flat_hash_map<SwitchRole, P4Info*>(
-        {{SwitchRole::kMiddleblock,
+  static const absl::flat_hash_map<Instantiation,
+                                   P4Info*>* instantiation_to_info = [] {
+    return new absl::flat_hash_map<Instantiation, P4Info*>(
+        {{Instantiation::kMiddleblock,
           FileTocToP4Info(middleblock_p4info_embed_create())},
-         {SwitchRole::kWbb, FileTocToP4Info(wbb_p4info_embed_create())}});
+         {Instantiation::kWbb, FileTocToP4Info(wbb_p4info_embed_create())}});
   }();
   static const P4Info* empty_info = [] { return new P4Info(); }();
-  if (role_to_info->contains(role)) {
-    return *role_to_info->at(role);
+  if (instantiation_to_info->contains(instantiation)) {
+    return *instantiation_to_info->at(instantiation);
   }
-  LOG(DFATAL) << "Obtaining P4Info for invalid role: "
-              << static_cast<int>(role);
+  LOG(DFATAL) << "Obtaining P4Info for invalid instantiation: "
+              << static_cast<int>(instantiation);
   return *empty_info;
 }
 
-const IrP4Info& GetIrP4Info(SwitchRole role) {
+const IrP4Info& GetIrP4Info(Instantiation instantiation) {
   // Safe static object initialization following go/totw/110.
-  static const absl::flat_hash_map<SwitchRole, IrP4Info*>* role_to_info = [] {
-    auto result = new absl::flat_hash_map<SwitchRole, IrP4Info*>();
-    for (SwitchRole role : AllSwitchRoles()) {
-      result->insert({role, CreateIrP4Info(GetP4Info(role))});
+  static const absl::flat_hash_map<Instantiation,
+                                   IrP4Info*>* instantiation_to_info = [] {
+    auto result = new absl::flat_hash_map<Instantiation, IrP4Info*>();
+    for (Instantiation instantiation : AllInstantiations()) {
+      result->insert({instantiation, CreateIrP4Info(GetP4Info(instantiation))});
     }
     return result;
   }();
   static const IrP4Info* empty_info = [] { return new IrP4Info(); }();
-  if (role_to_info->contains(role)) {
-    return *role_to_info->at(role);
+  if (instantiation_to_info->contains(instantiation)) {
+    return *instantiation_to_info->at(instantiation);
   }
-  LOG(DFATAL) << "Obtaining IrP4Info for invalid role: "
-              << static_cast<int>(role);
+  LOG(DFATAL) << "Obtaining IrP4Info for invalid instantiation: "
+              << static_cast<int>(instantiation);
   return *empty_info;
 }
 

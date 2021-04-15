@@ -15,9 +15,9 @@
 #include "p4_symbolic/parser.h"
 #include "p4_symbolic/sai/parser.h"
 #include "p4_symbolic/symbolic/symbolic.h"
+#include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_nonstandard_platforms.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
-#include "sai_p4/instantiations/google/switch_role.h"
 #include "thinkit/bazel_test_environment.h"
 
 namespace p4_symbolic {
@@ -88,12 +88,13 @@ class P4SymbolicComponentTest : public testing::Test {
 TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
   // Some constants.
   thinkit::TestEnvironment& env = Environment();
-  const auto role = sai::SwitchRole::kMiddleblock;
+  const auto instantiation = sai::Instantiation::kMiddleblock;
   const auto platform = sai::NonstandardPlatform::kP4Symbolic;
-  const P4Info p4info = sai::GetNonstandardP4Info(role, platform);
+  const P4Info p4info = sai::GetNonstandardP4Info(instantiation, platform);
   ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
                        pdpi::CreateIrP4Info(p4info));
-  const std::string p4_config = sai::GetNonstandardP4Config(role, platform);
+  const std::string p4_config =
+      sai::GetNonstandardP4Config(instantiation, platform);
   EXPECT_OK(env.StoreTestArtifact("ir_p4info.textproto", ir_p4info));
   EXPECT_OK(env.StoreTestArtifact("p4_config.json", p4_config));
 

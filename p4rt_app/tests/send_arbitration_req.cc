@@ -159,7 +159,7 @@ class P4rtControllerClient {
     request.set_device_id(kDeviceId);
     *request.mutable_election_id() = GetElectionId();
     *request.mutable_config()->mutable_p4info() =
-        sai::GetP4Info(sai::SwitchRole::kMiddleblock);
+        sai::GetP4Info(sai::Instantiation::kMiddleblock);
 
     p4::v1::SetForwardingPipelineConfigResponse response;
     grpc::ClientContext context;

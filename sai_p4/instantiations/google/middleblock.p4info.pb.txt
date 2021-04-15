@@ -316,7 +316,7 @@ tables {
     id: 33554690
     name: "ingress.acl_linkqual.acl_linkqual_table"
     alias: "acl_linkqual_table"
-    annotations: "@p4runtime_role(\"sdn_controller\")"
+    annotations: "@p4runtime_role(\"linkqual_app\")"
     annotations: "@sai_acl(INGRESS)"
   }
   match_fields {

@@ -122,7 +122,7 @@ class P4InfoVerificationTest : public testing::Test {
 };
 
 TEST_F(P4InfoVerificationTest, SaiP4InfoIsOk) {
-  EXPECT_OK(ValidateP4Info(sai::GetP4Info(sai::SwitchRole::kMiddleblock)));
+  EXPECT_OK(ValidateP4Info(sai::GetP4Info(sai::Instantiation::kMiddleblock)));
 }
 
 TEST_F(P4InfoVerificationTest, ExpectedP4InfoValues) {

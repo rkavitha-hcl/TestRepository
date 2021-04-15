@@ -9,16 +9,18 @@
 #include "gutil/status_matchers.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_symbolic/symbolic/symbolic.h"
-#include "sai_p4/instantiations/google/switch_role.h"
+#include "sai_p4/instantiations/google/instantiations.h"
 
 namespace p4_symbolic {
 namespace {
 
-TEST(EvaluateSaiPipeline, SatisfiableForAllRolesWithEmptyEntriesAndPorts) {
+TEST(EvaluateSaiPipeline,
+     SatisfiableForAllInstantiationsWithEmptyEntriesAndPorts) {
   std::vector<p4::v1::TableEntry> entries;
   std::vector<int> ports;
-  for (auto role : sai::AllSwitchRoles()) {
-    ASSERT_OK_AND_ASSIGN(auto state, EvaluateSaiPipeline(role, entries, ports));
+  for (auto instantiation : sai::AllInstantiations()) {
+    ASSERT_OK_AND_ASSIGN(auto state,
+                         EvaluateSaiPipeline(instantiation, entries, ports));
     EXPECT_EQ(state->solver->check(), z3::check_result::sat);
   }
 }

@@ -14,18 +14,20 @@
 #include "p4_symbolic/parser.h"
 #include "p4_symbolic/sai/parser.h"
 #include "p4_symbolic/symbolic/symbolic.h"
+#include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_nonstandard_platforms.h"
-#include "sai_p4/instantiations/google/switch_role.h"
 
 namespace p4_symbolic {
 
 namespace {
 
 absl::StatusOr<symbolic::Dataplane> GetSaiDataplane(
-    sai::SwitchRole role, const std::vector<p4::v1::TableEntry>& entries) {
+    sai::Instantiation instantiation,
+    const std::vector<p4::v1::TableEntry>& entries) {
   auto platform = sai::NonstandardPlatform::kP4Symbolic;
-  std::string p4_config = sai::GetNonstandardP4Config(role, platform);
-  p4::config::v1::P4Info p4info = sai::GetNonstandardP4Info(role, platform);
+  std::string p4_config = sai::GetNonstandardP4Config(instantiation, platform);
+  p4::config::v1::P4Info p4info =
+      sai::GetNonstandardP4Info(instantiation, platform);
   ASSIGN_OR_RETURN(const pdpi::IrP4Info ir_p4info,
                    pdpi::CreateIrP4Info(p4info));
   return ParseToIr(p4_config, ir_p4info, entries);
@@ -34,10 +36,11 @@ absl::StatusOr<symbolic::Dataplane> GetSaiDataplane(
 }  // namespace
 
 absl::StatusOr<std::unique_ptr<symbolic::SolverState>> EvaluateSaiPipeline(
-    sai::SwitchRole role, const std::vector<p4::v1::TableEntry>& entries,
+    sai::Instantiation instantiation,
+    const std::vector<p4::v1::TableEntry>& entries,
     const std::vector<int>& physical_ports) {
   ASSIGN_OR_RETURN(symbolic::Dataplane dataplane,
-                   GetSaiDataplane(role, entries));
+                   GetSaiDataplane(instantiation, entries));
   ASSIGN_OR_RETURN(std::unique_ptr<symbolic::SolverState> state,
                    symbolic::EvaluateP4Pipeline(dataplane, physical_ports));
   ASSIGN_OR_RETURN(std::vector<z3::expr> parser_constraints,

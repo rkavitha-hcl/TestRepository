@@ -3,7 +3,7 @@
 
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
-#include "sai_p4/instantiations/google/switch_role.h"
+#include "sai_p4/instantiations/google/instantiations.h"
 
 namespace sai {
 
@@ -16,11 +16,11 @@ enum class NonstandardPlatform {
 std::string PlatformName(NonstandardPlatform platform);
 
 // Returns JSON config for the SAI P4 program for the given platform.
-std::string GetNonstandardP4Config(SwitchRole role,
+std::string GetNonstandardP4Config(Instantiation instantiation,
                                    NonstandardPlatform platform);
 
 // Returns P4 Info for the SAI P4 program for the given platform.
-p4::config::v1::P4Info GetNonstandardP4Info(SwitchRole role,
+p4::config::v1::P4Info GetNonstandardP4Info(Instantiation instantiation,
                                             NonstandardPlatform platform);
 
 }  // namespace sai
