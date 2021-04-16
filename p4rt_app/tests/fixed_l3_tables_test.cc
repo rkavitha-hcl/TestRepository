@@ -398,23 +398,24 @@ TEST_F(FixedL3TableTest, TableEntryModify) {
           UnorderedElementsAre(std::make_pair("action", "set_nexthop_id"),
                                std::make_pair("param/nexthop_id", "20"))));
 
-  // Update nexthop_id to a new value and send the modify request. Once complete
-  // the entry should have a new nexthop_id.
+  // Update the request with a new action.
   write_request.mutable_updates(0)->set_type(p4::v1::Update::MODIFY);
-  *write_request.mutable_updates(0)
-       ->mutable_entity()
-       ->mutable_table_entry()
-       ->mutable_action()
-       ->mutable_action()
-       ->mutable_params(0)
-       ->mutable_value() = "30";
+  ASSERT_OK(gutil::ReadProtoFromString(
+      R"pb(action {
+             action_id: 16777220
+             params { param_id: 1 value: "30" }
+           })pb",
+      write_request.mutable_updates(0)
+          ->mutable_entity()
+          ->mutable_table_entry()
+          ->mutable_action()));
   ASSERT_OK(
       pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), write_request));
   EXPECT_THAT(
       p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
       IsOkAndHolds(
-          UnorderedElementsAre(std::make_pair("action", "set_nexthop_id"),
-                               std::make_pair("param/nexthop_id", "30"))));
+          UnorderedElementsAre(std::make_pair("action", "set_wcmp_group_id"),
+                               std::make_pair("param/wcmp_group_id", "30"))));
 }
 
 TEST_F(FixedL3TableTest, DuplicateTableEntryInsertFails) {

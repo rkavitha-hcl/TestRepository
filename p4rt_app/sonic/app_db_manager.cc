@@ -188,6 +188,14 @@ absl::StatusOr<std::string> ModifyAppDbEntry(
 
   LOG(INFO) << "Modify AppDb entry: " << key;
   ASSIGN_OR_RETURN(auto values, IrTableEntryToAppDbValues(entry));
+
+  // On modify we need to first remove the existing entry to get rid of any
+  // action paramters that may be replaced with a new action. Doing this through
+  // the app_db_client will not invoke an action in the OrchAgent.
+  app_db_client.del(absl::StrCat(p4rt_table.get_table_name(), ":", key));
+
+  // Then we re-insert the entry through the ProducerStateTable which will inoke
+  // an update action in the OrchAgent.
   p4rt_table.set(key, values);
   return key;
 }
