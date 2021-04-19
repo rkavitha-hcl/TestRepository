@@ -29,8 +29,7 @@
 namespace gpins {
 namespace {
 
-// TODO: Enable once the bug is fixed.
-TEST_P(SmokeTestFixture, DISABLED_ModifyWorks) {
+TEST_P(SmokeTestFixture, ModifyWorks) {
   const sai::WriteRequest pd_insert = gutil::ParseProtoOrDie<sai::WriteRequest>(
       R"pb(
         updates {
