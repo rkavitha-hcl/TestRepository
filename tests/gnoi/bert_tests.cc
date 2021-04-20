@@ -107,8 +107,7 @@ void VerifyBertResultForSuccess(
 // Test StartBERT with invalid request parameters.
 TEST_P(BertTest, StartBertFailsIfRequestParametersInvalid) {
   thinkit::Switch& sut = GetMirrorTestbed().Sut();
-  // TODO (b/176913347): Enable the all ports UP check.
-  // ASSERT_OK(pins_test::PortsUp(sut));
+  ASSERT_OK(pins_test::PortsUp(sut));
   ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<gnoi::diag::Diag::Stub> sut_gnoi_diag_stub,
       sut.CreateGnoiDiagStub());
@@ -184,8 +183,7 @@ TEST_P(BertTest, StartBertFailsIfRequestParametersInvalid) {
                 gutil::StatusIs(absl::StatusCode::kInvalidArgument,
                                 HasSubstr("Interface is invalid")));
   }
-  // TODO (b/176913347): Enable the all ports UP check.
-  // ASSERT_OK(pins_test::PortsUp(sut));
+  ASSERT_OK(pins_test::PortsUp(sut));
 }
 
 // Test StopBERT RPC with invalid argument in the request.
@@ -194,8 +192,7 @@ TEST_P(BertTest, StartBertFailsIfRequestParametersInvalid) {
 // should fail.
 TEST_P(BertTest, StopBertfailsIfRequestParametersInvalid) {
   thinkit::Switch& sut = GetMirrorTestbed().Sut();
-  // TODO (b/176913347): Enable the all ports UP check.
-  // ASSERT_OK(pins_test::PortsUp(sut));
+  ASSERT_OK(pins_test::PortsUp(sut));
   ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<gnoi::diag::Diag::Stub> sut_gnoi_diag_stub,
       sut.CreateGnoiDiagStub());
@@ -240,9 +237,7 @@ TEST_P(BertTest, StopBertfailsIfRequestParametersInvalid) {
         gutil::StatusIs(absl::StatusCode::kInvalidArgument,
                         HasSubstr("Operation ID is not found on interface")));
   }
-
-  // TODO (b/176913347): Enable the all ports UP check.
-  // ASSERT_OK(pins_test::PortsUp(sut));
+  ASSERT_OK(pins_test::PortsUp(sut));
 }
 
 // Test GetBERTResult RPC with invalid argument in the request.
@@ -251,8 +246,7 @@ TEST_P(BertTest, StopBertfailsIfRequestParametersInvalid) {
 // RPC should fail.
 TEST_P(BertTest, GetBertResultFailsIfRequestParametersInvalid) {
   thinkit::Switch& sut = GetMirrorTestbed().Sut();
-  // TODO (b/176913347): Enable the all ports UP check.
-  // ASSERT_OK(pins_test::PortsUp(sut));
+  ASSERT_OK(pins_test::PortsUp(sut));
   ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<gnoi::diag::Diag::Stub> sut_gnoi_diag_stub,
       sut.CreateGnoiDiagStub());
@@ -298,9 +292,7 @@ TEST_P(BertTest, GetBertResultFailsIfRequestParametersInvalid) {
                                 AllOf(HasSubstr("Result is not found for intf"),
                                       HasSubstr(kInterface))));
   }
-
-  // TODO (b/176913347): Enable the all ports UP check.
-  // ASSERT_OK(pins_test::PortsUp(sut));
+  ASSERT_OK(pins_test::PortsUp(sut));
 }
 
 // Test StartBERT fails if peer port is not running BERT.
@@ -308,8 +300,7 @@ TEST_P(BertTest, StartBertfailsIfPeerPortNotRunningBert) {
   thinkit::Switch& sut = GetMirrorTestbed().Sut();
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<gnmi::gNMI::Stub> sut_gnmi_stub,
                        sut.CreateGnmiStub());
-  // TODO (b/176913347): Enable the all ports UP check.
-  // ASSERT_OK(pins_test::PortsUp(sut));
+  ASSERT_OK(pins_test::PortsUp(sut));
   ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<gnoi::diag::Diag::Stub> sut_gnoi_diag_stub,
       sut.CreateGnoiDiagStub());
@@ -361,8 +352,7 @@ TEST_P(BertTest, StartBertfailsIfPeerPortNotRunningBert) {
   EXPECT_OK(sut_gnoi_diag_stub->GetBERTResult(&result_context, result_request,
                                               &result_response));
   LOG(INFO) << "Result: " << result_response.ShortDebugString();
-  // TODO (b/176913347): Enable the all ports UP check.
-  // ASSERT_OK(pins_test::PortsUp(sut));
+  ASSERT_OK(pins_test::PortsUp(sut));
   // Verify the response.
   ASSERT_THAT(result_response.per_port_responses(), SizeIs(1));
   EXPECT_EQ(result_response.per_port_responses(0).status(),
@@ -381,8 +371,7 @@ TEST_P(BertTest, StartBertSucceeds) {
   thinkit::Switch& sut = GetMirrorTestbed().Sut();
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<gnmi::gNMI::Stub> sut_gnmi_stub,
                        sut.CreateGnmiStub());
-  // TODO (b/176913347): Enable the all ports UP check.
-  // ASSERT_OK(pins_test::PortsUp(sut));
+  ASSERT_OK(pins_test::PortsUp(sut));
   ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<gnoi::diag::Diag::Stub> sut_gnoi_diag_stub,
       sut.CreateGnoiDiagStub());
@@ -391,8 +380,7 @@ TEST_P(BertTest, StartBertSucceeds) {
   ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<gnmi::gNMI::Stub> control_switch_gnmi_stub,
       control_switch.CreateGnmiStub());
-  // TODO (b/176913347): Enable the all ports UP check.
-  // ASSERT_OK(pins_test::PortsUp(control_switch));
+  ASSERT_OK(pins_test::PortsUp(control_switch));
   ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<gnoi::diag::Diag::Stub> control_switch_gnoi_diag_stub,
       control_switch.CreateGnoiDiagStub());
@@ -568,9 +556,8 @@ TEST_P(BertTest, StartBertSucceeds) {
                               HasSubstr("exists"))))
         << "Response: " << bert_response.ShortDebugString();
   }
-  // TODO (b/176913347): Enable the all ports UP check.
-  // ASSERT_OK(pins_test::PortsUp(sut));
-  // ASSERT_OK(pins_test::PortsUp(control_switch));
+  ASSERT_OK(pins_test::PortsUp(sut));
+  ASSERT_OK(pins_test::PortsUp(control_switch));
 }
 
 }  // namespace bert

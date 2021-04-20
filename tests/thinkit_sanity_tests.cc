@@ -149,10 +149,6 @@ void TestGnmiGetAllOperation(thinkit::Switch& sut) {
 }
 
 void TestGnmiCheckInterfaceStateOperation(thinkit::MirrorTestbed& testbed) {
-  // TODO: enable after gNMI responses are consistent.
-  if (testbed.Environment().MaskKnownFailures()) {
-    return;
-  }
   EXPECT_OK(PortsUp(testbed.Sut()));
 }
 

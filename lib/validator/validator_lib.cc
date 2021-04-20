@@ -123,8 +123,7 @@ absl::Status SwitchReady(thinkit::Switch& thinkit_switch,
   RETURN_IF_ERROR(Pingable(thinkit_switch));
   RETURN_IF_ERROR(P4rtAble(thinkit_switch));
   RETURN_IF_ERROR(GnmiAble(thinkit_switch));
-  // TODO (b/176913347): Add validation once gNMI response flakiness is fixed.
-  // RETURN_IF_ERROR(PortsUp(thinkit_switch));
+  RETURN_IF_ERROR(PortsUp(thinkit_switch));
   return GnoiAble(thinkit_switch);
 }
 
@@ -135,8 +134,7 @@ absl::Status SwitchReadyWithSsh(thinkit::Switch& thinkit_switch,
   RETURN_IF_ERROR(SSHable(thinkit_switch, ssh_client));
   RETURN_IF_ERROR(P4rtAble(thinkit_switch));
   RETURN_IF_ERROR(GnmiAble(thinkit_switch));
-  // TODO (b/176913347): Add validation once gNMI response flakiness is fixed.
-  // RETURN_IF_ERROR(PortsUp(thinkit_switch));
+  RETURN_IF_ERROR(PortsUp(thinkit_switch));
   return GnoiAble(thinkit_switch);
 }
 
