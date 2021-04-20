@@ -38,6 +38,7 @@ cc_library(
         "//gutil:status",
         "//gutil:status_matchers",
         "//lib/gnmi:gnmi_helper",
+        "//lib/validator:validator_lib",
         "//p4_pdpi:connection_management",
         "//thinkit:mirror_testbed",
         "//thinkit:ssh_client",

@@ -36,6 +36,7 @@
 #include "gutil/status.h"
 #include "gutil/status_matchers.h"
 #include "lib/gnmi/gnmi_helper.h"
+#include "lib/validator/validator_lib.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4_pdpi/connection_management.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
@@ -52,7 +53,6 @@ namespace {
 
 using ::nlohmann::json;
 using ::std::abs;
-using ::testing::Eq;
 using ::testing::HasSubstr;
 
 constexpr int kEpochMarginalError = 2;
@@ -128,16 +128,32 @@ constexpr char kV3ReleaseConfigBlob[] = R"({
 }  // namespace
 
 void TestSSHCommand(thinkit::SSHClient& ssh_client, thinkit::Switch& sut) {
-  ASSERT_OK_AND_ASSIGN(std::string output,
-                       ssh_client.RunCommand(sut.ChassisName(), "echo foo",
-                                             absl::ZeroDuration()));
-  EXPECT_THAT(output, Eq("foo\n"));
+  EXPECT_OK(SSHable(sut, ssh_client));
 }
 
-void TestP4Session(thinkit::Switch& sut) {
-  ASSERT_OK_AND_ASSIGN(auto sut_p4runtime_stub, sut.CreateP4RuntimeStub());
-  EXPECT_OK(pdpi::P4RuntimeSession::Create(std::move(sut_p4runtime_stub),
-                                           sut.DeviceId()));
+void TestP4Session(thinkit::Switch& sut) { EXPECT_OK(P4rtAble(sut)); }
+
+void TestGnmiGetInterfaceOperation(thinkit::Switch& sut) {
+  EXPECT_OK(GnmiAble(sut));
+}
+
+void TestGnmiGetAllOperation(thinkit::Switch& sut) {
+  ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
+  ASSERT_OK_AND_ASSIGN(gnmi::GetRequest req,
+                       BuildGnmiGetRequest("", gnmi::GetRequest::ALL));
+  LOG(INFO) << "Sending GET request: " << req.ShortDebugString();
+  gnmi::GetResponse resp;
+  grpc::ClientContext context;
+  ASSERT_OK(sut_gnmi_stub->Get(&context, req, &resp));
+  LOG(INFO) << "Received GET response: " << resp.ShortDebugString();
+}
+
+void TestGnmiCheckInterfaceStateOperation(thinkit::MirrorTestbed& testbed) {
+  // TODO: enable after gNMI responses are consistent.
+  if (testbed.Environment().MaskKnownFailures()) {
+    return;
+  }
+  EXPECT_OK(PortsUp(testbed.Sut()));
 }
 
 // This test sets the config blob and verifies corresponding state paths.
@@ -306,76 +322,6 @@ void TestGnmiCheckSpecificInterfaceStateOperation(thinkit::Switch& sut,
       ParseGnmiGetResponse(resp, "openconfig-interfaces:oper-status"));
   LOG(INFO) << "oper_respose: " << oper_response;
   EXPECT_THAT(oper_response, HasSubstr(kStateUp));
-}
-
-void TestGnmiCheckInterfaceStateOperation(thinkit::MirrorTestbed& testbed) {
-  const absl::flat_hash_set<std::string> k1Ethernet10GBInterfaces = {
-      "\"Ethernet256\"", "\"Ethernet260\""};
-  thinkit::Switch& sut = testbed.Sut();
-  ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
-  ASSERT_OK_AND_ASSIGN(
-      gnmi::GetRequest req,
-      BuildGnmiGetRequest(kInterfaces, gnmi::GetRequest::STATE));
-  LOG(INFO) << "Sending GET request: " << req.ShortDebugString();
-
-  gnmi::GetResponse resp;
-  grpc::ClientContext context;
-  ASSERT_OK(sut_gnmi_stub->Get(&context, req, &resp));
-  LOG(INFO) << "Received GET response: " << resp.ShortDebugString();
-  ASSERT_EQ(resp.notification_size(), 1);
-  ASSERT_EQ(resp.notification(0).update_size(), 1);
-  const auto resp_json =
-      json::parse(resp.notification(0).update(0).val().json_ietf_val());
-  const auto oc_intf_json = resp_json.find("openconfig-interfaces:interfaces");
-  ASSERT_NE(oc_intf_json, resp_json.end());
-  const auto oc_intf_list_json = oc_intf_json->find("interface");
-  ASSERT_NE(oc_intf_list_json, oc_intf_json->end());
-  // TODO: enable this after b/176249806 is fixed.
-  if (testbed.Environment().MaskKnownFailures()) {
-    return;
-  }
-  for (auto const& element : oc_intf_list_json->items()) {
-    auto const element_name_json = element.value().find("name");
-    ASSERT_NE(element_name_json, element.value().end());
-    // TODO : Revert back to interface port-speed check.
-    // Arista chassis have 2 additional 10G SFP ports, skipping checks for these
-    // ports as they aren't connected.
-    if (!k1Ethernet10GBInterfaces.contains(element_name_json->dump())) {
-      const auto element_interface_state_json = element.value().find("state");
-      ASSERT_NE(element_interface_state_json, element.value().end())
-          << element.value().find("name")->dump();
-
-      const auto element_status_json =
-          element_interface_state_json->find("oper-status");
-      ASSERT_NE(element_status_json, element_interface_state_json->end())
-          << element.value().find("name")->dump();
-
-      EXPECT_THAT(element_status_json->dump(), HasSubstr(kStateUp))
-          << element_interface_state_json->find("name")->dump();
-    }
-  }
-}
-
-void TestGnmiGetInterfaceOperation(thinkit::Switch& sut) {
-  ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
-  ASSERT_OK_AND_ASSIGN(gnmi::GetRequest req,
-                       BuildGnmiGetRequest(kInterfaces, gnmi::GetRequest::ALL));
-  LOG(INFO) << "Sending GET request: " << req.ShortDebugString();
-  gnmi::GetResponse resp;
-  grpc::ClientContext context;
-  ASSERT_OK(sut_gnmi_stub->Get(&context, req, &resp));
-  LOG(INFO) << "Received GET response: " << resp.ShortDebugString();
-}
-
-void TestGnmiGetAllOperation(thinkit::Switch& sut) {
-  ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
-  ASSERT_OK_AND_ASSIGN(gnmi::GetRequest req,
-                       BuildGnmiGetRequest("", gnmi::GetRequest::ALL));
-  LOG(INFO) << "Sending GET request: " << req.ShortDebugString();
-  gnmi::GetResponse resp;
-  grpc::ClientContext context;
-  ASSERT_OK(sut_gnmi_stub->Get(&context, req, &resp));
-  LOG(INFO) << "Received GET response: " << resp.ShortDebugString();
 }
 
 //  Returns last boot time of SUT.
