@@ -22,7 +22,7 @@ package(
     licenses = ["notice"],
 )
 
-# -- PD: program dependent P4Runtime API ---------------------------------------
+# -- PD proto for SDN controller -----------------------------------------------
 
 proto_library(
     name = "sai_pd_proto",
@@ -49,6 +49,31 @@ build_test(
     ],
 )
 
+proto_library(
+    name = "linkqual_pd_proto",
+    srcs = ["linkqual_pd.proto"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "@com_github_p4lang_p4runtime//:p4runtime_proto",
+        "@com_google_googleapis//google/rpc:code_proto",
+        "@com_google_googleapis//google/rpc:status_proto",
+    ],
+)
+
+cc_proto_library(
+    name = "linkqual_pd_cc_proto",
+    visibility = ["//visibility:public"],
+    deps = [":linkqual_pd_proto"],
+)
+
+build_test(
+    name = "linkqual_pd_proto_test",
+    targets = [
+        ":linkqual_pd_proto",
+        ":linkqual_pd_cc_proto",
+    ],
+)
+
 # Ensures that the checked in and compile-time generated SAI PDs match.
 # To update the checked in PD:
 #   blaze run :sai_pd_up_to_date_test -- --update
@@ -61,6 +86,15 @@ p4_pd_proto(
     out = "generated/sai_pd.proto",
     package = "sai",
     roles = ["sdn_controller"],
+)
+
+p4_pd_proto(
+    name = "generated_linkqual_pd",
+    src = "generated/middleblock.p4info.pb.txt",
+    # Do not access directly. Use checked in linkqual_pd.proto instead.
+    out = "generated/linkqual_pd.proto",
+    package = "linkqual",
+    roles = ["linkqual_app"],
 )
 
 # -- P4Info --------------------------------------------------------------------

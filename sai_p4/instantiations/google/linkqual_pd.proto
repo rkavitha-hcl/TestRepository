@@ -1,0 +1,225 @@
+
+// P4 PD proto
+
+// NOTE: This file is automatically created from the P4 program, do not modify
+// manually.
+
+syntax = "proto3";
+
+package linkqual;
+
+import "google/rpc/code.proto";
+import "google/rpc/status.proto";
+import "p4/v1/p4runtime.proto";
+
+// PDPI uses the following formats for different kinds of values:
+// - Format::IPV4 for IPv4 addresses (32 bits), e.g., "10.0.0.1".
+// - Format::IPV6 for IPv6 addresses (128 bits) formatted according to RFC 5952.
+//   E.g. "2001:db8::1".
+// - Format::MAC for MAC addresses (48 bits), e.g., "01:02:03:04:aa".
+// - Format::STRING for entities that the controller refers to by string, e.g.,
+//   ports.
+// - Format::HEX_STRING for anything else, i.e. bitstrings of arbitrary length.
+//   E.g., "0x01ab".
+
+// -- General definitions ------------------------------------------------------
+
+// Ternary match. The value and mask are formatted according to the Format of
+// the match field.
+message Ternary {
+  string value = 1;
+  string mask = 2;
+}
+
+// LPM match. The value is formatted according to the Format of the match field.
+message Lpm {
+  string value = 1;
+  int32 prefix_length = 2;
+}
+
+// Optional match. The value is formatted according to the Format of the match
+// field.
+message Optional {
+  string value = 1;
+}
+
+// -- Tables -------------------------------------------------------------------
+
+message AclLinkqualTableEntry {
+  message Match {
+    Ternary ether_type = 1;  // ternary match / Format::HEX_STRING / 16 bits
+    Ternary dst_mac = 2;     // ternary match / Format::MAC
+    Optional in_port = 3;    // optional match / Format::STRING
+  }
+  Match match = 1;
+  message Action {
+    oneof action {
+      LinkqualDropAction linkqual_drop = 1;
+      LinkqualSetPortAction linkqual_set_port = 2;
+    }
+  }
+  Action action = 2;
+  int32 priority = 3;
+  BytesAndPacketsCounterData counter_data = 6;
+  bytes controller_metadata = 8;
+}
+
+// -- Actions ------------------------------------------------------------------
+
+message LinkqualDropAction {}
+
+message LinkqualSetPortAction {
+  string port = 1;  // Format::STRING
+}
+
+// -- All tables ---------------------------------------------------------------
+
+message TableEntry {
+  oneof entry {
+    AclLinkqualTableEntry acl_linkqual_table_entry = 258;
+  }
+}
+
+message TableEntries {
+  repeated TableEntry entries = 1;
+}
+
+// -- Packet-IO ----------------------------------------------------------------
+
+message PacketIn {
+  bytes payload = 1;
+
+  message Metadata {
+    string ingress_port = 1;        // Format::STRING
+    string target_egress_port = 2;  // Format::STRING
+  }
+  Metadata metadata = 2;
+}
+message PacketOut {
+  bytes payload = 1;
+
+  message Metadata {
+    string egress_port = 1;        // Format::STRING
+    string submit_to_ingress = 2;  // Format::HEX_STRING / 1 bits
+    string unused_pad = 3;         // Format::HEX_STRING / 7 bits
+  }
+  Metadata metadata = 2;
+}
+
+// -- Meter configs ------------------------------------------------------------
+
+message BytesMeterConfig {
+  // Committed/peak information rate (bytes per sec).
+  int64 bytes_per_second = 1;
+  // Committed/peak burst size.
+  int64 burst_bytes = 2;
+}
+
+message PacketsMeterConfig {
+  // Committed/peak information rate (packets per sec).
+  int64 packets_per_second = 1;
+  // Committed/peak burst size.
+  int64 burst_packets = 2;
+}
+
+// -- Counter data -------------------------------------------------------------
+
+message BytesCounterData {
+  // Number of bytes.
+  int64 byte_count = 1;
+}
+
+message PacketsCounterData {
+  // Number of packets.
+  int64 packet_count = 1;
+}
+
+message BytesAndPacketsCounterData {
+  // Number of bytes.
+  int64 byte_count = 1;
+  // Number of packets.
+  int64 packet_count = 2;
+}
+
+// -- RPC messages -------------------------------------------------------------
+
+// Describes an update in a Write RPC request.
+message Update {
+  // Required.
+  p4.v1.Update.Type type = 1;
+  // Required.
+  TableEntry table_entry = 2;
+}
+
+// Describes a Write RPC request.
+message WriteRequest {
+  // Required.
+  uint64 device_id = 1;
+  // Required.
+  p4.v1.Uint128 election_id = 2;
+  // Required.
+  repeated Update updates = 3;
+}
+
+// Describes the status of a single update in a Write RPC.
+message UpdateStatus {
+  // Required.
+  google.rpc.Code code = 1;
+  // Required for non-OK status.
+  string message = 2;
+}
+
+// Describes the result of a Write RPC.
+message WriteRpcStatus {
+  oneof status {
+    google.rpc.Status rpc_wide_error = 1;
+    WriteResponse rpc_response = 2;
+  }
+}
+
+// Describes a Write RPC response.
+message WriteResponse {
+  // Same order as `updates` in `WriteRequest`.
+  repeated UpdateStatus statuses = 1;
+}
+
+// Read requests.
+message ReadRequest {
+  // Required.
+  uint64 device_id = 1;
+  // Indicates if counter data should be read.
+  bool read_counter_data = 2;
+  // Indicates if meter configs should be read.
+  bool read_meter_configs = 3;
+}
+
+// A read request response.
+message ReadResponse {
+  // The table entries read by the switch.
+  repeated TableEntry table_entries = 1;
+}
+
+// A stream message request
+message StreamMessageRequest {
+  oneof update {
+    p4.v1.MasterArbitrationUpdate arbitration = 1;
+    PacketOut packet = 2;
+  }
+}
+
+// A stream error message
+message StreamError {
+  google.rpc.Status status = 1;
+  PacketOut packet_out = 2;
+}
+
+// A stream message response
+message StreamMessageResponse {
+  oneof update {
+    p4.v1.MasterArbitrationUpdate arbitration = 1;
+    PacketIn packet = 2;
+    // Used by the server to asynchronously report errors which occur when
+    // processing StreamMessageRequest messages.
+    StreamError error = 3;
+  }
+}
