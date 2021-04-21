@@ -59,3 +59,30 @@ cc_library(
     ],
     alwayslink = True,
 )
+
+cc_library(
+    name = "master_arbitration_test",
+    testonly = True,
+    srcs = ["master_arbitration_test.cc"],
+    hdrs = ["master_arbitration_test.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        ":p4_blackbox_fixture",
+        "//gutil:status_matchers",
+        "//gutil:testing",
+        "//p4_pdpi:connection_management",
+        "//p4_pdpi:entity_management",
+        "//thinkit:test_environment",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/numeric:int128",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_absl//absl/time",
+        "@com_google_googleapis//google/rpc:code_cc_proto",
+        "@com_google_googletest//:gtest",
+    ],
+    alwayslink = True,
+)

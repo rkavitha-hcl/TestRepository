@@ -41,6 +41,10 @@ absl::StatusOr<p4::v1::ReadResponse> SetIdAndSendPiReadRequest(
 absl::Status SetIdsAndSendPiWriteRequest(P4RuntimeSession* session,
                                          p4::v1::WriteRequest& write_request);
 
+// Sends a PI (program independent) write request with given stub.
+absl::Status SendPiWriteRequest(p4::v1::P4Runtime::Stub* stub,
+                                const p4::v1::WriteRequest& request);
+
 // Sets the requests' session parameters(e.g. device id; election id). And sends
 // PI (program independent) write requests.
 absl::Status SetIdsAndSendPiWriteRequests(

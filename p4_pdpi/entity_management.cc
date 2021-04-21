@@ -33,6 +33,7 @@
 namespace pdpi {
 
 using ::p4::config::v1::P4Info;
+using ::p4::v1::P4Runtime;
 using ::p4::v1::ReadRequest;
 using ::p4::v1::ReadResponse;
 using ::p4::v1::SetForwardingPipelineConfigRequest;
@@ -96,19 +97,23 @@ absl::StatusOr<ReadResponse> SetIdAndSendPiReadRequest(
   return response;
 }
 
+absl::Status SendPiWriteRequest(P4Runtime::Stub* stub,
+                                const p4::v1::WriteRequest& request) {
+  grpc::ClientContext context;
+  // Empty message; intentionally discarded.
+  WriteResponse pi_response;
+  RETURN_IF_ERROR(WriteRpcGrpcStatusToAbslStatus(
+      stub->Write(&context, request, &pi_response), request.updates_size()))
+      << "Failed write request: " << request.DebugString();
+  return absl::OkStatus();
+}
+
 absl::Status SetIdsAndSendPiWriteRequest(P4RuntimeSession* session,
                                          WriteRequest& write_request) {
   write_request.set_device_id(session->DeviceId());
   *write_request.mutable_election_id() = session->ElectionId();
 
-  grpc::ClientContext context;
-  // Empty message; intentionally discarded.
-  WriteResponse pi_response;
-  RETURN_IF_ERROR(WriteRpcGrpcStatusToAbslStatus(
-      session->Stub().Write(&context, write_request, &pi_response),
-      write_request.updates_size()))
-      << "Failed write request: " << write_request.DebugString();
-  return absl::OkStatus();
+  return SendPiWriteRequest(&session->Stub(), write_request);
 }
 
 absl::Status SetIdsAndSendPiWriteRequests(
