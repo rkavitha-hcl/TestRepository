@@ -80,15 +80,12 @@ control hashing(in headers_t headers,
   }
 
   apply {
-    // TODO: Not currently supported by p4-symbolic.
-#ifndef PLATFORM_P4SYMBOLIC
     select_emcp_hash_algorithm();
     if (headers.ipv4.isValid()) {
       compute_ecmp_hash_ipv4();
     } else if (headers.ipv6.isValid()) {
       compute_ecmp_hash_ipv6();
     }
-#endif
   }
 }  // control hashing
 
