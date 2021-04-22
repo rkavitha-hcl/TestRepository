@@ -40,7 +40,6 @@ control acl_ingress(in headers_t headers,
   action trap(@sai_action_param(QOS_QUEUE) @id(1) qos_queue_t qos_queue) {
     copy(qos_queue);
     mark_to_drop(standard_metadata);
-    acl_ingress_counter.count();
   }
 
   // Forward the packet normally (i.e., perform no action). This is useful as
