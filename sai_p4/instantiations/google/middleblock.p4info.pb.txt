@@ -272,7 +272,7 @@ tables {
     annotations: "@proto_id(3)"
   }
   const_default_action_id: 16777222
-  size: 1024
+  size: 32768
 }
 tables {
   preamble {
@@ -309,7 +309,7 @@ tables {
     annotations: "@proto_id(3)"
   }
   const_default_action_id: 16777222
-  size: 1024
+  size: 4096
 }
 tables {
   preamble {

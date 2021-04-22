@@ -11,6 +11,19 @@
 
 #define MIRROR_SESSION_TABLE_MINIMUM_GUARANTEED_SIZE 2
 
+# copybara:strip_begin(comment only applies internally)
+// The IPv4 and IPv6 minimums appear to hold in practice, but Broadcom's
+// Algorithmic LPM implementation is subtle, and we do not understand it well
+// enough to guarantee these limits. If you are planning to develop a feature
+// that relies on these minimums, please talk to us first.
+//
+// These limits are taken from Sandcastle:
+// http://google3/platforms/networking/sandblaze/stack/hal/target/config/tomahawk3_l3_lpm_profiles.txt
+# copybara:strip_end
+#define ROUTING_IPV4_TABLE_MINIMUM_GUARANTEED_SIZE 32768
+
+#define ROUTING_IPV6_TABLE_MINIMUM_GUARANTEED_SIZE 4096
+
 #define L3_ADMIT_TABLE_MINIMUM_GUARANTEED_SIZE 512
 
 // The maximum number of wcmp groups.

@@ -213,6 +213,7 @@ control routing(in headers_t headers,
       @proto_id(3) set_wcmp_group_id;
     }
     const default_action = drop;
+    size = ROUTING_IPV4_TABLE_MINIMUM_GUARANTEED_SIZE;
   }
 
   @p4runtime_role(P4RUNTIME_ROLE_ROUTING)
@@ -231,6 +232,7 @@ control routing(in headers_t headers,
       @proto_id(3) set_wcmp_group_id;
     }
     const default_action = drop;
+    size = ROUTING_IPV6_TABLE_MINIMUM_GUARANTEED_SIZE;
   }
 
   apply {

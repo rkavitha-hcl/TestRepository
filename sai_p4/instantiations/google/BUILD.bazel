@@ -229,6 +229,11 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "p4_roles",
+    hdrs = ["roles.h"],
+)
+
 # -- Non-standard platforms ----------------------------------------------------
 
 NONSTANDARD_PLATFORMS = [
