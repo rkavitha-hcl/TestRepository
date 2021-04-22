@@ -324,6 +324,14 @@ absl::Status SetBytesField(google::protobuf::Message *message,
   return absl::OkStatus();
 }
 
+absl::Status ClearField(google::protobuf::Message *message,
+                        const std::string &fieldname) {
+  ASSIGN_OR_RETURN(auto *field_descriptor,
+                   GetFieldDescriptor(*message, fieldname));
+  message->GetReflection()->ClearField(message, field_descriptor);
+  return absl::OkStatus();
+}
+
 std::vector<std::string> GetAllFieldNames(
     const google::protobuf::Message &message) {
   std::vector<const FieldDescriptor *> fields;
@@ -354,9 +362,10 @@ absl::StatusOr<std::string> P4NameToProtobufFieldName(
 
 absl::Status PiTableEntryToPd(const IrP4Info &info,
                               const p4::v1::TableEntry &pi,
-                              google::protobuf::Message *pd) {
-  ASSIGN_OR_RETURN(const auto ir_entry, PiTableEntryToIr(info, pi));
-  return IrTableEntryToPd(info, ir_entry, pd);
+                              google::protobuf::Message *pd,
+                              bool key_only /*=false*/) {
+  ASSIGN_OR_RETURN(const auto ir_entry, PiTableEntryToIr(info, pi, key_only));
+  return IrTableEntryToPd(info, ir_entry, pd, key_only);
 }
 
 absl::Status PiPacketInToPd(const IrP4Info &info,
@@ -415,9 +424,9 @@ absl::Status PiStreamMessageResponseToPd(
 }
 
 absl::StatusOr<p4::v1::TableEntry> PdTableEntryToPi(
-    const IrP4Info &info, const google::protobuf::Message &pd) {
-  ASSIGN_OR_RETURN(const auto ir_entry, PdTableEntryToIr(info, pd));
-  return IrTableEntryToPi(info, ir_entry);
+    const IrP4Info &info, const google::protobuf::Message &pd, bool key_only) {
+  ASSIGN_OR_RETURN(const auto ir_entry, PdTableEntryToIr(info, pd, key_only));
+  return IrTableEntryToPi(info, ir_entry, key_only);
 }
 
 absl::StatusOr<p4::v1::PacketIn> PdPacketInToPi(
@@ -603,7 +612,7 @@ static absl::Status IrActionSetToPd(const IrP4Info &ir_p4info,
 }
 
 absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
-                              google::protobuf::Message *pd) {
+                              google::protobuf::Message *pd, bool key_only) {
   ASSIGN_OR_RETURN(
       const auto &ir_table_info,
       gutil::FindOrStatus(ir_p4info.tables_by_name(), ir.table_name()),
@@ -619,78 +628,81 @@ absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
   if (ir.priority() != 0) {
     RETURN_IF_ERROR(SetInt32Field(pd_table, "priority", ir.priority()));
   }
-  RETURN_IF_ERROR(
-      SetBytesField(pd_table, "controller_metadata", ir.controller_metadata()));
+  if (!key_only) {
+    RETURN_IF_ERROR(SetBytesField(pd_table, "controller_metadata",
+                                  ir.controller_metadata()));
 
-  if (ir_table_info.uses_oneshot()) {
-    RETURN_IF_ERROR(IrActionSetToPd(ir_p4info, ir, pd_table));
-  } else {
-    ASSIGN_OR_RETURN(auto *pd_action, GetMutableMessage(pd_table, "action"));
-    RETURN_IF_ERROR(IrActionInvocationToPd(ir_p4info, ir.action(), pd_action));
-  }
+    if (ir_table_info.uses_oneshot()) {
+      RETURN_IF_ERROR(IrActionSetToPd(ir_p4info, ir, pd_table));
+    } else {
+      ASSIGN_OR_RETURN(auto *pd_action, GetMutableMessage(pd_table, "action"));
+      RETURN_IF_ERROR(
+          IrActionInvocationToPd(ir_p4info, ir.action(), pd_action));
+    }
 
-  if (ir_table_info.has_meter() && ir.has_meter_config()) {
-    ASSIGN_OR_RETURN(auto *config, GetMutableMessage(pd_table, "meter_config"));
-    const auto &ir_meter_config = ir.meter_config();
-    if (ir_meter_config.cir() != ir_meter_config.pir()) {
-      return InvalidArgumentErrorBuilder()
-             << "CIR and PIR values should be equal. Got CIR as "
-             << ir_meter_config.cir() << ", PIR as " << ir_meter_config.pir();
-    }
-    if (ir_meter_config.cburst() != ir_meter_config.pburst()) {
-      return InvalidArgumentErrorBuilder()
-             << "CBurst and PBurst values should be equal. Got CBurst as "
-             << ir_meter_config.cburst() << ", PBurst as "
-             << ir_meter_config.pburst();
-    }
-    switch (ir_table_info.meter().unit()) {
-      case p4::config::v1::MeterSpec_Unit_BYTES: {
-        RETURN_IF_ERROR(
-            SetInt64Field(config, "bytes_per_second", ir_meter_config.cir()));
-        RETURN_IF_ERROR(
-            SetInt64Field(config, "burst_bytes", ir_meter_config.cburst()));
-        break;
-      }
-      case p4::config::v1::MeterSpec_Unit_PACKETS: {
-        RETURN_IF_ERROR(
-            SetInt64Field(config, "packets_per_second", ir_meter_config.cir()));
-        RETURN_IF_ERROR(
-            SetInt64Field(config, "burst_packets", ir_meter_config.cburst()));
-        break;
-      }
-      default:
+    if (ir_table_info.has_meter() && ir.has_meter_config()) {
+      ASSIGN_OR_RETURN(auto *config,
+                       GetMutableMessage(pd_table, "meter_config"));
+      const auto &ir_meter_config = ir.meter_config();
+      if (ir_meter_config.cir() != ir_meter_config.pir()) {
         return InvalidArgumentErrorBuilder()
-               << "Invalid meter unit: " << ir_table_info.meter().unit();
-    }
-  }
-
-  if (ir_table_info.has_counter() && ir.has_counter_data()) {
-    ASSIGN_OR_RETURN(auto *counter_data,
-                     GetMutableMessage(pd_table, "counter_data"));
-    switch (ir_table_info.counter().unit()) {
-      case p4::config::v1::CounterSpec_Unit_BYTES: {
-        RETURN_IF_ERROR(SetInt64Field(counter_data, "byte_count",
-                                      ir.counter_data().byte_count()));
-        break;
+               << "CIR and PIR values should be equal. Got CIR as "
+               << ir_meter_config.cir() << ", PIR as " << ir_meter_config.pir();
       }
-      case p4::config::v1::CounterSpec_Unit_PACKETS: {
-        RETURN_IF_ERROR(SetInt64Field(counter_data, "packet_count",
-                                      ir.counter_data().packet_count()));
-        break;
-      }
-      case p4::config::v1::CounterSpec_Unit_BOTH: {
-        RETURN_IF_ERROR(SetInt64Field(counter_data, "byte_count",
-                                      ir.counter_data().byte_count()));
-        RETURN_IF_ERROR(SetInt64Field(counter_data, "packet_count",
-                                      ir.counter_data().packet_count()));
-        break;
-      }
-      default:
+      if (ir_meter_config.cburst() != ir_meter_config.pburst()) {
         return InvalidArgumentErrorBuilder()
-               << "Invalid counter unit: " << ir_table_info.counter().unit();
+               << "CBurst and PBurst values should be equal. Got CBurst as "
+               << ir_meter_config.cburst() << ", PBurst as "
+               << ir_meter_config.pburst();
+      }
+      switch (ir_table_info.meter().unit()) {
+        case p4::config::v1::MeterSpec_Unit_BYTES: {
+          RETURN_IF_ERROR(
+              SetInt64Field(config, "bytes_per_second", ir_meter_config.cir()));
+          RETURN_IF_ERROR(
+              SetInt64Field(config, "burst_bytes", ir_meter_config.cburst()));
+          break;
+        }
+        case p4::config::v1::MeterSpec_Unit_PACKETS: {
+          RETURN_IF_ERROR(SetInt64Field(config, "packets_per_second",
+                                        ir_meter_config.cir()));
+          RETURN_IF_ERROR(
+              SetInt64Field(config, "burst_packets", ir_meter_config.cburst()));
+          break;
+        }
+        default:
+          return InvalidArgumentErrorBuilder()
+                 << "Invalid meter unit: " << ir_table_info.meter().unit();
+      }
+    }
+
+    if (ir_table_info.has_counter() && ir.has_counter_data()) {
+      ASSIGN_OR_RETURN(auto *counter_data,
+                       GetMutableMessage(pd_table, "counter_data"));
+      switch (ir_table_info.counter().unit()) {
+        case p4::config::v1::CounterSpec_Unit_BYTES: {
+          RETURN_IF_ERROR(SetInt64Field(counter_data, "byte_count",
+                                        ir.counter_data().byte_count()));
+          break;
+        }
+        case p4::config::v1::CounterSpec_Unit_PACKETS: {
+          RETURN_IF_ERROR(SetInt64Field(counter_data, "packet_count",
+                                        ir.counter_data().packet_count()));
+          break;
+        }
+        case p4::config::v1::CounterSpec_Unit_BOTH: {
+          RETURN_IF_ERROR(SetInt64Field(counter_data, "byte_count",
+                                        ir.counter_data().byte_count()));
+          RETURN_IF_ERROR(SetInt64Field(counter_data, "packet_count",
+                                        ir.counter_data().packet_count()));
+          break;
+        }
+        default:
+          return InvalidArgumentErrorBuilder()
+                 << "Invalid counter unit: " << ir_table_info.counter().unit();
+      }
     }
   }
-
   return absl::OkStatus();
 }
 
@@ -1105,7 +1117,8 @@ static absl::StatusOr<IrActionSetInvocation> PdActionSetToIr(
 }
 
 absl::StatusOr<IrTableEntry> PdTableEntryToIr(
-    const IrP4Info &ir_p4info, const google::protobuf::Message &pd) {
+    const IrP4Info &ir_p4info, const google::protobuf::Message &pd,
+    bool key_only /*=false*/) {
   IrTableEntry ir;
   ASSIGN_OR_RETURN(const std::string &pd_table_field_name,
                    gutil::GetOneOfFieldName(pd, "entry"));
@@ -1128,103 +1141,107 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
   if (status_or_priority.ok()) {
     ir.set_priority(status_or_priority.value());
   }
-  const auto &status_or_metadata =
-      GetBytesField(*pd_table, "controller_metadata");
-  if (status_or_metadata.ok()) {
-    ir.set_controller_metadata(status_or_metadata.value());
-  }
-
-  if (ir_table_info.uses_oneshot()) {
-    ASSIGN_OR_RETURN(const auto *pd_action_set,
-                     GetFieldDescriptor(*pd_table, "wcmp_actions"));
-    auto *action_set = ir.mutable_action_set();
-    for (auto i = 0;
-         i < pd_table->GetReflection()->FieldSize(*pd_table, pd_action_set);
-         ++i) {
-      ASSIGN_OR_RETURN(
-          *action_set->add_actions(),
-          PdActionSetToIr(ir_p4info,
-                          pd_table->GetReflection()->GetRepeatedMessage(
-                              *pd_table, pd_action_set, i)));
+  if (!key_only) {
+    const auto &status_or_metadata =
+        GetBytesField(*pd_table, "controller_metadata");
+    if (status_or_metadata.ok()) {
+      ir.set_controller_metadata(status_or_metadata.value());
     }
-  } else {
-    ASSIGN_OR_RETURN(const auto *pd_action,
-                     GetMessageField(*pd_table, "action"));
-    ASSIGN_OR_RETURN(*ir.mutable_action(),
-                     PdActionInvocationToIr(ir_p4info, *pd_action));
-  }
 
-  if (ir_table_info.has_meter()) {
-    ASSIGN_OR_RETURN(bool pd_has_meter_config,
-                     HasField(*pd_table, "meter_config"));
-    if (pd_has_meter_config) {
-      ASSIGN_OR_RETURN(const auto *config,
-                       GetMessageField(*pd_table, "meter_config"));
-      int64_t value;
-      int64_t burst_value;
-      switch (ir_table_info.meter().unit()) {
-        case p4::config::v1::MeterSpec_Unit_BYTES: {
-          ASSIGN_OR_RETURN(value, GetInt64Field(*config, "bytes_per_second"));
-          ASSIGN_OR_RETURN(burst_value, GetInt64Field(*config, "burst_bytes"));
-          break;
-        }
-        case p4::config::v1::MeterSpec_Unit_PACKETS: {
-          ASSIGN_OR_RETURN(value, GetInt64Field(*config, "packets_per_second"));
-          ASSIGN_OR_RETURN(burst_value,
-                           GetInt64Field(*config, "burst_packets"));
-          break;
-        }
-        default:
-          return InvalidArgumentErrorBuilder()
-                 << "Invalid meter unit: " << ir_table_info.meter().unit();
+    if (ir_table_info.uses_oneshot()) {
+      ASSIGN_OR_RETURN(const auto *pd_action_set,
+                       GetFieldDescriptor(*pd_table, "wcmp_actions"));
+      auto *action_set = ir.mutable_action_set();
+      for (auto i = 0;
+           i < pd_table->GetReflection()->FieldSize(*pd_table, pd_action_set);
+           ++i) {
+        ASSIGN_OR_RETURN(
+            *action_set->add_actions(),
+            PdActionSetToIr(ir_p4info,
+                            pd_table->GetReflection()->GetRepeatedMessage(
+                                *pd_table, pd_action_set, i)));
       }
-      auto ir_meter_config = ir.mutable_meter_config();
-      ir_meter_config->set_cir(value);
-      ir_meter_config->set_pir(value);
-      ir_meter_config->set_cburst(burst_value);
-      ir_meter_config->set_pburst(burst_value);
+    } else {
+      ASSIGN_OR_RETURN(const auto *pd_action,
+                       GetMessageField(*pd_table, "action"));
+      ASSIGN_OR_RETURN(*ir.mutable_action(),
+                       PdActionInvocationToIr(ir_p4info, *pd_action));
     }
-  }
 
-  if (ir_table_info.has_counter()) {
-    ASSIGN_OR_RETURN(bool pd_has_counter_data,
-                     HasField(*pd_table, "counter_data"));
-    if (pd_has_counter_data) {
-      ASSIGN_OR_RETURN(const auto *counter_data,
-                       GetMessageField(*pd_table, "counter_data"));
-      switch (ir_table_info.counter().unit()) {
-        case p4::config::v1::CounterSpec_Unit_BYTES: {
-          ASSIGN_OR_RETURN(const auto &pd_byte_counter,
-                           GetInt64Field(*counter_data, "byte_count"));
-          if (pd_byte_counter != 0) {
-            ir.mutable_counter_data()->set_byte_count(pd_byte_counter);
+    if (ir_table_info.has_meter()) {
+      ASSIGN_OR_RETURN(bool pd_has_meter_config,
+                       HasField(*pd_table, "meter_config"));
+      if (pd_has_meter_config) {
+        ASSIGN_OR_RETURN(const auto *config,
+                         GetMessageField(*pd_table, "meter_config"));
+        int64_t value;
+        int64_t burst_value;
+        switch (ir_table_info.meter().unit()) {
+          case p4::config::v1::MeterSpec_Unit_BYTES: {
+            ASSIGN_OR_RETURN(value, GetInt64Field(*config, "bytes_per_second"));
+            ASSIGN_OR_RETURN(burst_value,
+                             GetInt64Field(*config, "burst_bytes"));
+            break;
           }
-          break;
+          case p4::config::v1::MeterSpec_Unit_PACKETS: {
+            ASSIGN_OR_RETURN(value,
+                             GetInt64Field(*config, "packets_per_second"));
+            ASSIGN_OR_RETURN(burst_value,
+                             GetInt64Field(*config, "burst_packets"));
+            break;
+          }
+          default:
+            return InvalidArgumentErrorBuilder()
+                   << "Invalid meter unit: " << ir_table_info.meter().unit();
         }
-        case p4::config::v1::CounterSpec_Unit_PACKETS: {
-          ASSIGN_OR_RETURN(const auto &pd_packet_counter,
-                           GetInt64Field(*counter_data, "packet_count"));
-          if (pd_packet_counter != 0) {
-            ir.mutable_counter_data()->set_packet_count(pd_packet_counter);
+        auto ir_meter_config = ir.mutable_meter_config();
+        ir_meter_config->set_cir(value);
+        ir_meter_config->set_pir(value);
+        ir_meter_config->set_cburst(burst_value);
+        ir_meter_config->set_pburst(burst_value);
+      }
+    }
+
+    if (ir_table_info.has_counter()) {
+      ASSIGN_OR_RETURN(bool pd_has_counter_data,
+                       HasField(*pd_table, "counter_data"));
+      if (pd_has_counter_data) {
+        ASSIGN_OR_RETURN(const auto *counter_data,
+                         GetMessageField(*pd_table, "counter_data"));
+        switch (ir_table_info.counter().unit()) {
+          case p4::config::v1::CounterSpec_Unit_BYTES: {
+            ASSIGN_OR_RETURN(const auto &pd_byte_counter,
+                             GetInt64Field(*counter_data, "byte_count"));
+            if (pd_byte_counter != 0) {
+              ir.mutable_counter_data()->set_byte_count(pd_byte_counter);
+            }
+            break;
           }
-          break;
+          case p4::config::v1::CounterSpec_Unit_PACKETS: {
+            ASSIGN_OR_RETURN(const auto &pd_packet_counter,
+                             GetInt64Field(*counter_data, "packet_count"));
+            if (pd_packet_counter != 0) {
+              ir.mutable_counter_data()->set_packet_count(pd_packet_counter);
+            }
+            break;
+          }
+          case p4::config::v1::CounterSpec_Unit_BOTH: {
+            ASSIGN_OR_RETURN(const auto &pd_byte_counter,
+                             GetInt64Field(*counter_data, "byte_count"));
+            if (pd_byte_counter != 0) {
+              ir.mutable_counter_data()->set_byte_count(pd_byte_counter);
+            }
+            ASSIGN_OR_RETURN(const auto &pd_packet_counter,
+                             GetInt64Field(*counter_data, "packet_count"));
+            if (pd_packet_counter != 0) {
+              ir.mutable_counter_data()->set_packet_count(pd_packet_counter);
+            }
+            break;
+          }
+          default:
+            return InvalidArgumentErrorBuilder()
+                   << "Invalid counter unit: " << ir_table_info.meter().unit();
         }
-        case p4::config::v1::CounterSpec_Unit_BOTH: {
-          ASSIGN_OR_RETURN(const auto &pd_byte_counter,
-                           GetInt64Field(*counter_data, "byte_count"));
-          if (pd_byte_counter != 0) {
-            ir.mutable_counter_data()->set_byte_count(pd_byte_counter);
-          }
-          ASSIGN_OR_RETURN(const auto &pd_packet_counter,
-                           GetInt64Field(*counter_data, "packet_count"));
-          if (pd_packet_counter != 0) {
-            ir.mutable_counter_data()->set_packet_count(pd_packet_counter);
-          }
-          break;
-        }
-        default:
-          return InvalidArgumentErrorBuilder()
-                 << "Invalid counter unit: " << ir_table_info.meter().unit();
       }
     }
   }
@@ -1534,6 +1551,38 @@ absl::Status SetEnumField(google::protobuf::Message *message,
            << "enum_value: " << enum_value << " is not a valid enum value ";
   }
   message->GetReflection()->SetEnumValue(message, field_descriptor, enum_value);
+  return absl::OkStatus();
+}
+
+absl::Status PdTableEntryToOnlyKeyPd(const IrP4Info &info,
+                                     const google::protobuf::Message &pd,
+                                     google::protobuf::Message *key_only_pd) {
+  key_only_pd->CopyFrom(pd);
+  ASSIGN_OR_RETURN(const std::string &pd_table_field_name,
+                   gutil::GetOneOfFieldName(pd, "entry"));
+  ASSIGN_OR_RETURN(
+      const std::string &p4_table_name,
+      ProtobufFieldNameToP4Name(pd_table_field_name, pdpi::kP4Table));
+  ASSIGN_OR_RETURN(const auto &ir_table_info,
+                   gutil::FindOrStatus(info.tables_by_name(), p4_table_name),
+                   _ << "Table \"" << p4_table_name
+                     << "\" does not exist in P4Info."
+                     << kPdProtoAndP4InfoOutOfSync);
+  ASSIGN_OR_RETURN(auto *pd_table,
+                   GetMutableMessage(key_only_pd, pd_table_field_name));
+
+  RETURN_IF_ERROR(ClearField(pd_table, "controller_metadata"));
+  if (ir_table_info.uses_oneshot()) {
+    RETURN_IF_ERROR(ClearField(pd_table, "wcmp_actions"));
+  } else {
+    RETURN_IF_ERROR(ClearField(pd_table, "action"));
+  }
+  if (ir_table_info.has_meter()) {
+    RETURN_IF_ERROR(ClearField(pd_table, "meter"));
+  }
+  if (ir_table_info.has_counter()) {
+    RETURN_IF_ERROR(ClearField(pd_table, "counter"));
+  }
   return absl::OkStatus();
 }
 

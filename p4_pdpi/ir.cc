@@ -1029,7 +1029,8 @@ absl::Status CheckMandatoryMatches(
 }  // namespace
 
 StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
-                                        const p4::v1::TableEntry &pi) {
+                                        const p4::v1::TableEntry &pi,
+                                        bool key_only /*=false*/) {
   IrTableEntry ir;
   ASSIGN_OR_RETURN(
       const auto &table,
@@ -1078,70 +1079,72 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
                                             "priority. Got "
                                          << pi.priority() << " instead";
   }
-  ir.set_controller_metadata(pi.metadata());
 
-  // Validate and translate the action.
-  if (!pi.has_action()) {
-    return InvalidArgumentErrorBuilder()
-           << "Action missing in TableEntry with ID " << pi.table_id();
-  }
-  switch (pi.action().type_case()) {
-    case p4::v1::TableAction::kAction: {
-      if (table.uses_oneshot()) {
-        return InvalidArgumentErrorBuilder()
-               << "Table \"" << ir.table_name()
-               << "\" requires an action set since it uses onseshot. Got "
-                  "action instead";
+  if (!key_only) {
+    ir.set_controller_metadata(pi.metadata());
+    // Validate and translate the action.
+    if (!pi.has_action()) {
+      return InvalidArgumentErrorBuilder()
+             << "Action missing in TableEntry with ID " << pi.table_id();
+    }
+    switch (pi.action().type_case()) {
+      case p4::v1::TableAction::kAction: {
+        if (table.uses_oneshot()) {
+          return InvalidArgumentErrorBuilder()
+                 << "Table \"" << ir.table_name()
+                 << "\" requires an action set since it uses onseshot. Got "
+                    "action instead";
+        }
+        ASSIGN_OR_RETURN(
+            *ir.mutable_action(),
+            PiActionToIr(info, pi.action().action(), table.entry_actions()));
+        break;
       }
-      ASSIGN_OR_RETURN(
-          *ir.mutable_action(),
-          PiActionToIr(info, pi.action().action(), table.entry_actions()));
-      break;
-    }
-    case p4::v1::TableAction::kActionProfileActionSet: {
-      if (!table.uses_oneshot()) {
-        return InvalidArgumentErrorBuilder()
-               << "Table \"" << ir.table_name()
-               << "\" requires an action since it does not use onseshot. Got "
-                  "action set instead";
+      case p4::v1::TableAction::kActionProfileActionSet: {
+        if (!table.uses_oneshot()) {
+          return InvalidArgumentErrorBuilder()
+                 << "Table \"" << ir.table_name()
+                 << "\" requires an action since it does not use onseshot. Got "
+                    "action set instead";
+        }
+        ASSIGN_OR_RETURN(
+            *ir.mutable_action_set(),
+            PiActionSetToIr(info, pi.action().action_profile_action_set(),
+                            table.entry_actions()));
+        break;
       }
-      ASSIGN_OR_RETURN(
-          *ir.mutable_action_set(),
-          PiActionSetToIr(info, pi.action().action_profile_action_set(),
-                          table.entry_actions()));
-      break;
+      default: {
+        return gutil::UnimplementedErrorBuilder()
+               << "Unsupported action type: " << pi.action().type_case();
+      }
     }
-    default: {
-      return gutil::UnimplementedErrorBuilder()
-             << "Unsupported action type: " << pi.action().type_case();
+
+    // Validate and translate meters.
+    if (!table.has_meter() && pi.has_meter_config()) {
+      return InvalidArgumentErrorBuilder()
+             << "Table \"" << ir.table_name()
+             << "\" does not have a meter, but table entry contained a meter "
+                "config.";
     }
-  }
+    if (pi.has_meter_config()) {
+      ir.mutable_meter_config()->set_cir(pi.meter_config().cir());
+      ir.mutable_meter_config()->set_cburst(pi.meter_config().cburst());
+      ir.mutable_meter_config()->set_pir(pi.meter_config().pir());
+      ir.mutable_meter_config()->set_pburst(pi.meter_config().pburst());
+    }
 
-  // Validate and translate meters.
-  if (!table.has_meter() && pi.has_meter_config()) {
-    return InvalidArgumentErrorBuilder()
-           << "Table \"" << ir.table_name()
-           << "\" does not have a meter, but table entry contained a meter "
-              "config.";
-  }
-  if (pi.has_meter_config()) {
-    ir.mutable_meter_config()->set_cir(pi.meter_config().cir());
-    ir.mutable_meter_config()->set_cburst(pi.meter_config().cburst());
-    ir.mutable_meter_config()->set_pir(pi.meter_config().pir());
-    ir.mutable_meter_config()->set_pburst(pi.meter_config().pburst());
-  }
-
-  // Validate and translate counters.
-  if (!table.has_counter() && pi.has_counter_data()) {
-    return InvalidArgumentErrorBuilder()
-           << "Table \"" << ir.table_name()
-           << "\" does not have a counter, but table entry contained counter "
-              "data.";
-  }
-  if (pi.has_counter_data()) {
-    ir.mutable_counter_data()->set_byte_count(pi.counter_data().byte_count());
-    ir.mutable_counter_data()->set_packet_count(
-        pi.counter_data().packet_count());
+    // Validate and translate counters.
+    if (!table.has_counter() && pi.has_counter_data()) {
+      return InvalidArgumentErrorBuilder()
+             << "Table \"" << ir.table_name()
+             << "\" does not have a counter, but table entry contained counter "
+                "data.";
+    }
+    if (pi.has_counter_data()) {
+      ir.mutable_counter_data()->set_byte_count(pi.counter_data().byte_count());
+      ir.mutable_counter_data()->set_packet_count(
+          pi.counter_data().packet_count());
+    }
   }
 
   return ir;
@@ -1343,7 +1346,8 @@ StatusOr<IrStreamMessageResponse> PiStreamMessageResponseToIr(
 }
 
 StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
-                                              const IrTableEntry &ir) {
+                                              const IrTableEntry &ir,
+                                              bool key_only /*=false*/) {
   p4::v1::TableEntry pi;
   ASSIGN_OR_RETURN(
       const auto &table,
@@ -1392,66 +1396,68 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
                                             "priority. Got "
                                          << ir.priority() << " instead";
   }
-  pi.set_metadata(ir.controller_metadata());
+  if (!key_only) {
+    pi.set_metadata(ir.controller_metadata());
 
-  // Validate and translate the action.
-  switch (ir.type_case()) {
-    case IrTableEntry::kAction: {
-      if (table.uses_oneshot()) {
-        return InvalidArgumentErrorBuilder()
-               << "Table \"" << ir.table_name()
-               << "\" requires an action set since it uses onseshot. Got "
-                  "action instead";
+    // Validate and translate the action.
+    switch (ir.type_case()) {
+      case IrTableEntry::kAction: {
+        if (table.uses_oneshot()) {
+          return InvalidArgumentErrorBuilder()
+                 << "Table \"" << ir.table_name()
+                 << "\" requires an action set since it uses onseshot. Got "
+                    "action instead";
+        }
+        ASSIGN_OR_RETURN(
+            *pi.mutable_action()->mutable_action(),
+            IrActionInvocationToPi(info, ir.action(), table.entry_actions()));
+        break;
       }
-      ASSIGN_OR_RETURN(
-          *pi.mutable_action()->mutable_action(),
-          IrActionInvocationToPi(info, ir.action(), table.entry_actions()));
-      break;
-    }
-    case IrTableEntry::kActionSet: {
-      if (!table.uses_oneshot()) {
-        return InvalidArgumentErrorBuilder()
-               << "Table \"" << ir.table_name()
-               << "\" requires an action since it does not use onseshot. Got "
-                  "action set instead";
+      case IrTableEntry::kActionSet: {
+        if (!table.uses_oneshot()) {
+          return InvalidArgumentErrorBuilder()
+                 << "Table \"" << ir.table_name()
+                 << "\" requires an action since it does not use onseshot. Got "
+                    "action set instead";
+        }
+        ASSIGN_OR_RETURN(
+            *pi.mutable_action()->mutable_action_profile_action_set(),
+            IrActionSetToPi(info, ir.action_set(), table.entry_actions()));
+        break;
       }
-      ASSIGN_OR_RETURN(
-          *pi.mutable_action()->mutable_action_profile_action_set(),
-          IrActionSetToPi(info, ir.action_set(), table.entry_actions()));
-      break;
+      default: {
+        return InvalidArgumentErrorBuilder()
+               << "Action missing in TableEntry with name \"" << ir.table_name()
+               << "\"";
+      }
     }
-    default: {
+
+    // Validate and translate meters.
+    if (!table.has_meter() && ir.has_meter_config()) {
       return InvalidArgumentErrorBuilder()
-             << "Action missing in TableEntry with name \"" << ir.table_name()
-             << "\"";
+             << "Table \"" << ir.table_name()
+             << "\" does not have a meter, but table entry contained a meter "
+                "config.";
     }
-  }
+    if (ir.has_meter_config()) {
+      pi.mutable_meter_config()->set_cir(ir.meter_config().cir());
+      pi.mutable_meter_config()->set_cburst(ir.meter_config().cburst());
+      pi.mutable_meter_config()->set_pir(ir.meter_config().pir());
+      pi.mutable_meter_config()->set_pburst(ir.meter_config().pburst());
+    }
 
-  // Validate and translate meters.
-  if (!table.has_meter() && ir.has_meter_config()) {
-    return InvalidArgumentErrorBuilder()
-           << "Table \"" << ir.table_name()
-           << "\" does not have a meter, but table entry contained a meter "
-              "config.";
-  }
-  if (ir.has_meter_config()) {
-    pi.mutable_meter_config()->set_cir(ir.meter_config().cir());
-    pi.mutable_meter_config()->set_cburst(ir.meter_config().cburst());
-    pi.mutable_meter_config()->set_pir(ir.meter_config().pir());
-    pi.mutable_meter_config()->set_pburst(ir.meter_config().pburst());
-  }
-
-  // Validate and translate counters.
-  if (!table.has_counter() && ir.has_counter_data()) {
-    return InvalidArgumentErrorBuilder()
-           << "Table \"" << ir.table_name()
-           << "\" does not have a counter, but table entry contained counter "
-              "data.";
-  }
-  if (ir.has_counter_data()) {
-    pi.mutable_counter_data()->set_byte_count(ir.counter_data().byte_count());
-    pi.mutable_counter_data()->set_packet_count(
-        ir.counter_data().packet_count());
+    // Validate and translate counters.
+    if (!table.has_counter() && ir.has_counter_data()) {
+      return InvalidArgumentErrorBuilder()
+             << "Table \"" << ir.table_name()
+             << "\" does not have a counter, but table entry contained counter "
+                "data.";
+    }
+    if (ir.has_counter_data()) {
+      pi.mutable_counter_data()->set_byte_count(ir.counter_data().byte_count());
+      pi.mutable_counter_data()->set_packet_count(
+          ir.counter_data().packet_count());
+    }
   }
 
   return pi;

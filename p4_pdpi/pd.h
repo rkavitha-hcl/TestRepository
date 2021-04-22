@@ -52,11 +52,17 @@ absl::StatusOr<std::string> P4NameToProtobufMessageName(
 absl::StatusOr<std::string> P4NameToProtobufFieldName(absl::string_view p4_name,
                                                       P4EntityKind entity_kind);
 
+// Given a PD table entry, returns a PD table entry with only the key part set.
+absl::Status PdTableEntryToOnlyKeyPd(const IrP4Info &info,
+                                     const google::protobuf::Message &pd,
+                                     google::protobuf::Message *key_only_pd);
+
 // -- Conversions from PI to PD ------------------------------------------------
 
 absl::Status PiTableEntryToPd(const IrP4Info &info,
                               const p4::v1::TableEntry &pi,
-                              google::protobuf::Message *pd);
+                              google::protobuf::Message *pd,
+                              bool key_only = false);
 
 absl::Status PiPacketInToPd(const IrP4Info &info,
                             const p4::v1::PacketIn &pi_packet,
@@ -91,7 +97,8 @@ absl::Status PiStreamMessageResponseToPd(
 
 // -- Conversions from PD to PI ------------------------------------------------
 absl::StatusOr<p4::v1::TableEntry> PdTableEntryToPi(
-    const IrP4Info &info, const google::protobuf::Message &pd);
+    const IrP4Info &info, const google::protobuf::Message &pd,
+    bool key_only = false);
 
 absl::StatusOr<p4::v1::PacketIn> PdPacketInToPi(
     const IrP4Info &info, const google::protobuf::Message &packet);
@@ -131,7 +138,8 @@ absl::StatusOr<grpc::Status> PdWriteRpcStatusToGrpcStatus(
 // -- Conversions from IR (intermediate representation) to PD ------------------
 
 absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
-                              google::protobuf::Message *pd);
+                              google::protobuf::Message *pd,
+                              bool key_only = false);
 
 absl::Status IrPacketInToPd(const IrP4Info &info, const IrPacketIn &packet,
                             google::protobuf::Message *pd_packet);
@@ -168,7 +176,8 @@ absl::Status IrWriteRpcStatusToPd(const IrWriteRpcStatus &ir_write_status,
 // -- Conversions from PD to IR (intermediate representation) ------------------
 
 absl::StatusOr<IrTableEntry> PdTableEntryToIr(
-    const IrP4Info &ir_p4info, const google::protobuf::Message &pd);
+    const IrP4Info &ir_p4info, const google::protobuf::Message &pd,
+    bool key_only = false);
 
 absl::StatusOr<IrPacketIn> PdPacketInToIr(
     const IrP4Info &info, const google::protobuf::Message &packet);
