@@ -27,7 +27,6 @@ class MasterArbitrationTestFixture : public P4BlackboxFixture {
   void SetUp() {
     P4BlackboxFixture::SetUp();
     device_id_ = GetMirrorTestbed().Sut().DeviceId();
-
     //  Sleep for one second, so that we are guaranteed to get a higher
     //  election id than the previous test (we use unix seconds in production
     //  for the upper election id bits, too).
@@ -48,6 +47,11 @@ class MasterArbitrationTestFixture : public P4BlackboxFixture {
   }
 
   // Attempts to become master on a given stub.
+  // TODO Consider replace slave/master. See go/cstyle#Inclusive_Language
+  // - "In all code, including naming and comments, use inclusive language and
+  // avoid terms that other programmers might find disrespectful or offensive
+  // (such as "master" and "slave", "blacklist" and "whitelist", or "redline"),
+  // even if the terms also have an ostensibly neutral meaning.".
   absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>> BecomeMaster(
       std::unique_ptr<P4Runtime::Stub> stub, uint64_t lower_election_id) const {
     return pdpi::P4RuntimeSession::Create(

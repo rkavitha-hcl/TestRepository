@@ -163,13 +163,9 @@ TEST_P(MasterArbitrationTestFixture, SlaveCannotWrite) {
   ASSERT_THAT(session.status(), NotMaster());
 
   auto write_request = GetWriteRequest(1, ElectionIdFromLower(1), DeviceId());
-
-  // Use death test here because sending write request to slave device will
-  // cause the crash in absl status.
-  ASSERT_DEATH(testing::IgnoreResult(pdpi::SendPiWriteRequest(
-                   &(*session)->Stub(), write_request)),
-               "This connection is a secondary connection, and there is "
-               "another connection with a master.");
+  ASSERT_OK_AND_ASSIGN(auto stub2, Stub());
+  // Assert that we cannot write to slave device.
+  ASSERT_FALSE(pdpi::SendPiWriteRequest(stub2.get(), write_request).ok());
 }
 
 TEST_P(MasterArbitrationTestFixture, SlaveCanRead) {
