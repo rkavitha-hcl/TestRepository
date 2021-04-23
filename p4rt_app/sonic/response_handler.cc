@@ -90,7 +90,7 @@ absl::Status GetAppDbResponses(
     // the form of ("err_str", <error message>).
     const swss::FieldValueTuple& first_tuple = value_tuples[0];
     if (fvField(first_tuple) != "err_str") {
-      // TODO (kishanps) Raise critical error.
+      // TODO Raise critical error.
       result.set_code(Code::INTERNAL);
       result.set_message(
           absl::StrCat("First field value in the response does not match, "
@@ -105,7 +105,8 @@ absl::Status GetAppDbResponses(
     // Insert into the responses map.
     RETURN_IF_ERROR(gutil::InsertIfUnique(
         responses_map, actual_key, result,
-        absl::StrCat("Found serveral keys with the same name: ", actual_key)));
+        absl::StrCat("Found several keys with the same name: ", actual_key,
+                     ", batch count: ", expected_response_count)));
   }
   return absl::OkStatus();
 }
@@ -123,8 +124,8 @@ absl::Status RestoreApplDb(const std::string& key,
     auto del_entries = app_db_client.del(key);
     RET_CHECK(del_entries == 1)
         << "Unexpected number of delete entries when tring to delete a newly "
-           "added entry from ApplDB for a failed response, actual : 1, "
-           "expected: "
+           "added entry from ApplDB for a failed response, expected : 1, "
+           "actual: "
         << del_entries;
     return absl::OkStatus();
   }
@@ -164,7 +165,7 @@ absl::Status GetAndProcessResponseNotification(
   auto status = GetAppDbResponses(expected_response_count,
                                   notification_interface, responses_map);
   if (!status.ok()) {
-    critical_errors << status.ToString();
+    critical_errors << status.ToString() << "\n";
   }
 
   // Add as many empty IrUpdateStatus entries as in keys vector if caller didnt
@@ -211,7 +212,8 @@ absl::Status GetAndProcessResponseNotification(
               RestoreApplDb(keys[index], app_db_client, state_db_client);
           if (!restore_status.ok()) {
             critical_errors << "Restore Appl Db for key " << key
-                            << " failed, error : " << restore_status.message();
+                            << " failed, error : " << restore_status.message()
+                            << "\n";
           }
         }
       }
@@ -222,7 +224,7 @@ absl::Status GetAndProcessResponseNotification(
   if (critical_errors.str().empty()) {
     return absl::OkStatus();
   } else {
-    return gutil::InternalErrorBuilder() << critical_errors.str();
+    return gutil::InternalErrorBuilder().LogError() << critical_errors.str();
   }
 }
 

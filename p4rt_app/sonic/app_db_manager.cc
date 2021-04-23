@@ -98,19 +98,32 @@ absl::StatusOr<std::string> DeleteAppDbEntry(
            << "Duplicate key in the same batch request: " << key;
   }
 
+  std::string p4rt_prefix_key =
+      absl::StrCat(p4rt_table.get_table_name(), ":", key);
   // Check that key exists in the table.
-  if (!app_db_client.exists(
-          absl::StrCat(p4rt_table.get_table_name(), ":", key))) {
+  if (!app_db_client.exists(p4rt_prefix_key)) {
     LOG(WARNING) << "Could not delete missing entry: " << key;
     return gutil::NotFoundErrorBuilder() << key;
   }
+
+  // Get table entry from the APP_DB (before delete) instead of the one from the
+  // request.
+  ASSIGN_OR_RETURN(
+      auto ir_table_entry,
+      ReadAppDbP4TableEntry(p4_info, app_db_client, p4rt_prefix_key));
 
   LOG(INFO) << "Delete AppDb entry: " << key;
   p4rt_table.del(key);
 
   // Update VRF reference count.
-  RETURN_IF_ERROR(
-      DecrementVrfReferenceCount(vrf_table, entry, vrf_id_reference_count));
+  auto status = DecrementVrfReferenceCount(vrf_table, ir_table_entry,
+                                           vrf_id_reference_count);
+  // TODO: Raise critical state error and remove return.
+  if (!status.ok()) {
+    return gutil::InternalErrorBuilder()
+           << "Vrf reference count decrement in P4RT app failed, error: "
+           << status.ToString();
+  }
 
   return key;
 }

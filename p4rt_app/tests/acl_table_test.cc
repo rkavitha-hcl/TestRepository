@@ -145,6 +145,58 @@ TEST_F(AclTableTest, VrfTableEntriesPersistsWhileInUse) {
               StatusIs(absl::StatusCode::kNotFound));
 }
 
+TEST_F(AclTableTest, VrfTableEntryDeleteWithWrongValues) {
+  p4::v1::WriteRequest insert_request;
+  ASSERT_OK(gutil::ReadProtoFromString(
+      R"pb(updates {
+             type: INSERT
+             entity {
+               table_entry {
+                 table_id: 33554689
+                 priority: 2000
+                 action {
+                   action {
+                     action_id: 16777472
+                     params { param_id: 1 value: "20" }
+                   }
+                 }
+               }
+             }
+           })pb",
+      &insert_request));
+
+  EXPECT_OK(
+      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), insert_request));
+  EXPECT_OK(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"))
+      << "VRF ID was never created.";
+
+  // Delete request using an incorrect action param (vrf 25 instead of 20).
+  p4::v1::WriteRequest delete_request;
+  ASSERT_OK(gutil::ReadProtoFromString(
+      R"pb(updates {
+             type: DELETE
+             entity {
+               table_entry {
+                 table_id: 33554689
+                 priority: 2000
+                 action {
+                   action {
+                     action_id: 16777472
+                     params { param_id: 1 value: "25" }
+                   }
+                 }
+               }
+             }
+           })pb",
+      &delete_request));
+  EXPECT_OK(
+      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), delete_request));
+  // Expect the correct APP_DB entry and its corresponding action param to be
+  // cleared.
+  EXPECT_THAT(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"),
+              StatusIs(absl::StatusCode::kNotFound));
+}
+
 // TODO: update test to validate meter values.
 TEST_F(AclTableTest, ReadMeters) {
   p4::v1::ReadRequest read_request;
