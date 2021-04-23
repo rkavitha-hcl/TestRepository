@@ -104,8 +104,8 @@ void RunGenericIrTest(
 }
 
 // Runs a generic test starting from a valid PD entity. If pd is valid, then it
-// is translated: PD -> IR -> PI -> IR2 -> PD2 and IR == IR2 and
-// relevant_pd_fields(PD) == PD2 are checked.
+// is translated: PD -> IR -> PI -> IR2 -> PD2 and IR == IR2 and PD == PD2 are
+// checked.
 template <typename PD, typename IR, typename PI>
 void RunGenericPdTest(
     const pdpi::IrP4Info& info, const std::string& test_name, const PD& pd,
@@ -121,10 +121,7 @@ void RunGenericPdTest(
         pd_to_pi,
     const std::function<absl::Status(const pdpi::IrP4Info&, const PI&,
                                      google::protobuf::Message*)>& pi_to_pd,
-    const InputValidity& validity,
-    const std::function<PD(const pdpi::IrP4Info& info, const PD&)>&
-        relevant_pd_fields =
-            [](const pdpi::IrP4Info& info, const PD& pd) { return pd; }) {
+    const InputValidity& validity) {
   // Input and header.
   std::cout << TestHeader(test_name) << std::endl << std::endl;
   std::cout << "--- PD (Input):" << std::endl;
@@ -213,7 +210,7 @@ void RunGenericPdTest(
     std::cout << status_pd2.message() << std::endl;
     return;
   }
-  if (!diff.Compare(relevant_pd_fields(info, pd), pd2)) {
+  if (!diff.Compare(pd, pd2)) {
     Fail("Reverse translation from IR to PD resulted in a different PD.");
     std::cout << "Differences: " << explanation << std::endl;
     std::cout << "PD (after reverse translation):" << std::endl

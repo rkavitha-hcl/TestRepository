@@ -34,8 +34,7 @@ absl::StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info& p4_info);
 
 // -- Conversions from PI to IR ------------------------------------------------
 absl::StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info& info,
-                                              const p4::v1::TableEntry& p,
-                                              bool key_only = false);
+                                              const p4::v1::TableEntry& pi);
 
 absl::StatusOr<IrPacketIn> PiPacketInToIr(const IrP4Info& info,
                                           const p4::v1::PacketIn& packet);
@@ -65,8 +64,7 @@ absl::StatusOr<IrStreamMessageResponse> PiStreamMessageResponseToIr(
 
 // -- Conversions from IR to PI ------------------------------------------------
 absl::StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info& info,
-                                                    const IrTableEntry& ir,
-                                                    bool key_only = false);
+                                                    const IrTableEntry& ir);
 
 absl::StatusOr<p4::v1::PacketIn> IrPacketInToPi(const IrP4Info& info,
                                                 const IrPacketIn& packet);

@@ -33,63 +33,24 @@ static void RunPiTableEntryTest(const pdpi::IrP4Info& info,
                                 const std::string& test_name,
                                 const p4::v1::TableEntry& pi) {
   RunGenericPiTest<pdpi::IrTableEntry, p4::v1::TableEntry>(
-      info, test_name, pi,
-      [](const pdpi::IrP4Info& info, const p4::v1::TableEntry& pi) {
-        return PiTableEntryToIr(info, pi, false);
-      });
+      info, test_name, pi, pdpi::PiTableEntryToIr);
 }
 
 static void RunIrTableEntryTest(const pdpi::IrP4Info& info,
                                 const std::string& test_name,
                                 const pdpi::IrTableEntry& ir) {
   RunGenericIrTest<pdpi::IrTableEntry, p4::v1::TableEntry>(
-      info, test_name, ir,
-      [](const pdpi::IrP4Info& info, const pdpi::IrTableEntry& ir) {
-        return IrTableEntryToPi(info, ir, false);
-      });
+      info, test_name, ir, pdpi::IrTableEntryToPi);
 }
 
 static void RunPdTableEntryTest(const pdpi::IrP4Info& info,
                                 const std::string& test_name,
                                 const pdpi::TableEntry& pd,
-                                InputValidity validity, bool key_only = false) {
+                                InputValidity validity) {
   RunGenericPdTest<pdpi::TableEntry, pdpi::IrTableEntry, p4::v1::TableEntry>(
-      info, test_name, pd,
-      [key_only](const pdpi::IrP4Info& ir_p4info,
-                 const google::protobuf::Message& pd) {
-        return pdpi::PdTableEntryToIr(ir_p4info, pd, key_only);
-      },
-      [key_only](const pdpi::IrP4Info& ir_p4info, const pdpi::IrTableEntry& ir,
-                 google::protobuf::Message* pd) {
-        return pdpi::IrTableEntryToPd(ir_p4info, ir, pd, key_only);
-      },
-      [key_only](const pdpi::IrP4Info& info, const pdpi::IrTableEntry& ir) {
-        return pdpi::IrTableEntryToPi(info, ir, key_only);
-      },
-      [key_only](const pdpi::IrP4Info& info, const p4::v1::TableEntry& pi) {
-        return pdpi::PiTableEntryToIr(info, pi, key_only);
-      },
-      [key_only](const pdpi::IrP4Info& info,
-                 const google::protobuf::Message& pd) {
-        return pdpi::PdTableEntryToPi(info, pd, key_only);
-      },
-      [key_only](const pdpi::IrP4Info& info, const p4::v1::TableEntry& pi,
-                 google::protobuf::Message* pd) {
-        return pdpi::PiTableEntryToPd(info, pi, pd, key_only);
-      },
-      validity,
-      [key_only](const pdpi::IrP4Info& info, const pdpi::TableEntry& pd) {
-        if (key_only) {
-          pdpi::TableEntry key_only_pd;
-          auto res = pdpi::PdTableEntryToOnlyKeyPd(info, pd, &key_only_pd);
-          if (res.ok()) {
-            return key_only_pd;
-          } else {
-            Fail("Unable to extract only the key part from PD table entry");
-          }
-        }
-        return pd;
-      });
+      info, test_name, pd, pdpi::PdTableEntryToIr, pdpi::IrTableEntryToPd,
+      pdpi::IrTableEntryToPi, pdpi::PiTableEntryToIr, pdpi::PdTableEntryToPi,
+      pdpi::PiTableEntryToPd, validity);
 }
 
 static void RunPiTests(const pdpi::IrP4Info info) {
@@ -1538,50 +1499,6 @@ static void RunPdTests(const pdpi::IrP4Info info) {
       INPUT_IS_VALID);
 }
 
-static void RunPdTestsOnlyKey(const pdpi::IrP4Info info) {
-  RunPdTableEntryTest(info, "missing matches with key_only=true",
-                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
-                        id_test_table_entry {}
-                      )pb"),
-                      INPUT_IS_INVALID, /*key_only=*/true);
-
-  RunPdTableEntryTest(
-      info, "ternary table with priority absent with key_only=true",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
-        ternary_table_entry {
-          match {
-            normal { value: "0x052" mask: "0x273" }
-            ipv4 { value: "10.43.12.4" mask: "10.43.12.5" }
-            ipv6 { value: "::ee66" mask: "::ff77" }
-            mac { value: "11:22:33:44:55:66" mask: "33:66:77:66:77:77" }
-          }
-          action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
-        }
-      )pb"),
-      INPUT_IS_INVALID, /*key_only=*/true);
-
-  RunPdTableEntryTest(
-      info, "ipv4 LPM table with key_only=true",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
-        lpm1_table_entry {
-          match { ipv4 { value: "10.43.12.0" prefix_length: 24 } }
-          action { NoAction {} }
-        }
-      )pb"),
-      INPUT_IS_VALID, /*key_only=*/true);
-
-  RunPdTableEntryTest(
-      info, "ternary match with key_only=true",
-      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
-        ternary_table_entry {
-          match { normal { value: "0x052" mask: "0x273" } }
-          priority: 32
-          action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
-        }
-      )pb"),
-      INPUT_IS_VALID, /*key_only=*/true);
-}
-
 int main(int argc, char** argv) {
   // Usage: table_entry_test <p4info file>.
   if (argc != 2) {
@@ -1601,6 +1518,5 @@ int main(int argc, char** argv) {
   RunPiTests(info);
   RunIrTests(info);
   RunPdTests(info);
-  RunPdTestsOnlyKey(info);
   return 0;
 }
