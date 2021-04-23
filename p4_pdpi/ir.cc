@@ -70,11 +70,11 @@ StatusOr<Format> GetFormatForP4InfoElement(const T &element,
   bool is_sdn_string = false;
   if (element.has_type_name()) {
     const auto &name = element.type_name().name();
-    ASSIGN_OR_RETURN(const auto &named_type,
-                     gutil::FindOrStatus(type_info.new_types(), name),
+    ASSIGN_OR_RETURN(const auto *named_type,
+                     gutil::FindPtrOrStatus(type_info.new_types(), name),
                      _ << "Type definition for \"" << name << "\" not found");
-    if (named_type.has_translated_type()) {
-      if (named_type.translated_type().sdn_type_case() ==
+    if (named_type->has_translated_type()) {
+      if (named_type->translated_type().sdn_type_case() ==
           p4::config::v1::P4NewTypeTranslation::kSdnString) {
         is_sdn_string = true;
       }
@@ -329,8 +329,8 @@ StatusOr<IrActionInvocation> PiActionToIr(
   uint32_t action_id = pi_action.action_id();
 
   ASSIGN_OR_RETURN(
-      const auto &ir_action_definition,
-      gutil::FindOrStatus(info.actions_by_id(), action_id),
+      const auto *ir_action_definition,
+      gutil::FindPtrOrStatus(info.actions_by_id(), action_id),
       _ << "Action ID " << action_id << " does not exist in P4Info");
 
   if (absl::c_find_if(valid_actions,
@@ -342,14 +342,14 @@ StatusOr<IrActionInvocation> PiActionToIr(
            << " is not a valid action for this table";
   }
 
-  int action_params_size = ir_action_definition.params_by_id().size();
+  int action_params_size = ir_action_definition->params_by_id().size();
   if (action_params_size != pi_action.params().size()) {
     return InvalidArgumentErrorBuilder()
            << "Expected " << action_params_size << " parameters, but got "
            << pi_action.params().size() << " instead in action with ID "
            << action_id;
   }
-  action_entry.set_name(ir_action_definition.preamble().alias());
+  action_entry.set_name(ir_action_definition->preamble().alias());
   absl::flat_hash_set<uint32_t> used_params;
   for (const auto &param : pi_action.params()) {
     RETURN_IF_ERROR(gutil::InsertIfUnique(
@@ -357,17 +357,18 @@ StatusOr<IrActionInvocation> PiActionToIr(
         absl::StrCat("Duplicate param field found with ID ",
                      param.param_id())));
 
-    ASSIGN_OR_RETURN(const auto &ir_param_definition,
-                     gutil::FindOrStatus(ir_action_definition.params_by_id(),
-                                         param.param_id()),
-                     _ << "Unable to find param ID " << param.param_id()
-                       << " in action with ID " << action_id);
+    ASSIGN_OR_RETURN(
+        const auto *ir_param_definition,
+        gutil::FindPtrOrStatus(ir_action_definition->params_by_id(),
+                               param.param_id()),
+        _ << "Unable to find param ID " << param.param_id()
+          << " in action with ID " << action_id);
     IrActionInvocation::IrActionParam *param_entry = action_entry.add_params();
-    param_entry->set_name(ir_param_definition.param().name());
+    param_entry->set_name(ir_param_definition->param().name());
     ASSIGN_OR_RETURN(
         *param_entry->mutable_value(),
-        ArbitraryByteStringToIrValue(ir_param_definition.format(),
-                                     ir_param_definition.param().bitwidth(),
+        ArbitraryByteStringToIrValue(ir_param_definition->format(),
+                                     ir_param_definition->param().bitwidth(),
                                      param.value()));
   }
   return action_entry;
@@ -424,16 +425,16 @@ StatusOr<O> PiPacketIoToIr(const IrP4Info &info, const std::string &kind,
         used_metadata_ids, id,
         absl::StrCat("Duplicate \"", kind, "\" metadata found with ID ", id)));
 
-    ASSIGN_OR_RETURN(const auto &metadata_definition,
-                     gutil::FindOrStatus(metadata_by_id, id),
+    ASSIGN_OR_RETURN(const auto *metadata_definition,
+                     gutil::FindPtrOrStatus(metadata_by_id, id),
                      _ << kind << " metadata with ID " << id << " not defined");
 
     IrPacketMetadata ir_metadata;
-    ir_metadata.set_name(metadata_definition.metadata().name());
+    ir_metadata.set_name(metadata_definition->metadata().name());
     ASSIGN_OR_RETURN(
         *ir_metadata.mutable_value(),
-        ArbitraryByteStringToIrValue(metadata_definition.format(),
-                                     metadata_definition.metadata().bitwidth(),
+        ArbitraryByteStringToIrValue(metadata_definition->format(),
+                                     metadata_definition->metadata().bitwidth(),
                                      metadata.value()));
     *result.add_metadata() = ir_metadata;
   }
@@ -595,8 +596,8 @@ StatusOr<p4::v1::Action> IrActionInvocationToPi(
   const std::string &action_name = ir_table_action.name();
 
   ASSIGN_OR_RETURN(
-      const auto &ir_action_definition,
-      gutil::FindOrStatus(info.actions_by_name(), action_name),
+      const auto *ir_action_definition,
+      gutil::FindPtrOrStatus(info.actions_by_name(), action_name),
       _ << "Action \"" << action_name << "\" does not exist in P4Info");
 
   if (absl::c_find_if(
@@ -608,7 +609,7 @@ StatusOr<p4::v1::Action> IrActionInvocationToPi(
            << "\" is not a valid action for this table";
   }
 
-  int action_params_size = ir_action_definition.params_by_name().size();
+  int action_params_size = ir_action_definition->params_by_name().size();
   if (action_params_size != ir_table_action.params().size()) {
     return InvalidArgumentErrorBuilder()
            << "Expected " << action_params_size << " parameters, but got "
@@ -617,7 +618,7 @@ StatusOr<p4::v1::Action> IrActionInvocationToPi(
   }
 
   p4::v1::Action action;
-  action.set_action_id(ir_action_definition.preamble().id());
+  action.set_action_id(ir_action_definition->preamble().id());
   absl::flat_hash_set<std::string> used_params;
   for (const auto &param : ir_table_action.params()) {
     RETURN_IF_ERROR(gutil::InsertIfUnique(
@@ -625,20 +626,20 @@ StatusOr<p4::v1::Action> IrActionInvocationToPi(
         absl::StrCat("Duplicate param field found with name \"", param.name(),
                      "\"")));
 
-    ASSIGN_OR_RETURN(const auto &ir_param_definition,
-                     gutil::FindOrStatus(ir_action_definition.params_by_name(),
-                                         param.name()),
+    ASSIGN_OR_RETURN(const auto *ir_param_definition,
+                     gutil::FindPtrOrStatus(
+                         ir_action_definition->params_by_name(), param.name()),
                      _ << "Unable to find param \"" << param.name()
                        << "\" in action \"" << action_name << "\"");
     p4::v1::Action_Param *param_entry = action.add_params();
-    param_entry->set_param_id(ir_param_definition.param().id());
+    param_entry->set_param_id(ir_param_definition->param().id());
     RETURN_IF_ERROR(
-        ValidateIrValueFormat(param.value(), ir_param_definition.format()));
+        ValidateIrValueFormat(param.value(), ir_param_definition->format()));
     ASSIGN_OR_RETURN(
         const auto &value,
         IrValueToNormalizedByteString(param.value(),
-                                      ir_param_definition.param().bitwidth()));
-    if (ir_param_definition.format() == STRING) {
+                                      ir_param_definition->param().bitwidth()));
+    if (ir_param_definition->format() == STRING) {
       param_entry->set_value(value);
     } else {
       param_entry->set_value(ArbitraryToCanonicalByteString(value));
@@ -694,19 +695,19 @@ StatusOr<I> IrPacketIoToPi(const IrP4Info &info, const std::string &kind,
         absl::StrCat("Duplicate \"", kind, "\" metadata found with name \"",
                      name, "\"")));
 
-    ASSIGN_OR_RETURN(const auto &metadata_definition,
-                     gutil::FindOrStatus(metadata_by_name, name),
+    ASSIGN_OR_RETURN(const auto *metadata_definition,
+                     gutil::FindPtrOrStatus(metadata_by_name, name),
                      _ << "\"" << kind << "\" metadata with name \"" << name
                        << "\" not defined");
     p4::v1::PacketMetadata pi_metadata;
-    pi_metadata.set_metadata_id(metadata_definition.metadata().id());
+    pi_metadata.set_metadata_id(metadata_definition->metadata().id());
     RETURN_IF_ERROR(
-        ValidateIrValueFormat(metadata.value(), metadata_definition.format()));
+        ValidateIrValueFormat(metadata.value(), metadata_definition->format()));
     ASSIGN_OR_RETURN(
         auto value,
         IrValueToNormalizedByteString(
-            metadata.value(), metadata_definition.metadata().bitwidth()));
-    if (metadata_definition.format() == STRING) {
+            metadata.value(), metadata_definition->metadata().bitwidth()));
+    if (metadata_definition->format() == STRING) {
       pi_metadata.set_value(value);
     } else {
       pi_metadata.set_value(ArbitraryToCanonicalByteString(value));
@@ -944,7 +945,8 @@ StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info &p4_info) {
   // Counters.
   for (const auto &counter : p4_info.direct_counters()) {
     const auto table_id = counter.direct_table_id();
-    RETURN_IF_ERROR(gutil::FindOrStatus(info.tables_by_id(), table_id).status())
+    RETURN_IF_ERROR(
+        gutil::FindPtrOrStatus(info.tables_by_id(), table_id).status())
         << "Missing table " << table_id << " for counter with ID "
         << counter.preamble().id();
     IrCounter ir_counter;
@@ -960,7 +962,8 @@ StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info &p4_info) {
   // Meters.
   for (const auto &meter : p4_info.direct_meters()) {
     const auto table_id = meter.direct_table_id();
-    RETURN_IF_ERROR(gutil::FindOrStatus(info.tables_by_id(), table_id).status())
+    RETURN_IF_ERROR(
+        gutil::FindPtrOrStatus(info.tables_by_id(), table_id).status())
         << "Missing table " << table_id << " for meter with ID "
         << meter.preamble().id();
     IrMeter ir_meter;
@@ -976,17 +979,17 @@ StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info &p4_info) {
   // Validate references.
   for (const auto &reference : info.references()) {
     ASSIGN_OR_RETURN(
-        const auto &ir_table,
-        gutil::FindOrStatus(info.tables_by_name(), reference.table()),
+        const auto *ir_table,
+        gutil::FindPtrOrStatus(info.tables_by_name(), reference.table()),
         _ << "Table '" << reference.table()
           << "' referenced in @refers_to does not exist.");
-    ASSIGN_OR_RETURN(const auto &ir_match_field,
-                     gutil::FindOrStatus(ir_table.match_fields_by_name(),
-                                         reference.match_field()),
+    ASSIGN_OR_RETURN(const auto *ir_match_field,
+                     gutil::FindPtrOrStatus(ir_table->match_fields_by_name(),
+                                            reference.match_field()),
                      _ << "Match field '" << reference.match_field()
                        << "' referenced in @refers_to does not exist.");
-    if (ir_match_field.match_field().match_type() != MatchField::EXACT &&
-        ir_match_field.match_field().match_type() != MatchField::OPTIONAL) {
+    if (ir_match_field->match_field().match_type() != MatchField::EXACT &&
+        ir_match_field->match_field().match_type() != MatchField::OPTIONAL) {
       return gutil::InvalidArgumentErrorBuilder()
              << "Invalid @refers_to annotation: Only exact and optional "
                 "match fields can be used.";
@@ -1032,10 +1035,10 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
                                         const p4::v1::TableEntry &pi) {
   IrTableEntry ir;
   ASSIGN_OR_RETURN(
-      const auto &table,
-      gutil::FindOrStatus(info.tables_by_id(), pi.table_id()),
+      const auto *table,
+      gutil::FindPtrOrStatus(info.tables_by_id(), pi.table_id()),
       _ << "Table ID " << pi.table_id() << " does not exist in P4Info");
-  ir.set_table_name(table.preamble().alias());
+  ir.set_table_name(table->preamble().alias());
 
   // Validate and translate the matches
   absl::flat_hash_set<uint32_t> used_field_ids;
@@ -1046,23 +1049,24 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
         absl::StrCat("Duplicate match field found with ID ",
                      pi_match.field_id())));
 
-    ASSIGN_OR_RETURN(
-        const auto &match,
-        gutil::FindOrStatus(table.match_fields_by_id(), pi_match.field_id()),
-        _ << "Match Field " << pi_match.field_id()
-          << " does not exist in table \"" << ir.table_name() << "\"");
+    ASSIGN_OR_RETURN(const auto *match,
+                     gutil::FindPtrOrStatus(table->match_fields_by_id(),
+                                            pi_match.field_id()),
+                     _ << "Match Field " << pi_match.field_id()
+                       << " does not exist in table \"" << ir.table_name()
+                       << "\"");
     ASSIGN_OR_RETURN(const auto &match_entry,
-                     PiMatchFieldToIr(info, match, pi_match));
+                     PiMatchFieldToIr(info, *match, pi_match));
     *ir.add_matches() = match_entry;
 
-    if (match.match_field().match_type() == MatchField::EXACT) {
-      mandatory_matches.insert(match.match_field().name());
+    if (match->match_field().match_type() == MatchField::EXACT) {
+      mandatory_matches.insert(match->match_field().name());
     }
   }
 
-  RETURN_IF_ERROR(CheckMandatoryMatches(mandatory_matches, table));
+  RETURN_IF_ERROR(CheckMandatoryMatches(mandatory_matches, *table));
 
-  if (table.requires_priority()) {
+  if (table->requires_priority()) {
     if (pi.priority() <= 0) {
       return InvalidArgumentErrorBuilder()
              << "Table entries with ternary or optional matches require a "
@@ -1087,7 +1091,7 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
   }
   switch (pi.action().type_case()) {
     case p4::v1::TableAction::kAction: {
-      if (table.uses_oneshot()) {
+      if (table->uses_oneshot()) {
         return InvalidArgumentErrorBuilder()
                << "Table \"" << ir.table_name()
                << "\" requires an action set since it uses onseshot. Got "
@@ -1095,11 +1099,11 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
       }
       ASSIGN_OR_RETURN(
           *ir.mutable_action(),
-          PiActionToIr(info, pi.action().action(), table.entry_actions()));
+          PiActionToIr(info, pi.action().action(), table->entry_actions()));
       break;
     }
     case p4::v1::TableAction::kActionProfileActionSet: {
-      if (!table.uses_oneshot()) {
+      if (!table->uses_oneshot()) {
         return InvalidArgumentErrorBuilder()
                << "Table \"" << ir.table_name()
                << "\" requires an action since it does not use onseshot. Got "
@@ -1108,7 +1112,7 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
       ASSIGN_OR_RETURN(
           *ir.mutable_action_set(),
           PiActionSetToIr(info, pi.action().action_profile_action_set(),
-                          table.entry_actions()));
+                          table->entry_actions()));
       break;
     }
     default: {
@@ -1118,7 +1122,7 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
   }
 
   // Validate and translate meters.
-  if (!table.has_meter() && pi.has_meter_config()) {
+  if (!table->has_meter() && pi.has_meter_config()) {
     return InvalidArgumentErrorBuilder()
            << "Table \"" << ir.table_name()
            << "\" does not have a meter, but table entry contained a meter "
@@ -1132,7 +1136,7 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
   }
 
   // Validate and translate counters.
-  if (!table.has_counter() && pi.has_counter_data()) {
+  if (!table->has_counter() && pi.has_counter_data()) {
     return InvalidArgumentErrorBuilder()
            << "Table \"" << ir.table_name()
            << "\" does not have a counter, but table entry contained counter "
@@ -1346,10 +1350,10 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
                                               const IrTableEntry &ir) {
   p4::v1::TableEntry pi;
   ASSIGN_OR_RETURN(
-      const auto &table,
-      gutil::FindOrStatus(info.tables_by_name(), ir.table_name()),
+      const auto *table,
+      gutil::FindPtrOrStatus(info.tables_by_name(), ir.table_name()),
       _ << "Table name \"" << ir.table_name() << "\" does not exist in P4Info");
-  pi.set_table_id(table.preamble().id());
+  pi.set_table_id(table->preamble().id());
 
   // Validate and translate the matches
   absl::flat_hash_set<std::string> used_field_names, mandatory_matches;
@@ -1360,23 +1364,23 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
                      ir_match.name(), "\"")));
 
     ASSIGN_OR_RETURN(
-        const auto &match,
-        gutil::FindOrStatus(table.match_fields_by_name(), ir_match.name()),
+        const auto *match,
+        gutil::FindPtrOrStatus(table->match_fields_by_name(), ir_match.name()),
         _ << "Match Field \"" << ir_match.name()
           << "\" does not exist in table \"" << ir.table_name() << "\"");
     ASSIGN_OR_RETURN(
-        const auto &match_entry, IrMatchFieldToPi(info, match, ir_match),
+        const auto &match_entry, IrMatchFieldToPi(info, *match, ir_match),
         _.SetPrepend() << "In match field '" << ir_match.name() << "'"
                        << " of table '" << ir.table_name() << "': ");
     *pi.add_match() = match_entry;
 
-    if (match.match_field().match_type() == MatchField::EXACT) {
-      mandatory_matches.insert(match.match_field().name());
+    if (match->match_field().match_type() == MatchField::EXACT) {
+      mandatory_matches.insert(match->match_field().name());
     }
   }
 
-  RETURN_IF_ERROR(CheckMandatoryMatches(mandatory_matches, table));
-  if (table.requires_priority()) {
+  RETURN_IF_ERROR(CheckMandatoryMatches(mandatory_matches, *table));
+  if (table->requires_priority()) {
     if (ir.priority() <= 0) {
       return InvalidArgumentErrorBuilder()
              << "Table entries with ternary or optional matches require a "
@@ -1397,7 +1401,7 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
   // Validate and translate the action.
   switch (ir.type_case()) {
     case IrTableEntry::kAction: {
-      if (table.uses_oneshot()) {
+      if (table->uses_oneshot()) {
         return InvalidArgumentErrorBuilder()
                << "Table \"" << ir.table_name()
                << "\" requires an action set since it uses onseshot. Got "
@@ -1405,11 +1409,11 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
       }
       ASSIGN_OR_RETURN(
           *pi.mutable_action()->mutable_action(),
-          IrActionInvocationToPi(info, ir.action(), table.entry_actions()));
+          IrActionInvocationToPi(info, ir.action(), table->entry_actions()));
       break;
     }
     case IrTableEntry::kActionSet: {
-      if (!table.uses_oneshot()) {
+      if (!table->uses_oneshot()) {
         return InvalidArgumentErrorBuilder()
                << "Table \"" << ir.table_name()
                << "\" requires an action since it does not use onseshot. Got "
@@ -1417,7 +1421,7 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
       }
       ASSIGN_OR_RETURN(
           *pi.mutable_action()->mutable_action_profile_action_set(),
-          IrActionSetToPi(info, ir.action_set(), table.entry_actions()));
+          IrActionSetToPi(info, ir.action_set(), table->entry_actions()));
       break;
     }
     default: {
@@ -1428,7 +1432,7 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
   }
 
   // Validate and translate meters.
-  if (!table.has_meter() && ir.has_meter_config()) {
+  if (!table->has_meter() && ir.has_meter_config()) {
     return InvalidArgumentErrorBuilder()
            << "Table \"" << ir.table_name()
            << "\" does not have a meter, but table entry contained a meter "
@@ -1442,7 +1446,7 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
   }
 
   // Validate and translate counters.
-  if (!table.has_counter() && ir.has_counter_data()) {
+  if (!table->has_counter() && ir.has_counter_data()) {
     return InvalidArgumentErrorBuilder()
            << "Table \"" << ir.table_name()
            << "\" does not have a counter, but table entry contained counter "

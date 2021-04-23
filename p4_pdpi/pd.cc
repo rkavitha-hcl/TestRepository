@@ -494,18 +494,18 @@ static absl::Status IrMatchEntryToPd(const IrTableDefinition &ir_table_info,
                                      const IrTableEntry &ir_table_entry,
                                      google::protobuf::Message *pd_match) {
   for (const auto &ir_match : ir_table_entry.matches()) {
-    ASSIGN_OR_RETURN(const auto &ir_match_info,
-                     gutil::FindOrStatus(ir_table_info.match_fields_by_name(),
-                                         ir_match.name()),
+    ASSIGN_OR_RETURN(const auto *ir_match_info,
+                     gutil::FindPtrOrStatus(
+                         ir_table_info.match_fields_by_name(), ir_match.name()),
                      _ << "P4Info for table \""
                        << ir_table_info.preamble().name()
                        << "\" does not contain match with name \""
                        << ir_match.name() << "\"");
-    switch (ir_match_info.match_field().match_type()) {
+    switch (ir_match_info->match_field().match_type()) {
       case MatchField::EXACT: {
-        ASSIGN_OR_RETURN(
-            const auto pd_value,
-            IrValueToFormattedString(ir_match.exact(), ir_match_info.format()));
+        ASSIGN_OR_RETURN(const auto pd_value,
+                         IrValueToFormattedString(ir_match.exact(),
+                                                  ir_match_info->format()));
         RETURN_IF_ERROR(SetStringField(pd_match, ir_match.name(), pd_value));
         break;
       }
@@ -514,7 +514,7 @@ static absl::Status IrMatchEntryToPd(const IrTableDefinition &ir_table_info,
                          GetMutableMessage(pd_match, ir_match.name()));
         ASSIGN_OR_RETURN(const auto pd_value,
                          IrValueToFormattedString(ir_match.lpm().value(),
-                                                  ir_match_info.format()));
+                                                  ir_match_info->format()));
         RETURN_IF_ERROR(SetStringField(pd_lpm, "value", pd_value));
         RETURN_IF_ERROR(SetInt32Field(pd_lpm, "prefix_length",
                                       ir_match.lpm().prefix_length()));
@@ -525,11 +525,11 @@ static absl::Status IrMatchEntryToPd(const IrTableDefinition &ir_table_info,
                          GetMutableMessage(pd_match, ir_match.name()));
         ASSIGN_OR_RETURN(const auto pd_value,
                          IrValueToFormattedString(ir_match.ternary().value(),
-                                                  ir_match_info.format()));
+                                                  ir_match_info->format()));
         RETURN_IF_ERROR(SetStringField(pd_ternary, "value", pd_value));
         ASSIGN_OR_RETURN(const auto pd_mask,
                          IrValueToFormattedString(ir_match.ternary().mask(),
-                                                  ir_match_info.format()));
+                                                  ir_match_info->format()));
         RETURN_IF_ERROR(SetStringField(pd_ternary, "mask", pd_mask));
         break;
       }
@@ -538,7 +538,7 @@ static absl::Status IrMatchEntryToPd(const IrTableDefinition &ir_table_info,
                          GetMutableMessage(pd_match, ir_match.name()));
         ASSIGN_OR_RETURN(const auto pd_value,
                          IrValueToFormattedString(ir_match.optional().value(),
-                                                  ir_match_info.format()));
+                                                  ir_match_info->format()));
         RETURN_IF_ERROR(SetStringField(pd_optional, "value", pd_value));
         break;
       }
@@ -546,7 +546,7 @@ static absl::Status IrMatchEntryToPd(const IrTableDefinition &ir_table_info,
         return gutil::InvalidArgumentErrorBuilder()
                << "Unsupported match type \""
                << MatchField_MatchType_Name(
-                      ir_match_info.match_field().match_type())
+                      ir_match_info->match_field().match_type())
                << "\" in \"" << ir_match.name() << "\"";
     }
   }
@@ -559,8 +559,8 @@ static absl::Status IrActionInvocationToPd(
     const IrP4Info &ir_p4info, const IrActionInvocation &ir_action,
     google::protobuf::Message *parent_message) {
   ASSIGN_OR_RETURN(
-      const auto &ir_action_info,
-      gutil::FindOrStatus(ir_p4info.actions_by_name(), ir_action.name()),
+      const auto *ir_action_info,
+      gutil::FindPtrOrStatus(ir_p4info.actions_by_name(), ir_action.name()),
       _ << "P4Info does not contain action with name \"" << ir_action.name()
         << "\"");
   ASSIGN_OR_RETURN(const auto &pd_action_name,
@@ -568,12 +568,12 @@ static absl::Status IrActionInvocationToPd(
   ASSIGN_OR_RETURN(auto *pd_action,
                    GetMutableMessage(parent_message, pd_action_name));
   for (const auto &ir_param : ir_action.params()) {
-    ASSIGN_OR_RETURN(
-        const auto &param_info,
-        gutil::FindOrStatus(ir_action_info.params_by_name(), ir_param.name()));
+    ASSIGN_OR_RETURN(const auto *param_info,
+                     gutil::FindPtrOrStatus(ir_action_info->params_by_name(),
+                                            ir_param.name()));
     ASSIGN_OR_RETURN(
         const auto &pd_value,
-        IrValueToFormattedString(ir_param.value(), param_info.format()));
+        IrValueToFormattedString(ir_param.value(), param_info->format()));
     RETURN_IF_ERROR(SetStringField(pd_action, ir_param.name(), pd_value));
   }
   return absl::OkStatus();
@@ -605,8 +605,8 @@ static absl::Status IrActionSetToPd(const IrP4Info &ir_p4info,
 absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
                               google::protobuf::Message *pd) {
   ASSIGN_OR_RETURN(
-      const auto &ir_table_info,
-      gutil::FindOrStatus(ir_p4info.tables_by_name(), ir.table_name()),
+      const auto *ir_table_info,
+      gutil::FindPtrOrStatus(ir_p4info.tables_by_name(), ir.table_name()),
       _ << "Table \"" << ir.table_name() << "\" does not exist in P4Info."
         << kPdProtoAndP4InfoOutOfSync);
   ASSIGN_OR_RETURN(const auto pd_table_name,
@@ -614,7 +614,7 @@ absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
   ASSIGN_OR_RETURN(auto *pd_table, GetMutableMessage(pd, pd_table_name));
 
   ASSIGN_OR_RETURN(auto *pd_match, GetMutableMessage(pd_table, "match"));
-  RETURN_IF_ERROR(IrMatchEntryToPd(ir_table_info, ir, pd_match));
+  RETURN_IF_ERROR(IrMatchEntryToPd(*ir_table_info, ir, pd_match));
 
   if (ir.priority() != 0) {
     RETURN_IF_ERROR(SetInt32Field(pd_table, "priority", ir.priority()));
@@ -622,14 +622,14 @@ absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
   RETURN_IF_ERROR(
       SetBytesField(pd_table, "controller_metadata", ir.controller_metadata()));
 
-  if (ir_table_info.uses_oneshot()) {
+  if (ir_table_info->uses_oneshot()) {
     RETURN_IF_ERROR(IrActionSetToPd(ir_p4info, ir, pd_table));
   } else {
     ASSIGN_OR_RETURN(auto *pd_action, GetMutableMessage(pd_table, "action"));
     RETURN_IF_ERROR(IrActionInvocationToPd(ir_p4info, ir.action(), pd_action));
   }
 
-  if (ir_table_info.has_meter() && ir.has_meter_config()) {
+  if (ir_table_info->has_meter() && ir.has_meter_config()) {
     ASSIGN_OR_RETURN(auto *config, GetMutableMessage(pd_table, "meter_config"));
     const auto &ir_meter_config = ir.meter_config();
     if (ir_meter_config.cir() != ir_meter_config.pir()) {
@@ -643,7 +643,7 @@ absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
              << ir_meter_config.cburst() << ", PBurst as "
              << ir_meter_config.pburst();
     }
-    switch (ir_table_info.meter().unit()) {
+    switch (ir_table_info->meter().unit()) {
       case p4::config::v1::MeterSpec_Unit_BYTES: {
         RETURN_IF_ERROR(
             SetInt64Field(config, "bytes_per_second", ir_meter_config.cir()));
@@ -660,14 +660,14 @@ absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
       }
       default:
         return InvalidArgumentErrorBuilder()
-               << "Invalid meter unit: " << ir_table_info.meter().unit();
+               << "Invalid meter unit: " << ir_table_info->meter().unit();
     }
   }
 
-  if (ir_table_info.has_counter() && ir.has_counter_data()) {
+  if (ir_table_info->has_counter() && ir.has_counter_data()) {
     ASSIGN_OR_RETURN(auto *counter_data,
                      GetMutableMessage(pd_table, "counter_data"));
-    switch (ir_table_info.counter().unit()) {
+    switch (ir_table_info->counter().unit()) {
       case p4::config::v1::CounterSpec_Unit_BYTES: {
         RETURN_IF_ERROR(SetInt64Field(counter_data, "byte_count",
                                       ir.counter_data().byte_count()));
@@ -687,7 +687,7 @@ absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
       }
       default:
         return InvalidArgumentErrorBuilder()
-               << "Invalid counter unit: " << ir_table_info.counter().unit();
+               << "Invalid counter unit: " << ir_table_info->counter().unit();
     }
   }
 
@@ -718,13 +718,13 @@ absl::Status IrPacketIoToPd(const IrP4Info &info, const std::string &kind,
   for (const auto &metadata : packet.metadata()) {
     const std::string &name = metadata.name();
 
-    ASSIGN_OR_RETURN(const auto &metadata_definition,
-                     gutil::FindOrStatus(metadata_by_name, name),
+    ASSIGN_OR_RETURN(const auto *metadata_definition,
+                     gutil::FindPtrOrStatus(metadata_by_name, name),
                      _ << "\"" << kind << "\" metadata with name \"" << name
                        << "\" not defined");
     ASSIGN_OR_RETURN(const auto &raw_value,
                      IrValueToFormattedString(metadata.value(),
-                                              metadata_definition.format()));
+                                              metadata_definition->format()));
     ASSIGN_OR_RETURN(auto *pd_metadata,
                      GetMutableMessage(pd_packet, "metadata"));
     RETURN_IF_ERROR(SetStringField(pd_metadata, name, raw_value));
@@ -953,9 +953,9 @@ static absl::Status PdMatchEntryToIr(const IrTableDefinition &ir_table_info,
   std::sort(matches.begin(), matches.end());
   for (const auto &[_, pd_match_name] : matches) {
     ASSIGN_OR_RETURN(
-        const auto &ir_match_info,
-        gutil::FindOrStatus(ir_table_info.match_fields_by_name(),
-                            pd_match_name),
+        const auto *ir_match_info,
+        gutil::FindPtrOrStatus(ir_table_info.match_fields_by_name(),
+                               pd_match_name),
         _ << "P4Info for table \"" << ir_table_info.preamble().name()
           << "\" does not contain match with name \"" << pd_match_name << "\"");
 
@@ -964,19 +964,19 @@ static absl::Status PdMatchEntryToIr(const IrTableDefinition &ir_table_info,
     // for "" for Format::STRING fields.
     auto has_field = HasField(pd_match, pd_match_name);
     if (has_field.ok() && !*has_field &&
-        ir_match_info.match_field().match_type() != MatchField::EXACT) {
+        ir_match_info->match_field().match_type() != MatchField::EXACT) {
       continue;
     }
 
     auto *ir_match = ir_table_entry->add_matches();
     ir_match->set_name(pd_match_name);
-    switch (ir_match_info.match_field().match_type()) {
+    switch (ir_match_info->match_field().match_type()) {
       case MatchField::EXACT: {
         ASSIGN_OR_RETURN(const auto &pd_value,
                          GetStringField(pd_match, pd_match_name));
         ASSIGN_OR_RETURN(
             *ir_match->mutable_exact(),
-            FormattedStringToIrValue(pd_value, ir_match_info.format()));
+            FormattedStringToIrValue(pd_value, ir_match_info->format()));
         break;
       }
       case MatchField::LPM: {
@@ -988,12 +988,12 @@ static absl::Status PdMatchEntryToIr(const IrTableDefinition &ir_table_info,
                          GetStringField(*pd_lpm, "value"));
         ASSIGN_OR_RETURN(
             *ir_lpm->mutable_value(),
-            FormattedStringToIrValue(pd_value, ir_match_info.format()));
+            FormattedStringToIrValue(pd_value, ir_match_info->format()));
 
         ASSIGN_OR_RETURN(const auto &pd_prefix_len,
                          GetInt32Field(*pd_lpm, "prefix_length"));
         if (pd_prefix_len < 0 ||
-            pd_prefix_len > ir_match_info.match_field().bitwidth()) {
+            pd_prefix_len > ir_match_info->match_field().bitwidth()) {
           return InvalidArgumentErrorBuilder()
                  << "Prefix length (" << pd_prefix_len << ") for match field \""
                  << ir_match->name() << "\" is out of bounds";
@@ -1010,13 +1010,13 @@ static absl::Status PdMatchEntryToIr(const IrTableDefinition &ir_table_info,
                          GetStringField(*pd_ternary, "value"));
         ASSIGN_OR_RETURN(
             *ir_ternary->mutable_value(),
-            FormattedStringToIrValue(pd_value, ir_match_info.format()));
+            FormattedStringToIrValue(pd_value, ir_match_info->format()));
 
         ASSIGN_OR_RETURN(const auto &pd_mask,
                          GetStringField(*pd_ternary, "mask"));
         ASSIGN_OR_RETURN(
             *ir_ternary->mutable_mask(),
-            FormattedStringToIrValue(pd_mask, ir_match_info.format()));
+            FormattedStringToIrValue(pd_mask, ir_match_info->format()));
         break;
       }
       case MatchField::OPTIONAL: {
@@ -1028,14 +1028,14 @@ static absl::Status PdMatchEntryToIr(const IrTableDefinition &ir_table_info,
                          GetStringField(*pd_optional, "value"));
         ASSIGN_OR_RETURN(
             *ir_optional->mutable_value(),
-            FormattedStringToIrValue(pd_value, ir_match_info.format()));
+            FormattedStringToIrValue(pd_value, ir_match_info->format()));
         break;
       }
       default:
         return gutil::InvalidArgumentErrorBuilder()
                << "Unsupported match type \""
                << MatchField_MatchType_Name(
-                      ir_match_info.match_field().match_type())
+                      ir_match_info->match_field().match_type())
                << "\" in \"" << pd_match_name << "\"";
     }
   }
@@ -1060,22 +1060,22 @@ static absl::StatusOr<IrActionInvocation> PdActionInvocationToIr(
                    GetMessageField(pd_action_invocation, action_name));
 
   ASSIGN_OR_RETURN(
-      const auto &ir_action_info,
-      gutil::FindOrStatus(ir_p4info.actions_by_name(), action_name),
+      const auto *ir_action_info,
+      gutil::FindPtrOrStatus(ir_p4info.actions_by_name(), action_name),
       _ << "P4Info does not contain action with name \"" << action_name
         << "\"");
   IrActionInvocation ir_action;
   ir_action.set_name(action_name);
   for (const auto &pd_arg_name : GetAllFieldNames(*pd_action)) {
     ASSIGN_OR_RETURN(
-        const auto &param_info,
-        gutil::FindOrStatus(ir_action_info.params_by_name(), pd_arg_name));
+        const auto *param_info,
+        gutil::FindPtrOrStatus(ir_action_info->params_by_name(), pd_arg_name));
     ASSIGN_OR_RETURN(const auto &pd_arg,
                      GetStringField(*pd_action, pd_arg_name));
     auto *ir_param = ir_action.add_params();
     ir_param->set_name(pd_arg_name);
     ASSIGN_OR_RETURN(*ir_param->mutable_value(),
-                     FormattedStringToIrValue(pd_arg, param_info.format()));
+                     FormattedStringToIrValue(pd_arg, param_info->format()));
   }
   return ir_action;
 }
@@ -1112,8 +1112,8 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
   ASSIGN_OR_RETURN(const std::string &p4_table_name,
                    ProtobufFieldNameToP4Name(pd_table_field_name, kP4Table));
   ASSIGN_OR_RETURN(
-      const auto &ir_table_info,
-      gutil::FindOrStatus(ir_p4info.tables_by_name(), p4_table_name),
+      const auto *ir_table_info,
+      gutil::FindPtrOrStatus(ir_p4info.tables_by_name(), p4_table_name),
       _ << "Table \"" << p4_table_name << "\" does not exist in P4Info."
         << kPdProtoAndP4InfoOutOfSync);
   ir.set_table_name(p4_table_name);
@@ -1122,7 +1122,7 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
                    GetMessageField(pd, pd_table_field_name));
 
   ASSIGN_OR_RETURN(const auto *pd_match, GetMessageField(*pd_table, "match"));
-  RETURN_IF_ERROR(PdMatchEntryToIr(ir_table_info, *pd_match, &ir));
+  RETURN_IF_ERROR(PdMatchEntryToIr(*ir_table_info, *pd_match, &ir));
 
   const auto &status_or_priority = GetInt32Field(*pd_table, "priority");
   if (status_or_priority.ok()) {
@@ -1134,7 +1134,7 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
     ir.set_controller_metadata(status_or_metadata.value());
   }
 
-  if (ir_table_info.uses_oneshot()) {
+  if (ir_table_info->uses_oneshot()) {
     ASSIGN_OR_RETURN(const auto *pd_action_set,
                      GetFieldDescriptor(*pd_table, "wcmp_actions"));
     auto *action_set = ir.mutable_action_set();
@@ -1154,7 +1154,7 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
                      PdActionInvocationToIr(ir_p4info, *pd_action));
   }
 
-  if (ir_table_info.has_meter()) {
+  if (ir_table_info->has_meter()) {
     ASSIGN_OR_RETURN(bool pd_has_meter_config,
                      HasField(*pd_table, "meter_config"));
     if (pd_has_meter_config) {
@@ -1162,7 +1162,7 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
                        GetMessageField(*pd_table, "meter_config"));
       int64_t value;
       int64_t burst_value;
-      switch (ir_table_info.meter().unit()) {
+      switch (ir_table_info->meter().unit()) {
         case p4::config::v1::MeterSpec_Unit_BYTES: {
           ASSIGN_OR_RETURN(value, GetInt64Field(*config, "bytes_per_second"));
           ASSIGN_OR_RETURN(burst_value, GetInt64Field(*config, "burst_bytes"));
@@ -1176,7 +1176,7 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
         }
         default:
           return InvalidArgumentErrorBuilder()
-                 << "Invalid meter unit: " << ir_table_info.meter().unit();
+                 << "Invalid meter unit: " << ir_table_info->meter().unit();
       }
       auto ir_meter_config = ir.mutable_meter_config();
       ir_meter_config->set_cir(value);
@@ -1186,13 +1186,13 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
     }
   }
 
-  if (ir_table_info.has_counter()) {
+  if (ir_table_info->has_counter()) {
     ASSIGN_OR_RETURN(bool pd_has_counter_data,
                      HasField(*pd_table, "counter_data"));
     if (pd_has_counter_data) {
       ASSIGN_OR_RETURN(const auto *counter_data,
                        GetMessageField(*pd_table, "counter_data"));
-      switch (ir_table_info.counter().unit()) {
+      switch (ir_table_info->counter().unit()) {
         case p4::config::v1::CounterSpec_Unit_BYTES: {
           ASSIGN_OR_RETURN(const auto &pd_byte_counter,
                            GetInt64Field(*counter_data, "byte_count"));
@@ -1224,7 +1224,7 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
         }
         default:
           return InvalidArgumentErrorBuilder()
-                 << "Invalid counter unit: " << ir_table_info.meter().unit();
+                 << "Invalid counter unit: " << ir_table_info->meter().unit();
       }
     }
   }

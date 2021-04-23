@@ -54,12 +54,12 @@ absl::StatusOr<absl::optional<std::string>> GetMatchFieldValue(
     const IrTableDefinition& ir_table_definition, const Update& update,
     const std::string& match_field) {
   ASSIGN_OR_RETURN(
-      auto match_field_definition,
-      gutil::FindOrStatus(ir_table_definition.match_fields_by_name(),
-                          match_field),
+      const auto* match_field_definition,
+      gutil::FindPtrOrStatus(ir_table_definition.match_fields_by_name(),
+                             match_field),
       _ << "Failed to build dependency graph: Match field with name "
         << match_field << " does not exist.");
-  int32_t match_field_id = match_field_definition.match_field().id();
+  int32_t match_field_id = match_field_definition->match_field().id();
   for (const auto& match : update.entity().table_entry().match()) {
     if (match.field_id() == match_field_id) {
       if (match.has_exact()) {
@@ -98,11 +98,11 @@ absl::Status RecordDependenciesForActionInvocation(
     ReferencedValueToVertices& indices, Graph& graph) {
   for (const Action_Param* const param : params) {
     ASSIGN_OR_RETURN(
-        const auto& param_definition,
-        gutil::FindOrStatus(ir_action.params_by_id(), param->param_id()),
+        const auto* param_definition,
+        gutil::FindPtrOrStatus(ir_action.params_by_id(), param->param_id()),
         _ << "Failed to build dependency graph: Aciton param with ID "
           << param->param_id() << " does not exist.");
-    for (const auto& ir_reference : param_definition.references()) {
+    for (const auto& ir_reference : param_definition->references()) {
       ReferencedValue referenced_value = {
           ir_reference.table(), ir_reference.match_field(), param->value()};
       RecordDependenciesForReferencedValue(all_vertices, current_vertex,
@@ -124,17 +124,17 @@ absl::StatusOr<Graph> BuildDependencyGraph(const IrP4Info& info,
   for (int update_index = 0; update_index < updates.size(); update_index++) {
     const Update& update = updates[update_index];
     ASSIGN_OR_RETURN(
-        const IrTableDefinition& ir_table_definition,
-        gutil::FindOrStatus(info.tables_by_id(),
-                            update.entity().table_entry().table_id()),
+        const IrTableDefinition* ir_table_definition,
+        gutil::FindPtrOrStatus(info.tables_by_id(),
+                               update.entity().table_entry().table_id()),
         _ << "Failed to build dependency graph: Table with ID "
           << update.entity().table_entry().table_id() << " does not exist.");
     const std::string& update_table_name =
-        ir_table_definition.preamble().alias();
+        ir_table_definition->preamble().alias();
     for (const auto& ir_reference : info.references()) {
       if (update_table_name != ir_reference.table()) continue;
       ASSIGN_OR_RETURN(absl::optional<std::string> value,
-                       GetMatchFieldValue(ir_table_definition, update,
+                       GetMatchFieldValue(*ir_table_definition, update,
                                           ir_reference.match_field()));
       if (value.has_value()) {
         ReferencedValue reference_value = {
@@ -150,21 +150,21 @@ absl::StatusOr<Graph> BuildDependencyGraph(const IrP4Info& info,
     const p4::v1::TableEntry& table_entry = update.entity().table_entry();
     const p4::v1::TableAction& action = table_entry.action();
     ASSIGN_OR_RETURN(
-        const IrTableDefinition ir_table,
-        gutil::FindOrStatus(info.tables_by_id(), table_entry.table_id()),
+        const IrTableDefinition* ir_table,
+        gutil::FindPtrOrStatus(info.tables_by_id(), table_entry.table_id()),
         _ << "Failed to build dependency graph: Table with ID "
           << table_entry.table_id() << " does not exist.");
 
     // References from match fields to match fields.
     for (const auto& match_field : table_entry.match()) {
       ASSIGN_OR_RETURN(
-          const auto& match_field_definition,
-          gutil::FindOrStatus(ir_table.match_fields_by_id(),
-                              match_field.field_id()),
+          const auto* match_field_definition,
+          gutil::FindPtrOrStatus(ir_table->match_fields_by_id(),
+                                 match_field.field_id()),
           _ << "Failed to build dependency graph: Match field with ID "
             << match_field.field_id() << " does not exist.");
-      for (const auto& ir_reference : match_field_definition.references()) {
-        switch (match_field_definition.match_field().match_type()) {
+      for (const auto& ir_reference : match_field_definition->references()) {
+        switch (match_field_definition->match_field().match_type()) {
           case p4::config::v1::MatchField::EXACT: {
             ReferencedValue referenced_value = {ir_reference.table(),
                                                 ir_reference.match_field(),
@@ -193,14 +193,14 @@ absl::StatusOr<Graph> BuildDependencyGraph(const IrP4Info& info,
     switch (action.type_case()) {
       case p4::v1::TableAction::kAction: {
         ASSIGN_OR_RETURN(
-            const IrActionDefinition ir_action,
-            gutil::FindOrStatus(info.actions_by_id(),
-                                action.action().action_id()),
+            const IrActionDefinition* ir_action,
+            gutil::FindPtrOrStatus(info.actions_by_id(),
+                                   action.action().action_id()),
             _ << "Failed to build dependency graph: Action with ID "
               << action.action().action_id() << " does not exist.");
         RETURN_IF_ERROR(RecordDependenciesForActionInvocation(
-            updates, ir_action, action.action().params(), update_index, indices,
-            graph));
+            updates, *ir_action, action.action().params(), update_index,
+            indices, graph));
         break;
       }
       case p4::v1::TableAction::kActionProfileActionSet: {
@@ -210,13 +210,13 @@ absl::StatusOr<Graph> BuildDependencyGraph(const IrP4Info& info,
         for (const auto& action_profile :
              action_profile_set.action_profile_actions()) {
           ASSIGN_OR_RETURN(
-              const IrActionDefinition ir_action,
-              gutil::FindOrStatus(info.actions_by_id(),
-                                  action_profile.action().action_id()),
+              const IrActionDefinition* ir_action,
+              gutil::FindPtrOrStatus(info.actions_by_id(),
+                                     action_profile.action().action_id()),
               _ << "Failed to build dependency graph: Action with ID "
                 << action_profile.action().action_id() << " does not exist.");
           RETURN_IF_ERROR(RecordDependenciesForActionInvocation(
-              updates, ir_action, action_profile.action().params(),
+              updates, *ir_action, action_profile.action().params(),
               update_index, indices, graph));
         }
         break;
