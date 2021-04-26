@@ -37,14 +37,6 @@ constexpr int kBitsInByte = 8;
 // empirically determined to lead to big enough updates so that the test runs
 // fast, but also sometimes generates small updates, which increases coverage.
 constexpr float kAddUpdateProbability = 0.98;
-// The probability of inserting an entry (in contrast to removing one).
-// The probability of inserting a entry is larger than the probability of
-// removing one, which means that eventually the switch fills up. 0.8 is a nice
-// number because it causes the switch to fill up quickly, but there is still a
-// good chance to get a couple of deletes in a row.
-// TODO: change this back to 0.8 once we can generate enough valid
-// inserts.
-constexpr float kInsertProbability = 1;
 // Upper bound of the number of actions in an ActionProfileActionSet for tables
 // that support one-shot action selector programming.
 constexpr uint32_t kActionProfileActionSetMax = 16;
@@ -208,10 +200,17 @@ Update::Type FuzzUpdateType(absl::BitGen* gen, const SwitchState& state) {
     // Insert if there are no entries to delete.
     return Update::INSERT;
   } else {
-    // If both insert and delete are possible, choose one randomly.
-    if (absl::Bernoulli(*gen, kInsertProbability)) {
+    // The probability of inserting a entry is larger than the probability of
+    // removing one, which means that eventually the switch fills up. 0.7 is a
+    // nice number because it causes the switch to fill up quickly, but there is
+    // still a good chance to get a couple of deletes in a row.
+    if (absl::Bernoulli(*gen, 0.7)) {
       return Update::INSERT;
     } else {
+      // Equally split the rest between modify and delete.
+      if (absl::Bernoulli(*gen, 0.5)) {
+        return Update::MODIFY;
+      }
       return Update::DELETE;
     }
   }
@@ -231,20 +230,46 @@ int FuzzNonEmptyTableId(absl::BitGen* gen, const FuzzerConfig& config,
 
 // Randomly changes the table_entry, without affecting the key fields.
 void FuzzNonKeyFields(absl::BitGen* gen, const FuzzerConfig& config,
+                      const SwitchState& switch_state,
                       TableEntry* table_entry) {
   // With some probability, don't modify the element at all.
-  if (absl::Bernoulli(*gen, 0.5)) return;
+  if (absl::Bernoulli(*gen, 0.2)) return;
 
-  // TODO: can't remove action at the moment, because IsWellformedUpdate
-  // will think the update is no longer well-formed.
-  if (absl::Bernoulli(*gen, 0.5)) {
-    table_entry->clear_controller_metadata();
+  if (absl::Bernoulli(*gen, 0.25)) {
+    if (absl::Bernoulli(*gen, 0.5)) {
+      // TODO: can't remove action at the moment, because
+      // IsWellformedUpdate
+      // will think the update is no longer well-formed.
+    } else {
+      if (auto table_definition = gutil::FindOrStatus(
+              config.info.tables_by_id(), table_entry->table_id());
+          table_definition.ok()) {
+        // Try up to 3 times to create a new action.
+        for (int i = 0; i < 3; ++i) {
+          if (auto action =
+                  FuzzAction(gen, config, switch_state, *table_definition);
+              action.ok()) {
+            *table_entry->mutable_action() = *action;
+            break;
+          }
+        }
+      }
+    }
   }
-  // TODO: also add/modify non-key fields.
+
+  // Remove or modify metadata.
+  if (absl::Bernoulli(*gen, 0.25)) {
+    if (absl::Bernoulli(*gen, 0.5)) {
+      table_entry->clear_metadata();
+    } else {
+      table_entry->set_metadata(FuzzRandomId(gen));
+    }
+  }
+  // TODO: also fuzz meters
 }
 
-// Randomly generates an INSERT or DELETE update. The update may be mutated (see
-// go/p4-fuzzer-design for mutation types).
+// Randomly generates an INSERT, MODIFY or DELETE update. The update may be
+// mutated (see go/p4-fuzzer-design for mutation types).
 AnnotatedUpdate FuzzUpdate(absl::BitGen* gen, const FuzzerConfig& config,
                            const SwitchState& switch_state) {
   std::vector<uint32_t> table_ids = TablesUsedByFuzzer(config);
@@ -319,6 +344,14 @@ AnnotatedUpdate FuzzUpdate(absl::BitGen* gen, const FuzzerConfig& config,
 
       break;
     }
+    case Update::MODIFY: {
+      const int table_id = FuzzNonEmptyTableId(gen, config, switch_state);
+      TableEntry table_entry =
+          UniformFromVector(gen, switch_state.GetTableEntries(table_id));
+      FuzzNonKeyFields(gen, config, switch_state, &table_entry);
+      *update.mutable_entity()->mutable_table_entry() = table_entry;
+      break;
+    }
     case Update::DELETE: {
       const int table_id = FuzzNonEmptyTableId(gen, config, switch_state);
       // Within a single call of FuzzWriteRequest, this might delete the same
@@ -327,7 +360,7 @@ AnnotatedUpdate FuzzUpdate(absl::BitGen* gen, const FuzzerConfig& config,
       // supposed to do with this).
       TableEntry table_entry =
           UniformFromVector(gen, switch_state.GetTableEntries(table_id));
-      FuzzNonKeyFields(gen, config, &table_entry);
+      FuzzNonKeyFields(gen, config, switch_state, &table_entry);
       *update.mutable_entity()->mutable_table_entry() = table_entry;
       break;
     }
@@ -675,6 +708,27 @@ void EnforceTableConstraints(absl::BitGen* gen, const FuzzerConfig& config,
   // TODO: implement program independent version of this function.
 }
 
+absl::StatusOr<p4::v1::TableAction> FuzzAction(
+    absl::BitGen* gen, const FuzzerConfig& config,
+    const SwitchState& switch_state,
+    const pdpi::IrTableDefinition& table_definition) {
+  p4::v1::TableAction result;
+  // Generate the action.
+  if (!table_definition.uses_oneshot()) {
+    // Normal table, so choose a non-default action.
+    ASSIGN_OR_RETURN(
+        *result.mutable_action(),
+        FuzzAction(
+            gen, config, switch_state,
+            ChooseNonDefaultActionRef(gen, config, table_definition).action()));
+  } else {
+    ASSIGN_OR_RETURN(*result.mutable_action_profile_action_set(),
+                     FuzzActionProfileActionSet(gen, config, switch_state,
+                                                table_definition));
+  }
+  return result;
+}
+
 absl::StatusOr<TableEntry> FuzzValidTableEntry(
     absl::BitGen* gen, const FuzzerConfig& config,
     const SwitchState& switch_state,
@@ -727,18 +781,8 @@ absl::StatusOr<TableEntry> FuzzValidTableEntry(
                           &table_entry);
 
   // Generate the action.
-  if (!ir_table_info.uses_oneshot()) {
-    // Normal table, so choose a non-default action.
-    ASSIGN_OR_RETURN(
-        *table_entry.mutable_action()->mutable_action(),
-        FuzzAction(
-            gen, config, switch_state,
-            ChooseNonDefaultActionRef(gen, config, ir_table_info).action()));
-  } else {
-    ASSIGN_OR_RETURN(
-        *table_entry.mutable_action()->mutable_action_profile_action_set(),
-        FuzzActionProfileActionSet(gen, config, switch_state, ir_table_info));
-  }
+  ASSIGN_OR_RETURN(*table_entry.mutable_action(),
+                   FuzzAction(gen, config, switch_state, ir_table_info));
 
   // Set cookie and priority.
   table_entry.set_controller_metadata(FuzzUint64(gen, /*bits=*/64));

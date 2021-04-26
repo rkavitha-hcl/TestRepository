@@ -129,6 +129,13 @@ absl::StatusOr<p4::v1::FieldMatch> FuzzFieldMatch(
     const SwitchState& switch_state,
     const pdpi::IrMatchFieldDefinition& ir_match_field_info);
 
+// Randomly generate an action for a table.
+// May fail if a reference to another table is required.
+absl::StatusOr<p4::v1::TableAction> FuzzAction(
+    absl::BitGen* gen, const FuzzerConfig& config,
+    const SwitchState& switch_state,
+    const pdpi::IrTableDefinition& table_definition);
+
 // Randomly generates an action that conforms to the given `ir_action_info`.
 // See "9.1.2. Action Specification"  in the P4Runtime specification for details
 // about which Action values are valid.

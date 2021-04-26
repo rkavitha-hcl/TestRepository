@@ -249,9 +249,11 @@ absl::Status MutateDuplicateInsert(absl::BitGen* gen, p4::v1::Update* update,
   return absl::OkStatus();
 }
 
-absl::Status MutateNonexistingDelete(absl::BitGen* gen, p4::v1::Update* update,
-                                     const FuzzerConfig& config,
-                                     const SwitchState& switch_state) {
+absl::Status MutateNonexistingModifyDelete(absl::BitGen* gen,
+                                           p4::v1::Update* update,
+                                           const FuzzerConfig& config,
+                                           const SwitchState& switch_state,
+                                           p4::v1::Update_Type type) {
   const int table_id = FuzzTableId(gen, config);
 
   ASSIGN_OR_RETURN(p4::v1::TableEntry entry,
@@ -261,7 +263,7 @@ absl::Status MutateNonexistingDelete(absl::BitGen* gen, p4::v1::Update* update,
   }
 
   *update->mutable_entity()->mutable_table_entry() = entry;
-  update->set_type(p4::v1::Update::DELETE);
+  update->set_type(type);
 
   return absl::OkStatus();
 }
@@ -374,7 +376,12 @@ absl::Status MutateUpdate(BitGen* gen, const FuzzerConfig& config,
       return MutateDuplicateInsert(gen, update, config, switch_state);
 
     case Mutation::NONEXISTING_DELETE:
-      return MutateNonexistingDelete(gen, update, config, switch_state);
+      return MutateNonexistingModifyDelete(gen, update, config, switch_state,
+                                           p4::v1::Update::DELETE);
+
+    case Mutation::NONEXISTING_MODIFY:
+      return MutateNonexistingModifyDelete(gen, update, config, switch_state,
+                                           p4::v1::Update::MODIFY);
 
     case Mutation::INVALID_PORT:
       return MutateInvalidValue(gen, update, config, switch_state, IsPort);
