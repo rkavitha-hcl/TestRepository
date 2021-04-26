@@ -48,6 +48,7 @@ cc_library(
     name = "p4_ids",
     hdrs = ["ids.h"],
     visibility = [
+        "//p4_fuzzer:__pkg__",
         "//platforms/networking/gpins/testing/blackbox/p4:__pkg__",
         "//sai_p4/instantiations/google:__pkg__",
     ],

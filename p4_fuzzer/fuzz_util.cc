@@ -20,6 +20,7 @@
 #include "p4_pdpi/netaddr/ipv6_address.h"
 #include "p4_pdpi/pd.h"
 #include "p4_pdpi/utils/ir.h"
+#include "sai_p4/fixed/ids.h"
 
 namespace p4_fuzzer {
 
@@ -39,7 +40,7 @@ constexpr int kBitsInByte = 8;
 constexpr float kAddUpdateProbability = 0.98;
 // Upper bound of the number of actions in an ActionProfileActionSet for tables
 // that support one-shot action selector programming.
-constexpr uint32_t kActionProfileActionSetMax = 16;
+constexpr uint32_t kActionProfileActionSetMax = 32;
 // The probability of performing a mutation on a given table entry.
 constexpr float kMutateUpdateProbability = 0.1;
 // The probability of using a wildcard for a ternary or lpm match field.
@@ -79,6 +80,10 @@ bool IsReferring(
 
 namespace {
 
+std::string FuzzPort(absl::BitGen* gen, const FuzzerConfig& config) {
+  return UniformFromVector(gen, config.ports);
+}
+
 inline int DivideRoundedUp(const unsigned int n, const unsigned int d) {
   if (n == 0 || d == 0) {
     return 0;
@@ -100,9 +105,7 @@ absl::StatusOr<p4::v1::ActionProfileAction> FuzzActionProfileAction(
           ChooseNonDefaultActionRef(gen, config, ir_table_info).action()));
 
   action.set_weight(Uniform<int32_t>(*gen, 1, kActionProfileActionMaxWeight));
-
-  // TODO: set the watch port field by uniformly selecting from a set
-  // of valid watch ports.
+  action.set_watch_port(FuzzPort(gen, config));
 
   return action;
 }
@@ -501,7 +504,7 @@ absl::StatusOr<std::string> FuzzValue(
     bool non_zero) {
   // A port: pick any valid port randomly.
   if (IsPort(type_name)) {
-    return UniformFromVector(gen, config.ports);
+    return FuzzPort(gen, config);
   }
 
   // A qos queue: pick any valid qos queue randomly.
@@ -692,10 +695,25 @@ absl::StatusOr<p4::v1::ActionProfileActionSet> FuzzActionProfileActionSet(
   auto number_of_actions =
       Uniform<int32_t>(*gen, 0, kActionProfileActionSetMax);
 
+  // Action sets in GPINS cannot have repeated nexthop members. We hard-code
+  // this restriction here in the fuzzer.
+  absl::flat_hash_set<std::string> used_nexthops;
+  bool is_wcmp_table =
+      ir_table_info.preamble().id() == ROUTING_WCMP_GROUP_TABLE_ID;
   for (auto i = 0; i < number_of_actions; i++) {
     ASSIGN_OR_RETURN(
-        *action_set.add_action_profile_actions(),
+        auto action,
         FuzzActionProfileAction(gen, config, switch_state, ir_table_info));
+    bool is_set_nexthop_action =
+        action.action().action_id() == ROUTING_SET_NEXTHOP_ID_ACTION_ID;
+    // If this nexthop has already been used, skip. This will generate fewer
+    // actions, but that's fine.
+    if (is_wcmp_table && is_set_nexthop_action &&
+        action.action().params_size() == 1 &&
+        used_nexthops.insert(action.action().params()[0].value()).second) {
+      continue;
+    }
+    *action_set.add_action_profile_actions() = action;
   }
 
   return action_set;
