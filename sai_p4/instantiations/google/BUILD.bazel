@@ -19,6 +19,7 @@ load("@com_github_p4lang_p4c//:bazel/p4_library.bzl", "p4_library")
 load("//gutil/embed_data:build_defs.bzl", "cc_embed_data")
 
 package(
+    default_visibility = ["//visibility:public"],
     licenses = ["notice"],
 )
 

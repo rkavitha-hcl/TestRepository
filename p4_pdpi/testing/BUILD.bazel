@@ -19,6 +19,7 @@ load("//p4_pdpi/testing:diff_test.bzl", "cmd_diff_test", "diff_test")
 load("//gutil/embed_data:build_defs.bzl", "cc_embed_data")
 
 package(
+    default_visibility = ["//visibility:public"],
     licenses = ["notice"],
 )
 

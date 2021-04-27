@@ -18,6 +18,7 @@ load("//p4_pdpi:pdgen.bzl", "p4_pd_proto")
 load("@com_github_p4lang_p4c//:bazel/p4_library.bzl", "p4_library")
 
 package(
+    default_visibility = ["//visibility:public"],
     licenses = ["notice"],
 )
 
@@ -58,6 +59,7 @@ cc_library(
     name = "p4_roles",
     hdrs = ["roles.h"],
     visibility = [
+        "//platforms/networking/orion/core/sfe/common/p4:__pkg__",
         "//sai_p4/instantiations/google:__pkg__",
     ],
 )
