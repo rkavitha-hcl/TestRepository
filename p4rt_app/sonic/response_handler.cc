@@ -66,7 +66,7 @@ absl::Status GetAppDbResponses(
     swss::ConsumerNotifierInterface& notification_interface,
     absl::flat_hash_map<std::string, pdpi::IrUpdateStatus>& responses_map) {
   // Loop through and get the expected notification responses from Orchagent,
-  // max timeout 60 seconds. OrchAgent sends the status code as string in the
+  // max timeout 10 minutes. OrchAgent sends the status code as string in the
   // op, key as data and the actual table entries as value_tuples.
   for (int i = 0; i < expected_response_count; i++) {
     std::string status_str;
@@ -74,7 +74,7 @@ absl::Status GetAppDbResponses(
     std::vector<swss::FieldValueTuple> value_tuples;
 
     if (!notification_interface.WaitForNotificationAndPop(
-            status_str, actual_key, value_tuples)) {
+            status_str, actual_key, value_tuples, /*timeout_ms=*/10 * 60000)) {
       return gutil::InternalErrorBuilder()
              << "Timeout or other errors on waiting for Appl DB response from "
                 "OrchAgent";
