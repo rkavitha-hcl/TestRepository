@@ -253,24 +253,31 @@ absl::Status CheckAllInterfaceUpOverGnmi(gnmi::gNMI::Stub& stub,
 
   std::vector<std::string> unavailable_interfaces;
   for (auto const& element : oc_intf_list_json->items()) {
-    auto const element_name_json = element.value().find("name");
+    const auto element_name_json = element.value().find("name");
     if (element_name_json == element.value().end()) {
       return absl::NotFoundError(
           absl::StrCat("'name' not found: ", element.value().dump()));
     }
-    auto const element_interface_state_json = element.value().find("state");
-    if (element_interface_state_json == element.value().end()) {
-      return absl::NotFoundError(absl::StrCat(
-          "'state' not found: ", element.value().find("name")->dump()));
+    std::string name = std::string(StripQuotes(element_name_json->dump()));
+
+    // TODO: Remove once CpuX contains the oper-state subtree.
+    if (absl::StartsWith(name, "Cpu")) {
+      LOG(INFO) << "Skipping " << name << ".";
+      continue;
     }
-    auto const element_status_json =
+
+    const auto element_interface_state_json = element.value().find("state");
+    if (element_interface_state_json == element.value().end()) {
+      return absl::NotFoundError(absl::StrCat("'state' not found: ", name));
+    }
+    const auto element_status_json =
         element_interface_state_json->find("oper-status");
     if (element_status_json == element_interface_state_json->end()) {
-      return absl::NotFoundError(absl::StrCat(
-          "'oper-status' not found: ", element.value().find("name")->dump()));
+      return absl::NotFoundError(
+          absl::StrCat("'oper-status' not found: ", name));
     }
-    if (element_status_json->dump().find("UP") == grpc::string_ref::npos) {
-      unavailable_interfaces.push_back(element.value().find("name")->dump());
+    if (!absl::StrContains(element_status_json->dump(), "UP")) {
+      unavailable_interfaces.push_back(name);
     }
   }
   if (!unavailable_interfaces.empty()) {
