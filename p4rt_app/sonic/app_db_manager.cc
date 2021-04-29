@@ -22,6 +22,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
+#include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "boost/bimap.hpp"
@@ -110,7 +111,8 @@ absl::StatusOr<std::string> DeleteAppDbEntry(
   // request.
   ASSIGN_OR_RETURN(
       auto ir_table_entry,
-      ReadAppDbP4TableEntry(p4_info, app_db_client, p4rt_prefix_key));
+      AppDbKeyAndValuesToIrTableEntry(p4_info, p4rt_prefix_key,
+                                      app_db_client.hgetall(p4rt_prefix_key)));
 
   LOG(INFO) << "Delete AppDb entry: " << key;
   p4rt_table.del(key);
@@ -213,14 +215,50 @@ absl::StatusOr<std::string> ModifyAppDbEntry(
   return key;
 }
 
+absl::Status AppendCounterData(
+    pdpi::IrTableEntry& table_entry,
+    const std::unordered_map<std::string, std::string>& counter_data) {
+  // Update packet count only if data is present.
+  if (auto packets_iter = counter_data.find("packets");
+      packets_iter != counter_data.end()) {
+    int packets = 0;
+    if (absl::SimpleAtoi(packets_iter->second, &packets)) {
+      table_entry.mutable_counter_data()->set_packet_count(packets);
+    } else {
+      LOG(ERROR)
+          << "Unexpected packets value found in CountersDB for table entry: "
+          << table_entry.ShortDebugString();
+    }
+  }
+
+  // Update byte count only if data is present.
+  if (auto bytes_iter = counter_data.find("bytes");
+      bytes_iter != counter_data.end()) {
+    int bytes = 0;
+    if (absl::SimpleAtoi(bytes_iter->second, &bytes)) {
+      table_entry.mutable_counter_data()->set_byte_count(bytes);
+    } else {
+      LOG(ERROR)
+          << "Unexpected bytes value found in CountersDB for table entry: "
+          << table_entry.ShortDebugString();
+    }
+  }
+  return absl::OkStatus();
+}
+
 }  // namespace
 
 absl::StatusOr<pdpi::IrTableEntry> ReadAppDbP4TableEntry(
     const pdpi::IrP4Info& p4info, swss::DBConnectorInterface& app_db_client,
-    const std::string& key) {
+    swss::DBConnectorInterface& counters_db_client, const std::string& key) {
   LOG(INFO) << "Read AppDb entry: " << key;
-  return AppDbKeyAndValuesToIrTableEntry(p4info, key,
-                                         app_db_client.hgetall(key));
+  ASSIGN_OR_RETURN(
+      pdpi::IrTableEntry table_entry,
+      AppDbKeyAndValuesToIrTableEntry(p4info, key, app_db_client.hgetall(key)));
+
+  RETURN_IF_ERROR(AppendCounterData(
+      table_entry, counters_db_client.hgetall(absl::StrCat("COUNTERS:", key))));
+  return table_entry;
 }
 
 std::vector<std::string> GetAllAppDbP4TableEntryKeys(

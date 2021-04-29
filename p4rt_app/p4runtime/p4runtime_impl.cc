@@ -66,16 +66,17 @@ absl::Status AppendTableEntryReads(
     p4::v1::ReadResponse& response, const p4::v1::TableEntry& pi_table_entry,
     const pdpi::IrP4Info& p4_info,
     const boost::bimap<std::string, std::string>& port_translation_map,
-    swss::DBConnectorInterface& redis_client, P4RuntimeTweaks* tweak) {
+    swss::DBConnectorInterface& app_db_client,
+    swss::DBConnectorInterface& counters_db_client, P4RuntimeTweaks* tweak) {
   RETURN_IF_ERROR(SupportedTableEntryRequest(pi_table_entry));
 
   // Get all P4RT keys from the AppDb.
   for (const auto& app_db_key :
-       sonic::GetAllAppDbP4TableEntryKeys(redis_client)) {
+       sonic::GetAllAppDbP4TableEntryKeys(app_db_client)) {
     // Read a single table entry out of the AppDb
-    ASSIGN_OR_RETURN(
-        auto ir_table_entry,
-        sonic::ReadAppDbP4TableEntry(p4_info, redis_client, app_db_key));
+    ASSIGN_OR_RETURN(auto ir_table_entry, sonic::ReadAppDbP4TableEntry(
+                                              p4_info, app_db_client,
+                                              counters_db_client, app_db_key));
     // TODO: This failure should put the switch into critical
     // state.
 
@@ -97,16 +98,16 @@ absl::Status AppendTableEntryReads(
 absl::StatusOr<p4::v1::ReadResponse> DoRead(
     const p4::v1::ReadRequest& request, const pdpi::IrP4Info p4_info,
     const boost::bimap<std::string, std::string>& port_translation_map,
-    swss::DBConnectorInterface& redis_client, P4RuntimeTweaks* tweak) {
+    swss::DBConnectorInterface& app_db_client,
+    swss::DBConnectorInterface& counters_db_client, P4RuntimeTweaks* tweak) {
   p4::v1::ReadResponse response;
   for (const auto& entity : request.entities()) {
     LOG(INFO) << "Read request: " << entity.ShortDebugString();
     switch (entity.entity_case()) {
       case p4::v1::Entity::kTableEntry: {
-        RETURN_IF_ERROR(AppendTableEntryReads(response, entity.table_entry(),
-                                              p4_info, port_translation_map,
-                                              redis_client, tweak))
-            << entity.ShortDebugString();
+        RETURN_IF_ERROR(AppendTableEntryReads(
+            response, entity.table_entry(), p4_info, port_translation_map,
+            app_db_client, counters_db_client, tweak));
         break;
       }
       default:
@@ -202,6 +203,7 @@ sonic::AppDbUpdates PiTableEntryUpdatesToIr(
 P4RuntimeImpl::P4RuntimeImpl(
     std::unique_ptr<swss::DBConnectorInterface> app_db_client,
     std::unique_ptr<swss::DBConnectorInterface> state_db_client,
+    std::unique_ptr<swss::DBConnectorInterface> counter_db_client,
     std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_p4rt,
     std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_p4rt,
     std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_vrf,
@@ -213,6 +215,7 @@ P4RuntimeImpl::P4RuntimeImpl(
     std::unique_ptr<sonic::PacketIoInterface> packetio_impl, bool use_genetlink)
     : app_db_client_(std::move(app_db_client)),
       state_db_client_(std::move(state_db_client)),
+      counter_db_client_(std::move(counter_db_client)),
       app_db_table_p4rt_(std::move(app_db_table_p4rt)),
       app_db_notifier_p4rt_(std::move(app_db_notifier_p4rt)),
       app_db_table_vrf_(std::move(app_db_table_vrf)),
@@ -384,7 +387,7 @@ grpc::Status P4RuntimeImpl::Read(
 
     auto response_status =
         DoRead(*request, ir_p4info_.value(), port_translation_map_,
-               *app_db_client_, &tweak_);
+               *app_db_client_, *counter_db_client_, &tweak_);
     if (!response_status.ok()) {
       LOG(WARNING) << "Read failure: " << response_status.status();
       return grpc::Status(

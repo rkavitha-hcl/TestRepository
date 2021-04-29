@@ -276,7 +276,7 @@ TEST_F(AppDbManagerTest, DeleteNonExistentTableEntryFails) {
   EXPECT_EQ(response.statuses(0).code(), google::rpc::NOT_FOUND);
 }
 
-TEST_F(AppDbManagerTest, ReadAppDbP4TableEntry) {
+TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryWithoutCounterData) {
   const auto app_db_entry =
       AppDbEntryBuilder{}
           .SetTableName("P4RT:FIXED_ROUTER_INTERFACE_TABLE")
@@ -290,9 +290,109 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntry) {
   EXPECT_CALL(mock_app_db_client, hgetall(Eq(app_db_entry.GetKey())))
       .WillOnce(Return(app_db_entry.GetValueMap()));
 
-  auto table_entry_status =
-      ReadAppDbP4TableEntry(sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
-                            mock_app_db_client, app_db_entry.GetKey());
+  // We will always check the CountersDB for packet data, but if nothing exists
+  // we should not update the table entry.
+  swss::MockDBConnector mock_counters_db_client;
+  EXPECT_CALL(mock_counters_db_client,
+              hgetall(Eq(absl::StrCat("COUNTERS:", app_db_entry.GetKey()))))
+      .WillOnce(Return(std::unordered_map<std::string, std::string>{}));
+
+  auto table_entry_status = ReadAppDbP4TableEntry(
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock), mock_app_db_client,
+      mock_counters_db_client, app_db_entry.GetKey());
+  ASSERT_TRUE(table_entry_status.ok()) << table_entry_status.status();
+  pdpi::IrTableEntry table_entry = table_entry_status.value();
+
+  EXPECT_THAT(table_entry, EqualsProto(R"pb(
+                table_name: "router_interface_table"
+                priority: 123
+                matches {
+                  name: "router_interface_id"
+                  exact { str: "16" }
+                }
+                action {
+                  name: "set_port_and_src_mac"
+                  params {
+                    name: "port"
+                    value { str: "Ethernet28/5" }
+                  }
+                  params {
+                    name: "src_mac"
+                    value { mac: "00:02:03:04:05:06" }
+                  }
+                })pb"));
+}
+
+TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryWithCounterData) {
+  const auto app_db_entry =
+      AppDbEntryBuilder{}
+          .SetTableName("P4RT:FIXED_ROUTER_INTERFACE_TABLE")
+          .SetPriority(123)
+          .AddMatchField("router_interface_id", "16")
+          .SetAction("set_port_and_src_mac")
+          .AddActionParam("port", "Ethernet28/5")
+          .AddActionParam("src_mac", "00:02:03:04:05:06");
+
+  swss::MockDBConnector mock_app_db_client;
+  EXPECT_CALL(mock_app_db_client, hgetall(Eq(app_db_entry.GetKey())))
+      .WillOnce(Return(app_db_entry.GetValueMap()));
+
+  swss::MockDBConnector mock_counters_db_client;
+  EXPECT_CALL(mock_counters_db_client,
+              hgetall(Eq(absl::StrCat("COUNTERS:", app_db_entry.GetKey()))))
+      .WillOnce(Return(std::unordered_map<std::string, std::string>{
+          {"packets", "1"}, {"bytes", "64"}}));
+
+  auto table_entry_status = ReadAppDbP4TableEntry(
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock), mock_app_db_client,
+      mock_counters_db_client, app_db_entry.GetKey());
+  ASSERT_TRUE(table_entry_status.ok()) << table_entry_status.status();
+  pdpi::IrTableEntry table_entry = table_entry_status.value();
+
+  EXPECT_THAT(table_entry, EqualsProto(R"pb(
+                table_name: "router_interface_table"
+                priority: 123
+                matches {
+                  name: "router_interface_id"
+                  exact { str: "16" }
+                }
+                action {
+                  name: "set_port_and_src_mac"
+                  params {
+                    name: "port"
+                    value { str: "Ethernet28/5" }
+                  }
+                  params {
+                    name: "src_mac"
+                    value { mac: "00:02:03:04:05:06" }
+                  }
+                }
+                counter_data { byte_count: 64 packet_count: 1 })pb"));
+}
+
+TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryIgnoresInvalidCounterData) {
+  const auto app_db_entry =
+      AppDbEntryBuilder{}
+          .SetTableName("P4RT:FIXED_ROUTER_INTERFACE_TABLE")
+          .SetPriority(123)
+          .AddMatchField("router_interface_id", "16")
+          .SetAction("set_port_and_src_mac")
+          .AddActionParam("port", "Ethernet28/5")
+          .AddActionParam("src_mac", "00:02:03:04:05:06");
+
+  swss::MockDBConnector mock_app_db_client;
+  EXPECT_CALL(mock_app_db_client, hgetall(Eq(app_db_entry.GetKey())))
+      .WillOnce(Return(app_db_entry.GetValueMap()));
+
+  swss::MockDBConnector mock_counters_db_client;
+  EXPECT_CALL(mock_counters_db_client,
+              hgetall(Eq(absl::StrCat("COUNTERS:", app_db_entry.GetKey()))))
+      .WillOnce(Return(std::unordered_map<std::string, std::string>{
+          {"packets", "A"}, {"bytes", "B"}}));
+
+  auto table_entry_status = ReadAppDbP4TableEntry(
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock), mock_app_db_client,
+      mock_counters_db_client, app_db_entry.GetKey());
   ASSERT_TRUE(table_entry_status.ok()) << table_entry_status.status();
   pdpi::IrTableEntry table_entry = table_entry_status.value();
 

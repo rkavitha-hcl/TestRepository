@@ -11,18 +11,26 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/proto.h"
+#include "gutil/proto_matchers.h"
 #include "gutil/status_matchers.h"
+#include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/connection_management.h"
 #include "p4_pdpi/entity_management.h"
+#include "p4_pdpi/ir.pb.h"
+#include "p4_pdpi/pd.h"
 #include "p4rt_app/tests/lib/app_db_entry_builder.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
+#include "p4rt_app/tests/lib/p4runtime_request_helpers.h"
+#include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 
 namespace p4rt_app {
 namespace {
 
+using ::gutil::EqualsProto;
 using ::gutil::IsOkAndHolds;
 using ::gutil::StatusIs;
 using ::testing::UnorderedElementsAreArray;
@@ -39,9 +47,14 @@ class AclTableTest : public testing::Test {
                                                       /*device_id=*/183807201));
 
     // Push a P4Info file to enable the reading, and writing of entries.
-    ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-        p4rt_session_.get(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+    ASSERT_OK(pdpi::SetForwardingPipelineConfig(p4rt_session_.get(), p4_info_));
   }
+
+  // AclTableTests are written against the P4 middle block.
+  const p4::config::v1::P4Info p4_info_ =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+  const pdpi::IrP4Info ir_p4_info_ =
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
 
   test_lib::P4RuntimeGrpcService p4rt_service_;
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
@@ -195,6 +208,44 @@ TEST_F(AclTableTest, VrfTableEntryDeleteWithWrongValues) {
   // cleared.
   EXPECT_THAT(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"),
               StatusIs(absl::StatusCode::kNotFound));
+}
+
+TEST_F(AclTableTest, ReadCounters) {
+  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 acl_ingress_table_entry {
+                                   match { is_ip { value: "0x1" } }
+                                   priority: 10
+                                   action { copy { qos_queue: "0x1" } }
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
+  EXPECT_OK(pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request));
+
+  // Fake OrchAgent updating the counters.
+  auto counter_db_entry = test_lib::AppDbEntryBuilder{}
+                              .SetTableName("P4RT:ACL_ACL_INGRESS_TABLE")
+                              .SetPriority(10)
+                              .AddMatchField("is_ip", "0x1");
+  p4rt_service_.GetP4rtCountersDbTable().InsertTableEntry(
+      counter_db_entry.GetKey(), {{"packets", "1"}, {"bytes", "128"}});
+
+  // Verify the entry we read back has counter information.
+  p4::v1::ReadRequest read_request;
+  read_request.add_entities()->mutable_table_entry();
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::ReadResponse read_response,
+      pdpi::SetIdAndSendPiReadRequest(p4rt_session_.get(), read_request));
+
+  ASSERT_EQ(read_response.entities_size(), 1);  // Only one write.
+  EXPECT_THAT(read_response.entities(0).table_entry().counter_data(),
+              EqualsProto(R"pb(byte_count: 128 packet_count: 1)pb"));
 }
 
 // TODO: update test to validate meter values.

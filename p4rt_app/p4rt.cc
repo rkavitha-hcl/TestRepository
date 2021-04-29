@@ -138,6 +138,11 @@ int main(int argc, char** argv) {
       APPL_STATE_DB, kRedisDbHost, kRedisDbPort,
       /*timeout=*/0);
 
+  // Open a database connection into the SONiC CountersDb
+  auto sonic_counters_db = absl::make_unique<swss::DBConnector>(
+      COUNTERS_DB, kRedisDbHost, kRedisDbPort,
+      /*timeout=*/0);
+
   // Create interfaces to interact with the AppDb P4RT table.
   auto app_db_table_p4rt =
       absl::make_unique<swss::ProducerStateTable>(sonic_app_db.get(), "P4RT");
@@ -176,11 +181,12 @@ int main(int argc, char** argv) {
   // Create the P4RT server.
   p4rt_app::P4RuntimeImpl p4runtime_server(
       std::move(sonic_app_db), std::move(sonic_state_db),
-      std::move(app_db_table_p4rt), std::move(notification_channel_p4rt),
-      std::move(app_db_table_vrf), std::move(notification_channel_vrf),
-      std::move(app_db_table_hash), std::move(notification_channel_hash),
-      std::move(app_db_table_switch), std::move(notification_channel_switch),
-      std::move(*packetio_impl_or), FLAGS_use_genetlink);
+      std::move(sonic_counters_db), std::move(app_db_table_p4rt),
+      std::move(notification_channel_p4rt), std::move(app_db_table_vrf),
+      std::move(notification_channel_vrf), std::move(app_db_table_hash),
+      std::move(notification_channel_hash), std::move(app_db_table_switch),
+      std::move(notification_channel_switch), std::move(*packetio_impl_or),
+      FLAGS_use_genetlink);
 
   // Start a P4 runtime server
   ServerBuilder builder;

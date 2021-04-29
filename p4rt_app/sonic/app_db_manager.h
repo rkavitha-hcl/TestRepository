@@ -77,7 +77,7 @@ std::vector<std::string> GetAllAppDbP4TableEntryKeys(
 // NOTE: The resulting IrTableEntry will not include the "P4RT:" prefix.
 absl::StatusOr<pdpi::IrTableEntry> ReadAppDbP4TableEntry(
     const pdpi::IrP4Info& p4info, swss::DBConnectorInterface& app_db_client,
-    const std::string& key);
+    swss::DBConnectorInterface& counters_db_client, const std::string& key);
 
 // Checks all the Ethernet port entries found in the AppDb. For each entry it
 // checks for a controller ID, and returns a mapping from the controller ID to

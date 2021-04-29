@@ -92,6 +92,7 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
   P4RuntimeImpl(
       std::unique_ptr<swss::DBConnectorInterface> app_db_client,
       std::unique_ptr<swss::DBConnectorInterface> state_db_client,
+      std::unique_ptr<swss::DBConnectorInterface> counter_db_client,
       std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_p4rt,
       std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_p4rt,
       std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_vrf,
@@ -163,6 +164,11 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
   // A RedisDB interface to handle requests into the StateDb tables that cannot
   // be done through other interfaces.
   std::unique_ptr<swss::DBConnectorInterface> state_db_client_
+      ABSL_GUARDED_BY(server_state_lock_);
+
+  // A RedisDB interface to handle requests into the CounterDb tables that
+  // cannot be done through other interfaces.
+  std::unique_ptr<swss::DBConnectorInterface> counter_db_client_
       ABSL_GUARDED_BY(server_state_lock_);
 
   // A RedisDB interface to write entries into the P4RT AppDb table.

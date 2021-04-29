@@ -36,15 +36,22 @@ class P4RuntimeGrpcService {
   swss::FakeSonicDbTable& GetVrfAppDbTable();
   swss::FakeSonicDbTable& GetHashAppDbTable();
   swss::FakeSonicDbTable& GetSwitchAppDbTable();
+  swss::FakeSonicDbTable& GetP4rtCountersDbTable();
   sonic::FakePacketIoInterface& GetFakePacketIoInterface();
 
  private:
+  // Faked AppDb tables.
   swss::FakeSonicDbTable fake_p4rt_table_;
   swss::FakeSonicDbTable fake_vrf_table_;
   swss::FakeSonicDbTable fake_port_table_;
   swss::FakeSonicDbTable fake_hash_table_;
   swss::FakeSonicDbTable fake_switch_table_;
+
+  // Faked CountersDb tables
+  swss::FakeSonicDbTable fake_p4rt_counters_table_;
+
   std::unique_ptr<P4RuntimeImpl> p4runtime_server_;
+
   sonic::FakePacketIoInterface* fake_packetio_interface_;  // No ownership.
 
   std::unique_ptr<grpc::Server> server_;

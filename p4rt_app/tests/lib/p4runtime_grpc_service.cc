@@ -36,6 +36,7 @@ P4RuntimeGrpcService::P4RuntimeGrpcService() {
   const std::string kVrfTableName = "VRF_TABLE";
   const std::string kHashTableName = "HASH_TABLE";
   const std::string kSwitchTableName = "SWITCH_TABLE";
+  const std::string kCountersTableName = "COUNTERS";
 
   // Create AppDb interfaces used by the P4RT App.
   auto fake_app_db_client = absl::make_unique<swss::FakeDBConnector>();
@@ -73,6 +74,11 @@ P4RuntimeGrpcService::P4RuntimeGrpcService() {
   // Create StateDb interfaces used by the P4RT App.
   auto fake_state_db_client = absl::make_unique<swss::FakeDBConnector>();
 
+  // Create CounterDb interfaces used by the P4RT App.
+  auto fake_counter_db_client = absl::make_unique<swss::FakeDBConnector>();
+  fake_counter_db_client->AddAppDbTable(kCountersTableName,
+                                        &fake_p4rt_counters_table_);
+
   // Create FakePacketIoInterface and save the pointer.
   auto fake_packetio_interface =
       absl::make_unique<sonic::FakePacketIoInterface>();
@@ -81,11 +87,11 @@ P4RuntimeGrpcService::P4RuntimeGrpcService() {
   // Create the P4RT server.
   p4runtime_server_ = absl::make_unique<P4RuntimeImpl>(
       std::move(fake_app_db_client), std::move(fake_state_db_client),
-      std::move(fake_app_db_table_p4rt), std::move(fake_notify_p4rt),
-      std::move(fake_app_db_table_vrf), std::move(fake_notify_vrf),
-      std::move(fake_app_db_table_hash), std::move(fake_notify_hash),
-      std::move(fake_app_db_table_switch), std::move(fake_notify_switch),
-      std::move(fake_packetio_interface));
+      std::move(fake_counter_db_client), std::move(fake_app_db_table_p4rt),
+      std::move(fake_notify_p4rt), std::move(fake_app_db_table_vrf),
+      std::move(fake_notify_vrf), std::move(fake_app_db_table_hash),
+      std::move(fake_notify_hash), std::move(fake_app_db_table_switch),
+      std::move(fake_notify_switch), std::move(fake_packetio_interface));
 
   // Component tests will use an insecure connection for the service.
   std::string server_address = absl::StrCat("localhost:", GrpcPort());
@@ -127,6 +133,10 @@ swss::FakeSonicDbTable& P4RuntimeGrpcService::GetHashAppDbTable() {
 
 swss::FakeSonicDbTable& P4RuntimeGrpcService::GetSwitchAppDbTable() {
   return fake_switch_table_;
+}
+
+swss::FakeSonicDbTable& P4RuntimeGrpcService::GetP4rtCountersDbTable() {
+  return fake_p4rt_counters_table_;
 }
 
 sonic::FakePacketIoInterface& P4RuntimeGrpcService::GetFakePacketIoInterface() {
