@@ -216,18 +216,18 @@ absl::StatusOr<std::string> ModifyAppDbEntry(
 }  // namespace
 
 absl::StatusOr<pdpi::IrTableEntry> ReadAppDbP4TableEntry(
-    const pdpi::IrP4Info& p4info, swss::DBConnectorInterface& redis_client,
+    const pdpi::IrP4Info& p4info, swss::DBConnectorInterface& app_db_client,
     const std::string& key) {
   LOG(INFO) << "Read AppDb entry: " << key;
   return AppDbKeyAndValuesToIrTableEntry(p4info, key,
-                                         redis_client.hgetall(key));
+                                         app_db_client.hgetall(key));
 }
 
 std::vector<std::string> GetAllAppDbP4TableEntryKeys(
-    swss::DBConnectorInterface& redis_client) {
+    swss::DBConnectorInterface& app_db_client) {
   std::vector<std::string> p4rt_keys;
 
-  for (const auto& key : redis_client.keys("*")) {
+  for (const auto& key : app_db_client.keys("*")) {
     const std::vector<std::string> split = absl::StrSplit(key, ':');
     if (split.size() < 2) continue;
 
@@ -321,13 +321,13 @@ absl::Status UpdateAppDb(
 }
 
 absl::StatusOr<boost::bimap<std::string, std::string>> GetPortIdTranslationMap(
-    swss::DBConnectorInterface& db_connector) {
+    swss::DBConnectorInterface& app_db_client) {
   boost::bimap<std::string, std::string> translation_map;
 
-  for (const std::string& key : db_connector.keys("PORT_TABLE:Ethernet*")) {
+  for (const std::string& key : app_db_client.keys("PORT_TABLE:Ethernet*")) {
     std::string sonic_port_name(absl::StripPrefix(key, "PORT_TABLE:"));
     std::unordered_map<std::string, std::string> port_entry =
-        db_connector.hgetall(key);
+        app_db_client.hgetall(key);
 
     // If the port entry must have an 'id' field.
     std::string* port_id = gutil::FindOrNull(port_entry, "id");

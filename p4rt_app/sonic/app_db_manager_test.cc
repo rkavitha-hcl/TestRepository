@@ -286,13 +286,13 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntry) {
           .AddActionParam("port", "Ethernet28/5")
           .AddActionParam("src_mac", "00:02:03:04:05:06");
 
-  swss::MockDBConnector mock_redis_client;
-  EXPECT_CALL(mock_redis_client, hgetall(Eq(app_db_entry.GetKey())))
+  swss::MockDBConnector mock_app_db_client;
+  EXPECT_CALL(mock_app_db_client, hgetall(Eq(app_db_entry.GetKey())))
       .WillOnce(Return(app_db_entry.GetValueMap()));
 
   auto table_entry_status =
       ReadAppDbP4TableEntry(sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
-                            mock_redis_client, app_db_entry.GetKey());
+                            mock_app_db_client, app_db_entry.GetKey());
   ASSERT_TRUE(table_entry_status.ok()) << table_entry_status.status();
   pdpi::IrTableEntry table_entry = table_entry_status.value();
 
@@ -317,62 +317,62 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntry) {
 }
 
 TEST_F(AppDbManagerTest, GetAllP4KeysReturnsInstalledKeys) {
-  swss::MockDBConnector mock_redis_client;
-  EXPECT_CALL(mock_redis_client, keys)
+  swss::MockDBConnector mock_app_db_client;
+  EXPECT_CALL(mock_app_db_client, keys)
       .WillOnce(Return(std::vector<std::string>{"P4RT:TABLE:{key}"}));
 
-  EXPECT_THAT(GetAllAppDbP4TableEntryKeys(mock_redis_client),
+  EXPECT_THAT(GetAllAppDbP4TableEntryKeys(mock_app_db_client),
               ContainerEq(std::vector<std::string>{"P4RT:TABLE:{key}"}));
 }
 
 TEST_F(AppDbManagerTest, GetAllP4KeysDoesNotReturnUninstalledKey) {
-  swss::MockDBConnector mock_redis_client;
-  EXPECT_CALL(mock_redis_client, keys)
+  swss::MockDBConnector mock_app_db_client;
+  EXPECT_CALL(mock_app_db_client, keys)
       .WillOnce(Return(std::vector<std::string>{"_P4RT:TABLE:{key}"}));
 
-  EXPECT_THAT(GetAllAppDbP4TableEntryKeys(mock_redis_client),
+  EXPECT_THAT(GetAllAppDbP4TableEntryKeys(mock_app_db_client),
               ContainerEq(std::vector<std::string>{}));
 }
 
 TEST_F(AppDbManagerTest, GetAllP4KeysIgnoresKeySet) {
-  swss::MockDBConnector mock_redis_client;
-  EXPECT_CALL(mock_redis_client, keys)
+  swss::MockDBConnector mock_app_db_client;
+  EXPECT_CALL(mock_app_db_client, keys)
       .WillOnce(Return(
           std::vector<std::string>{"P4RT_KEY_SET:TABLE", "P4RT:TABLE:{key}"}));
 
-  EXPECT_THAT(GetAllAppDbP4TableEntryKeys(mock_redis_client),
+  EXPECT_THAT(GetAllAppDbP4TableEntryKeys(mock_app_db_client),
               ContainerEq(std::vector<std::string>{"P4RT:TABLE:{key}"}));
 }
 
 TEST_F(AppDbManagerTest, GetAllP4KeysIgnoresDelSet) {
-  swss::MockDBConnector mock_redis_client;
-  EXPECT_CALL(mock_redis_client, keys)
+  swss::MockDBConnector mock_app_db_client;
+  EXPECT_CALL(mock_app_db_client, keys)
       .WillOnce(Return(
           std::vector<std::string>{"P4RT_DEL_SET:TABLE", "P4RT:TABLE:{key}"}));
 
-  EXPECT_THAT(GetAllAppDbP4TableEntryKeys(mock_redis_client),
+  EXPECT_THAT(GetAllAppDbP4TableEntryKeys(mock_app_db_client),
               ContainerEq(std::vector<std::string>{"P4RT:TABLE:{key}"}));
 }
 
 TEST(PortIdTranslationTest, GetMap) {
-  swss::MockDBConnector mock_db_connector;
+  swss::MockDBConnector mock_app_db_client;
 
   // We will first check the database for any Ethernet entries in the
   // PORT_TABLE.
-  EXPECT_CALL(mock_db_connector, keys)
+  EXPECT_CALL(mock_app_db_client, keys)
       .WillOnce(Return(std::vector<std::string>{"PORT_TABLE:Ethernet0",
                                                 "PORT_TABLE:Ethernet4"}));
 
   // Then for each entry we will check it's ID value.
-  EXPECT_CALL(mock_db_connector, hgetall("PORT_TABLE:Ethernet0"))
+  EXPECT_CALL(mock_app_db_client, hgetall("PORT_TABLE:Ethernet0"))
       .WillOnce(
           Return(std::unordered_map<std::string, std::string>{{"id", "1"}}));
-  EXPECT_CALL(mock_db_connector, hgetall("PORT_TABLE:Ethernet4"))
+  EXPECT_CALL(mock_app_db_client, hgetall("PORT_TABLE:Ethernet4"))
       .WillOnce(
           Return(std::unordered_map<std::string, std::string>{{"id", "2"}}));
 
   ASSERT_OK_AND_ASSIGN(auto translation_map,
-                       GetPortIdTranslationMap(mock_db_connector));
+                       GetPortIdTranslationMap(mock_app_db_client));
 
   // bimap Ethernet0 <=> 1
   EXPECT_EQ(translation_map.left.at("Ethernet0"), "1");
@@ -384,37 +384,37 @@ TEST(PortIdTranslationTest, GetMap) {
 }
 
 TEST(PortIdTranslationTest, MissingPortIdsFails) {
-  swss::MockDBConnector mock_db_connector;
+  swss::MockDBConnector mock_app_db_client;
 
   // When we check the redis DB for Ethernet4's port ID it returns an empty
   // list.
-  EXPECT_CALL(mock_db_connector, keys)
+  EXPECT_CALL(mock_app_db_client, keys)
       .WillOnce(Return(std::vector<std::string>{"PORT_TABLE:Ethernet4"}));
-  EXPECT_CALL(mock_db_connector, hgetall("PORT_TABLE:Ethernet4"))
+  EXPECT_CALL(mock_app_db_client, hgetall("PORT_TABLE:Ethernet4"))
       .WillOnce(Return(std::unordered_map<std::string, std::string>{}));
-  EXPECT_THAT(GetPortIdTranslationMap(mock_db_connector),
+  EXPECT_THAT(GetPortIdTranslationMap(mock_app_db_client),
               StatusIs(absl::StatusCode::kInternal));
 }
 
 TEST(PortIdTranslationTest, DuplicatePortIdsFails) {
-  swss::MockDBConnector mock_db_connector;
+  swss::MockDBConnector mock_app_db_client;
 
   // We will first check the database for any Ethernet entries in the
   // PORT_TABLE.
-  EXPECT_CALL(mock_db_connector, keys)
+  EXPECT_CALL(mock_app_db_client, keys)
       .WillOnce(Return(std::vector<std::string>{"PORT_TABLE:Ethernet0",
                                                 "PORT_TABLE:Ethernet4"}));
 
   // Then for each entry we will check it's ID value.
-  EXPECT_CALL(mock_db_connector, hgetall("PORT_TABLE:Ethernet0"))
+  EXPECT_CALL(mock_app_db_client, hgetall("PORT_TABLE:Ethernet0"))
       .WillOnce(
           Return(std::unordered_map<std::string, std::string>{{"id", "1"}}));
-  EXPECT_CALL(mock_db_connector, hgetall("PORT_TABLE:Ethernet4"))
+  EXPECT_CALL(mock_app_db_client, hgetall("PORT_TABLE:Ethernet4"))
       .WillOnce(
           Return(std::unordered_map<std::string, std::string>{{"id", "1"}}));
 
   // Because Ethernet0 and Ethernet4 both have ID 1 the mapping fails.
-  EXPECT_THAT(GetPortIdTranslationMap(mock_db_connector),
+  EXPECT_THAT(GetPortIdTranslationMap(mock_app_db_client),
               StatusIs(absl::StatusCode::kInternal));
 }
 
@@ -422,23 +422,23 @@ TEST(PortIdTranslationTest, DuplicatePortIdsFails) {
 // entries with the same key). However, we're keeping it to ensure P4RT App
 // cleanly handles the case.
 TEST(PortIdTranslationTest, DuplicatePortNamesFails) {
-  swss::MockDBConnector mock_db_connector;
+  swss::MockDBConnector mock_app_db_client;
 
   // We will first check the database for any Ethernet entries in the
   // PORT_TABLE.
-  EXPECT_CALL(mock_db_connector, keys)
+  EXPECT_CALL(mock_app_db_client, keys)
       .WillOnce(Return(std::vector<std::string>{"PORT_TABLE:Ethernet0",
                                                 "PORT_TABLE:Ethernet0"}));
 
   // Then for each entry we will check it's ID value.
-  EXPECT_CALL(mock_db_connector, hgetall("PORT_TABLE:Ethernet0"))
+  EXPECT_CALL(mock_app_db_client, hgetall("PORT_TABLE:Ethernet0"))
       .WillOnce(
           Return(std::unordered_map<std::string, std::string>{{"id", "1"}}))
       .WillOnce(
           Return(std::unordered_map<std::string, std::string>{{"id", "2"}}));
 
   // Because Ethernet0 is used twice the mapping fails.
-  EXPECT_THAT(GetPortIdTranslationMap(mock_db_connector),
+  EXPECT_THAT(GetPortIdTranslationMap(mock_app_db_client),
               StatusIs(absl::StatusCode::kInternal));
 }
 

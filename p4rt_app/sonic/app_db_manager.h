@@ -65,7 +65,7 @@ absl::Status UpdateAppDb(
 // any keys that are currently being handled by the lower layers (i.e. keys
 // starting with _).
 std::vector<std::string> GetAllAppDbP4TableEntryKeys(
-    swss::DBConnectorInterface& redis_client);
+    swss::DBConnectorInterface& app_db_client);
 
 // The SONiC ProducerStateTables interface does not support reads so we must
 // read entries at the AppDb scope. This means any ReadTable request key should
@@ -76,7 +76,7 @@ std::vector<std::string> GetAllAppDbP4TableEntryKeys(
 //
 // NOTE: The resulting IrTableEntry will not include the "P4RT:" prefix.
 absl::StatusOr<pdpi::IrTableEntry> ReadAppDbP4TableEntry(
-    const pdpi::IrP4Info& p4info, swss::DBConnectorInterface& redis_client,
+    const pdpi::IrP4Info& p4info, swss::DBConnectorInterface& app_db_client,
     const std::string& key);
 
 // Checks all the Ethernet port entries found in the AppDb. For each entry it
@@ -86,7 +86,7 @@ absl::StatusOr<pdpi::IrTableEntry> ReadAppDbP4TableEntry(
 // If it detectes duplicate controller IDs an INTERNAL error is returned because
 // the configuration is invalid.
 absl::StatusOr<boost::bimap<std::string, std::string>> GetPortIdTranslationMap(
-    swss::DBConnectorInterface& redis_client);
+    swss::DBConnectorInterface& app_db_client);
 
 }  // namespace sonic
 }  // namespace p4rt_app
