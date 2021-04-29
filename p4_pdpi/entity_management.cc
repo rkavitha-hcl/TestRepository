@@ -29,6 +29,7 @@
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/sequencing.h"
 #include "p4_pdpi/utils/ir.h"
+#include "sai_p4/fixed/roles.h"
 
 namespace pdpi {
 
@@ -50,6 +51,7 @@ absl::Status BuildRequestAndSetForwardingPipelineConfig(
     P4RuntimeSession* session, const P4Info& p4info,
     SetForwardingPipelineConfigRequest& request) {
   request.set_device_id(session->DeviceId());
+  request.set_role(P4RUNTIME_ROLE_SDN_CONTROLLER);
   *request.mutable_election_id() = session->ElectionId();
   request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT);
   *request.mutable_config()->mutable_p4info() = p4info;
@@ -77,10 +79,10 @@ std::vector<Update> CreatePiUpdates(absl::Span<const TableEntry> pi_entries,
   return pi_updates;
 }
 
-absl::StatusOr<ReadResponse> SetIdAndSendPiReadRequest(
+absl::StatusOr<ReadResponse> SetMetadataAndSendPiReadRequest(
     P4RuntimeSession* session, ReadRequest& read_request) {
   read_request.set_device_id(session->DeviceId());
-
+  read_request.set_role(P4RUNTIME_ROLE_SDN_CONTROLLER);
   grpc::ClientContext context;
   auto reader = session->Stub().Read(&context, read_request);
 
@@ -108,18 +110,19 @@ absl::Status SendPiWriteRequest(P4Runtime::Stub* stub,
   return absl::OkStatus();
 }
 
-absl::Status SetIdsAndSendPiWriteRequest(P4RuntimeSession* session,
-                                         WriteRequest& write_request) {
+absl::Status SetMetadataAndSendPiWriteRequest(P4RuntimeSession* session,
+                                              WriteRequest& write_request) {
   write_request.set_device_id(session->DeviceId());
+  write_request.set_role(P4RUNTIME_ROLE_SDN_CONTROLLER);
   *write_request.mutable_election_id() = session->ElectionId();
 
   return SendPiWriteRequest(&session->Stub(), write_request);
 }
 
-absl::Status SetIdsAndSendPiWriteRequests(
+absl::Status SetMetadataAndSendPiWriteRequests(
     P4RuntimeSession* session, std::vector<WriteRequest>& write_requests) {
   for (auto& request : write_requests) {
-    RETURN_IF_ERROR(SetIdsAndSendPiWriteRequest(session, request));
+    RETURN_IF_ERROR(SetMetadataAndSendPiWriteRequest(session, request));
   }
   return absl::OkStatus();
 }
@@ -129,7 +132,7 @@ absl::StatusOr<std::vector<TableEntry>> ReadPiTableEntries(
   ReadRequest read_request;
   read_request.add_entities()->mutable_table_entry();
   ASSIGN_OR_RETURN(ReadResponse read_response,
-                   SetIdAndSendPiReadRequest(session, read_request));
+                   SetMetadataAndSendPiReadRequest(session, read_request));
 
   std::vector<TableEntry> table_entries;
   table_entries.reserve(read_response.entities().size());
@@ -157,7 +160,7 @@ absl::Status RemovePiTableEntries(P4RuntimeSession* session,
   std::vector<Update> pi_updates = CreatePiUpdates(pi_entries, Update::DELETE);
   ASSIGN_OR_RETURN(std::vector<WriteRequest> sequenced_clear_requests,
                    pdpi::SequencePiUpdatesIntoWriteRequests(info, pi_updates));
-  return SetIdsAndSendPiWriteRequests(session, sequenced_clear_requests);
+  return SetMetadataAndSendPiWriteRequests(session, sequenced_clear_requests);
 }
 
 absl::Status InstallPiTableEntry(P4RuntimeSession* session,
@@ -167,7 +170,7 @@ absl::Status InstallPiTableEntry(P4RuntimeSession* session,
   update.set_type(Update::INSERT);
   *update.mutable_entity()->mutable_table_entry() = pi_entry;
 
-  return SetIdsAndSendPiWriteRequest(session, request);
+  return SetMetadataAndSendPiWriteRequest(session, request);
 }
 
 absl::Status SendPiUpdates(P4RuntimeSession* session,
@@ -176,7 +179,7 @@ absl::Status SendPiUpdates(P4RuntimeSession* session,
   for (const p4::v1::Update& update : updates) {
     *request.add_updates() = update;
   }
-  return SetIdsAndSendPiWriteRequest(session, request);
+  return SetMetadataAndSendPiWriteRequest(session, request);
 }
 
 absl::Status InstallPiTableEntries(P4RuntimeSession* session,
@@ -185,7 +188,7 @@ absl::Status InstallPiTableEntries(P4RuntimeSession* session,
   std::vector<Update> pi_updates = CreatePiUpdates(pi_entries, Update::INSERT);
   ASSIGN_OR_RETURN(std::vector<WriteRequest> sequenced_write_requests,
                    pdpi::SequencePiUpdatesIntoWriteRequests(info, pi_updates));
-  return SetIdsAndSendPiWriteRequests(session, sequenced_write_requests);
+  return SetMetadataAndSendPiWriteRequests(session, sequenced_write_requests);
 }
 
 absl::Status SetForwardingPipelineConfig(P4RuntimeSession* session,
@@ -198,6 +201,7 @@ absl::Status SetForwardingPipelineConfig(P4RuntimeSession* session,
                                          const P4Info& p4info,
                                          absl::string_view p4_device_config) {
   SetForwardingPipelineConfigRequest request;
+  request.set_role(P4RUNTIME_ROLE_SDN_CONTROLLER);
   *request.mutable_config()->mutable_p4_device_config() = p4_device_config;
 
   return BuildRequestAndSetForwardingPipelineConfig(session, p4info, request);

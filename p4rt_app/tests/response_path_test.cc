@@ -86,9 +86,10 @@ TEST_F(ResponsePathTest, InsertRequestFails) {
 
   // We expect the invalid argument error to be propagated all the way back to
   // the gRPC response.
-  EXPECT_THAT(pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request),
-              StatusIs(absl::StatusCode::kUnknown,
-                       HasSubstr("#1: INVALID_ARGUMENT: my error message")));
+  EXPECT_THAT(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
+      StatusIs(absl::StatusCode::kUnknown,
+               HasSubstr("#1: INVALID_ARGUMENT: my error message")));
 }
 
 TEST_F(ResponsePathTest, OneOfManyInsertRequestFails) {
@@ -148,7 +149,7 @@ TEST_F(ResponsePathTest, OneOfManyInsertRequestFails) {
   // When one of the requests fails, but the other succeeds we expect the
   // response to tell us the status both separately.
   EXPECT_THAT(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request),
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
       StatusIs(absl::StatusCode::kUnknown,
                AllOf(HasSubstr("#1: OK"),
                      HasSubstr("#2: INVALID_ARGUMENT: my error message"))));
@@ -206,7 +207,7 @@ TEST_F(ResponsePathTest, RequestWithDuplicateKeysFails) {
   // We expect the invalid argument error to be propagated all the way back to
   // the gRPC response.
   EXPECT_THAT(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request),
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
       StatusIs(absl::StatusCode::kUnknown,
                AllOf(HasSubstr("#1: INVALID_ARGUMENT: Duplicate key"),
                      HasSubstr("#2: INVALID_ARGUMENT: Duplicate key"))));

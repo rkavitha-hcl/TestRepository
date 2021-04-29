@@ -16,6 +16,7 @@
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/connection_management.h"
 #include "p4_pdpi/entity_management.h"
+#include "sai_p4/fixed/roles.h"
 #include "tests/forwarding/p4_blackbox_fixture.h"
 #include "thinkit/test_environment.h"
 
@@ -83,6 +84,7 @@ WriteRequest GetWriteRequest(int num, absl::uint128 election_id,
     }
   }
   request.set_device_id(device_id);
+  request.set_role(P4RUNTIME_ROLE_SDN_CONTROLLER);
   *request.mutable_election_id() = CreateElectionId(election_id);
   return request;
 }
@@ -199,6 +201,7 @@ TEST_P(MasterArbitrationTestFixture, SlaveCanRead) {
     entities { table_entry { meter_config {} } }
   )pb");
   read_everything.set_device_id(DeviceId());
+  read_everything.set_role(P4RUNTIME_ROLE_SDN_CONTROLLER);
   ::grpc::ClientContext context;
   ASSERT_OK_AND_ASSIGN(auto stub2, Stub());
   std::unique_ptr<::grpc::ClientReader<ReadResponse>> response_stream =

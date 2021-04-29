@@ -139,7 +139,7 @@ class P4rtRouteTest : public Test {
         gutil::ReadProtoFromString(std::string{request_str}, &request));
     request.mutable_updates(0)->set_type(type);
     RETURN_IF_ERROR(
-        pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request))
+        pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request))
         << "Failed to program the request: " << request.ShortDebugString();
     return absl::OkStatus();
   }
@@ -213,7 +213,7 @@ class P4rtRouteTest : public Test {
       }
       // Send a batch of requests to the server.
       RETURN_IF_ERROR(
-          pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request));
+          pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
     }
     return absl::OkStatus();
   }

@@ -73,6 +73,7 @@ cc_library(
         "//gutil:testing",
         "//p4_pdpi:connection_management",
         "//p4_pdpi:entity_management",
+        "//sai_p4/fixed:p4_roles",
         "//thinkit:test_environment",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",

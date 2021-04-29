@@ -85,8 +85,8 @@ TEST_F(ActionSetTest, WcmpInsertReadAndRemove) {
              }
            })pb",
       &write_request));
-  ASSERT_OK(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), write_request));
+  ASSERT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
+                                                   write_request));
 
   // Reading back the flows should result in the same table entry.
   p4::v1::ReadRequest read_request;
@@ -95,7 +95,7 @@ TEST_F(ActionSetTest, WcmpInsertReadAndRemove) {
   entity->mutable_table_entry()->set_priority(0);
   ASSERT_OK_AND_ASSIGN(
       p4::v1::ReadResponse read_response,
-      pdpi::SetIdAndSendPiReadRequest(p4rt_session_.get(), read_request));
+      pdpi::SetMetadataAndSendPiReadRequest(p4rt_session_.get(), read_request));
   ASSERT_EQ(read_response.entities_size(), 1);  // Only one write.
   EXPECT_THAT(read_response.entities(0),
               EqualsProto(write_request.updates(0).entity()));
@@ -103,11 +103,11 @@ TEST_F(ActionSetTest, WcmpInsertReadAndRemove) {
   // Modify the P4 write request to delete the entry which should not fail since
   // we know it does exist.
   write_request.mutable_updates(0)->set_type(p4::v1::Update::DELETE);
-  ASSERT_OK(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), write_request));
+  ASSERT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
+                                                   write_request));
 
   // Reading back the entry should result in nothing being returned.
-  ASSERT_OK_AND_ASSIGN(read_response, pdpi::SetIdAndSendPiReadRequest(
+  ASSERT_OK_AND_ASSIGN(read_response, pdpi::SetMetadataAndSendPiReadRequest(
                                           p4rt_session_.get(), read_request));
   EXPECT_EQ(read_response.entities_size(), 0);
 }

@@ -90,7 +90,8 @@ TEST_F(FixedL3TableTest, SupportRouterInterfaceTableFlows) {
                             .AddActionParam("port", "Ethernet4")
                             .AddActionParam("src_mac", "00:02:03:04:05:06");
 
-  EXPECT_OK(pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
   EXPECT_THAT(
       p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
       IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
@@ -100,7 +101,7 @@ TEST_F(FixedL3TableTest, SupportRouterInterfaceTableFlows) {
   read_request.add_entities()->mutable_table_entry();
   ASSERT_OK_AND_ASSIGN(
       p4::v1::ReadResponse read_response,
-      pdpi::SetIdAndSendPiReadRequest(p4rt_session_.get(), read_request));
+      pdpi::SetMetadataAndSendPiReadRequest(p4rt_session_.get(), read_request));
   ASSERT_EQ(read_response.entities_size(), 1);  // Only one write.
   EXPECT_THAT(read_response.entities(0),
               EqualsProto(request.updates(0).entity()));
@@ -171,7 +172,8 @@ TEST_F(FixedL3TableTest, SupportNeighborAndNexthopTableFlows) {
           .AddActionParam("router_interface_id", "8")
           .AddActionParam("neighbor_id", "fe80::021a:11ff:fe17:5f80");
 
-  EXPECT_OK(pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
   EXPECT_THAT(
       p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(neighbor_entry.GetKey()),
       IsOkAndHolds(UnorderedElementsAreArray(neighbor_entry.GetValueMap())));
@@ -216,7 +218,8 @@ TEST_F(FixedL3TableTest, SupportIpv4TableFlow) {
                             .SetAction("set_nexthop_id")
                             .AddActionParam("nexthop_id", "8");
 
-  EXPECT_OK(pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
   EXPECT_THAT(
       p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
       IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
@@ -226,7 +229,7 @@ TEST_F(FixedL3TableTest, SupportIpv4TableFlow) {
   read_request.add_entities()->mutable_table_entry();
   ASSERT_OK_AND_ASSIGN(
       p4::v1::ReadResponse read_response,
-      pdpi::SetIdAndSendPiReadRequest(p4rt_session_.get(), read_request));
+      pdpi::SetMetadataAndSendPiReadRequest(p4rt_session_.get(), read_request));
   ASSERT_EQ(read_response.entities_size(), 1);  // Only one write.
   EXPECT_THAT(read_response.entities(0),
               EqualsProto(request.updates(0).entity()));
@@ -271,7 +274,8 @@ TEST_F(FixedL3TableTest, SupportIpv6TableFlow) {
                             .SetAction("set_nexthop_id")
                             .AddActionParam("nexthop_id", "20");
 
-  EXPECT_OK(pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
   EXPECT_THAT(
       p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
       IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
@@ -318,8 +322,8 @@ TEST_F(FixedL3TableTest, TableEntryInsertReadAndRemove) {
 
   // The insert write request should not fail, and once complete the entry
   // should exist in the P4RT AppDb table.
-  ASSERT_OK(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), write_request));
+  ASSERT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
+                                                   write_request));
   EXPECT_THAT(
       p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
       IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
@@ -329,7 +333,7 @@ TEST_F(FixedL3TableTest, TableEntryInsertReadAndRemove) {
   read_request.add_entities()->mutable_table_entry();
   ASSERT_OK_AND_ASSIGN(
       p4::v1::ReadResponse read_response,
-      pdpi::SetIdAndSendPiReadRequest(p4rt_session_.get(), read_request));
+      pdpi::SetMetadataAndSendPiReadRequest(p4rt_session_.get(), read_request));
   ASSERT_EQ(read_response.entities_size(), 1);  // Only one write.
   EXPECT_THAT(read_response.entities(0),
               EqualsProto(write_request.updates(0).entity()));
@@ -339,14 +343,14 @@ TEST_F(FixedL3TableTest, TableEntryInsertReadAndRemove) {
 
   // The delete write request should not fail, and once complete the entry
   // should no longer exist in the P4RT AppDb table.
-  ASSERT_OK(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), write_request));
+  ASSERT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
+                                                   write_request));
   EXPECT_THAT(
       p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
       StatusIs(absl::StatusCode::kNotFound));
 
   // Reading back the entry should result in nothing being returned.
-  ASSERT_OK_AND_ASSIGN(read_response, pdpi::SetIdAndSendPiReadRequest(
+  ASSERT_OK_AND_ASSIGN(read_response, pdpi::SetMetadataAndSendPiReadRequest(
                                           p4rt_session_.get(), read_request));
   EXPECT_EQ(read_response.entities_size(), 0);
 }
@@ -390,8 +394,8 @@ TEST_F(FixedL3TableTest, TableEntryModify) {
 
   // The insert write request should not fail, and once complete the entry
   // should exist in the P4RT AppDb table.
-  ASSERT_OK(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), write_request));
+  ASSERT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
+                                                   write_request));
   ASSERT_THAT(
       p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
       IsOkAndHolds(
@@ -409,8 +413,8 @@ TEST_F(FixedL3TableTest, TableEntryModify) {
           ->mutable_entity()
           ->mutable_table_entry()
           ->mutable_action()));
-  ASSERT_OK(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), write_request));
+  ASSERT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
+                                                   write_request));
   EXPECT_THAT(
       p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
       IsOkAndHolds(
@@ -450,12 +454,13 @@ TEST_F(FixedL3TableTest, DuplicateTableEntryInsertFails) {
       &write_request));
 
   // The first insert is expected to pass since the entry does not exist.
-  EXPECT_OK(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), write_request));
+  EXPECT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
+                                                   write_request));
 
   // The second insert is expected to fail since the entry already exists.
   EXPECT_THAT(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), write_request),
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
+                                             write_request),
       StatusIs(absl::StatusCode::kUnknown, HasSubstr("ALREADY_EXISTS")));
 }
 
@@ -489,9 +494,9 @@ TEST_F(FixedL3TableTest, TableEntryModifyFailsIfEntryDoesNotExist) {
              }
            })pb",
       &write_request));
-  EXPECT_THAT(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), write_request),
-      StatusIs(absl::StatusCode::kUnknown, HasSubstr("NOT_FOUND")));
+  EXPECT_THAT(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
+                                                     write_request),
+              StatusIs(absl::StatusCode::kUnknown, HasSubstr("NOT_FOUND")));
 }
 
 TEST_F(FixedL3TableTest, InvalidPortIdFails) {
@@ -521,7 +526,7 @@ TEST_F(FixedL3TableTest, InvalidPortIdFails) {
       &request));
 
   EXPECT_THAT(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request),
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
       StatusIs(absl::StatusCode::kUnknown, HasSubstr("#1: INVALID_ARGUMENT")));
 }
 
@@ -565,7 +570,8 @@ TEST_F(FixedL3TableTest, SupportDefaultVrf) {
                             .SetAction("set_nexthop_id")
                             .AddActionParam("nexthop_id", "20");
 
-  EXPECT_OK(pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
   EXPECT_THAT(
       p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
       IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
@@ -575,7 +581,7 @@ TEST_F(FixedL3TableTest, SupportDefaultVrf) {
   read_request.add_entities()->mutable_table_entry();
   ASSERT_OK_AND_ASSIGN(
       p4::v1::ReadResponse read_response,
-      pdpi::SetIdAndSendPiReadRequest(p4rt_session_.get(), read_request));
+      pdpi::SetMetadataAndSendPiReadRequest(p4rt_session_.get(), read_request));
   ASSERT_EQ(read_response.entities_size(), 1);  // Only one write.
   EXPECT_THAT(read_response.entities(0),
               EqualsProto(request.updates(0).entity()));

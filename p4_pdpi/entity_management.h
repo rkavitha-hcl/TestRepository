@@ -31,23 +31,23 @@ std::vector<p4::v1::Update> CreatePiUpdates(
     absl::Span<const p4::v1::TableEntry> pi_entries,
     p4::v1::Update_Type update_type);
 
-// Sets the request's session parameters(e.g. device id). And sends a PI
+// Sets the request's metadata (i.e. device id, role). And sends a PI
 // (program independent) read request.
-absl::StatusOr<p4::v1::ReadResponse> SetIdAndSendPiReadRequest(
+absl::StatusOr<p4::v1::ReadResponse> SetMetadataAndSendPiReadRequest(
     P4RuntimeSession* session, p4::v1::ReadRequest& read_request);
 
-// Sets the request's session parameters(e.g. device id and election id). And
-// sends a PI (program independent) write request.
-absl::Status SetIdsAndSendPiWriteRequest(P4RuntimeSession* session,
-                                         p4::v1::WriteRequest& write_request);
+// Sets the request's metadata (i.e. device id, role and election id).
+// And sends a PI (program independent) write request.
+absl::Status SetMetadataAndSendPiWriteRequest(
+    P4RuntimeSession* session, p4::v1::WriteRequest& write_request);
 
 // Sends a PI (program independent) write request with given stub.
 absl::Status SendPiWriteRequest(p4::v1::P4Runtime::Stub* stub,
                                 const p4::v1::WriteRequest& request);
 
-// Sets the requests' session parameters(e.g. device id; election id). And sends
+// Sets the requests' metadata (i.e. device id, role and election id). And sends
 // PI (program independent) write requests.
-absl::Status SetIdsAndSendPiWriteRequests(
+absl::Status SetMetadataAndSendPiWriteRequests(
     P4RuntimeSession* session,
     std::vector<p4::v1::WriteRequest>& write_requests);
 

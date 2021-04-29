@@ -24,6 +24,7 @@
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/sequencing.h"
+#include "sai_p4/fixed/roles.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 #include "thinkit/mirror_testbed_fixture.h"
 #include "thinkit/test_environment.h"
@@ -86,6 +87,7 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
 
     // Set IDs.
     request.set_device_id(session->DeviceId());
+    request.set_role(P4RUNTIME_ROLE_SDN_CONTROLLER);
     *request.mutable_election_id() = session->ElectionId();
 
     ASSERT_OK(environment.AppendToTestArtifact(
@@ -227,8 +229,8 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
     EXPECT_OK(environment.AppendToTestArtifact(
         "clearing__delete_write_requests.txt", sequenced_clear_requests[i]));
   }
-  ASSERT_OK(pdpi::SetIdsAndSendPiWriteRequests(session.get(),
-                                               sequenced_clear_requests));
+  ASSERT_OK(pdpi::SetMetadataAndSendPiWriteRequests(session.get(),
+                                                    sequenced_clear_requests));
 }
 
 }  // namespace p4_fuzzer

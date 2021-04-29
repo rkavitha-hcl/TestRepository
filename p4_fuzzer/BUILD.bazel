@@ -28,6 +28,7 @@ cc_library(
         "//p4_pdpi:ir",
         "//p4_pdpi:ir_cc_proto",
         "//p4_pdpi:sequencing",
+        "//sai_p4/fixed:p4_roles",
         "//sai_p4/instantiations/google:sai_p4info_cc",
         "//thinkit:mirror_testbed_fixture",
         "//thinkit:test_environment",

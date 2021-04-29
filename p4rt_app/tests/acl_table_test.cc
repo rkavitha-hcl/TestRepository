@@ -80,7 +80,8 @@ TEST_F(AclTableTest, SetVrfFlowCreatesVrfTableEntry) {
              }
            })pb",
       &request));
-  EXPECT_OK(pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
 
   // Verify the correct ACL entry is added the the P4RT table.
   auto expected_entry = test_lib::AppDbEntryBuilder{}
@@ -133,8 +134,8 @@ TEST_F(AclTableTest, VrfTableEntriesPersistsWhileInUse) {
       &insert_request));
 
   // Insert both flows and verify the VRF ID exists.
-  EXPECT_OK(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), insert_request));
+  EXPECT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
+                                                   insert_request));
   EXPECT_OK(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"))
       << "VRF ID was never created.";
 
@@ -143,8 +144,8 @@ TEST_F(AclTableTest, VrfTableEntriesPersistsWhileInUse) {
   p4::v1::WriteRequest delete_request;
   *delete_request.add_updates() = insert_request.updates(0);
   delete_request.mutable_updates(0)->set_type(p4::v1::Update::DELETE);
-  EXPECT_OK(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), delete_request));
+  EXPECT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
+                                                   delete_request));
   EXPECT_OK(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"))
       << "VRF ID is still in use and should still exist.";
 
@@ -152,8 +153,8 @@ TEST_F(AclTableTest, VrfTableEntriesPersistsWhileInUse) {
   delete_request.Clear();
   *delete_request.add_updates() = insert_request.updates(1);
   delete_request.mutable_updates(0)->set_type(p4::v1::Update::DELETE);
-  EXPECT_OK(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), delete_request));
+  EXPECT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
+                                                   delete_request));
   EXPECT_THAT(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"),
               StatusIs(absl::StatusCode::kNotFound));
 }
@@ -178,8 +179,8 @@ TEST_F(AclTableTest, VrfTableEntryDeleteWithWrongValues) {
            })pb",
       &insert_request));
 
-  EXPECT_OK(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), insert_request));
+  EXPECT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
+                                                   insert_request));
   EXPECT_OK(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"))
       << "VRF ID was never created.";
 
@@ -202,8 +203,8 @@ TEST_F(AclTableTest, VrfTableEntryDeleteWithWrongValues) {
              }
            })pb",
       &delete_request));
-  EXPECT_OK(
-      pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), delete_request));
+  EXPECT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
+                                                   delete_request));
   // Expect the correct APP_DB entry and its corresponding action param to be
   // cleared.
   EXPECT_THAT(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"),
@@ -226,7 +227,8 @@ TEST_F(AclTableTest, ReadCounters) {
                              }
                            )pb",
                            ir_p4_info_));
-  EXPECT_OK(pdpi::SetIdsAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
 
   // Fake OrchAgent updating the counters.
   auto counter_db_entry = test_lib::AppDbEntryBuilder{}
@@ -241,7 +243,7 @@ TEST_F(AclTableTest, ReadCounters) {
   read_request.add_entities()->mutable_table_entry();
   ASSERT_OK_AND_ASSIGN(
       p4::v1::ReadResponse read_response,
-      pdpi::SetIdAndSendPiReadRequest(p4rt_session_.get(), read_request));
+      pdpi::SetMetadataAndSendPiReadRequest(p4rt_session_.get(), read_request));
 
   ASSERT_EQ(read_response.entities_size(), 1);  // Only one write.
   EXPECT_THAT(read_response.entities(0).table_entry().counter_data(),
@@ -256,7 +258,8 @@ TEST_F(AclTableTest, ReadMeters) {
   entity->mutable_table_entry()->set_priority(0);
   entity->mutable_table_entry()->mutable_meter_config();
 
-  EXPECT_OK(pdpi::SetIdAndSendPiReadRequest(p4rt_session_.get(), read_request))
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiReadRequest(p4rt_session_.get(), read_request))
       << "Failing read request: " << read_request.ShortDebugString();
 }
 
