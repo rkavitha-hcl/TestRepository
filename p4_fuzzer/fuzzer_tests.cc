@@ -184,6 +184,10 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
         }
       }
     }
+
+    // Read switch state (to check that reading never fails).
+    // TODO: check that the result is the same as switch_state.
+    ASSERT_OK(pdpi::ReadPiTableEntries(session.get()).status());
   }
 
   LOG(INFO) << "Finished " << num_iterations << " iterations.";
