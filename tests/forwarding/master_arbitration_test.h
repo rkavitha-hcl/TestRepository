@@ -26,6 +26,12 @@ class MasterArbitrationTestFixture : public P4BlackboxFixture {
  public:
   void SetUp() {
     P4BlackboxFixture::SetUp();
+    // Skip the `ClearTableEntries` in `P4BlackboxFixture` class (parent class).
+    // That class's session object lose the mastership due to the update (i.e.
+    // BecomeMaster()) in master arbitration test. So it doesn't have the
+    // mastership to clear/write. `ClearTableEntries` in this test will be
+    // performed in individual test as needed.
+    P4BlackboxFixture::DisableClearingTableEntriesOnTearDown();
     device_id_ = GetMirrorTestbed().Sut().DeviceId();
     //  Sleep for one second, so that we are guaranteed to get a higher
     //  election id than the previous test (we use unix seconds in production

@@ -38,17 +38,23 @@ constexpr char kWriteRequest[] = R"(
         # Adding an entry into the router_interface_table (table_id = 33554497).
         table_entry {
           table_id: 33554497
-          # Match on router_interface_id (32 bits) and sets the egress_spec (the
-          # port to send the packet to, param_id=1) and src mac (param_id=2).
           match {
             field_id: 1
-            exact { value: "\000\000\000\037" }
+            exact {
+              value: "router-interface-4"
+            }
           }
           action {
             action {
               action_id: 16777218
-              params { param_id: 1 value: "\000\000\0004" }
-              params { param_id: 2 value: "\0022\000\000\000\000" }
+              params {
+                param_id: 1
+                value: "7"
+              }
+              params {
+                param_id: 2
+                value: "\002*\020\000\000\003"
+              }
             }
           }
         }
@@ -79,6 +85,16 @@ WriteRequest GetWriteRequest(int num, absl::uint128 election_id,
   request.set_device_id(device_id);
   *request.mutable_election_id() = CreateElectionId(election_id);
   return request;
+}
+
+absl::Status SendStreamMessageRequest(
+    P4Runtime::Stub* stub, const p4::v1::StreamMessageRequest& request) {
+  grpc::ClientContext context;
+  return stub->StreamChannel(&context)->Write(request)
+             ? absl::OkStatus()
+             : gutil::InternalErrorBuilder()
+                   << "Failed to write stream message request: "
+                   << request.DebugString();
 }
 
 // Returns a matcher that checks if the attempt to become master was successful.
@@ -159,37 +175,40 @@ TEST_P(MasterArbitrationTestFixture, SlaveCannotWrite) {
 
   ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(2));
   ASSERT_OK_AND_ASSIGN(auto stub, Stub());
-  auto session = BecomeMaster(std::move(stub), 1);
-  ASSERT_THAT(session.status(), NotMaster());
+  ASSERT_THAT(BecomeMaster(std::move(stub), 1).status(), NotMaster());
 
-  auto write_request = GetWriteRequest(1, ElectionIdFromLower(1), DeviceId());
   ASSERT_OK_AND_ASSIGN(auto stub2, Stub());
-  // Assert that we cannot write to slave device.
-  ASSERT_FALSE(pdpi::SendPiWriteRequest(stub2.get(), write_request).ok());
+  ASSERT_FALSE(
+      pdpi::SendPiWriteRequest(
+          stub2.get(), GetWriteRequest(1, ElectionIdFromLower(1), DeviceId()))
+          .ok());
 }
 
 TEST_P(MasterArbitrationTestFixture, SlaveCanRead) {
-  // TODO Slave read failure.
-  if (TestEnvironment().MaskKnownFailures()) GTEST_SKIP();
-
   TestEnvironment().SetTestCaseID("fb678921-d150-4535-b7b8-fc8cecb79a78");
 
   ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(1));
+  ASSERT_OK(pdpi::SendPiWriteRequest(
+      &connection->Stub(),
+      GetWriteRequest(0, ElectionIdFromLower(1), DeviceId())));
+
   ASSERT_OK_AND_ASSIGN(auto stub, Stub());
-  auto session = BecomeMaster(std::move(stub), 0);
-  ASSERT_THAT(session.status(), NotMaster());
+  ASSERT_THAT(BecomeMaster(std::move(stub), 0).status(), NotMaster());
 
   ReadRequest read_everything = gutil::ParseProtoOrDie<ReadRequest>(R"pb(
     entities { table_entry { meter_config {} } }
   )pb");
   read_everything.set_device_id(DeviceId());
   ::grpc::ClientContext context;
+  ASSERT_OK_AND_ASSIGN(auto stub2, Stub());
   std::unique_ptr<::grpc::ClientReader<ReadResponse>> response_stream =
-      (*session)->Stub().Read(&context, read_everything);
+      stub2->Read(&context, read_everything);
   ReadResponse response;
   EXPECT_TRUE(response_stream->Read(&response));
   // The switch should always return some const entries.
   ASSERT_FALSE(response.entities().empty());
+  // Clear all table entries to leave the switch in a clean state.
+  ASSERT_OK(pdpi::ClearTableEntries(connection.get(), IrP4Info()));
 }
 
 TEST_P(MasterArbitrationTestFixture, GetNotifiedOfActualMaster) {
@@ -223,93 +242,72 @@ TEST_P(MasterArbitrationTestFixture, GetNotifiedOfActualMaster) {
   EXPECT_EQ(response.arbitration().status().code(), ALREADY_EXISTS);
 }
 
-TEST_P(MasterArbitrationTestFixture, ZeroIdControllerCannotBecomeMaster) {
-  // TODO Investigate the skipped test.
+TEST_P(MasterArbitrationTestFixture, NoIdControllerCannotBecomeMaster) {
+  // TODO Enable this test once p4rt app correctly identify no id
+  // case.
   if (TestEnvironment().MaskKnownFailures()) GTEST_SKIP();
   TestEnvironment().SetTestCaseID("3699fc43-5ff8-44ee-8965-68f42c71c1ed");
 
   ASSERT_OK_AND_ASSIGN(auto stub, Stub());
-  // Connects controller C1 with id=0 and checks C1 is NOT master.
-  auto session = BecomeMaster(std::move(stub), 0);
-  ASSERT_THAT(session.status(), NotMaster());
-
-  // Checks C1 with id=0 cannot write.
-  auto write_request = GetWriteRequest(0, ElectionIdFromLower(0), DeviceId());
-  ASSERT_THAT(pdpi::SendPiWriteRequest(&(*session)->Stub(), write_request),
-              NotMaster());
+  // Sends master arbitration request with no election id.
+  p4::v1::StreamMessageRequest request;
+  request.mutable_arbitration()->set_device_id(DeviceId());
+  ASSERT_THAT(SendStreamMessageRequest(stub.get(), request), NotMaster());
 }
 
 TEST_P(MasterArbitrationTestFixture, OldMasterCannotWriteAfterNewMasterCameUp) {
-  // TODO Investigate the skipped test.
-  if (TestEnvironment().MaskKnownFailures()) GTEST_SKIP();
-
   TestEnvironment().SetTestCaseID("e4bc86a2-84f0-450a-888a-8a6f5f26fa8c");
 
   int id1 = 1, id2 = 2;
   // Connects controller C1 with id=1 to become master.
   ASSERT_OK_AND_ASSIGN(auto c1, BecomeMaster(id1));
+  ASSERT_OK(pdpi::SendPiWriteRequest(
+      &c1->Stub(), GetWriteRequest(0, ElectionIdFromLower(id1), DeviceId())));
   ASSERT_OK(pdpi::ClearTableEntries(c1.get(), IrP4Info()));
-
-  ASSERT_OK_AND_ASSIGN(auto stub, Stub());
-  EXPECT_THAT(
-      pdpi::SendPiWriteRequest(
-          stub.get(), GetWriteRequest(0, ElectionIdFromLower(id1), DeviceId())),
-      gutil::IsOk());
 
   // Connects controller C2 with id=2 > 1 to become master.
   ASSERT_OK_AND_ASSIGN(auto c2, BecomeMaster(id2));
+  // Checks new master C2 can write.
+  ASSERT_OK(pdpi::SendPiWriteRequest(
+      &c2->Stub(), GetWriteRequest(1, ElectionIdFromLower(id2), DeviceId())));
   ASSERT_OK(pdpi::ClearTableEntries(c2.get(), IrP4Info()));
 
-  // Checks new master C2 can write.
-  EXPECT_THAT(
-      pdpi::SendPiWriteRequest(
-          stub.get(), GetWriteRequest(1, ElectionIdFromLower(id2), DeviceId())),
-      gutil::IsOk());
-
   // Checks C1 cannot write after new master C2 came up.
-  EXPECT_THAT(
+  ASSERT_FALSE(
       pdpi::SendPiWriteRequest(
-          stub.get(), GetWriteRequest(2, ElectionIdFromLower(id1), DeviceId())),
-      NotMaster());
+          &c1->Stub(), GetWriteRequest(2, ElectionIdFromLower(id1), DeviceId()))
+          .ok());
 }
 
 TEST_P(MasterArbitrationTestFixture, MasterDowngradesItself) {
-  // TODO Investigate the skipped test.
-  if (TestEnvironment().MaskKnownFailures()) GTEST_SKIP();
-
   TestEnvironment().SetTestCaseID("3cb62c0f-4a1a-430c-978c-a3a2a11078cd");
-
   int id1 = 1, id2 = 2;
 
-  // Connects controller C2 with id=2 to become master.
+  // Connects controller with id=2 to become master.
   ASSERT_OK_AND_ASSIGN(auto controller, BecomeMaster(id2));
+
+  // Checks new master controller can write.
+  ASSERT_OK(pdpi::SendPiWriteRequest(
+      &controller->Stub(),
+      GetWriteRequest(0, ElectionIdFromLower(id2), DeviceId())));
+
   ASSERT_OK(pdpi::ClearTableEntries(controller.get(), IrP4Info()));
 
-  ASSERT_OK_AND_ASSIGN(auto stub, Stub());
-  // Checks new master C2 can write.
-  ASSERT_THAT(
-      pdpi::SendPiWriteRequest(
-          stub.get(), GetWriteRequest(0, ElectionIdFromLower(id2), DeviceId())),
-      gutil::IsOk());
-
   // C2 sends master arbitration request with id=1 to downgrade itself.
-  ::p4::v1::StreamMessageRequest request;
+  p4::v1::StreamMessageRequest request;
   auto arbitration = request.mutable_arbitration();
   arbitration->set_device_id(DeviceId());
   arbitration->mutable_election_id()->set_high(
       absl::Uint128High64(ElectionIdFromLower(id1)));
   arbitration->mutable_election_id()->set_low(
       absl::Uint128Low64(ElectionIdFromLower(id1)));
-
-  grpc::ClientContext context;
-  auto stream_channel = stub->StreamChannel(&context);
-  stream_channel->Write(request);
+  ASSERT_OK(SendStreamMessageRequest(&controller->Stub(), request));
 
   // Checks C2 cannot write after downgrading.
-  EXPECT_THAT(
-      pdpi::SendPiWriteRequest(
-          stub.get(), GetWriteRequest(1, ElectionIdFromLower(id1), DeviceId())),
-      NotMaster());
+  ASSERT_FALSE(pdpi::SendPiWriteRequest(
+                   &controller->Stub(),
+                   GetWriteRequest(1, ElectionIdFromLower(id1), DeviceId()))
+                   .ok());
 }
 
 }  // namespace
