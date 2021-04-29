@@ -54,6 +54,17 @@ inline absl::uint128 TimeBasedElectionId() {
   return absl::MakeUint128(msec / 1000, msec % 1000);
 }
 
+// Returns the gRPC ChannelArguments for P4Runtime by setting
+// `GRPC_ARG_KEEPALIVE_TIME_MS` (to avoid connection problems) and
+// `GRPC_ARG_MAX_METADATA_SIZE` (P4RT returns batch element status in the
+// grpc::Status, which can require a large metadata size).
+inline grpc::ChannelArguments GrpcChannelArgumentsForP4rt() {
+  grpc::ChannelArguments args;
+  args.SetInt(GRPC_ARG_MAX_METADATA_SIZE, P4GRPCMaxMetadataSize());
+  args.SetInt(GRPC_ARG_KEEPALIVE_TIME_MS, 300000 /*5 minutes*/);
+  return args;
+}
+
 // A P4Runtime session
 class P4RuntimeSession {
  public:

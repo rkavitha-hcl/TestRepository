@@ -31,10 +31,8 @@ using ::p4::v1::P4Runtime;
 std::unique_ptr<P4Runtime::Stub> CreateP4RuntimeStub(
     const std::string& address,
     const std::shared_ptr<grpc::ChannelCredentials>& credentials) {
-  grpc::ChannelArguments args;
-  args.SetInt(GRPC_ARG_MAX_METADATA_SIZE, P4GRPCMaxMetadataSize());
-  return P4Runtime::NewStub(
-      grpc::CreateCustomChannel(address, credentials, args));
+  return P4Runtime::NewStub(grpc::CreateCustomChannel(
+      address, credentials, GrpcChannelArgumentsForP4rt()));
 }
 
 // Creates a session with the switch, which lasts until the session object is
