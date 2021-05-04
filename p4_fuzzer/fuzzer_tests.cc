@@ -29,7 +29,7 @@
 #include "thinkit/mirror_testbed_fixture.h"
 #include "thinkit/test_environment.h"
 
-ABSL_FLAG(int, fuzzer_iterations, 10000,
+ABSL_FLAG(int, fuzzer_iterations, 6000,
           "Number of updates the fuzzer should generate.");
 
 namespace p4_fuzzer {
@@ -189,7 +189,11 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
 
     // Read switch state (to check that reading never fails).
     // TODO: check that the result is the same as switch_state.
-    ASSERT_OK(pdpi::ReadPiTableEntries(session.get()).status());
+    // TODO: do this in every iteration once there is no more performance
+    // issue.
+    if (i % 25 == 0) {
+      ASSERT_OK(pdpi::ReadPiTableEntries(session.get()).status());
+    }
   }
 
   LOG(INFO) << "Finished " << num_iterations << " iterations.";
