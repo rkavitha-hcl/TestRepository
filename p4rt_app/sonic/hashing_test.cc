@@ -58,7 +58,7 @@ TEST(HashingTest, GenerateAppDbHashFieldEntriesOk) {
   std::vector<EcmpHashEntry> expected_hash_fields = {
       {"compute_ecmp_hash_ipv6",
        {{"hash_field_list",
-         "[\"src_ipv6\",\"dst_ipv6\",\"l4_src_port\",\"l4_dst_port\"]"}}},
+         "[\"src_ip\",\"dst_ip\",\"l4_src_port\",\"l4_dst_port\"]"}}},
       {"compute_ecmp_hash_ipv4",
        {{"hash_field_list",
          "[\"src_ip\",\"dst_ip\",\"l4_src_port\",\"l4_dst_port\"]"}}}};

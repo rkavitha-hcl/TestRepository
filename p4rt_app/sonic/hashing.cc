@@ -35,8 +35,8 @@ absl::StatusOr<nlohmann::json> GenerateJsonHashFieldEntries(
   const absl::flat_hash_map<std::string, std::string> hash_fields_map = {
       {"SAI_NATIVE_HASH_FIELD_SRC_IPV4", "src_ip"},
       {"SAI_NATIVE_HASH_FIELD_DST_IPV4", "dst_ip"},
-      {"SAI_NATIVE_HASH_FIELD_SRC_IPV6", "src_ipv6"},
-      {"SAI_NATIVE_HASH_FIELD_DST_IPV6", "dst_ipv6"},
+      {"SAI_NATIVE_HASH_FIELD_SRC_IPV6", "src_ip"},
+      {"SAI_NATIVE_HASH_FIELD_DST_IPV6", "dst_ip"},
       {"SAI_NATIVE_HASH_FIELD_L4_SRC_PORT", "l4_src_port"},
       {"SAI_NATIVE_HASH_FIELD_L4_DST_PORT", "l4_dst_port"},
   };
@@ -168,8 +168,6 @@ absl::StatusOr<std::vector<std::string>> ProgramHashFieldTable(
   std::vector<std::string> keys;
   // Write to APP_DB.
   for (const auto& entry : entries) {
-    // TODO: Enable after OrchAgent support.
-    if (IsIpv6HashKey(entry.hash_key)) continue;
     app_db_table_hash.set(entry.hash_key, entry.hash_value);
     keys.push_back(
         absl::StrCat(app_db_table_hash.get_table_name(), ":", entry.hash_key));

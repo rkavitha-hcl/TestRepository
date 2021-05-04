@@ -98,12 +98,12 @@ TEST_F(HashingTest, InsertAllHashTableAndSwitchTableOk) {
               "hash_field_list",
               "[\"src_ip\",\"dst_ip\",\"l4_src_port\",\"l4_dst_port\"]"))));
       // TODO: Enable after OrchAgent support.
-      /*} else if (sonic::isIpv6HashKey(key)) {
-        EXPECT_THAT(
-            p4rt_service_.GetHashAppDbTable().ReadTableEntry(key),
-            IsOkAndHolds(Contains(Pair(
-                "hash_field_list",
-                "[\"src_ipv6\",\"dst_ipv6\",\"l4_src_port\",\"l4_dst_port\"]"))));*/
+    } else if (sonic::IsIpv6HashKey(key)) {
+      EXPECT_THAT(
+          p4rt_service_.GetHashAppDbTable().ReadTableEntry(key),
+          IsOkAndHolds(Contains(Pair(
+              "hash_field_list",
+              "[\"src_ip\",\"dst_ip\",\"l4_src_port\",\"l4_dst_port\"]"))));
     } else {
       FAIL() << "Unexpected key " << key
              << " present for Ecmp hash fields in P4Info";
@@ -113,7 +113,7 @@ TEST_F(HashingTest, InsertAllHashTableAndSwitchTableOk) {
               IsOkAndHolds(UnorderedElementsAre(
                   Pair("ecmp_hash_algorithm", _), Pair("ecmp_hash_seed", _),
                   // TODO: Enable after OrchAgent support.
-                  /*Pair("ecmp_hash_offset", _), Pair("ecmp_hash_ipv6", _),*/
+                  /*Pair("ecmp_hash_offset", _),*/ Pair("ecmp_hash_ipv6", _),
                   Pair("ecmp_hash_ipv4", _))));
 }
 
@@ -127,7 +127,7 @@ TEST_F(HashingTest, VerifySwitchTableValuesOk) {
       IsOkAndHolds(UnorderedElementsAre(
           Pair("ecmp_hash_algorithm", "crc_32lo"), Pair("ecmp_hash_seed", "0"),
           // TODO: Enable after OrchAgent support.
-          /*Pair("ecmp_hash_offset", _), Pair("ecmp_hash_ipv6", _),*/
+          /*Pair("ecmp_hash_offset", _),*/ Pair("ecmp_hash_ipv6", _),
           Pair("ecmp_hash_ipv4", "compute_ecmp_hash_ipv4"))));
 }
 
