@@ -16,11 +16,11 @@
 
 #include <utility>
 
+#include "absl/cleanup/cleanup.h"
 #include "absl/types/optional.h"
 #include "glog/logging.h"
 #include "p4_symbolic/symbolic/control.h"
 #include "p4_symbolic/symbolic/operators.h"
-#include "p4_symbolic/symbolic/packet.h"
 #include "p4_symbolic/symbolic/util.h"
 
 namespace p4_symbolic {
@@ -55,9 +55,6 @@ absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
 
   ASSIGN_OR_RETURN(z3::expr ingress_port,
                    ingress_headers.Get("standard_metadata.ingress_port"));
-  // TODO: Function hardcoded.
-  SymbolicPacket ingress_packet =
-      packet::ExtractSymbolicPacket(ingress_headers);
 
   // Evaluate the main program.
   ASSIGN_OR_RETURN(
@@ -99,10 +96,13 @@ absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   }
 
   // Construct solver state for this program.
-  SymbolicPacket egress_packet = packet::ExtractSymbolicPacket(egress_headers);
   SymbolicContext symbolic_context = {
-      ingress_port,    egress_port,    ingress_packet, egress_packet,
-      ingress_headers, egress_headers, trace};
+      .ingress_port = ingress_port,
+      .egress_port = egress_port,
+      .ingress_headers = ingress_headers,
+      .egress_headers = egress_headers,
+      .trace = trace,
+  };
 
   return std::make_unique<SolverState>(data_plane.program, data_plane.entries,
                                        symbolic_context, std::move(z3_solver),
@@ -116,11 +116,11 @@ absl::StatusOr<std::optional<ConcreteContext>> Solve(
 
   solver_state->solver->push();
   solver_state->solver->add(constraint);
+  auto pop = absl::Cleanup([&] { solver_state->solver->pop(); });
   z3::check_result check_result = solver_state->solver->check();
   switch (check_result) {
     case z3::unsat:
     case z3::unknown:
-      solver_state->solver->pop();
       return absl::nullopt;
 
     case z3::sat:
@@ -129,7 +129,6 @@ absl::StatusOr<std::optional<ConcreteContext>> Solve(
           ConcreteContext result,
           util::ExtractFromModel(solver_state->context, packet_model,
                                  solver_state->translator));
-      solver_state->solver->pop();
       return result;
   }
   LOG(DFATAL) << "invalid Z3 check() result: "

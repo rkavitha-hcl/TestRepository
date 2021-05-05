@@ -21,7 +21,6 @@
 #include "absl/strings/str_format.h"
 #include "p4_pdpi/utils/ir.h"
 #include "p4_symbolic/symbolic/operators.h"
-#include "p4_symbolic/symbolic/packet.h"
 
 namespace p4_symbolic {
 namespace symbolic {
@@ -88,12 +87,6 @@ absl::StatusOr<ConcreteContext> ExtractFromModel(
   std::string ingress_port = model.eval(context.ingress_port, true).to_string();
   std::string egress_port = model.eval(context.egress_port, true).to_string();
 
-  // Extract an input packet and its predicted output.
-  ConcretePacket ingress_packet =
-      packet::ExtractConcretePacket(context.ingress_packet, model);
-  ConcretePacket egress_packet =
-      packet::ExtractConcretePacket(context.egress_packet, model);
-
   // Extract the ingress and egress headers.
   ConcretePerPacketState ingress_headers;
   for (const auto &[name, expr] : context.ingress_headers) {
@@ -121,8 +114,6 @@ absl::StatusOr<ConcreteContext> ExtractFromModel(
   return ConcreteContext{
       .ingress_port = ingress_port,
       .egress_port = egress_port,
-      .ingress_packet = ingress_packet,
-      .egress_packet = egress_packet,
       .ingress_headers = ingress_headers,
       .egress_headers = egress_headers,
       .trace =
