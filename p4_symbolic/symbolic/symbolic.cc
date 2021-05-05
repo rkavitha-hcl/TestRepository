@@ -26,6 +26,14 @@
 namespace p4_symbolic {
 namespace symbolic {
 
+z3::expr EgressSpecDroppedValue() { return Z3Context().bv_val("111111111", 9); }
+
+absl::StatusOr<z3::expr> IsDropped(const SymbolicPerPacketState &state) {
+  ASSIGN_OR_RETURN(z3::expr egress_spec,
+                   state.Get("standard_metadata.egress_spec"));
+  return operators::Eq(egress_spec, EgressSpecDroppedValue());
+}
+
 z3::context &Z3Context() {
   static z3::context *z3_context = new z3::context();
   return *z3_context;
@@ -61,12 +69,8 @@ absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
       SymbolicTrace trace,
       control::EvaluateV1model(data_plane, &egress_headers, &translator));
 
-  // Alias the event that the packet is dropped for ease of use in assertions.
-  z3::expr dropped_value =
-      Z3Context().bv_val(DROPPED_EGRESS_SPEC_VALUE, DROPPED_EGRESS_SPEC_LENGTH);
-  ASSIGN_OR_RETURN(trace.dropped,
-                   egress_headers.Get("standard_metadata.egress_spec"));
-  ASSIGN_OR_RETURN(trace.dropped, operators::Eq(trace.dropped, dropped_value));
+  // Alias the event that the packet is dropped for ease of use in assertions
+  ASSIGN_OR_RETURN(trace.dropped, IsDropped(egress_headers));
 
   // Construct a symbolic context, containing state and trace information
   // from evaluating the tables.

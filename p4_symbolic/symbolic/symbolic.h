@@ -18,11 +18,6 @@
 #ifndef P4_SYMBOLIC_SYMBOLIC_SYMBOLIC_H_
 #define P4_SYMBOLIC_SYMBOLIC_SYMBOLIC_H_
 
-// A reserved special value assigned to standard_metadata.egress_spec when
-// the packet is dropped.
-#define DROPPED_EGRESS_SPEC_VALUE "111111111"
-#define DROPPED_EGRESS_SPEC_LENGTH 9
-
 #include <memory>
 #include <optional>
 #include <string>
@@ -61,6 +56,12 @@ using ConcretePerPacketState = absl::btree_map<std::string, std::string>;
 // An instace of this type is passed around and mutated by the functions
 // responsible for symbolically evaluating the program.
 using SymbolicPerPacketState = SymbolicGuardedMap;
+
+// V1model's `mark_to_drop` primitive sets the `egress_spec` field to this
+// value to indicate the packet should be dropped at the end of ingress/egress
+// processing. See v1model.p4 for details.
+z3::expr EgressSpecDroppedValue();
+absl::StatusOr<z3::expr> IsDropped(const SymbolicPerPacketState &state);
 
 // Expresses a concrete match for a corresponding concrete packet with a
 // table in the program.

@@ -39,10 +39,8 @@ absl::Status EvaluateStatement(const ir::Statement &statement,
           // TODO: conditonal needed to interpret clone as drop.
           statement.has_drop() ? statement.drop().header().header_name()
                                : "standard_metadata";
-      z3::expr dropped_value = Z3Context().bv_val(DROPPED_EGRESS_SPEC_VALUE,
-                                                  DROPPED_EGRESS_SPEC_LENGTH);
       RETURN_IF_ERROR(state->Set(absl::StrFormat("%s.egress_spec", header_name),
-                                 dropped_value, guard));
+                                 EgressSpecDroppedValue(), guard));
       RETURN_IF_ERROR(state->Set(absl::StrFormat("%s.mcast_grp", header_name),
                                  Z3Context().bv_val(0, 1), guard));
       return absl::OkStatus();
