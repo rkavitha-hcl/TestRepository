@@ -34,7 +34,7 @@ namespace util {
 
 // Free (unconstrained) symbolic headers consisting of free symbolic variables
 // for every field in every header instance defined in the P4 program.
-absl::StatusOr<std::map<std::string, z3::expr>> FreeSymbolicHeaders(
+absl::StatusOr<absl::btree_map<std::string, z3::expr>> FreeSymbolicHeaders(
     const google::protobuf::Map<std::string, ir::HeaderType> &headers);
 
 // Returns an symbolic table match containing default values.

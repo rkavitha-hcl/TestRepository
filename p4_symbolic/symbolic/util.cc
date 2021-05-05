@@ -39,12 +39,12 @@ bool Z3BooltoBool(Z3_lbool z3_bool) {
 
 }  // namespace
 
-absl::StatusOr<std::map<std::string, z3::expr>> FreeSymbolicHeaders(
+absl::StatusOr<absl::btree_map<std::string, z3::expr>> FreeSymbolicHeaders(
     const google::protobuf::Map<std::string, ir::HeaderType> &headers) {
   // Loop over every header instance in the p4 program.
   // Find its type, and loop over every field in it, creating a symbolic free
   // variable for every field in every header instance.
-  std::map<std::string, z3::expr> symbolic_headers;
+  absl::btree_map<std::string, z3::expr> symbolic_headers;
   for (const auto &[header_name, header_type] : headers) {
     // Special validity field.
     std::string valid_field_name = absl::StrFormat("%s.$valid$", header_name);
@@ -104,7 +104,7 @@ absl::StatusOr<ConcreteContext> ExtractFromModel(
   // Extract the trace (matches on every table).
   bool dropped =
       Z3BooltoBool(model.eval(context.trace.dropped, true).bool_value());
-  std::map<std::string, ConcreteTableMatch> matched_entries;
+  absl::btree_map<std::string, ConcreteTableMatch> matched_entries;
   for (const auto &[table, match] : context.trace.matched_entries) {
     matched_entries[table] = {
         Z3BooltoBool(model.eval(match.matched, true).bool_value()),
