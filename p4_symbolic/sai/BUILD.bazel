@@ -110,6 +110,7 @@ cc_library(
         "//gutil:status",
         "//p4_pdpi/string_encodings:bit_string",
         "//p4_pdpi/string_encodings:hex_string",
+        "//p4_symbolic:z3_util",
         "//p4_symbolic/symbolic",
         "@com_github_z3prover_z3//:api",
         "@com_google_absl//absl/status",

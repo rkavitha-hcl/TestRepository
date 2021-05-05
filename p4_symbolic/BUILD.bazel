@@ -49,12 +49,8 @@ cc_binary(
 
 cc_library(
     name = "parser",
-    srcs = [
-        "parser.cc",
-    ],
-    hdrs = [
-        "parser.h",
-    ],
+    srcs = ["parser.cc"],
+    hdrs = ["parser.h"],
     visibility = ["//visibility:public"],
     deps = [
         "//gutil:proto",
@@ -67,5 +63,19 @@ cc_library(
         "//p4_symbolic/symbolic",
         "//p4_symbolic/util",
         "@com_google_absl//absl/types:span",
+    ],
+)
+
+cc_library(
+    name = "z3_util",
+    srcs = ["z3_util.cc"],
+    hdrs = ["z3_util.h"],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//gutil:status",
+        "//p4_pdpi/string_encodings:hex_string",
+        "@com_github_z3prover_z3//:api",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
     ],
 )
