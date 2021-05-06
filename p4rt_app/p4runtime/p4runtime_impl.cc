@@ -189,9 +189,11 @@ bool P4InfoEquals(const p4::config::v1::P4Info& left,
 absl::StatusOr<pdpi::IrTableEntry> DoPiTableEntryToIr(
     const p4::v1::TableEntry& pi_table_entry, const pdpi::IrP4Info& p4_info,
     const std::string& role_name,
-    const boost::bimap<std::string, std::string>& port_translation_map) {
-  ASSIGN_OR_RETURN(pdpi::IrTableEntry ir_table_entry,
-                   pdpi::PiTableEntryToIr(p4_info, pi_table_entry));
+    const boost::bimap<std::string, std::string>& port_translation_map,
+    bool translate_key_only) {
+  ASSIGN_OR_RETURN(
+      pdpi::IrTableEntry ir_table_entry,
+      pdpi::PiTableEntryToIr(p4_info, pi_table_entry, translate_key_only));
 
   // Verify the table entry can be written to the table.
   RETURN_IF_ERROR(
@@ -217,10 +219,12 @@ sonic::AppDbUpdates PiTableEntryUpdatesToIr(
     ++ir_updates.total_rpc_updates;
 
     // If we cannot translate it then we should just report an error (i.e. do
-    // not try to handle it in lower layers).
-    auto ir_table_entry =
-        DoPiTableEntryToIr(update.entity().table_entry(), p4_info,
-                           request.role(), port_translation_map);
+    // not try to handle it in lower layers). When doing a DELETE, translate
+    // only the key part of the table entry because, from the specs, the control
+    // plane is not required to send the full entry.
+    auto ir_table_entry = DoPiTableEntryToIr(
+        update.entity().table_entry(), p4_info, request.role(),
+        port_translation_map, update.type() == p4::v1::Update::DELETE);
     *entry_status = GetIrUpdateStatus(ir_table_entry.status());
     if (!ir_table_entry.ok()) {
       LOG(WARNING) << "Could not translate PI to IR: "
