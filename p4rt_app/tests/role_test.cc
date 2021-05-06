@@ -34,6 +34,8 @@ namespace {
 
 using ::gutil::EqualsProto;
 using ::gutil::IsOkAndHolds;
+using ::gutil::StatusIs;
+using ::testing::HasSubstr;
 
 class RoleTest : public testing::Test {
  protected:
@@ -91,7 +93,7 @@ TEST_F(RoleTest, PrimaryAndBackupConnectionsPerRole) {
                                          .role = P4RUNTIME_ROLE_LINKQUAL_APP}));
 }
 
-TEST_F(RoleTest, DISABLED_RolesEnforceReadWriteOnTables) {
+TEST_F(RoleTest, RolesEnforceReadWriteOnTables) {
   ASSERT_OK_AND_ASSIGN(auto controller,
                        pdpi::P4RuntimeSession::Create(
                            p4rt_grpc_address_,
@@ -148,8 +150,15 @@ TEST_F(RoleTest, DISABLED_RolesEnforceReadWriteOnTables) {
   EXPECT_OK(
       pdpi::SetMetadataAndSendPiWriteRequest(linkqual.get(), linkqual_write));
 
-  // TODO: controller can not write to the linkqual ACL table.
-  // TODO: linkqual can not write to the ingress ACL table.
+  // controller can not write to the linkqual ACL table.
+  EXPECT_THAT(
+      pdpi::SetMetadataAndSendPiWriteRequest(controller.get(), linkqual_write),
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("PERMISSION_DENIED")));
+
+  // linkqual can not write to the ingress ACL table.
+  EXPECT_THAT(
+      pdpi::SetMetadataAndSendPiWriteRequest(linkqual.get(), ingress_write),
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("PERMISSION_DENIED")));
 
   // controller does not read state from the linkqual ACL table.
   p4::v1::ReadResponse expected_controller_response;

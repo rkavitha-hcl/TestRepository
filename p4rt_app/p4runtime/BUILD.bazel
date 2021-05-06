@@ -61,6 +61,8 @@ cc_library(
         "//gutil:collections",
         "//gutil:status",
         "//p4_pdpi:ir",
+        "//p4_pdpi:ir_cc_proto",
+        "//p4_pdpi/utils:annotation_parser",
         "//p4_pdpi/utils:ir",
         "//p4rt_app/sonic:app_db_acl_def_table_manager",
         "//p4rt_app/sonic:app_db_manager",

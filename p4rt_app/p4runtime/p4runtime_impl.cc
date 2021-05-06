@@ -33,6 +33,8 @@
 #include "gutil/collections.h"
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
+#include "p4_pdpi/ir.pb.h"
+#include "p4_pdpi/utils/annotation_parser.h"
 #include "p4_pdpi/utils/ir.h"
 #include "p4rt_app/p4runtime/ir_translation.h"
 #include "p4rt_app/p4runtime/p4info_verification.h"
@@ -60,11 +62,34 @@ absl::Status SupportedTableEntryRequest(const p4::v1::TableEntry& table_entry) {
   return absl::OkStatus();
 }
 
+absl::Status AllowRoleAccessToTable(const std::string& role_name,
+                                    const std::string& table_name,
+                                    const pdpi::IrP4Info& p4_info) {
+  // The defulat role can access any table.
+  if (role_name.empty()) return absl::OkStatus();
+
+  auto table_def = p4_info.tables_by_name().find(table_name);
+  if (table_def == p4_info.tables_by_name().end()) {
+    return gutil::InternalErrorBuilder()
+           << "Could not find table '" << table_name
+           << "' when checking role access. Did an IR translation fail "
+              "somewhere?";
+  }
+
+  if (table_def->second.role() != role_name) {
+    return gutil::PermissionDeniedErrorBuilder()
+           << "Role '" << role_name << "' is not allowd access to table '"
+           << table_name << "'.";
+  }
+
+  return absl::OkStatus();
+}
+
 // Read P4Runtime table entries out of the AppDb, and append them to the read
 // response.
 absl::Status AppendTableEntryReads(
     p4::v1::ReadResponse& response, const p4::v1::TableEntry& pi_table_entry,
-    const pdpi::IrP4Info& p4_info,
+    const pdpi::IrP4Info& p4_info, const std::string& role_name,
     const boost::bimap<std::string, std::string>& port_translation_map,
     swss::DBConnectorInterface& app_db_client,
     swss::DBConnectorInterface& counters_db_client, P4RuntimeTweaks* tweak) {
@@ -74,11 +99,18 @@ absl::Status AppendTableEntryReads(
   for (const auto& app_db_key :
        sonic::GetAllAppDbP4TableEntryKeys(app_db_client)) {
     // Read a single table entry out of the AppDb
-    ASSIGN_OR_RETURN(auto ir_table_entry, sonic::ReadAppDbP4TableEntry(
-                                              p4_info, app_db_client,
-                                              counters_db_client, app_db_key));
-    // TODO: This failure should put the switch into critical
-    // state.
+    ASSIGN_OR_RETURN(
+        pdpi::IrTableEntry ir_table_entry,
+        sonic::ReadAppDbP4TableEntry(p4_info, app_db_client, counters_db_client,
+                                     app_db_key));
+
+    // Only attach the entry if the role expects it.
+    auto allow_access =
+        AllowRoleAccessToTable(role_name, ir_table_entry.table_name(), p4_info);
+    if (!allow_access.ok()) {
+      VLOG(2) << "Ignoring read: " << allow_access;
+      continue;
+    }
 
     RETURN_IF_ERROR(TranslateTableEntry(
         TranslateTableEntryOptions{
@@ -106,8 +138,8 @@ absl::StatusOr<p4::v1::ReadResponse> DoRead(
     switch (entity.entity_case()) {
       case p4::v1::Entity::kTableEntry: {
         RETURN_IF_ERROR(AppendTableEntryReads(
-            response, entity.table_entry(), p4_info, port_translation_map,
-            app_db_client, counters_db_client, tweak));
+            response, entity.table_entry(), p4_info, request.role(),
+            port_translation_map, app_db_client, counters_db_client, tweak));
         break;
       }
       default:
@@ -156,9 +188,15 @@ bool P4InfoEquals(const p4::config::v1::P4Info& left,
 
 absl::StatusOr<pdpi::IrTableEntry> DoPiTableEntryToIr(
     const p4::v1::TableEntry& pi_table_entry, const pdpi::IrP4Info& p4_info,
+    const std::string& role_name,
     const boost::bimap<std::string, std::string>& port_translation_map) {
   ASSIGN_OR_RETURN(pdpi::IrTableEntry ir_table_entry,
                    pdpi::PiTableEntryToIr(p4_info, pi_table_entry));
+
+  // Verify the table entry can be written to the table.
+  RETURN_IF_ERROR(
+      AllowRoleAccessToTable(role_name, ir_table_entry.table_name(), p4_info));
+
   RETURN_IF_ERROR(TranslateTableEntry(
       TranslateTableEntryOptions{
           .direction = TranslationDirection::kForOrchAgent,
@@ -180,8 +218,9 @@ sonic::AppDbUpdates PiTableEntryUpdatesToIr(
 
     // If we cannot translate it then we should just report an error (i.e. do
     // not try to handle it in lower layers).
-    auto ir_table_entry = DoPiTableEntryToIr(update.entity().table_entry(),
-                                             p4_info, port_translation_map);
+    auto ir_table_entry =
+        DoPiTableEntryToIr(update.entity().table_entry(), p4_info,
+                           request.role(), port_translation_map);
     *entry_status = GetIrUpdateStatus(ir_table_entry.status());
     if (!ir_table_entry.ok()) {
       LOG(WARNING) << "Could not translate PI to IR: "
