@@ -233,6 +233,9 @@ cc_library(
 cc_library(
     name = "p4_roles",
     hdrs = ["roles.h"],
+    visibility = [
+        "//p4rt_app/tests:__pkg__",
+    ],
 )
 
 # -- Non-standard platforms ----------------------------------------------------

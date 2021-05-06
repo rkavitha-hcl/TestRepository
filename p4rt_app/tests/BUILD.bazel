@@ -53,6 +53,8 @@ cc_test(
         "//p4rt_app/tests/lib:p4runtime_grpc_service",
         "@com_github_google_glog//:glog",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -105,6 +107,44 @@ cc_test(
 )
 
 cc_test(
+    name = "hashing_test",
+    srcs = ["hashing_test.cc"],
+    tags = ["exclusive"],
+    deps = [
+        "//gutil:status_matchers",
+        "//p4_pdpi:connection_management",
+        "//p4_pdpi:entity_management",
+        "//p4rt_app/sonic:hashing",
+        "//p4rt_app/tests/lib:p4runtime_grpc_service",
+        "//sai_p4/instantiations/google:sai_p4info_cc",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
+    name = "packetio_test",
+    srcs = ["packetio_test.cc"],
+    tags = ["exclusive"],
+    deps = [
+        "//gutil:proto",
+        "//gutil:proto_matchers",
+        "//gutil:status_matchers",
+        "//p4_pdpi:connection_management",
+        "//p4_pdpi:entity_management",
+        "//p4_pdpi:pd",
+        "//p4_pdpi/string_encodings:hex_string",
+        "//p4rt_app/sonic:fake_packetio_interface",
+        "//p4rt_app/tests/lib:p4runtime_grpc_service",
+        "//sai_p4/fixed:p4_roles",
+        "//sai_p4/instantiations/google:sai_p4info_cc",
+        "//sai_p4/instantiations/google:sai_pd_cc_proto",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_test(
     name = "response_path_test",
     srcs = ["response_path_test.cc"],
     tags = ["exclusive"],
@@ -116,6 +156,30 @@ cc_test(
         "//p4rt_app/tests/lib:app_db_entry_builder",
         "//p4rt_app/tests/lib:p4runtime_grpc_service",
         "//sai_p4/instantiations/google:sai_p4info_cc",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "role_test",
+    srcs = ["role_test.cc"],
+    tags = ["exclusive"],
+    deps = [
+        "//gutil:proto_matchers",
+        "//gutil:status_matchers",
+        "//p4_pdpi:connection_management",
+        "//p4_pdpi:entity_management",
+        "//p4rt_app/tests/lib:p4runtime_grpc_service",
+        "//p4rt_app/tests/lib:p4runtime_request_helpers",
+        "//sai_p4/fixed:p4_roles",
+        "//sai_p4/instantiations/google:instantiations",
+        "//sai_p4/instantiations/google:p4_roles",
+        "//sai_p4/instantiations/google:sai_p4info_cc",
+        "@com_github_google_glog//:glog",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/types:optional",
         "@com_google_googletest//:gtest_main",
     ],
 )
@@ -153,43 +217,6 @@ cc_binary(
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
         "@com_google_absl//absl/time",
-        "@com_google_protobuf//:protobuf",
-    ],
-)
-
-cc_test(
-    name = "packetio_test",
-    srcs = ["packetio_test.cc"],
-    tags = ["exclusive"],
-    deps = [
-        "//gutil:proto",
-        "//gutil:proto_matchers",
-        "//gutil:status_matchers",
-        "//p4_pdpi:connection_management",
-        "//p4_pdpi:entity_management",
-        "//p4_pdpi:pd",
-        "//p4_pdpi/string_encodings:hex_string",
-        "//p4rt_app/sonic:fake_packetio_interface",
-        "//p4rt_app/tests/lib:p4runtime_grpc_service",
-        "//sai_p4/instantiations/google:sai_p4info_cc",
-        "//sai_p4/instantiations/google:sai_pd_cc_proto",
-        "@com_google_googletest//:gtest_main",
-        "@com_google_protobuf//:protobuf",
-    ],
-)
-
-cc_test(
-    name = "hashing_test",
-    srcs = ["hashing_test.cc"],
-    tags = ["exclusive"],
-    deps = [
-        "//gutil:status_matchers",
-        "//p4_pdpi:connection_management",
-        "//p4_pdpi:entity_management",
-        "//p4rt_app/sonic:hashing",
-        "//p4rt_app/tests/lib:p4runtime_grpc_service",
-        "//sai_p4/instantiations/google:sai_p4info_cc",
-        "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf",
     ],
 )

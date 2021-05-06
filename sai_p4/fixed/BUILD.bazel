@@ -61,6 +61,8 @@ cc_library(
     visibility = [
         "//p4_fuzzer:__pkg__",
         "//p4_pdpi:__pkg__",
+        "//p4rt_app/p4runtime:__pkg__",
+        "//p4rt_app/tests:__pkg__",
         "//platforms/networking/orion/core/sfe/common/p4:__pkg__",
         "//sai_p4/instantiations/google:__pkg__",
         "//tests/forwarding:__pkg__",
