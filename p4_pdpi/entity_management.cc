@@ -51,7 +51,7 @@ absl::Status BuildRequestAndSetForwardingPipelineConfig(
     P4RuntimeSession* session, const P4Info& p4info,
     SetForwardingPipelineConfigRequest& request) {
   request.set_device_id(session->DeviceId());
-  request.set_role(P4RUNTIME_ROLE_SDN_CONTROLLER);
+  request.set_role(session->Role());
   *request.mutable_election_id() = session->ElectionId();
   request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT);
   *request.mutable_config()->mutable_p4info() = p4info;
@@ -82,7 +82,7 @@ std::vector<Update> CreatePiUpdates(absl::Span<const TableEntry> pi_entries,
 absl::StatusOr<ReadResponse> SetMetadataAndSendPiReadRequest(
     P4RuntimeSession* session, ReadRequest& read_request) {
   read_request.set_device_id(session->DeviceId());
-  read_request.set_role(P4RUNTIME_ROLE_SDN_CONTROLLER);
+  read_request.set_role(session->Role());
   grpc::ClientContext context;
   auto reader = session->Stub().Read(&context, read_request);
 
@@ -113,7 +113,7 @@ absl::Status SendPiWriteRequest(P4Runtime::Stub* stub,
 absl::Status SetMetadataAndSendPiWriteRequest(P4RuntimeSession* session,
                                               WriteRequest& write_request) {
   write_request.set_device_id(session->DeviceId());
-  write_request.set_role(P4RUNTIME_ROLE_SDN_CONTROLLER);
+  write_request.set_role(session->Role());
   *write_request.mutable_election_id() = session->ElectionId();
 
   return SendPiWriteRequest(&session->Stub(), write_request);
@@ -201,7 +201,7 @@ absl::Status SetForwardingPipelineConfig(P4RuntimeSession* session,
                                          const P4Info& p4info,
                                          absl::string_view p4_device_config) {
   SetForwardingPipelineConfigRequest request;
-  request.set_role(P4RUNTIME_ROLE_SDN_CONTROLLER);
+  request.set_role(session->Role());
   *request.mutable_config()->mutable_p4_device_config() = p4_device_config;
 
   return BuildRequestAndSetForwardingPipelineConfig(session, p4info, request);

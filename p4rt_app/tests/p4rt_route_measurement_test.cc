@@ -15,6 +15,7 @@
 #include <vector>
 
 #include "absl/flags/flag.h"
+#include "absl/numeric/int128.h"
 #include "absl/strings/substitute.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
@@ -148,15 +149,17 @@ class P4rtRouteTest : public Test {
     // Create connection to P4RT server.
     auto stub = pdpi::CreateP4RuntimeStub(
         /*address=*/"127.0.0.1:9559", grpc::InsecureChannelCredentials());
+
+    absl::uint128 election_id = absl::MakeUint128(
+        (FLAGS_election_id == -1 ? absl::ToUnixSeconds(absl::Now())
+                                 : FLAGS_election_id),
+        0);
     ASSERT_OK_AND_ASSIGN(
         p4rt_session_,
         pdpi::P4RuntimeSession::Create(
             std::move(stub),
             /*device_id=*/183807201,
-            absl::MakeUint128(
-                (FLAGS_election_id == -1 ? absl::ToUnixSeconds(absl::Now())
-                                         : FLAGS_election_id),
-                0)));
+            pdpi::P4RuntimeSessionOptionalArgs{.election_id = election_id}));
     // Push P4 Info Config file if specified.
     if (FLAGS_push_config) {
       ASSERT_OK(pdpi::SetForwardingPipelineConfig(

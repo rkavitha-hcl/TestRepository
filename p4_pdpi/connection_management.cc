@@ -39,16 +39,18 @@ std::unique_ptr<P4Runtime::Stub> CreateP4RuntimeStub(
 // destructed.
 absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
     std::unique_ptr<P4Runtime::Stub> stub, uint32_t device_id,
-    absl::uint128 election_id) {
+    const P4RuntimeSessionOptionalArgs& metadata) {
   // Open streaming channel.
   // Using `new` to access a private constructor.
-  std::unique_ptr<P4RuntimeSession> session = absl::WrapUnique(
-      new P4RuntimeSession(device_id, std::move(stub), election_id));
+  std::unique_ptr<P4RuntimeSession> session =
+      absl::WrapUnique(new P4RuntimeSession(
+          device_id, std::move(stub), metadata.election_id, metadata.role));
 
   // Send arbitration request.
   p4::v1::StreamMessageRequest request;
   auto arbitration = request.mutable_arbitration();
   arbitration->set_device_id(device_id);
+  arbitration->mutable_role()->set_name(metadata.role);
   *arbitration->mutable_election_id() = session->election_id_;
   if (!session->stream_channel_->Write(request)) {
     return gutil::UnavailableErrorBuilder()
@@ -73,6 +75,11 @@ absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
     return gutil::InternalErrorBuilder() << "Received device id doesn't match: "
                                          << response.ShortDebugString();
   }
+  // TODO Enable this check once p4rt app supports role.
+  // if (response.arbitration().role().name() != session->role_) {
+  //   return gutil::InternalErrorBuilder() << "Received role doesn't match: "
+  //                                        << response.ShortDebugString();
+  // }
   if (response.arbitration().election_id().high() !=
       session->election_id_.high()) {
     return gutil::InternalErrorBuilder()
@@ -100,22 +107,23 @@ absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
 absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
     const std::string& address,
     const std::shared_ptr<grpc::ChannelCredentials>& credentials,
-    uint32_t device_id, absl::uint128 election_id) {
-  return Create(CreateP4RuntimeStub(address, credentials), device_id,
-                election_id);
+    uint32_t device_id, const P4RuntimeSessionOptionalArgs& metadata) {
+  return Create(CreateP4RuntimeStub(address, credentials), device_id, metadata);
 }
 
 absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
-    thinkit::Switch& thinkit_switch, absl::uint128 election_id) {
+    thinkit::Switch& thinkit_switch,
+    const P4RuntimeSessionOptionalArgs& metadata) {
   ASSIGN_OR_RETURN(auto stub, thinkit_switch.CreateP4RuntimeStub());
-  return Create(std::move(stub), thinkit_switch.DeviceId(), election_id);
+  return Create(std::move(stub), thinkit_switch.DeviceId(), metadata);
 }
 
 // Create the default session with the switch.
 std::unique_ptr<P4RuntimeSession> P4RuntimeSession::Default(
-    std::unique_ptr<P4Runtime::Stub> stub, uint32_t device_id) {
+    std::unique_ptr<P4Runtime::Stub> stub, uint32_t device_id,
+    const std::string& role) {
   // Using `new` to access a private constructor.
   return absl::WrapUnique(
-      new P4RuntimeSession(device_id, std::move(stub), device_id));
+      new P4RuntimeSession(device_id, std::move(stub), device_id, role));
 }
 }  // namespace pdpi

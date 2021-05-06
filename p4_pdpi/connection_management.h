@@ -29,6 +29,7 @@
 #include "grpcpp/security/credentials.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "sai_p4/fixed/roles.h"
 #include "thinkit/switch.h"
 
 namespace pdpi {
@@ -65,6 +66,17 @@ inline grpc::ChannelArguments GrpcChannelArgumentsForP4rt() {
   return args;
 }
 
+// This struct contains election id and role string with default values. The
+// client can also override them as needed.
+struct P4RuntimeSessionOptionalArgs {
+  absl::uint128 election_id = TimeBasedElectionId();
+  // If client want to use default role to have "full pipeline access", this
+  // field needs to be overriden to empty string.
+  // See:
+  // https://p4.org/p4runtime/spec/main/P4Runtime-Spec.html#sec-default-role.
+  std::string role = P4RUNTIME_ROLE_SDN_CONTROLLER;
+};
+
 // A P4Runtime session
 class P4RuntimeSession {
  public:
@@ -72,26 +84,31 @@ class P4RuntimeSession {
   // destructed.
   static absl::StatusOr<std::unique_ptr<P4RuntimeSession>> Create(
       std::unique_ptr<p4::v1::P4Runtime::Stub> stub, uint32_t device_id,
-      absl::uint128 election_id = TimeBasedElectionId());
+      const P4RuntimeSessionOptionalArgs& metadata =
+          P4RuntimeSessionOptionalArgs());
 
   // Creates a session with the switch, which lasts until the session object is
   // destructed.
   static absl::StatusOr<std::unique_ptr<P4RuntimeSession>> Create(
       const std::string& address,
       const std::shared_ptr<grpc::ChannelCredentials>& credentials,
-      uint32_t device_id, absl::uint128 election_id = TimeBasedElectionId());
+      uint32_t device_id,
+      const P4RuntimeSessionOptionalArgs& metadata =
+          P4RuntimeSessionOptionalArgs());
 
   // Creates a session with the switch, which lasts until the session object is
   // destructed.
   static absl::StatusOr<std::unique_ptr<P4RuntimeSession>> Create(
       thinkit::Switch& thinkit_switch,
-      absl::uint128 election_id = TimeBasedElectionId());
+      const P4RuntimeSessionOptionalArgs& metadata =
+          P4RuntimeSessionOptionalArgs());
 
   // Connects to the default session on the switch, which has no election_id
   // and which cannot be terminated. This should only be used for testing.
   // The stream_channel and stream_channel_context will be the nullptr.
   static std::unique_ptr<P4RuntimeSession> Default(
-      std::unique_ptr<p4::v1::P4Runtime::Stub> stub, uint32_t device_id);
+      std::unique_ptr<p4::v1::P4Runtime::Stub> stub, uint32_t device_id,
+      const std::string& role = "P4RUNTIME_ROLE_SDN_CONTROLLER");
 
   // Disables copy semantics.
   P4RuntimeSession(const P4RuntimeSession&) = delete;
@@ -105,6 +122,8 @@ class P4RuntimeSession {
   uint32_t DeviceId() const { return device_id_; }
   // Returns the election id that has been used to perform master arbitration.
   p4::v1::Uint128 ElectionId() const { return election_id_; }
+  // Returns the role of this session.
+  std::string Role() const { return role_; }
   // Returns the P4Runtime stub.
   p4::v1::P4Runtime::Stub& Stub() { return *stub_; }
   // Reads back stream message response.
@@ -123,8 +142,9 @@ class P4RuntimeSession {
  private:
   P4RuntimeSession(uint32_t device_id,
                    std::unique_ptr<p4::v1::P4Runtime::Stub> stub,
-                   absl::uint128 election_id)
+                   absl::uint128 election_id, const std::string& role)
       : device_id_(device_id),
+        role_(role),
         stub_(std::move(stub)),
         stream_channel_context_(absl::make_unique<grpc::ClientContext>()),
         stream_channel_(stub_->StreamChannel(stream_channel_context_.get())) {
@@ -136,6 +156,8 @@ class P4RuntimeSession {
   uint32_t device_id_;
   // The election id that has been used to perform master arbitration.
   p4::v1::Uint128 election_id_;
+  // The role of this session.
+  std::string role_;
   // The P4Runtime stub of the switch that this session belongs to.
   std::unique_ptr<p4::v1::P4Runtime::Stub> stub_;
 

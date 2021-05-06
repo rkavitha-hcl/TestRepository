@@ -61,7 +61,9 @@ class MasterArbitrationTestFixture : public P4BlackboxFixture {
   absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>> BecomeMaster(
       std::unique_ptr<P4Runtime::Stub> stub, uint64_t lower_election_id) const {
     return pdpi::P4RuntimeSession::Create(
-        std::move(stub), device_id_, ElectionIdFromLower(lower_election_id));
+        std::move(stub), device_id_,
+        pdpi::P4RuntimeSessionOptionalArgs{
+            .election_id = ElectionIdFromLower(lower_election_id)});
   }
 
   // Attempts to become master on a new stub.
