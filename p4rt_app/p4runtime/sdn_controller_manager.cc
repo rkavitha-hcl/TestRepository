@@ -14,225 +14,341 @@
 #include "p4rt_app/p4runtime/sdn_controller_manager.h"
 
 #include "absl/numeric/int128.h"
+#include "absl/status/status.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "glog/logging.h"
+#include "p4/v1/p4runtime.pb.h"
 
 namespace p4rt_app {
+namespace {
 
-using p4::v1::Uint128;
+std::string PrettyPrintRoleName(const absl::optional<std::string>& name) {
+  return (name.has_value()) ? absl::StrCat("'", *name, "'") : "<root>";
+}
+
+std::string PrettyPrintElectionId(const absl::optional<absl::uint128>& id) {
+  if (id.has_value()) {
+    p4::v1::Uint128 p4_id;
+    p4_id.set_high(absl::Uint128High64(*id));
+    p4_id.set_low(absl::Uint128Low64(*id));
+    return absl::StrCat("{ ", p4_id.ShortDebugString(), " }");
+  }
+  return "<backup>";
+}
+
+grpc::Status ValidateConnection(
+    const absl::optional<std::string>& role_name,
+    const absl::optional<absl::uint128>& election_id,
+    const std::vector<SdnConnection*>& active_connections) {
+  // If the election ID is not set then the controller is saying this should be
+  // a backup connection, and we allow any number of backup connections.
+  if (!election_id.has_value()) return grpc::Status::OK;
+
+  // Otherwise, we verify the election ID is unique among all active connections
+  // for a given role (including the root role).
+  for (const auto& connection : active_connections) {
+    if (connection->GetRoleName() == role_name &&
+        connection->GetElectionId() == election_id) {
+      return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+                          "Election ID is already used by another connection "
+                          "with the same role.");
+    }
+  }
+  return grpc::Status::OK;
+}
+
+}  // namespace
+
+void SdnConnection::SetElectionId(const absl::optional<absl::uint128>& id) {
+  election_id_ = id;
+}
+
+absl::optional<absl::uint128> SdnConnection::GetElectionId() const {
+  return election_id_;
+}
+
+void SdnConnection::SetRoleName(const absl::optional<std::string>& name) {
+  role_name_ = name;
+}
+
+absl::optional<std::string> SdnConnection::GetRoleName() const {
+  return role_name_;
+}
+
+void SdnConnection::SendStreamMessageResponse(
+    const p4::v1::StreamMessageResponse& response) {
+  if (!grpc_stream_->Write(response)) {
+    LOG(ERROR) << "Could not send arbitration update response to gRPC conext '"
+               << grpc_context_ << "': " << response.ShortDebugString();
+  }
+}
 
 grpc::Status SdnControllerManager::HandleArbitrationUpdate(
-    const p4::v1::MasterArbitrationUpdate& update,
-    SdnControllerConnection* controller) {
+    const p4::v1::MasterArbitrationUpdate& update, SdnConnection* controller) {
   absl::MutexLock l(&lock_);
 
   // TODO: arbitration should fail with invalid device id.
   device_id_ = update.device_id();
 
-  // Check for valid device id.
+  // Verify the request's device ID is being sent to the correct device.
   if (update.device_id() != device_id_) {
     return grpc::Status(
         grpc::StatusCode::FAILED_PRECONDITION,
-        absl::StrCat("This is the P4RT server for device ID ", device_id_,
-                     " but not ", update.device_id(), "."));
+        absl::StrCat("Arbitration request has the wrong device ID '",
+                     update.device_id(),
+                     "'. Cannot establish connection to this device '",
+                     device_id_, "'."));
   }
 
-  // Checks valid role.
-  if (update.role().id() != 0) {
-    return grpc::Status(grpc::StatusCode::UNIMPLEMENTED,
-                        "Only the default role (with ID 0) is supported.");
+  // If the role name is not set then we assume the connection is a 'root'
+  // connection.
+  absl::optional<std::string> role_name;
+  if (update.has_role() && !update.role().name().empty()) {
+    role_name = update.role().name();
   }
 
-  absl::uint128 election_id_received = ToNativeUint128(update.election_id());
+  // If the election ID is not set then we assume the controller does not want
+  // this connection to be the primary connection.
+  absl::optional<absl::uint128> election_id;
+  if (update.has_election_id()) {
+    election_id = absl::MakeUint128(update.election_id().high(),
+                                    update.election_id().low());
+  }
 
-  if (!controller->IsInitialized()) {
-    // If controller is newly connected.
-    // Checks election_id received is not used by any other controllers with the
-    // same device_id and role_id
-    if (IsElectionIdInUse(election_id_received)) {
-      return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
-                          "Election ID is already used by another controller");
-    }
+  // If the controller is already initialized we check if the role & election ID
+  // match. Assuming nothing has changed then there is nothing we need to do.
+  if (controller->IsInitialized() && controller->GetRoleName() == role_name &&
+      controller->GetElectionId() == election_id) {
+    SendArbitrationResponse(controller);
+    return grpc::Status::OK;
+  }
 
-    // Add the new controller to the list of all connected controllers.
-    LOG(INFO) << "Adding new SDN controller with election_id: "
-              << election_id_received;
-    controllers_.push_back(controller);
+  // Verify that this is a valid connection, and wont mess up internal state.
+  auto valid_connection =
+      ValidateConnection(role_name, election_id, connections_);
+  if (!valid_connection.ok()) {
+    return valid_connection;
+  }
+
+  // Update the connection with the arbitration data and initalize.
+  LOG(INFO) << "New SDN connection: " << update.ShortDebugString();
+  controller->SetRoleName(role_name);
+  controller->SetElectionId(election_id);
+  controller->Initialize();
+  connections_.push_back(controller);
+
+  // Check for any primary connection changes, and inform all active connections
+  // as needed.
+  if (UpdatePrimaryConnectionState(role_name)) {
+    // detected a primary connection change for the role so inform everyone.
+    InformConnectionsAboutPrimaryChange(role_name);
   } else {
-    // If the controller is already connected;
-    absl::uint128 current_election_id = controller->election_id_.value();
-
-    if (election_id_received == current_election_id) {
-      // if election_id in the request matches the one assigned to the
-      // current controller, no action needs to be performed regardless of
-      // whether this controller is master or secondary since we only support
-      // default role.
-      LOG(INFO) << "Arbitration request is using the same election_id as the "
-                << "current: " << election_id_received;
-    } else {
-      // Handles election_id change and potentially mastership change
-      if (IsElectionIdInUse(election_id_received)) {
-        return grpc::Status(
-            grpc::StatusCode::INVALID_ARGUMENT,
-            "Election ID is already used by another controller");
-      }
-    }
+    // primary connection didn't so inform just this connection that it is a
+    // backup.
+    SendArbitrationResponse(controller);
   }
-
-  UpdateAndSendResponse(controller, election_id_received);
   return grpc::Status::OK;
 }
 
-void SdnControllerManager::HandleControllerDisconnect(
-    SdnControllerConnection* controller) {
+void SdnControllerManager::Disconnect(SdnConnection* connection) {
   absl::MutexLock l(&lock_);
 
-  // Uninitialized controllers are not added into the list of connected
-  // controllers yet and no need to handle disconnection.
-  if (!controller->IsInitialized()) return;
-  // controller cannot be null.
-  bool is_master = IsMaster(controller);
+  // If the connection was never initialized then there is no work needed to
+  // disconnect it.
+  if (!connection->IsInitialized()) return;
 
-  absl::uint128 election_id = controller->election_id_.value();
-  for (auto it = controllers_.begin(); it != controllers_.end(); it++) {
-    if ((*it)->election_id_.value() == election_id) {
-      LOG(INFO) << "Dropping SDN controller with election_id: " << election_id;
-      controllers_.erase(it);
+  // Iterate through the list connections and remove this connection.
+  for (auto iter = connections_.begin(); iter != connections_.end(); ++iter) {
+    if (*iter == connection) {
+      LOG(INFO) << "Dropping SDN connection for role "
+                << PrettyPrintRoleName(connection->GetRoleName())
+                << " with election ID "
+                << PrettyPrintElectionId(connection->GetElectionId()) << ".";
+      connections_.erase(iter);
       break;
     }
   }
 
-  if (is_master) {
-    BroadCastMasterChangeUpdate();
+  // If connection was the primary connection we need to determine the new
+  // primary and inform all existing connections.
+  if (connection->GetElectionId().has_value() &&
+      (connection->GetElectionId() ==
+       primary_election_id_map_[connection->GetRoleName()])) {
+    UpdatePrimaryConnectionState(connection->GetRoleName());
+    InformConnectionsAboutPrimaryChange(connection->GetRoleName());
   }
 }
 
-bool SdnControllerManager::SendStreamMessageToMaster(
-    const p4::v1::StreamMessageResponse& response) {
+grpc::Status SdnControllerManager::AllowRequest(
+    const absl::optional<std::string>& role_name,
+    const absl::optional<absl::uint128>& election_id) {
   absl::MutexLock l(&lock_);
-  SdnControllerConnection* master = GetMasterController();
-  if (master == nullptr) return false;
-  master->SendStreamMessageResponse(response);
-  return true;
+
+  if (!election_id.has_value()) {
+    return grpc::Status(grpc::StatusCode::PERMISSION_DENIED,
+                        "Request does not have an election ID.");
+  }
+
+  const auto& primary_election_id = primary_election_id_map_.find(role_name);
+  if (primary_election_id == primary_election_id_map_.end()) {
+    return grpc::Status(grpc::StatusCode::PERMISSION_DENIED,
+                        "Only the primary connection can issue requests, but "
+                        "no primary connection has been established.");
+  }
+
+  if (election_id != primary_election_id->second) {
+    return grpc::Status(grpc::StatusCode::PERMISSION_DENIED,
+                        "Only the primary connection can issue requests.");
+  }
+  return grpc::Status::OK;
 }
 
-// Based on P4Runtime spec, unspecified election_id (with high=0, low=0) is
-// considered to be lower than any election_id, hence a controller with
-// unspecified election_id can never become master. If highest_election_id_ is
-// 0, then no master controller has came up yet.
-bool SdnControllerManager::IsMasterElectionId(absl::uint128 election_id) {
-  absl::MutexLock l(&lock_);
-  if (highest_election_id_ != 0 && election_id == highest_election_id_) {
-    // If the election_id matches the highest_election_id_, this loop verifies
-    // that there is indeed a master controller with that election id connected
-    // to the switch. This helps to avoid errors when a non-master controller
-    // accidentally uses the eletion_id of a previously disconnected master when
-    // sending Write requests.
-    for (const auto& controller : controllers_) {
-      if (controller->election_id_ == election_id) return true;
+grpc::Status SdnControllerManager::AllowRequest(
+    const p4::v1::WriteRequest& request) {
+  absl::optional<std::string> role_name;
+  if (!request.role().empty()) {
+    role_name = request.role();
+  }
+
+  absl::optional<absl::uint128> election_id;
+  if (request.has_election_id()) {
+    election_id = absl::MakeUint128(request.election_id().high(),
+                                    request.election_id().low());
+  }
+  return AllowRequest(role_name, election_id);
+}
+
+grpc::Status SdnControllerManager::AllowRequest(
+    const p4::v1::SetForwardingPipelineConfigRequest& request) {
+  absl::optional<std::string> role_name;
+  if (!request.role().empty()) {
+    role_name = request.role();
+  }
+
+  absl::optional<absl::uint128> election_id;
+  if (request.has_election_id()) {
+    election_id = absl::MakeUint128(request.election_id().high(),
+                                    request.election_id().low());
+  }
+  return AllowRequest(role_name, election_id);
+}
+
+bool SdnControllerManager::UpdatePrimaryConnectionState(
+    const absl::optional<std::string>& role_name) {
+  VLOG(1) << "Checking for new primary connections.";
+  // Find the highest election ID for the role.
+  absl::optional<absl::uint128> max_election_id;
+  for (const auto& connection_ptr : connections_) {
+    if (connection_ptr->GetRoleName() != role_name) continue;
+    max_election_id =
+        std::max(max_election_id, connection_ptr->GetElectionId());
+  }
+
+  auto& election_id = primary_election_id_map_[role_name];
+  if (election_id != max_election_id) {
+    if (max_election_id.has_value()) {
+      LOG(INFO) << "New primary connection for role "
+                << PrettyPrintRoleName(role_name) << " with election ID "
+                << PrettyPrintElectionId(max_election_id) << ".";
+    } else {
+      LOG(INFO) << "No longer have a primary connection for role "
+                << PrettyPrintRoleName(role_name) << ".";
     }
+    election_id = max_election_id;
+    return true;
   }
   return false;
 }
 
-void SdnControllerManager::UpdateAndSendResponse(
-    SdnControllerConnection* controller, absl::uint128 new_election_id) {
-  bool was_master = IsMaster(controller);
-  controller->election_id_ = new_election_id;
-  if (new_election_id != 0 && new_election_id >= highest_election_id_) {
-    highest_election_id_ = new_election_id;
-    BroadCastMasterChangeUpdate();
-  } else {
-    if (was_master) {
-      BroadCastMasterChangeUpdate();
-    } else {
-      controller->SendStreamMessageResponse(
-          PopulateMasterArbitrationResponse(/*is_master=*/false));
+void SdnControllerManager::InformConnectionsAboutPrimaryChange(
+    const absl::optional<std::string>& role_name) {
+  VLOG(1) << "Informing all connections about primary connection.";
+  for (const auto& connection : connections_) {
+    if (connection->GetRoleName() == role_name) {
+      SendArbitrationResponse(connection);
     }
   }
 }
 
-void SdnControllerManager::BroadCastMasterChangeUpdate() {
-  for (const auto& controller : controllers_) {
-    controller->SendStreamMessageResponse(
-        PopulateMasterArbitrationResponse(IsMaster(controller)));
-  }
-}
-
-p4::v1::StreamMessageResponse
-SdnControllerManager::PopulateMasterArbitrationResponse(bool is_master) {
+void SdnControllerManager::SendArbitrationResponse(SdnConnection* connection) {
   p4::v1::StreamMessageResponse response;
-  auto update = response.mutable_arbitration();
-  update->set_device_id(device_id_);
-  auto status = update->mutable_status();
+  auto arbitration = response.mutable_arbitration();
 
-  // Sets election_id to the highest_election_id if any master controller has
-  // connected.
-  if (highest_election_id_ > 0) {
-    auto election_id = update->mutable_election_id();
-    election_id->set_high(absl::Uint128High64(highest_election_id_));
-    election_id->set_low(absl::Uint128Low64(highest_election_id_));
+  // Always set device ID.
+  arbitration->set_device_id(device_id_);
+
+  // Populate the role only if the connection has set one.
+  if (connection->GetRoleName().has_value()) {
+    *arbitration->mutable_role()->mutable_name() =
+        connection->GetRoleName().value();
   }
 
-  // Checks if there is a master controller.
-  if (HasMasterController()) {
-    if (is_master) {
+  // Populate the election ID only if there is a primary connection.
+  absl::optional<absl::uint128> primary_election_id =
+      primary_election_id_map_[connection->GetRoleName()];
+
+  if (primary_election_id.has_value()) {
+    arbitration->mutable_election_id()->set_high(
+        absl::Uint128High64(primary_election_id.value()));
+    arbitration->mutable_election_id()->set_low(
+        absl::Uint128Low64(primary_election_id.value()));
+  }
+
+  // Update connection status for the arbitration response.
+  auto status = arbitration->mutable_status();
+  if (primary_election_id.has_value()) {
+    // has primary connection.
+    if (primary_election_id == connection->GetElectionId()) {
+      // and this connection is it.
       status->set_code(grpc::StatusCode::OK);
-      status->set_message("This connection is a master connection.");
+      status->set_message("you are the primary connection.");
     } else {
+      // but this connection is a backup.
       status->set_code(grpc::StatusCode::ALREADY_EXISTS);
       status->set_message(
-          "This connection is a secondary connection, and there is another "
-          "connection with a master.");
+          "you are a backup connection, and a primary connection exists.");
     }
-    return response;
+  } else {
+    // no primary connection exists.
+    status->set_code(grpc::StatusCode::NOT_FOUND);
+    status->set_message(
+        "you are a backup connection, and NO primary connection exists.");
   }
-
-  status->set_code(grpc::StatusCode::NOT_FOUND);
-  status->set_message(
-      "This connection is a secondary connection, and there is currently no "
-      "master connection.");
-  return response;
+  connection->SendStreamMessageResponse(response);
 }
 
-void SdnControllerConnection::SendStreamMessageResponse(
+bool SdnControllerManager::SendStreamMessageToPrimary(
+    const absl::optional<std::string>& role_name,
     const p4::v1::StreamMessageResponse& response) {
-  if (!stream_->Write(response)) {
-    LOG(ERROR) << "[arbitration]: failed to send MasterArbitrationUpdate: "
-               << response.DebugString() << " grpc context " << context_
-               << std::endl;
-  }
-}
+  absl::MutexLock l(&lock_);
 
-bool SdnControllerManager::IsElectionIdInUse(absl::uint128 election_id) {
-  for (const auto& controller : controllers_) {
-    if (controller->election_id_.value() == election_id) return true;
-  }
-  return false;
-}
+  // Get the primary election ID for the controller role.
+  absl::optional<absl::uint128> primary_election_id =
+      primary_election_id_map_[role_name];
 
-bool SdnControllerManager::HasMasterController() {
-  if (highest_election_id_ == 0) return false;
-  for (const auto& controller : controllers_) {
-    if (controller->election_id_.value() == highest_election_id_) {
-      return true;
+  // If there is no election ID set, then there is no primary connection.
+  if (!primary_election_id.has_value()) return false;
+
+  // Otherwise find the primary connection.
+  SdnConnection* primary_connection = nullptr;
+  for (const auto& connection : connections_) {
+    if (connection->GetRoleName() == role_name &&
+        connection->GetElectionId() == primary_election_id) {
+      primary_connection = connection;
     }
   }
-  return false;
-}
 
-SdnControllerConnection* SdnControllerManager::GetMasterController() const {
-  if (highest_election_id_ == 0) return nullptr;
-  for (const auto& controller : controllers_) {
-    if (controller->election_id_.value() == highest_election_id_) {
-      return controller;
-    }
+  if (primary_connection == nullptr) {
+    LOG(ERROR) << "Found an election ID '"
+               << PrettyPrintElectionId(primary_election_id)
+               << "' for the primary connection, but could not find the "
+               << "connection itself?";
+    return false;
   }
-  return nullptr;
-}
 
-absl::uint128 ToNativeUint128(const p4::v1::Uint128 id) {
-  return absl::MakeUint128(id.high(), id.low());
+  primary_connection->SendStreamMessageResponse(response);
+  return true;
 }
 
 }  // namespace p4rt_app

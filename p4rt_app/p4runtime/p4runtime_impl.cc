@@ -42,12 +42,12 @@
 #include "p4rt_app/sonic/response_handler.h"
 #include "p4rt_app/utils/status_utility.h"
 #include "p4rt_app/utils/table_utility.h"
+#include "sai_p4/fixed/roles.h"
 
 namespace p4rt_app {
+namespace {
 
 using ::google::protobuf::util::MessageDifferencer;
-
-namespace {
 
 absl::Status SupportedTableEntryRequest(const p4::v1::TableEntry& table_entry) {
   if (table_entry.table_id() != 0 || !table_entry.match().empty() ||
@@ -316,11 +316,11 @@ grpc::Status P4RuntimeImpl::Write(grpc::ServerContext* context,
   try {
 #endif
     absl::MutexLock l(&server_state_lock_);
-    // Only accept a write request if it is from the master controller.
-    if (!controller_manager_->IsMasterElectionId(
-            ToNativeUint128(request->election_id()))) {
-      return grpc::Status(grpc::StatusCode::PERMISSION_DENIED,
-                          "Only master controller can issue write requests.");
+
+    // verify the request comes from the primary connection.
+    auto connection_status = controller_manager_->AllowRequest(*request);
+    if (!connection_status.ok()) {
+      return connection_status;
     }
 
     // We can only program the flow if the forwarding pipeline has been set.
@@ -413,42 +413,46 @@ grpc::Status P4RuntimeImpl::StreamChannel(
 #ifdef __EXCEPTIONS
   try {
 #endif
-    auto controller =
-        absl::make_unique<SdnControllerConnection>(context, stream);
+    // We create a unique SDN connection object for every active connection.
+    auto sdn_connection = absl::make_unique<SdnConnection>(context, stream);
+
+    // While the connection is active we can receive and send requests.
     p4::v1::StreamMessageRequest request;
     while (stream->Read(&request)) {
+      absl::MutexLock l(&server_state_lock_);
+
       switch (request.update_case()) {
         case p4::v1::StreamMessageRequest::kArbitration: {
-          absl::MutexLock l(&server_state_lock_);
-          LOG(INFO) << "[arbitration]: StreamChannel received master "
-                       "arbitration update: "
-                    << request.DebugString() << std::endl;
+          LOG(INFO) << "Received arbitration request: "
+                    << request.ShortDebugString();
+
           auto status = controller_manager_->HandleArbitrationUpdate(
-              request.arbitration(), controller.get());
+              request.arbitration(), sdn_connection.get());
           if (!status.ok()) {
-            LOG(ERROR) << "Failed arbitration update: "
-                       << status.error_message();
-            controller_manager_->HandleControllerDisconnect(controller.get());
+            LOG(WARNING) << "Failed arbitration request: "
+                         << status.error_message();
+            controller_manager_->Disconnect(sdn_connection.get());
             return status;
           }
           break;
         }
         case p4::v1::StreamMessageRequest::kPacket: {
-          absl::MutexLock l(&server_state_lock_);
           // Returns with an error if the write request was not received from a
-          // master controller
-          auto is_master = controller_manager_->IsMasterElectionId(
-              controller->GetElectionId().value_or(0));
-          if (!is_master) {
-            controller->SendStreamMessageResponse(GenerateErrorResponse(
-                gutil::PermissionDeniedErrorBuilder().LogError()
-                    << "Cannot process request. Only the master controller can "
-                       "send PacketOuts.",
+          // primary connection
+          bool is_primary = controller_manager_
+                                ->AllowRequest(sdn_connection->GetRoleName(),
+                                               sdn_connection->GetElectionId())
+                                .ok();
+          if (!is_primary) {
+            sdn_connection->SendStreamMessageResponse(GenerateErrorResponse(
+                gutil::PermissionDeniedErrorBuilder()
+                    << "Cannot process request. Only the primary connection "
+                       "can send PacketOuts.",
                 request.packet()));
           } else {
             if (!ir_p4info_.has_value()) {
-              controller->SendStreamMessageResponse(GenerateErrorResponse(
-                  gutil::FailedPreconditionErrorBuilder().LogError()
+              sdn_connection->SendStreamMessageResponse(GenerateErrorResponse(
+                  gutil::FailedPreconditionErrorBuilder()
                   << "Cannot send packet out. Switch has no "
                      "ForwardingPipelineConfig."));
             } else {
@@ -456,12 +460,12 @@ grpc::Status P4RuntimeImpl::StreamChannel(
                   SendPacketOut(ir_p4info_.value(), port_translation_map_,
                                 packetio_impl_.get(), request.packet());
               if (!status.ok()) {
-                // Get master streamchannel and write into the stream.
-                controller_manager_->SendStreamMessageToMaster(
-                    GenerateErrorResponse(
-                        gutil::StatusBuilder(status).LogError()
-                            << "Failed to send packet out.",
-                        request.packet()));
+                // Get the primary streamchannel and write into the stream.
+                controller_manager_->SendStreamMessageToPrimary(
+                    sdn_connection->GetRoleName(),
+                    GenerateErrorResponse(gutil::StatusBuilder(status)
+                                              << "Failed to send packet out.",
+                                          request.packet()));
               }
             }
           }
@@ -470,16 +474,17 @@ grpc::Status P4RuntimeImpl::StreamChannel(
         case p4::v1::StreamMessageRequest::kDigestAck:
         case p4::v1::StreamMessageRequest::kOther:
         default:
-          controller->SendStreamMessageResponse(
+          sdn_connection->SendStreamMessageResponse(
               GenerateErrorResponse(gutil::UnimplementedErrorBuilder()
                                     << "Stream update type is not supported."));
           LOG(ERROR) << "Received unhandled stream channel message: "
                      << request.DebugString();
       }
     }
+
     {
       absl::MutexLock l(&server_state_lock_);
-      controller_manager_->HandleControllerDisconnect(controller.get());
+      controller_manager_->Disconnect(sdn_connection.get());
     }
     return grpc::Status::OK;
 #ifdef __EXCEPTIONS
@@ -501,13 +506,10 @@ grpc::Status P4RuntimeImpl::SetForwardingPipelineConfig(
     absl::MutexLock l(&server_state_lock_);
     LOG(INFO)
         << "Received SetForwardingPipelineConfig request from election id: "
-        << ToNativeUint128(request->election_id());
-    if (!controller_manager_->IsMasterElectionId(
-            ToNativeUint128(request->election_id()))) {
-      return AbslStatusToGrpcStatus(
-          gutil::PermissionDeniedErrorBuilder().LogError()
-          << "SetForwardingPipelineConfig is only available to the master "
-          << "controller.");
+        << request->election_id().ShortDebugString();
+    auto connection_status = controller_manager_->AllowRequest(*request);
+    if (!connection_status.ok()) {
+      return connection_status;
     }
 
     if (request->action() !=
@@ -684,8 +686,9 @@ absl::StatusOr<std::thread> P4RuntimeImpl::StartReceive(bool use_genetlink) {
     *response.mutable_packet() = packet_in;
     *response.mutable_packet()->mutable_payload() = payload;
     absl::MutexLock l(&server_state_lock_);
-    // Get master streamchannel and write into the stream.
-    controller_manager_->SendStreamMessageToMaster(response);
+    // Get the primary streamchannel and write into the stream.
+    controller_manager_->SendStreamMessageToPrimary(
+        P4RUNTIME_ROLE_SDN_CONTROLLER, response);
     return absl::OkStatus();
   };
 

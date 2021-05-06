@@ -84,7 +84,7 @@ TEST_F(ArbitrationTest, PrimaryConnectionWithElectionId) {
   EXPECT_EQ(response.arbitration().status().code(), grpc::StatusCode::OK);
 }
 
-TEST_F(ArbitrationTest, DISABLED_PrimaryConnectionWithElectionIdZero) {
+TEST_F(ArbitrationTest, PrimaryConnectionWithElectionIdZero) {
   grpc::ClientContext context;
   std::unique_ptr<P4RuntimeStream> stream = stub_->StreamChannel(&context);
 

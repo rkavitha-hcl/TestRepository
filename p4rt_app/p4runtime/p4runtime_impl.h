@@ -229,7 +229,6 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
   // PacketIoImplementation object.
   std::unique_ptr<sonic::PacketIoInterface> packetio_impl_
       ABSL_GUARDED_BY(server_state_lock_);
-  friend class SdnControllerManager;
 };
 
 }  // namespace p4rt_app

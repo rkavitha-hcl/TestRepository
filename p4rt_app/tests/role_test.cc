@@ -65,7 +65,7 @@ TEST_F(RoleTest, PrimaryConnectionsPerRole) {
                                          .role = P4RUNTIME_ROLE_LINKQUAL_APP}));
 }
 
-TEST_F(RoleTest, DISABLED_PrimaryAndBackupConnectionsPerRole) {
+TEST_F(RoleTest, PrimaryAndBackupConnectionsPerRole) {
   // controller primary.
   EXPECT_OK(pdpi::P4RuntimeSession::Create(
       p4rt_grpc_address_, grpc::InsecureChannelCredentials(), p4rt_device_id_,
