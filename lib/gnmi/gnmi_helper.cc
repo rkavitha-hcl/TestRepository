@@ -437,10 +437,43 @@ absl::StatusOr<std::vector<std::string>> ParseAlarms(
 
 absl::StatusOr<std::vector<std::string>> GetAlarms(
     gnmi::gNMI::StubInterface& gnmi_stub) {
-  ASSIGN_OR_RETURN(std::string alarms_json,
-                   GetGnmiStatePathInfo(&gnmi_stub, "system/alarms/alarm",
-                                        "openconfig-system:alarm"));
-  return ParseAlarms(alarms_json);
+  ASSIGN_OR_RETURN(
+      gnmi::GetRequest request,
+      BuildGnmiGetRequest("system/alarms", gnmi::GetRequest::STATE));
+  LOG(INFO) << "Sending GET request: " << request.ShortDebugString();
+  gnmi::GetResponse response;
+  grpc::ClientContext context;
+  grpc::Status status = gnmi_stub.Get(&context, request, &response);
+  if (!status.ok()) {
+    return gutil::GrpcStatusToAbslStatus(status);
+  }
+
+  LOG(INFO) << "Received GET response: " << response.ShortDebugString();
+  if (response.notification_size() != 1) {
+    return gutil::InternalErrorBuilder().LogError()
+           << "Unexpected size in response (should be 1): "
+           << response.notification_size();
+  }
+  if (response.notification(0).update_size() != 1) {
+    return gutil::InternalErrorBuilder().LogError()
+           << "Unexpected update size in response (should be 1): "
+           << response.notification(0).update_size();
+  }
+
+  const auto response_json =
+      json::parse(response.notification(0).update(0).val().json_ietf_val());
+  const auto alarms_json = response_json.find("openconfig-system:alarms");
+  // If alarms returns an empty subtree, assume no alarms and return an empty
+  // list.
+  if (alarms_json == response_json.end()) {
+    return std::vector<std::string>();
+  }
+
+  const auto alarm_json = alarms_json->find("alarm");
+  if (alarm_json == alarms_json->end()) {
+    return std::vector<std::string>();
+  }
+  return ParseAlarms(alarm_json->dump());
 }
 
 absl::string_view StripQuotes(absl::string_view string) {

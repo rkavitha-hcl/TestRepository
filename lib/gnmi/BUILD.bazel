@@ -1,4 +1,4 @@
-# Copyright 2020 Google LLC
+# Copyright 2021 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -59,8 +59,10 @@ cc_test(
         "//gutil:status_matchers",
         "//gutil:testing",
         "@com_github_gnmi//proto/gnmi:gnmi_cc_proto",
+        "@com_github_gnmi//proto/gnmi:gnmi_grpc_proto",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
         "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],
 )
