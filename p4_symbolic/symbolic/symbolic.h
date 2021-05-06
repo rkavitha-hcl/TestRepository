@@ -36,10 +36,6 @@
 namespace p4_symbolic {
 namespace symbolic {
 
-// Global z3::context used for creating symbolic expressions during symbolic
-// evaluation.
-z3::context &Z3Context();
-
 // Maps the name of a header field in the p4 program to its concrete value.
 using ConcretePerPacketState = absl::btree_map<std::string, std::string>;
 

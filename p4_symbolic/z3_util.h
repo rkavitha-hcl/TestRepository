@@ -11,6 +11,10 @@
 
 namespace p4_symbolic {
 
+// Global z3::context used for creating symbolic expressions during symbolic
+// evaluation.
+z3::context& Z3Context();
+
 // -- Evaluation ---------------------------------------------------------------
 
 absl::StatusOr<bool> EvalZ3Bool(const z3::expr& bool_expr,
@@ -19,6 +23,14 @@ absl::StatusOr<bool> EvalZ3Bool(const z3::expr& bool_expr,
 template <size_t num_bits>
 absl::StatusOr<std::bitset<num_bits>> EvalZ3Bitvector(const z3::expr& bv_expr,
                                                       const z3::model& model);
+
+// -- Constructing Z3 expressions ----------------------------------------------
+
+// Returns Z3 bitvector of the given `hex_string` value.
+// If no bitwidth is
+absl::StatusOr<z3::expr> HexStringToZ3Bitvector(
+    const std::string& hex_string,
+    absl::optional<int> bitwidth = absl::nullopt);
 
 // == END OF PUBLIC INTERFACE ==================================================
 

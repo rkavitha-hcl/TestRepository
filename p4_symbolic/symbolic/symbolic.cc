@@ -22,6 +22,7 @@
 #include "p4_symbolic/symbolic/control.h"
 #include "p4_symbolic/symbolic/operators.h"
 #include "p4_symbolic/symbolic/util.h"
+#include "p4_symbolic/z3_util.h"
 
 namespace p4_symbolic {
 namespace symbolic {
@@ -32,11 +33,6 @@ absl::StatusOr<z3::expr> IsDropped(const SymbolicPerPacketState &state) {
   ASSIGN_OR_RETURN(z3::expr egress_spec,
                    state.Get("standard_metadata.egress_spec"));
   return operators::Eq(egress_spec, EgressSpecDroppedValue());
-}
-
-z3::context &Z3Context() {
-  static z3::context *z3_context = new z3::context();
-  return *z3_context;
 }
 
 absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(

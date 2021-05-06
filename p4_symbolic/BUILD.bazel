@@ -75,6 +75,8 @@ cc_library(
         "//gutil:status",
         "//p4_pdpi/string_encodings:hex_string",
         "@com_github_z3prover_z3//:api",
+        "@com_gnu_gmp//:gmp",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
     ],

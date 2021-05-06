@@ -29,6 +29,7 @@
 #include "p4_symbolic/symbolic/conditional.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 #include "p4_symbolic/symbolic/table.h"
+#include "p4_symbolic/z3_util.h"
 
 namespace p4_symbolic::symbolic::control {
 
