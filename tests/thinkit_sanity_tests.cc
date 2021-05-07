@@ -153,6 +153,10 @@ void TestGnmiCheckInterfaceStateOperation(thinkit::MirrorTestbed& testbed) {
   EXPECT_OK(PortsUp(testbed.Sut()));
 }
 
+void TestGnmiCheckAlarms(thinkit::MirrorTestbed& testbed) {
+  EXPECT_OK(NoAlarms(testbed.Sut()));
+}
+
 // This test sets the config blob and verifies corresponding state paths.
 void TestGnmiConfigBlobSet(thinkit::Switch& sut) {
   ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());

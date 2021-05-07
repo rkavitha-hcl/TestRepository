@@ -37,6 +37,9 @@ void TestGnmiGetAllOperation(thinkit::Switch& sut);
 // Tests that SUT all ports state is UP.
 void TestGnmiCheckInterfaceStateOperation(thinkit::MirrorTestbed& testbed);
 
+// Tests that no gNMI alarms are set.
+void TestGnmiCheckAlarms(thinkit::MirrorTestbed& testbed);
+
 // Tests that SUT specific port state is UP.
 void TestGnmiCheckSpecificInterfaceStateOperation(thinkit::Switch& sut,
                                                   absl::string_view if_name);
