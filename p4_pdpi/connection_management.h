@@ -84,24 +84,20 @@ class P4RuntimeSession {
   // destructed.
   static absl::StatusOr<std::unique_ptr<P4RuntimeSession>> Create(
       std::unique_ptr<p4::v1::P4Runtime::Stub> stub, uint32_t device_id,
-      const P4RuntimeSessionOptionalArgs& metadata =
-          P4RuntimeSessionOptionalArgs());
+      const P4RuntimeSessionOptionalArgs& metadata = {});
 
   // Creates a session with the switch, which lasts until the session object is
   // destructed.
   static absl::StatusOr<std::unique_ptr<P4RuntimeSession>> Create(
       const std::string& address,
       const std::shared_ptr<grpc::ChannelCredentials>& credentials,
-      uint32_t device_id,
-      const P4RuntimeSessionOptionalArgs& metadata =
-          P4RuntimeSessionOptionalArgs());
+      uint32_t device_id, const P4RuntimeSessionOptionalArgs& metadata = {});
 
   // Creates a session with the switch, which lasts until the session object is
   // destructed.
   static absl::StatusOr<std::unique_ptr<P4RuntimeSession>> Create(
       thinkit::Switch& thinkit_switch,
-      const P4RuntimeSessionOptionalArgs& metadata =
-          P4RuntimeSessionOptionalArgs());
+      const P4RuntimeSessionOptionalArgs& metadata = {});
 
   // Connects to the default session on the switch, which has no election_id
   // and which cannot be terminated. This should only be used for testing.
