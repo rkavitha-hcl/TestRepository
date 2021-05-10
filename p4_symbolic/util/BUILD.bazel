@@ -28,7 +28,6 @@ cc_library(
         # TODO: clean up.
         # "status.h",
     ],
-    visibility = ["//p4_symbolic:__subpackages__"],
     deps = [
         "//gutil:status",
         "@com_google_absl//absl/status",

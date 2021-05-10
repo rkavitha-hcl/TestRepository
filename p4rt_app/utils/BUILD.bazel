@@ -20,7 +20,6 @@ cc_library(
     name = "table_utility",
     srcs = ["table_utility.cc"],
     hdrs = ["table_utility.h"],
-    visibility = ["//visibility:public"],
     deps = [
         "//gutil:status",
         "//p4_pdpi:ir_cc_proto",

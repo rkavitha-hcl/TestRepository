@@ -40,7 +40,6 @@ cc_library(
     name = "test_p4info_cc",
     srcs = ["test_p4info.cc"],
     hdrs = ["test_p4info.h"],
-    visibility = ["//visibility:public"],
     deps = [
         ":test_p4info_embed",
         "//p4_pdpi:ir",
@@ -74,7 +73,6 @@ proto_library(
 
 cc_proto_library(
     name = "main_p4_pd_cc_proto",
-    visibility = ["//p4_fuzzer:__pkg__"],
     deps = [":main_p4_pd_proto"],
 )
 

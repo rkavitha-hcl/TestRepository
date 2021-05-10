@@ -6,5 +6,4 @@ exports_files(
         "*.p4",
     ]),
     licenses = ["notice"],
-    visibility = ["//visibility:public"],
 )

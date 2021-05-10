@@ -22,7 +22,6 @@ cc_library(
     hdrs = [
         "ordered_protobuf_map.h",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "@com_google_protobuf//:protobuf",
     ],

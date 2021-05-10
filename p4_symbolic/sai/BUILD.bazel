@@ -85,7 +85,6 @@ cc_library(
     name = "parser",
     srcs = ["parser.cc"],
     hdrs = ["parser.h"],
-    visibility = ["//p4_symbolic:__subpackages__"],
     deps = [
         ":fields",
         "//gutil:status",

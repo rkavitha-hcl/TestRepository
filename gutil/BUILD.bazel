@@ -25,7 +25,6 @@ cc_library(
     hdrs = [
         "status.h",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "@com_github_grpc_grpc//:grpc++",
         "@com_google_absl//absl/status",
@@ -88,7 +87,6 @@ cc_library(
     hdrs = [
         "testing.h",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         ":proto",
         ":status",
@@ -103,7 +101,6 @@ cc_library(
     hdrs = [
         "collections.h",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         ":status",
         "@com_github_google_glog//:glog",
@@ -123,7 +120,6 @@ cc_library(
     hdrs = [
         "proto.h",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         ":status",
         "@com_google_absl//absl/status",
@@ -136,5 +132,4 @@ cc_library(
 cc_library(
     name = "overload",
     hdrs = ["overload.h"],
-    visibility = ["//visibility:public"],
 )

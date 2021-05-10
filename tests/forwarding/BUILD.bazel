@@ -38,7 +38,6 @@ cc_library(
     testonly = True,
     srcs = ["smoke_test.cc"],
     hdrs = ["smoke_test.h"],
-    visibility = ["//visibility:public"],
     deps = [
         ":p4_blackbox_fixture",
         ":test_data",
@@ -61,7 +60,6 @@ cc_library(
     testonly = True,
     srcs = ["master_arbitration_test.cc"],
     hdrs = ["master_arbitration_test.h"],
-    visibility = ["//visibility:public"],
     deps = [
         ":p4_blackbox_fixture",
         "//gutil:status_matchers",

@@ -10,7 +10,6 @@ cc_library(
     testonly = True,
     srcs = ["fuzzer_tests.cc"],
     hdrs = ["fuzzer_tests.h"],
-    visibility = ["//visibility:public"],
     deps = [
         ":annotation_util",
         ":fuzzer_cc_proto",

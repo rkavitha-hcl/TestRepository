@@ -88,7 +88,6 @@ cc_library(
     name = "hex_string",
     srcs = ["hex_string.cc"],
     hdrs = ["hex_string.h"],
-    visibility = ["//visibility:public"],
     deps = [
         "//gutil:status",
         "//p4_pdpi/string_encodings:byte_string",
@@ -123,7 +122,6 @@ cc_library(
     name = "decimal_string",
     srcs = ["decimal_string.cc"],
     hdrs = ["decimal_string.h"],
-    visibility = ["//visibility:public"],
     deps = [
         "//gutil:status",
         "@com_google_absl//absl/status",

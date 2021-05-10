@@ -25,7 +25,6 @@ cc_library(
     hdrs = [
         "annotation_parser.h",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//gutil:status",
         "@com_google_absl//absl/status:statusor",
@@ -55,7 +54,6 @@ cc_library(
     hdrs = [
         "ir.h",
     ],
-    visibility = ["//visibility:public"],
     deps = [
         "//gutil:proto",
         "//gutil:status",
