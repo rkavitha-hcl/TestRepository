@@ -14,6 +14,7 @@
 
 #include "tests/thinkit_sanity_tests.h"
 
+#include <cstdint>
 #include <cstdlib>
 #include <map>
 #include <memory>
@@ -326,8 +327,8 @@ void TestGnmiCheckSpecificInterfaceStateOperation(thinkit::Switch& sut,
 }
 
 //  Returns last boot time of SUT.
-absl::StatusOr<int> GetGnmiSystemBootTime(thinkit::Switch& sut,
-                                          gnmi::gNMI::Stub* sut_gnmi_stub) {
+absl::StatusOr<uint64_t> GetGnmiSystemBootTime(
+    thinkit::Switch& sut, gnmi::gNMI::Stub* sut_gnmi_stub) {
   ASSIGN_OR_RETURN(
       gnmi::GetRequest request,
       BuildGnmiGetRequest("system/state/boot-time", gnmi::GetRequest::STATE));
@@ -342,7 +343,7 @@ absl::StatusOr<int> GetGnmiSystemBootTime(thinkit::Switch& sut,
       ParseGnmiGetResponse(response, "openconfig-system:boot-time"));
   // Remove characters <"">  in the parsed string.
   std::string boot_time_string = parsed_str.substr(1, parsed_str.size() - 2);
-  int boot_time;
+  uint64_t boot_time;
   if (!absl::SimpleAtoi(boot_time_string, &boot_time)) {
     return gutil::InternalErrorBuilder().LogError()
            << absl::StrCat("SimpleAtoi Error while parsing ")
@@ -354,7 +355,7 @@ absl::StatusOr<int> GetGnmiSystemBootTime(thinkit::Switch& sut,
 
 void TestGnoiSystemColdReboot(thinkit::Switch& sut) {
   ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
-  ASSERT_OK_AND_ASSIGN(int first_boot_time,
+  ASSERT_OK_AND_ASSIGN(uint64_t first_boot_time,
                        GetGnmiSystemBootTime(sut, sut_gnmi_stub.get()));
 
   ASSERT_OK_AND_ASSIGN(auto sut_gnoi_system_stub, sut.CreateGnoiSystemStub());
@@ -396,10 +397,10 @@ void TestGnoiSystemColdReboot(thinkit::Switch& sut) {
   ASSERT_FALSE(system_down)
       << "System did not come up in " << kColdRebootWaitForUpTime;
 
-  ASSERT_OK_AND_ASSIGN(int latest_boot_time,
+  ASSERT_OK_AND_ASSIGN(uint64_t latest_boot_time,
                        GetGnmiSystemBootTime(sut, sut_gnmi_stub.get()));
 
-  EXPECT_GT(abs(latest_boot_time - first_boot_time), kEpochMarginalError);
+  EXPECT_GT((latest_boot_time - first_boot_time), kEpochMarginalError);
   EXPECT_OK(SwitchReady(sut));
 }
 
