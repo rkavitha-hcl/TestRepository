@@ -224,8 +224,9 @@ absl::StatusOr<gnmi::GetResponse> GetAllInterfaceOverGnmi(
   return resp;
 }
 
-absl::Status CheckAllInterfaceUpOverGnmi(gnmi::gNMI::Stub& stub,
-                                         absl::Duration timeout) {
+absl::Status CheckAllInterfaceOperStateOverGnmi(
+    gnmi::gNMI::Stub& stub, absl::string_view interface_oper_state,
+    absl::Duration timeout) {
   ASSIGN_OR_RETURN(auto req,
                    BuildGnmiGetRequest("interfaces", gnmi::GetRequest::STATE));
   gnmi::GetResponse resp;
@@ -276,7 +277,7 @@ absl::Status CheckAllInterfaceUpOverGnmi(gnmi::gNMI::Stub& stub,
       return absl::NotFoundError(
           absl::StrCat("'oper-status' not found: ", name));
     }
-    if (!absl::StrContains(element_status_json->dump(), "UP")) {
+    if (!absl::StrContains(element_status_json->dump(), interface_oper_state)) {
       unavailable_interfaces.push_back(name);
     }
   }

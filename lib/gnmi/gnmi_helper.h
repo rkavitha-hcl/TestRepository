@@ -109,9 +109,10 @@ absl::Status CanGetAllInterfaceOverGnmi(
 absl::StatusOr<gnmi::GetResponse> GetAllInterfaceOverGnmi(
     gnmi::gNMI::Stub& stub, absl::Duration timeout = absl::Seconds(60));
 
-// Checks if all interfaces are up.
-absl::Status CheckAllInterfaceUpOverGnmi(
-    gnmi::gNMI::Stub& stub, absl::Duration timeout = absl::Seconds(60));
+// Checks if all interfaces oper-status is up/down.
+absl::Status CheckAllInterfaceOperStateOverGnmi(
+    gnmi::gNMI::Stub& stub, absl::string_view interface_oper_state,
+    absl::Duration timeout = absl::Seconds(60));
 
 // Returns gNMI Path for OC strings.
 gnmi::Path ConvertOCStringToPath(absl::string_view oc_path);
