@@ -53,7 +53,7 @@ absl::Status BuildRequestAndSetForwardingPipelineConfig(
   request.set_device_id(session->DeviceId());
   request.set_role(session->Role());
   *request.mutable_election_id() = session->ElectionId();
-  request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT);
+  request.set_action(SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT);
   *request.mutable_config()->mutable_p4info() = p4info;
 
   // Empty message; intentionally discarded.

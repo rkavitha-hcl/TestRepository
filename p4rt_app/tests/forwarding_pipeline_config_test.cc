@@ -18,6 +18,10 @@
 #include "sai_p4/instantiations/google/sai_p4info.h"
 
 namespace p4rt_app {
+
+using ::p4::v1::SetForwardingPipelineConfigRequest;
+using ::p4::v1::SetForwardingPipelineConfigResponse;
+
 namespace {
 
 class ForwardingPipelineConfigTest : public testing::Test {
@@ -45,6 +49,22 @@ TEST_F(ForwardingPipelineConfigTest, SetDuplicateForwardingPipelineConfig) {
   auto p4_info = sai::GetP4Info(sai::Instantiation::kMiddleblock);
   EXPECT_OK(pdpi::SetForwardingPipelineConfig(p4rt_session_.get(), p4_info));
   EXPECT_OK(pdpi::SetForwardingPipelineConfig(p4rt_session_.get(), p4_info));
+}
+
+TEST_F(ForwardingPipelineConfigTest, FailVerifyAndSave) {
+  pdpi::P4RuntimeSession* session = p4rt_session_.get();
+  SetForwardingPipelineConfigRequest request;
+  request.set_device_id(session->DeviceId());
+  request.set_role(session->Role());
+  *request.mutable_election_id() = session->ElectionId();
+  request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_SAVE);
+
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  EXPECT_THAT(
+      gutil::GrpcStatusToAbslStatus(session->Stub().SetForwardingPipelineConfig(
+          &context, request, &response)),
+      gutil::StatusIs(absl::StatusCode::kUnimplemented));
 }
 
 TEST_F(ForwardingPipelineConfigTest, ModifyConfig) {

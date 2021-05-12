@@ -556,10 +556,13 @@ grpc::Status P4RuntimeImpl::SetForwardingPipelineConfig(
     }
 
     if (request->action() !=
-        p4::v1::SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT) {
+            p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT &&
+        request->action() !=
+            p4::v1::SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT) {
       return AbslStatusToGrpcStatus(
           gutil::UnimplementedErrorBuilder().LogError()
-          << "Only Action::VERIFY_AND_COMMIT is supported for "
+          << "Only Action RECONCILE_AND_COMMIT or VERIFY_AND_COMMIT is "
+             "supported for "
           << "SetForwardingPipelineConfig.");
     }
 

@@ -155,7 +155,7 @@ class P4rtControllerClient {
   bool PushP4Info() {
     p4::v1::SetForwardingPipelineConfigRequest request;
     request.set_action(
-        p4::v1::SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT);
+        p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT);
     request.set_device_id(kDeviceId);
     *request.mutable_election_id() = GetElectionId();
     *request.mutable_config()->mutable_p4info() =
