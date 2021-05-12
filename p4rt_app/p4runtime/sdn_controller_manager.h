@@ -136,12 +136,14 @@ class SdnControllerManager {
   //    connection to be a backup).
   std::vector<SdnConnection*> connections_ ABSL_GUARDED_BY(lock_);
 
-  // We maintain a map of all election ID's that have been selected to be the
-  // primary connection for a role. If an election ID is present in this map the
-  // connection must be stored in the `connections_` list.
+  // We maintain a map of the highest election IDs that have been selected for
+  // the primary connection of a role. Once an election ID is set all new
+  // primary connections for that rolue must use an election ID that is >= in
+  // value.
   //
-  // key:   role_name (no value indicaates the default/root role)
-  // value: election ID (no value indicates there is no primary connection)
+  // key:   role_name   (no value indicaates the default/root role)
+  // value: election ID (no value indicates there has never been a primary
+  //                     connection)
   absl::flat_hash_map<absl::optional<std::string>,
                       absl::optional<absl::uint128>>
       primary_election_id_map_ ABSL_GUARDED_BY(lock_);

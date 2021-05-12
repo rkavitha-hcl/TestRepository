@@ -75,10 +75,13 @@ TEST_F(RoleTest, PrimaryAndBackupConnectionsPerRole) {
           .election_id = 200, .role = P4RUNTIME_ROLE_SDN_CONTROLLER}));
 
   // controller backup (lower election ID).
-  EXPECT_OK(pdpi::P4RuntimeSession::Create(
-      p4rt_grpc_address_, grpc::InsecureChannelCredentials(), p4rt_device_id_,
-      pdpi::P4RuntimeSessionOptionalArgs{
-          .election_id = 199, .role = P4RUNTIME_ROLE_SDN_CONTROLLER}));
+  EXPECT_THAT(
+      pdpi::P4RuntimeSession::Create(
+          p4rt_grpc_address_, grpc::InsecureChannelCredentials(),
+          p4rt_device_id_,
+          pdpi::P4RuntimeSessionOptionalArgs{
+              .election_id = 199, .role = P4RUNTIME_ROLE_SDN_CONTROLLER}),
+      StatusIs(absl::StatusCode::kInternal));
 
   // linkqual primary.
   EXPECT_OK(pdpi::P4RuntimeSession::Create(
@@ -87,10 +90,12 @@ TEST_F(RoleTest, PrimaryAndBackupConnectionsPerRole) {
                                          .role = P4RUNTIME_ROLE_LINKQUAL_APP}));
 
   // linkqual bakcup (lower election ID).
-  EXPECT_OK(pdpi::P4RuntimeSession::Create(
-      p4rt_grpc_address_, grpc::InsecureChannelCredentials(), p4rt_device_id_,
-      pdpi::P4RuntimeSessionOptionalArgs{.election_id = 199,
-                                         .role = P4RUNTIME_ROLE_LINKQUAL_APP}));
+  EXPECT_THAT(pdpi::P4RuntimeSession::Create(
+                  p4rt_grpc_address_, grpc::InsecureChannelCredentials(),
+                  p4rt_device_id_,
+                  pdpi::P4RuntimeSessionOptionalArgs{
+                      .election_id = 199, .role = P4RUNTIME_ROLE_LINKQUAL_APP}),
+              StatusIs(absl::StatusCode::kInternal));
 }
 
 TEST_F(RoleTest, RolesEnforceReadWriteOnTables) {

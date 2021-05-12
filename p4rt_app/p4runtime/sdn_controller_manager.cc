@@ -24,7 +24,7 @@ namespace p4rt_app {
 namespace {
 
 std::string PrettyPrintRoleName(const absl::optional<std::string>& name) {
-  return (name.has_value()) ? absl::StrCat("'", *name, "'") : "<root>";
+  return (name.has_value()) ? absl::StrCat("'", *name, "'") : "<default>";
 }
 
 std::string PrettyPrintElectionId(const absl::optional<absl::uint128>& id) {
@@ -132,7 +132,15 @@ grpc::Status SdnControllerManager::HandleArbitrationUpdate(
   }
 
   // Update the connection with the arbitration data and initalize.
-  LOG(INFO) << "New SDN connection: " << update.ShortDebugString();
+  if (controller->IsInitialized()) {
+    LOG(INFO) << absl::StreamFormat(
+        "Update SDN connection (%s, %s): %s",
+        PrettyPrintRoleName(controller->GetRoleName()),
+        PrettyPrintElectionId(controller->GetElectionId()),
+        update.ShortDebugString());
+  } else {
+    LOG(INFO) << "New SDN connection: " << update.ShortDebugString();
+  }
   controller->SetRoleName(role_name);
   controller->SetElectionId(election_id);
   controller->Initialize();
@@ -170,12 +178,11 @@ void SdnControllerManager::Disconnect(SdnConnection* connection) {
     }
   }
 
-  // If connection was the primary connection we need to determine the new
-  // primary and inform all existing connections.
+  // If connection was the primary connection we need to inform all existing
+  // connections.
   if (connection->GetElectionId().has_value() &&
       (connection->GetElectionId() ==
        primary_election_id_map_[connection->GetRoleName()])) {
-    UpdatePrimaryConnectionState(connection->GetRoleName());
     InformConnectionsAboutPrimaryChange(connection->GetRoleName());
   }
 }
@@ -245,17 +252,19 @@ bool SdnControllerManager::UpdatePrimaryConnectionState(
         std::max(max_election_id, connection_ptr->GetElectionId());
   }
 
-  auto& election_id = primary_election_id_map_[role_name];
-  if (election_id != max_election_id) {
-    if (max_election_id.has_value()) {
+  auto& current_election_id = primary_election_id_map_[role_name];
+  if (max_election_id != current_election_id) {
+    if (max_election_id.has_value() && max_election_id > current_election_id) {
       LOG(INFO) << "New primary connection for role "
                 << PrettyPrintRoleName(role_name) << " with election ID "
                 << PrettyPrintElectionId(max_election_id) << ".";
+
+      // Only update current election ID if there is a higher value.
+      current_election_id = max_election_id;
     } else {
       LOG(INFO) << "No longer have a primary connection for role "
                 << PrettyPrintRoleName(role_name) << ".";
     }
-    election_id = max_election_id;
     return true;
   }
   return false;
@@ -263,7 +272,7 @@ bool SdnControllerManager::UpdatePrimaryConnectionState(
 
 void SdnControllerManager::InformConnectionsAboutPrimaryChange(
     const absl::optional<std::string>& role_name) {
-  VLOG(1) << "Informing all connections about primary connection.";
+  VLOG(1) << "Informing all connections about primary connection change.";
   for (const auto& connection : connections_) {
     if (connection->GetRoleName() == role_name) {
       SendArbitrationResponse(connection);

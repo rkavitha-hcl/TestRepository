@@ -137,7 +137,7 @@ TEST_F(ArbitrationTest, PrimaryAndBackupConnections) {
             grpc::StatusCode::ALREADY_EXISTS);
 }
 
-TEST_F(ArbitrationTest, PrimaryConnectionCanBeReplacedByNewConnection) {
+TEST_F(ArbitrationTest, NotifyAllConnectionsForNewPrimary) {
   grpc::ClientContext context0;
   std::unique_ptr<P4RuntimeStream> stream0 = stub_->StreamChannel(&context0);
 
@@ -171,6 +171,81 @@ TEST_F(ArbitrationTest, PrimaryConnectionCanBeReplacedByNewConnection) {
             grpc::StatusCode::ALREADY_EXISTS);
 }
 
+TEST_F(ArbitrationTest, NotifyAllConnectionsWhenPrimaryDisconnects) {
+  grpc::ClientContext context0;
+  std::unique_ptr<P4RuntimeStream> stream0 = stub_->StreamChannel(&context0);
+
+  grpc::ClientContext context1;
+  std::unique_ptr<P4RuntimeStream> stream1 = stub_->StreamChannel(&context1);
+
+  // Send first arbitration request, and because it's the first request it will
+  // default to the primary connection.
+  p4::v1::StreamMessageRequest request0;
+  request0.mutable_arbitration()->set_device_id(GetDeviceId());
+  *request0.mutable_arbitration()->mutable_election_id() = GetElectionId(2);
+  ASSERT_OK_AND_ASSIGN(p4::v1::StreamMessageResponse response,
+                       SendStreamRequest(*stream0, request0));
+  EXPECT_EQ(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  // Send second arbitration request with a lower election ID. Because the
+  // election ID is lower than the first it becomes a backup connection.
+  p4::v1::StreamMessageRequest request1;
+  request1.mutable_arbitration()->set_device_id(GetDeviceId());
+  *request1.mutable_arbitration()->mutable_election_id() = GetElectionId(1);
+  ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream1, request1));
+  EXPECT_EQ(response.arbitration().status().code(),
+            grpc::StatusCode::ALREADY_EXISTS);
+
+  // Close the primary stream to flush the connection for the P4RT service.
+  stream0->WritesDone();
+  EXPECT_OK(stream0->Finish());
+
+  // Because the primary connection changed we expect all connections to be
+  // informed.
+  ASSERT_OK_AND_ASSIGN(response, GetStreamResponse(*stream1));
+  EXPECT_EQ(response.arbitration().status().code(),
+            grpc::StatusCode::ALREADY_EXISTS);
+}
+
+TEST_F(ArbitrationTest, NotifyAllConnectionsWhenPrimaryBecomesBackup) {
+  grpc::ClientContext context0;
+  std::unique_ptr<P4RuntimeStream> stream0 = stub_->StreamChannel(&context0);
+
+  grpc::ClientContext context1;
+  std::unique_ptr<P4RuntimeStream> stream1 = stub_->StreamChannel(&context1);
+
+  // Send first arbitration request, and because it's the first request it will
+  // default to the primary connection.
+  p4::v1::StreamMessageRequest request0;
+  request0.mutable_arbitration()->set_device_id(GetDeviceId());
+  *request0.mutable_arbitration()->mutable_election_id() = GetElectionId(2);
+  ASSERT_OK_AND_ASSIGN(p4::v1::StreamMessageResponse response,
+                       SendStreamRequest(*stream0, request0));
+  EXPECT_EQ(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  // Send second arbitration request with a lower election ID. Because the
+  // election ID is lower than the first it becomes a backup connection.
+  p4::v1::StreamMessageRequest request1;
+  request1.mutable_arbitration()->set_device_id(GetDeviceId());
+  *request1.mutable_arbitration()->mutable_election_id() = GetElectionId(1);
+  ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream1, request1));
+  EXPECT_EQ(response.arbitration().status().code(),
+            grpc::StatusCode::ALREADY_EXISTS);
+
+  // Update the primary connection's election ID, and force it to become a
+  // backup.
+  request0.mutable_arbitration()->mutable_election_id()->Clear();
+  ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream0, request0));
+  EXPECT_EQ(response.arbitration().status().code(),
+            grpc::StatusCode::ALREADY_EXISTS);
+
+  // Because the primary connection changed we expect all connections to be
+  // informed.
+  ASSERT_OK_AND_ASSIGN(response, GetStreamResponse(*stream1));
+  EXPECT_EQ(response.arbitration().status().code(),
+            grpc::StatusCode::ALREADY_EXISTS);
+}
+
 TEST_F(ArbitrationTest, PrimaryConnectionCanReestablishAfterGoingDown) {
   grpc::ClientContext context;
   std::unique_ptr<P4RuntimeStream> stream = stub_->StreamChannel(&context);
@@ -196,6 +271,36 @@ TEST_F(ArbitrationTest, PrimaryConnectionCanReestablishAfterGoingDown) {
 
   // Because the old stream was flushed we can re-establish the connection.
   EXPECT_EQ(response.arbitration().status().code(), grpc::StatusCode::OK);
+}
+
+TEST_F(ArbitrationTest, PrimaryMustUseElectionIdHigherThanAllPastConnections) {
+  grpc::ClientContext context;
+  std::unique_ptr<P4RuntimeStream> stream = stub_->StreamChannel(&context);
+
+  // Send first arbitration request.
+  p4::v1::StreamMessageRequest request;
+  request.mutable_arbitration()->set_device_id(GetDeviceId());
+  *request.mutable_arbitration()->mutable_election_id() = GetElectionId(2);
+  ASSERT_OK_AND_ASSIGN(p4::v1::StreamMessageResponse response,
+                       SendStreamRequest(*stream, request));
+
+  // Because it's the first request it will default to the primary connection.
+  EXPECT_EQ(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  // Close the stream to flush the connection for the P4RT service.
+  stream->WritesDone();
+  EXPECT_OK(stream->Finish());
+
+  // Try to open a new connection with a lower election ID.
+  grpc::ClientContext new_context;
+  stream = stub_->StreamChannel(&new_context);
+  *request.mutable_arbitration()->mutable_election_id() = GetElectionId(1);
+  ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream, request));
+
+  // Because the old stream had a higher election ID this new connection becomes
+  // a backup.
+  EXPECT_EQ(response.arbitration().status().code(),
+            grpc::StatusCode::ALREADY_EXISTS);
 }
 
 TEST_F(ArbitrationTest, PrimaryCanSendDuplicateArbitationRequests) {
