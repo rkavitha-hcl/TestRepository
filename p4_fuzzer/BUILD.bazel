@@ -148,6 +148,7 @@ cc_library(
         "//p4_pdpi:ir",
         "//p4_pdpi:ir_cc_proto",
         "//p4_pdpi:pd",
+        "//p4_pdpi/internal:ordered_protobuf_map",
         "//p4_pdpi/netaddr:ipv6_address",
         "//p4_pdpi/utils:ir",
         "//sai_p4/fixed:p4_ids",

@@ -16,6 +16,7 @@
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_fuzzer/annotation_util.h"
 #include "p4_fuzzer/mutation.h"
+#include "p4_pdpi/internal/ordered_protobuf_map.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/netaddr/ipv6_address.h"
 #include "p4_pdpi/pd.h"
@@ -114,7 +115,7 @@ absl::StatusOr<p4::v1::ActionProfileAction> FuzzActionProfileAction(
 std::vector<uint32_t> TablesUsedByFuzzer(const FuzzerConfig& config) {
   std::vector<uint32_t> table_ids;
 
-  for (auto& [key, table] : config.info.tables_by_id()) {
+  for (auto& [key, table] : Ordered(config.info.tables_by_id())) {
     if (table.role() != config.role) continue;
     // TODO: the switch is currently having issues with this table.
     if (table.preamble().alias() == "mirror_session_table") continue;
@@ -160,11 +161,10 @@ std::vector<uint32_t> GetMandatoryMatchTableIds(const FuzzerConfig& config) {
 std::vector<uint32_t> GetDifferentRoleTableIds(const FuzzerConfig& config) {
   std::vector<uint32_t> table_ids;
 
-  for (auto& [key, table] : config.info.tables_by_id()) {
+  for (auto& [key, table] : Ordered(config.info.tables_by_id())) {
     if (table.role() == config.role) continue;
     table_ids.push_back(key);
   }
-
   return table_ids;
 }
 
@@ -672,7 +672,7 @@ absl::StatusOr<p4::v1::Action> FuzzAction(
   p4::v1::Action action;
   action.set_action_id(ir_action_info.preamble().id());
 
-  for (auto& [id, ir_param] : ir_action_info.params_by_id()) {
+  for (auto& [id, ir_param] : Ordered(ir_action_info.params_by_id())) {
     p4::v1::Action::Param* param = action.add_params();
     param->set_param_id(id);
     ASSIGN_OR_RETURN(
@@ -755,7 +755,8 @@ absl::StatusOr<TableEntry> FuzzValidTableEntry(
   table_entry.set_table_id(ir_table_info.preamble().id());
 
   // Generate the matches.
-  for (auto& [key, match_field_info] : ir_table_info.match_fields_by_id()) {
+  for (auto& [key, match_field_info] :
+       Ordered(ir_table_info.match_fields_by_id())) {
     // Skip deprecated fields
     bool deprecated =
         absl::c_any_of(match_field_info.match_field().annotations(),
