@@ -34,7 +34,7 @@ static void RunP4InfoTest(const std::string& test_name, const P4Info& p4info) {
   absl::StatusOr<pdpi::IrP4Info> status_or_info = pdpi::CreateIrP4Info(p4info);
   std::cout << "pdpi::CreateIrP4Info() result:" << std::endl;
   if (!status_or_info.ok()) {
-    std::cout << status_or_info.status() << std::endl;
+    std::cout << TestStatusToString(status_or_info.status()) << std::endl;
   } else {
     std::cout << status_or_info.value().DebugString() << std::endl;
   }

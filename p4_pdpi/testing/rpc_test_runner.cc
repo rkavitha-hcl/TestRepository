@@ -133,8 +133,8 @@ static void RunInvalidGrpcFailToTranslateToIrTest(
 
   // Grpc -> Absl
   std::cout << "--- absl::Status:" << std::endl;
-  std::cout << pdpi::WriteRpcGrpcStatusToAbslStatus(grpc_status,
-                                                    number_of_write_request)
+  std::cout << TestStatusToString(pdpi::WriteRpcGrpcStatusToAbslStatus(
+                   grpc_status, number_of_write_request))
             << std::endl;
 
   // Grpc -> IR
@@ -142,7 +142,8 @@ static void RunInvalidGrpcFailToTranslateToIrTest(
       pdpi::GrpcStatusToIrWriteRpcStatus(grpc_status, number_of_write_request);
   if (!status_or_ir.ok()) {
     std::cout << "--- gRPC is invalid/unsupported:" << std::endl;
-    std::cout << status_or_ir.status() << std::endl << std::endl;
+    std::cout << TestStatusToString(status_or_ir.status()) << std::endl
+              << std::endl;
   } else {
     Fail("Expected gRPC status to be invalid.");
   }
@@ -161,7 +162,7 @@ static void RunInvalidIrFailToTranslateToGrpcTest(
       pdpi::IrWriteRpcStatusToGrpcStatus(ir_write_rpc_status);
   if (!status_or_grpc.ok()) {
     std::cout << "--- IR is invalid/unsupported:" << std::endl
-              << status_or_grpc << std::endl
+              << TestStatusToString(status_or_grpc.status()) << std::endl
               << std::endl;
   } else {
     Fail("Expected IR to be invalid.");
@@ -204,7 +205,9 @@ static void RunPdWriteRpcStatusTest(const std::string& test_name,
       return;
     } else {
       std::cout << "---PD is invalid/unsupported:" << std::endl;
-      std::cout << status_or_ir.status() << std::endl << std::endl << std::endl;
+      std::cout << TestStatusToString(status_or_ir.status()) << std::endl
+                << std::endl
+                << std::endl;
       return;
     }
   }
@@ -245,8 +248,8 @@ static void RunPdWriteRpcStatusTest(const std::string& test_name,
 
   // Grpc -> Absl
   std::cout << "--- absl::Status:" << std::endl;
-  std::cout << pdpi::WriteRpcGrpcStatusToAbslStatus(grpc_write_status,
-                                                    number_of_update_status)
+  std::cout << TestStatusToString(pdpi::WriteRpcGrpcStatusToAbslStatus(
+                   grpc_write_status, number_of_update_status))
             << std::endl;
 
   // Grpc -> IR2

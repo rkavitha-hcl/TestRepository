@@ -49,6 +49,16 @@ void Fail(const std::string& message) {
   std::cerr << "FAILURE REASON: " << message << std::endl;
 }
 
+// Dependencies on the exact output format of `Status::operator <<` are out
+// of contract. We need a custom serialization function for golden-based tests.
+inline std::string TestStatusToString(absl::Status status) {
+  if (status.ok()) {
+    return "OK";
+  }
+  return absl::StrCat(absl::StatusCodeToString(status.code()), ": ",
+                      status.message());
+}
+
 // Runs a generic test starting from an invalid PI and checks that it cannot be
 // translated to IR. If you want to test valid PI, instead write a generic PD
 // test.
@@ -66,7 +76,7 @@ void RunGenericPiTest(
   const auto& status_or_ir = pi_to_ir(info, pi);
   if (!status_or_ir.ok()) {
     std::cout << "--- PI is invalid/unsupported:" << std::endl;
-    std::cout << status_or_ir.status() << std::endl;
+    std::cout << TestStatusToString(status_or_ir.status()) << std::endl;
   } else {
     Fail(
         "Expected PI to be invalid (valid PI should instead be tested using "
@@ -94,7 +104,7 @@ void RunGenericIrTest(
   if (!status_or_pi.ok()) {
     std::cout << "--- IR (converting to PI) is invalid/unsupported:"
               << std::endl;
-    std::cout << status_or_pi.status() << std::endl;
+    std::cout << TestStatusToString(status_or_pi.status()) << std::endl;
   } else {
     Fail(
         "Expected IR to be invalid (valid IR should instead be tested using "
@@ -150,7 +160,7 @@ void RunGenericPdTest(
       return;
     }
     std::cout << "--- PD is invalid/unsupported:" << std::endl;
-    std::cout << status_or_ir.status() << std::endl;
+    std::cout << TestStatusToString(status_or_ir.status()) << std::endl;
     return;
   }
   const auto& ir = status_or_ir.value();
