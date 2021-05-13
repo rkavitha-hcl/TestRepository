@@ -39,8 +39,10 @@ class MirrorTestbedInterface {
 // The Thinkit `TestParams` defines test parameters to
 // `MirrorTestbedFixture` class.
 struct TestParams {
+  // Ownership transferred in MirrorTestbedFixture class.
   MirrorTestbedInterface* mirror_testbed;
   std::string gnmi_config;
+  absl::optional<std::vector<int>> port_ids;
 };
 
 // The ThinKit `MirrorTestbedFixture` class acts as a base test fixture for

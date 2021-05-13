@@ -4,6 +4,7 @@
 #include <cstdint>
 #include <string>
 
+#include "absl/numeric/int128.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "p4_pdpi/netaddr/network_address.h"
@@ -24,6 +25,11 @@ class Ipv6Address : public NetworkAddress<128, Ipv6Address> {
                        uint16_t hextet6 = 0, uint16_t hextet5 = 0,
                        uint16_t hextet4 = 0, uint16_t hextet3 = 0,
                        uint16_t hextet2 = 0, uint16_t hextet1 = 0);
+
+  // Constructs an Ipv6Addres from uint128.
+  explicit Ipv6Address(absl::uint128 ipv6_128)
+      : Ipv6Address(std::bitset<128>(absl::Uint128High64(ipv6_128)) << 64 |
+                    std::bitset<128>(absl::Uint128Low64(ipv6_128))) {}
 
   // Constructs an IPv6Address from an string in IPv6 address notation,
   // e.g. "2001:0db8:85a3::7334".
