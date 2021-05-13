@@ -106,6 +106,7 @@ cc_test(
     linkstatic = True,
     deps = [
         ":hex_string",
+        "@com_google_absl//absl/status",
     ],
 )
 
