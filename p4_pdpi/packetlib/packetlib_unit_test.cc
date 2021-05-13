@@ -27,7 +27,8 @@ TEST(PacketLib, BitWidthTest) {
         "Input has been truncated because maximum allowable "
         "bitwidth for this field is %d but input has %d bits: %d",
         kIpVersionBitwidth, bit_shift + 1, input);
-    ASSERT_DEBUG_DEATH(IpVersion(input), expected_error_message);
+    ASSERT_DEBUG_DEATH(IpVersion(input),
+                       testing::HasSubstr(expected_error_message));
   }
 }
 
