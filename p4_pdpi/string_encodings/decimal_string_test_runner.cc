@@ -1,14 +1,17 @@
+#include "absl/status/status.h"
 #include "p4_pdpi/string_encodings/decimal_string.h"
 
-#define TEST_STATUSOR(function_call)                      \
-  do {                                                    \
-    std::cout << "$ " << #function_call << "\n-> ";       \
-    if (auto status_or = function_call; status_or.ok()) { \
-      std::cout << status_or.value();                     \
-    } else {                                              \
-      std::cout << "error: " << status_or.status();       \
-    }                                                     \
-    std::cout << "\n\n";                                  \
+#define TEST_STATUSOR(function_call)                                           \
+  do {                                                                         \
+    std::cout << "$ " << #function_call << "\n-> ";                            \
+    if (auto status_or = function_call; status_or.ok()) {                      \
+      std::cout << status_or.value();                                          \
+    } else {                                                                   \
+      std::cout << "error: "                                                   \
+                << absl::StatusCodeToString(status_or.status().code()) << ": " \
+                << status_or.status().message();                               \
+    }                                                                          \
+    std::cout << "\n\n";                                                       \
   } while (false)
 
 int main() {
