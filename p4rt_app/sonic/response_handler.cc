@@ -121,6 +121,7 @@ absl::Status RestoreApplDb(const std::string& key,
   if (values_map.empty()) {
     // No entry in APPL_STATE_DB with this key indicates this is an insert
     // operation that has to be restored, which then has to be removed.
+    LOG(INFO) << "Restoring (by delete) AppDb entry: " << key;
     auto del_entries = app_db_client.del(key);
     RET_CHECK(del_entries == 1)
         << "Unexpected number of delete entries when tring to delete a newly "
@@ -137,6 +138,7 @@ absl::Status RestoreApplDb(const std::string& key,
     value_tuples.at(i++) = entry;
   }
   // Update APPL_DB with the retrieved values from APPL_STATE_DB.
+  LOG(INFO) << "Restoring (by update) AppDb entry: " << key;
   app_db_client.hmset(key, value_tuples);
 
   return absl::OkStatus();

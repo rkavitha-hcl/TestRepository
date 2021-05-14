@@ -251,7 +251,7 @@ absl::Status AppendCounterData(
 absl::StatusOr<pdpi::IrTableEntry> ReadAppDbP4TableEntry(
     const pdpi::IrP4Info& p4info, swss::DBConnectorInterface& app_db_client,
     swss::DBConnectorInterface& counters_db_client, const std::string& key) {
-  LOG(INFO) << "Read AppDb entry: " << key;
+  VLOG(1) << "Read AppDb entry: " << key;
   ASSIGN_OR_RETURN(
       pdpi::IrTableEntry table_entry,
       AppDbKeyAndValuesToIrTableEntry(p4info, key, app_db_client.hgetall(key)));
