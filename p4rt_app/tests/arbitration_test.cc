@@ -132,7 +132,8 @@ TEST_F(ArbitrationTest, PrimaryAndBackupConnections) {
   ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream1, request1));
 
   // Because the election ID is lower than the first this becomes the backup
-  // connection.
+  // connection. Because there is a new primary connection we expect the
+  // existing connections to receive an ALREADY_EXISTS response.
   EXPECT_EQ(response.arbitration().status().code(),
             grpc::StatusCode::ALREADY_EXISTS);
 }
@@ -165,7 +166,8 @@ TEST_F(ArbitrationTest, NotifyAllConnectionsForNewPrimary) {
   EXPECT_EQ(response.arbitration().status().code(), grpc::StatusCode::OK);
 
   // Because the primary connection changed we expect all connections to be
-  // informed.
+  // informed. Because there is a new primary connection we expect the existing
+  // connections to receive an ALREADY_EXISTS response.
   ASSERT_OK_AND_ASSIGN(response, GetStreamResponse(*stream0));
   EXPECT_EQ(response.arbitration().status().code(),
             grpc::StatusCode::ALREADY_EXISTS);
@@ -193,18 +195,18 @@ TEST_F(ArbitrationTest, NotifyAllConnectionsWhenPrimaryDisconnects) {
   request1.mutable_arbitration()->set_device_id(GetDeviceId());
   *request1.mutable_arbitration()->mutable_election_id() = GetElectionId(1);
   ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream1, request1));
-  EXPECT_EQ(response.arbitration().status().code(),
-            grpc::StatusCode::ALREADY_EXISTS);
+  EXPECT_NE(response.arbitration().status().code(), grpc::StatusCode::OK);
 
   // Close the primary stream to flush the connection for the P4RT service.
   stream0->WritesDone();
   EXPECT_OK(stream0->Finish());
 
   // Because the primary connection changed we expect all connections to be
-  // informed.
+  // informed. Because there is no longer an active primary connection we epxect
+  // the existing connections to receive a NOT_FOUND response.
   ASSERT_OK_AND_ASSIGN(response, GetStreamResponse(*stream1));
   EXPECT_EQ(response.arbitration().status().code(),
-            grpc::StatusCode::ALREADY_EXISTS);
+            grpc::StatusCode::NOT_FOUND);
 }
 
 TEST_F(ArbitrationTest, NotifyAllConnectionsWhenPrimaryBecomesBackup) {
@@ -229,21 +231,22 @@ TEST_F(ArbitrationTest, NotifyAllConnectionsWhenPrimaryBecomesBackup) {
   request1.mutable_arbitration()->set_device_id(GetDeviceId());
   *request1.mutable_arbitration()->mutable_election_id() = GetElectionId(1);
   ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream1, request1));
-  EXPECT_EQ(response.arbitration().status().code(),
-            grpc::StatusCode::ALREADY_EXISTS);
+  EXPECT_NE(response.arbitration().status().code(), grpc::StatusCode::OK);
 
   // Update the primary connection's election ID, and force it to become a
-  // backup.
+  // backup. Because there is no longer an active primary connection we epxect
+  // the connections to receive a NOT_FOUND response.
   request0.mutable_arbitration()->mutable_election_id()->Clear();
   ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream0, request0));
   EXPECT_EQ(response.arbitration().status().code(),
-            grpc::StatusCode::ALREADY_EXISTS);
+            grpc::StatusCode::NOT_FOUND);
 
   // Because the primary connection changed we expect all connections to be
-  // informed.
+  // informed. Because there is no longer an active primary connection we epxect
+  // the existing connections to receive a NOT_FOUND response.
   ASSERT_OK_AND_ASSIGN(response, GetStreamResponse(*stream1));
   EXPECT_EQ(response.arbitration().status().code(),
-            grpc::StatusCode::ALREADY_EXISTS);
+            grpc::StatusCode::NOT_FOUND);
 }
 
 TEST_F(ArbitrationTest, PrimaryConnectionCanReestablishAfterGoingDown) {
@@ -299,8 +302,7 @@ TEST_F(ArbitrationTest, PrimaryMustUseElectionIdHigherThanAllPastConnections) {
 
   // Because the old stream had a higher election ID this new connection becomes
   // a backup.
-  EXPECT_EQ(response.arbitration().status().code(),
-            grpc::StatusCode::ALREADY_EXISTS);
+  EXPECT_NE(response.arbitration().status().code(), grpc::StatusCode::OK);
 }
 
 TEST_F(ArbitrationTest, PrimaryCanSendDuplicateArbitationRequests) {
@@ -334,8 +336,7 @@ TEST_F(ArbitrationTest, BackupConnectionCannotUpdateForwardingPipeline) {
     request.mutable_arbitration()->set_device_id(GetDeviceId());
     ASSERT_OK_AND_ASSIGN(p4::v1::StreamMessageResponse response,
                          SendStreamRequest(*stream, request));
-    ASSERT_EQ(response.arbitration().status().code(),
-              grpc::StatusCode::NOT_FOUND);
+    ASSERT_NE(response.arbitration().status().code(), grpc::StatusCode::OK);
   }
 
   p4::v1::SetForwardingPipelineConfigRequest request;
@@ -368,8 +369,7 @@ TEST_F(ArbitrationTest, BackupConnectionCannotSendWriteRequest) {
 
     request.mutable_arbitration()->mutable_election_id()->set_high(1);
     ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*backup, request));
-    ASSERT_EQ(response.arbitration().status().code(),
-              grpc::StatusCode::ALREADY_EXISTS);
+    ASSERT_NE(response.arbitration().status().code(), grpc::StatusCode::OK);
   }
 
   p4::v1::WriteRequest request;

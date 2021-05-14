@@ -101,6 +101,11 @@ class SdnControllerManager {
       const absl::optional<std::string>& role_name)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(lock_);
 
+  // Goes through the current list of active connections, and returns if one of
+  // them is currently the primary.
+  bool PrimaryConnectionExists(const absl::optional<std::string>& role_name)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(lock_);
+
   // Sends an arbitration update to all active connections for a role about the
   // current primary connection.
   void InformConnectionsAboutPrimaryChange(

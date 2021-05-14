@@ -280,6 +280,20 @@ void SdnControllerManager::InformConnectionsAboutPrimaryChange(
   }
 }
 
+bool SdnControllerManager::PrimaryConnectionExists(
+    const absl::optional<std::string>& role_name) {
+  absl::optional<absl::uint128> primary_election_id =
+      primary_election_id_map_[role_name];
+
+  for (const auto& connection : connections_) {
+    if (connection->GetRoleName() == role_name &&
+        connection->GetElectionId() == primary_election_id) {
+      return primary_election_id.has_value();
+    }
+  }
+  return false;
+}
+
 void SdnControllerManager::SendArbitrationResponse(SdnConnection* connection) {
   p4::v1::StreamMessageResponse response;
   auto arbitration = response.mutable_arbitration();
@@ -293,10 +307,9 @@ void SdnControllerManager::SendArbitrationResponse(SdnConnection* connection) {
         connection->GetRoleName().value();
   }
 
-  // Populate the election ID only if there is a primary connection.
+  // Populate the election ID with the highest accepted value.
   absl::optional<absl::uint128> primary_election_id =
       primary_election_id_map_[connection->GetRoleName()];
-
   if (primary_election_id.has_value()) {
     arbitration->mutable_election_id()->set_high(
         absl::Uint128High64(primary_election_id.value()));
@@ -306,7 +319,7 @@ void SdnControllerManager::SendArbitrationResponse(SdnConnection* connection) {
 
   // Update connection status for the arbitration response.
   auto status = arbitration->mutable_status();
-  if (primary_election_id.has_value()) {
+  if (PrimaryConnectionExists(connection->GetRoleName())) {
     // has primary connection.
     if (primary_election_id == connection->GetElectionId()) {
       // and this connection is it.
