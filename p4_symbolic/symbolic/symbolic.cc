@@ -16,9 +16,11 @@
 
 #include <utility>
 
+#include "absl/algorithm/container.h"
 #include "absl/cleanup/cleanup.h"
 #include "absl/types/optional.h"
 #include "glog/logging.h"
+#include "gutil/status.h"
 #include "p4_symbolic/symbolic/control.h"
 #include "p4_symbolic/symbolic/operators.h"
 #include "p4_symbolic/symbolic/util.h"
@@ -27,7 +29,15 @@
 namespace p4_symbolic {
 namespace symbolic {
 
-z3::expr EgressSpecDroppedValue() { return Z3Context().bv_val("111111111", 9); }
+// A port reserved to encode dropping packets.
+// The value is arbitrary; we choose the same value as BMv2:
+// https://github.com/p4lang/behavioral-model/blob/main/docs/simple_switch.md#standard-metadata
+constexpr int kDropPort = 511;  // 2^9 - 1.
+constexpr int kPortBitwidth = 9;
+
+z3::expr EgressSpecDroppedValue() {
+  return Z3Context().bv_val(kDropPort, kPortBitwidth);
+}
 
 absl::StatusOr<z3::expr> IsDropped(const SymbolicPerPacketState &state) {
   ASSIGN_OR_RETURN(z3::expr egress_spec,
@@ -41,13 +51,6 @@ absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   std::unique_ptr<z3::solver> z3_solver =
       std::make_unique<z3::solver>(Z3Context());
 
-  // Create free/unconstrainted headers variables, and then
-  // put constraints on them matching the hardcoded behavior of the parser
-  // for programs we are interested in.
-  ASSIGN_OR_RETURN(SymbolicPerPacketState ingress_headers,
-                   SymbolicGuardedMap::CreateSymbolicGuardedMap(
-                       data_plane.program.headers()));
-
   // Initially, the p4runtime translator has empty state.
   values::P4RuntimeTranslator translator;
 
@@ -55,10 +58,10 @@ absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   // This is used to evaluate the P4 program.
   // Initially free/unconstrained and contains symbolic variables for
   // every header field.
-  SymbolicPerPacketState egress_headers(ingress_headers);
-
-  ASSIGN_OR_RETURN(z3::expr ingress_port,
-                   ingress_headers.Get("standard_metadata.ingress_port"));
+  ASSIGN_OR_RETURN(SymbolicPerPacketState ingress_headers,
+                   SymbolicGuardedMap::CreateSymbolicGuardedMap(
+                       data_plane.program.headers()));
+  SymbolicPerPacketState egress_headers = ingress_headers;
 
   // Evaluate the main program.
   ASSIGN_OR_RETURN(
@@ -68,33 +71,30 @@ absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   // Alias the event that the packet is dropped for ease of use in assertions
   ASSIGN_OR_RETURN(trace.dropped, IsDropped(egress_headers));
 
-  // Construct a symbolic context, containing state and trace information
-  // from evaluating the tables.
+  // Restrict ports to the available physical ports.
+  if (absl::c_find(physical_ports, kDropPort) != physical_ports.end()) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "cannot use physical port " << kDropPort
+           << " as p4-symbolic reserves it to encode dropping a packet; see "
+              "the documentation of `mark_to_drop` in v1mode.p4 for details";
+  }
+  ASSIGN_OR_RETURN(z3::expr ingress_port,
+                   ingress_headers.Get("standard_metadata.ingress_port"));
   ASSIGN_OR_RETURN(z3::expr egress_port,
                    egress_headers.Get("standard_metadata.egress_spec"));
-
-  // Restrict ports to the available physical ports.
-  if (!physical_ports.empty()) {
-    z3::expr ingress_port_domain = Z3Context().bool_val(false);
-    z3::expr egress_port_domain = trace.dropped;
-    unsigned int port_size = ingress_port.get_sort().bv_size();
+  if (physical_ports.empty()) {
+    z3_solver->add(ingress_port != kDropPort);
+  } else {
+    z3::expr ingress_port_is_physical = Z3Context().bool_val(false);
+    z3::expr egress_port_is_physical = Z3Context().bool_val(false);
     for (int port : physical_ports) {
-      ASSIGN_OR_RETURN(
-          z3::expr ingress_port_eq,
-          operators::Eq(ingress_port, Z3Context().bv_val(port, port_size)));
-      ASSIGN_OR_RETURN(
-          z3::expr egress_port_eq,
-          operators::Eq(egress_port, Z3Context().bv_val(port, port_size)));
-
-      ASSIGN_OR_RETURN(ingress_port_domain,
-                       operators::Or(ingress_port_domain, ingress_port_eq));
-      ASSIGN_OR_RETURN(egress_port_domain,
-                       operators::Or(egress_port_domain, egress_port_eq));
+      ingress_port_is_physical =
+          ingress_port_is_physical || ingress_port == port;
+      egress_port_is_physical = egress_port_is_physical || egress_port == port;
     }
-    z3_solver->add(ingress_port_domain);
-    z3_solver->add(egress_port_domain);
+    z3_solver->add(ingress_port != kDropPort && ingress_port_is_physical);
+    z3_solver->add(trace.dropped || egress_port_is_physical);
   }
-
   // Construct solver state for this program.
   SymbolicContext symbolic_context = {
       .ingress_port = ingress_port,

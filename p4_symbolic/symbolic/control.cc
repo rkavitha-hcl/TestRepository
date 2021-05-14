@@ -47,7 +47,7 @@ absl::StatusOr<SymbolicTrace> EvaluateV1model(
                                       !trace.dropped));
 
     // Extend existing trace with suffix.
-    trace.dropped = suffix_trace.dropped;
+    ASSIGN_OR_RETURN(trace.dropped, IsDropped(*state));
     for (auto &[table, match] : suffix_trace.matched_entries) {
       if (trace.matched_entries.count(table) != 0) {
         return gutil::UnimplementedErrorBuilder()
