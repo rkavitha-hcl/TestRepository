@@ -2,15 +2,22 @@
 
 #include <memory>
 
+#include "absl/random/seed_sequences.h"
 #include "gtest/gtest.h"
 #include "gutil/proto.h"
+#include "gutil/proto_matchers.h"
+#include "gutil/status_matchers.h"
 #include "p4_fuzzer/fuzzer.pb.h"
 #include "p4_fuzzer/mutation.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/pd.h"
+#include "sai_p4/instantiations/google/instantiations.h"
+#include "sai_p4/instantiations/google/sai_p4info.h"
 
 namespace p4_fuzzer {
 namespace {
+
+using ::gutil::EqualsProto;
 
 TEST(FuzzUtilTest, SetUnusedBitsToZeroInThreeBytes) {
   std::string data("\xff\xff\xff", 3);
@@ -113,6 +120,30 @@ TEST(FuzzUtilTest, FuzzUint64LargeInRange) {
   absl::BitGen gen;
   for (int i = 0; i < 10000; ++i) {
     EXPECT_LT(FuzzUint64(&gen, /*bits=*/10), 1024);
+  }
+}
+
+TEST(FuzzUtilTest, FuzzWriteRequestAreReproducible) {
+  const pdpi::IrP4Info kIrP4Info =
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
+  const SwitchState kSwitchState(kIrP4Info);
+  const FuzzerConfig kFuzzerConfig{
+      .info = kIrP4Info,
+      .ports = {"1"},
+      .qos_queues = {"0x1"},
+      .role = "sdn_controller",
+  };
+
+  // Use the same sequence seed for both generators.
+  absl::SeedSeq seed;
+  absl::BitGen gen_0(seed);
+  absl::BitGen gen_1(seed);
+
+  // Create 1000 instances, and verify that they are identical.
+  for (int i = 0; i < 1000; ++i) {
+    ASSERT_THAT(
+        FuzzWriteRequest(&gen_0, kFuzzerConfig, kSwitchState),
+        EqualsProto(FuzzWriteRequest(&gen_1, kFuzzerConfig, kSwitchState)));
   }
 }
 
