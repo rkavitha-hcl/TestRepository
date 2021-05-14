@@ -3,6 +3,9 @@
 
 #include <vector>
 
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "glog/logging.h"
 
 namespace sai {
@@ -31,6 +34,18 @@ inline std::string InstantiationToString(Instantiation role) {
   }
   LOG(DFATAL) << "invalid Instantiation: " << static_cast<int>(role);
   return "";
+}
+
+// Returns the name of the given switch role.
+inline absl::StatusOr<Instantiation> StringToInstantiation(
+    const std::string& instantiation) {
+  if (instantiation == InstantiationToString(Instantiation::kMiddleblock)) {
+    return Instantiation::kMiddleblock;
+  } else if (instantiation == InstantiationToString(Instantiation::kWbb)) {
+    return Instantiation::kWbb;
+  }
+  return absl::InvalidArgumentError(
+      absl::StrCat("invalid Instantiation: ", instantiation));
 }
 
 }  // namespace sai

@@ -119,7 +119,12 @@ cc_library(
 cc_library(
     name = "instantiations",
     hdrs = ["instantiations.h"],
-    deps = ["@com_github_google_glog//:glog"],
+    deps = [
+        "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+    ],
 )
 
 # Ensures that the checked in and compile-time generated P4Infos match.
