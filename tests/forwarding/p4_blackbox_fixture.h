@@ -79,6 +79,8 @@ class P4BlackboxFixture : public thinkit::MirrorTestbedFixture {
     clear_table_entries_on_teardown_ = false;
   }
 
+  void DestroyP4RuntimeSession() { sut_p4rt_session_.reset(); }
+
  private:
   bool clear_table_entries_on_teardown_ = true;
   std::unique_ptr<pdpi::P4RuntimeSession> sut_p4rt_session_;

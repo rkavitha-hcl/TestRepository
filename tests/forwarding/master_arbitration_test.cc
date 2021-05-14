@@ -219,13 +219,14 @@ TEST_P(MasterArbitrationTestFixture, GetNotifiedOfActualMaster) {
   ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(1));
 
   // Assemble arbitration request.
-  ::p4::v1::StreamMessageRequest request;
+  p4::v1::StreamMessageRequest request;
   auto arbitration = request.mutable_arbitration();
   arbitration->set_device_id(DeviceId());
   arbitration->mutable_election_id()->set_high(
       absl::Uint128High64(ElectionIdFromLower(0)));
   arbitration->mutable_election_id()->set_low(
       absl::Uint128Low64(ElectionIdFromLower(0)));
+  arbitration->mutable_role()->set_name(P4RUNTIME_ROLE_SDN_CONTROLLER);
 
   // Send arbitration request.
   ASSERT_OK_AND_ASSIGN(auto stub, Stub());
@@ -234,7 +235,7 @@ TEST_P(MasterArbitrationTestFixture, GetNotifiedOfActualMaster) {
   stream_channel->Write(request);
 
   // Wait for arbitration response.
-  ::p4::v1::StreamMessageResponse response;
+  p4::v1::StreamMessageResponse response;
   ASSERT_TRUE(stream_channel->Read(&response));
   EXPECT_EQ(response.update_case(), StreamMessageResponse::kArbitration);
   EXPECT_EQ(response.arbitration().device_id(), DeviceId());
@@ -242,20 +243,42 @@ TEST_P(MasterArbitrationTestFixture, GetNotifiedOfActualMaster) {
             absl::Uint128High64(ElectionIdFromLower(1)));
   EXPECT_EQ(response.arbitration().election_id().low(),
             absl::Uint128Low64(ElectionIdFromLower(1)));
+  EXPECT_EQ(response.arbitration().role().name(),
+            P4RUNTIME_ROLE_SDN_CONTROLLER);
   EXPECT_EQ(response.arbitration().status().code(), ALREADY_EXISTS);
 }
 
 TEST_P(MasterArbitrationTestFixture, NoIdControllerCannotBecomeMaster) {
-  // TODO Enable this test once p4rt app correctly identify no id
-  // case.
-  if (TestEnvironment().MaskKnownFailures()) GTEST_SKIP();
   TestEnvironment().SetTestCaseID("3699fc43-5ff8-44ee-8965-68f42c71c1ed");
+  // Destroy the p4rt sesseion that was created at `P4BlackboxFixture::Setup()`
+  // to make sure there is no master controller left.
+  DestroyP4RuntimeSession();
 
-  ASSERT_OK_AND_ASSIGN(auto stub, Stub());
-  // Sends master arbitration request with no election id.
+  // Assemble arbitration request.
   p4::v1::StreamMessageRequest request;
-  request.mutable_arbitration()->set_device_id(DeviceId());
-  ASSERT_THAT(SendStreamMessageRequest(stub.get(), request), NotMaster());
+  auto arbitration = request.mutable_arbitration();
+  arbitration->set_device_id(DeviceId());
+  arbitration->mutable_role()->set_name(P4RUNTIME_ROLE_SDN_CONTROLLER);
+
+  // Send arbitration request.
+  ASSERT_OK_AND_ASSIGN(auto stub, Stub());
+  grpc::ClientContext context;
+  auto stream_channel = stub->StreamChannel(&context);
+  ASSERT_TRUE(stream_channel->Write(request))
+      << "Failed to write stream message request: " << request.DebugString();
+
+  // Wait for arbitration response.
+  p4::v1::StreamMessageResponse response;
+  ASSERT_TRUE(stream_channel->Read(&response))
+      << "Failed to read stream message response: " << response.DebugString();
+  EXPECT_EQ(response.update_case(), StreamMessageResponse::kArbitration);
+  EXPECT_EQ(response.arbitration().device_id(), DeviceId());
+  EXPECT_EQ(response.arbitration().role().name(),
+            P4RUNTIME_ROLE_SDN_CONTROLLER);
+  // Check that there is no master controller found. In other words, the master
+  // arbitration request with no election id failed.
+  EXPECT_EQ(response.arbitration().status().code(),
+            grpc::StatusCode::NOT_FOUND);
 }
 
 TEST_P(MasterArbitrationTestFixture, OldMasterCannotWriteAfterNewMasterCameUp) {
