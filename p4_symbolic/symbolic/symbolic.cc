@@ -18,6 +18,7 @@
 
 #include "absl/algorithm/container.h"
 #include "absl/cleanup/cleanup.h"
+#include "absl/memory/memory.h"
 #include "absl/types/optional.h"
 #include "glog/logging.h"
 #include "gutil/status.h"
@@ -65,11 +66,11 @@ absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
 
   // Evaluate the main program.
   ASSIGN_OR_RETURN(
-      SymbolicTrace trace,
+      SymbolicTableMatches matched_entries,
       control::EvaluateV1model(data_plane, &egress_headers, &translator));
 
   // Alias the event that the packet is dropped for ease of use in assertions
-  ASSIGN_OR_RETURN(trace.dropped, IsDropped(egress_headers));
+  ASSIGN_OR_RETURN(z3::expr dropped, IsDropped(egress_headers));
 
   // Restrict ports to the available physical ports.
   if (absl::c_find(physical_ports, kDropPort) != physical_ports.end()) {
@@ -93,20 +94,28 @@ absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
       egress_port_is_physical = egress_port_is_physical || egress_port == port;
     }
     z3_solver->add(ingress_port != kDropPort && ingress_port_is_physical);
-    z3_solver->add(trace.dropped || egress_port_is_physical);
+    z3_solver->add(dropped || egress_port_is_physical);
   }
-  // Construct solver state for this program.
-  SymbolicContext symbolic_context = {
+
+  // Assemble and return result.
+  auto trace = SymbolicTrace{
+      .matched_entries = std::move(matched_entries),
+      .dropped = dropped,
+  };
+  auto context = SymbolicContext{
       .ingress_port = ingress_port,
       .egress_port = egress_port,
-      .ingress_headers = ingress_headers,
-      .egress_headers = egress_headers,
-      .trace = trace,
+      .ingress_headers = std::move(ingress_headers),
+      .egress_headers = std::move(egress_headers),
+      .trace = std::move(trace),
   };
-
-  return std::make_unique<SolverState>(data_plane.program, data_plane.entries,
-                                       symbolic_context, std::move(z3_solver),
-                                       translator);
+  return std::make_unique<SolverState>(SolverState{
+      .program = data_plane.program,
+      .entries = data_plane.entries,
+      .context = std::move(context),
+      .solver = std::move(z3_solver),
+      .translator = std::move(translator),
+  });
 }
 
 absl::StatusOr<std::optional<ConcreteContext>> Solve(

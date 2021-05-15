@@ -103,13 +103,15 @@ absl::StatusOr<ConcreteContext> ExtractFromModel(
   }
 
   // Extract the trace (matches on every table).
-  bool dropped =
-      Z3BooltoBool(model.eval(context.trace.dropped, true).bool_value());
+  ASSIGN_OR_RETURN(bool dropped, EvalZ3Bool(context.trace.dropped, model));
   absl::btree_map<std::string, ConcreteTableMatch> matched_entries;
   for (const auto &[table, match] : context.trace.matched_entries) {
-    matched_entries[table] = {
-        Z3BooltoBool(model.eval(match.matched, true).bool_value()),
-        model.eval(match.entry_index, true).get_numeral_int()};
+    ASSIGN_OR_RETURN(bool matched, EvalZ3Bool(match.matched, model));
+    ASSIGN_OR_RETURN(int entry_index, EvalZ3Int(match.entry_index, model));
+    matched_entries[table] = ConcreteTableMatch{
+        .matched = matched,
+        .entry_index = entry_index,
+    };
   }
 
   return ConcreteContext{
@@ -125,49 +127,47 @@ absl::StatusOr<ConcreteContext> ExtractFromModel(
   };
 }
 
-absl::StatusOr<SymbolicTrace> MergeTracesOnCondition(
-    const z3::expr &condition, const SymbolicTrace &true_trace,
-    const SymbolicTrace &false_trace) {
-  ASSIGN_OR_RETURN(
-      z3::expr merged_dropped,
-      operators::Ite(condition, true_trace.dropped, false_trace.dropped));
-
-  // The merged trace is initially empty.
-  SymbolicTrace merged = {{}, merged_dropped};
+absl::StatusOr<SymbolicTableMatches> MergeMatchesOnCondition(
+    const z3::expr &condition, const SymbolicTableMatches &true_matches,
+    const SymbolicTableMatches &false_matches) {
+  SymbolicTableMatches merged;
 
   // Merge all tables matches in true_trace (including ones in both traces).
-  for (const auto &[name, true_match] : true_trace.matched_entries) {
+  for (const auto &[name, true_match] : true_matches) {
     // Find match in other trace (or use default).
-    SymbolicTableMatch false_match = DefaultTableMatch();
-    if (false_trace.matched_entries.count(name) > 0) {
-      false_match = false_trace.matched_entries.at(name);
-    }
+    SymbolicTableMatch false_match = false_matches.contains(name)
+                                         ? false_matches.at(name)
+                                         : DefaultTableMatch();
 
     // Merge this match.
     ASSIGN_OR_RETURN(
         z3::expr matched,
         operators::Ite(condition, true_match.matched, false_match.matched));
-    ASSIGN_OR_RETURN(z3::expr index,
+    ASSIGN_OR_RETURN(z3::expr entry_index,
                      operators::Ite(condition, true_match.entry_index,
                                     false_match.entry_index));
-    merged.matched_entries.insert({name, {matched, index}});
+    merged.insert({name, SymbolicTableMatch{
+                             .matched = matched,
+                             .entry_index = entry_index,
+                         }});
   }
 
-  // Merge all tables matches in false_trace only.
-  for (const auto &[name, false_match] : false_trace.matched_entries) {
+  // Merge all tables matches in false_matches only.
+  for (const auto &[name, false_match] : false_matches) {
+    if (true_matches.contains(name)) continue;  // Already covered.
     SymbolicTableMatch true_match = DefaultTableMatch();
-    if (true_trace.matched_entries.count(name) > 0) {
-      continue;  // Already covered.
-    }
 
     // Merge this match.
     ASSIGN_OR_RETURN(
         z3::expr matched,
         operators::Ite(condition, true_match.matched, false_match.matched));
-    ASSIGN_OR_RETURN(z3::expr index,
+    ASSIGN_OR_RETURN(z3::expr entry_index,
                      operators::Ite(condition, true_match.entry_index,
                                     false_match.entry_index));
-    merged.matched_entries.insert({name, {matched, index}});
+    merged.insert({name, SymbolicTableMatch{
+                             .matched = matched,
+                             .entry_index = entry_index,
+                         }});
   }
 
   return merged;

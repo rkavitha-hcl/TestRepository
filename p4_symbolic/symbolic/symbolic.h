@@ -87,6 +87,9 @@ struct SymbolicTableMatch {
   z3::expr entry_index;
 };
 
+// `SymbolicTableMatch`es by table name.
+using SymbolicTableMatches = absl::btree_map<std::string, SymbolicTableMatch>;
+
 // Specifies the expected trace in the program that the corresponding
 // concrete packet is expected to take.
 struct ConcreteTrace {
@@ -108,7 +111,8 @@ struct ConcreteTrace {
 // to take in the program.
 struct SymbolicTrace {
   // Full table name to its symbolic match.
-  absl::btree_map<std::string, SymbolicTableMatch> matched_entries;
+  // TODO: Rename to matches_by_table_name.
+  SymbolicTableMatches matched_entries;
   z3::expr dropped;
 };
 
@@ -184,16 +188,6 @@ struct SolverState {
   std::unique_ptr<z3::solver> solver;
   // Store the p4 runtime translator state for use by .Solve(...).
   values::P4RuntimeTranslator translator;
-  // Need this constructor to be defined explicity to be able to use make_unique
-  // on this struct.
-  SolverState(ir::P4Program program, ir::TableEntries entries,
-              SymbolicContext context, std::unique_ptr<z3::solver> &&solver,
-              values::P4RuntimeTranslator translator)
-      : program(program),
-        entries(entries),
-        context(context),
-        solver(std::move(solver)),
-        translator(translator) {}
 };
 
 // An assertion is a user defined function that takes a symbolic context

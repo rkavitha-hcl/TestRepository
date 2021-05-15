@@ -15,6 +15,7 @@ z3::context& Z3Context() {
 
 absl::StatusOr<bool> EvalZ3Bool(const z3::expr& bool_expr,
                                 const z3::model& model) {
+  // TODO: Ensure this doesn't crash by checking sort first.
   auto value = model.eval(bool_expr, true).bool_value();
   switch (value) {
     case Z3_L_FALSE:
@@ -27,6 +28,12 @@ absl::StatusOr<bool> EvalZ3Bool(const z3::expr& bool_expr,
   return gutil::InternalErrorBuilder()
          << "boolean expression '" << bool_expr
          << "' evaluated to unexpected Boolean value " << value;
+}
+
+absl::StatusOr<int> EvalZ3Int(const z3::expr& int_expr,
+                              const z3::model& model) {
+  // TODO: Ensure this doesn't crash by checking sort first.
+  return model.eval(int_expr, true).get_numeral_int();
 }
 
 absl::StatusOr<z3::expr> HexStringToZ3Bitvector(const std::string& hex_string,

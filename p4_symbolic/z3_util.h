@@ -20,6 +20,8 @@ z3::context& Z3Context();
 absl::StatusOr<bool> EvalZ3Bool(const z3::expr& bool_expr,
                                 const z3::model& model);
 
+absl::StatusOr<int> EvalZ3Int(const z3::expr& int_expr, const z3::model& model);
+
 template <size_t num_bits>
 absl::StatusOr<std::bitset<num_bits>> EvalZ3Bitvector(const z3::expr& bv_expr,
                                                       const z3::model& model);
