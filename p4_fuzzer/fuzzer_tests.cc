@@ -62,7 +62,9 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
       std::unique_ptr<pdpi::P4RuntimeSession> session,
       pdpi::P4RuntimeSession::Create(std::move(stub), sut.DeviceId()));
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-      session.get(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+      session.get(),
+      p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+      sai::GetP4Info(sai::Instantiation::kMiddleblock)));
 
   // Clear switch state.
   ASSERT_OK(pdpi::ClearTableEntries(session.get(), info));

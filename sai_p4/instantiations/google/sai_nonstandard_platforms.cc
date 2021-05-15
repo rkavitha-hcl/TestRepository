@@ -1,6 +1,7 @@
 #include "sai_p4/instantiations/google/sai_nonstandard_platforms.h"
 
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_replace.h"
 #include "glog/logging.h"
 #include "google/protobuf/text_format.h"
 #include "p4/config/v1/p4info.pb.h"
@@ -44,7 +45,12 @@ std::string GetNonstandardP4Config(Instantiation instantiation,
   const gutil::FileToc* toc = sai_nonstandard_platforms_embed_create();
   std::string key = P4ConfigName(instantiation, platform);
   for (int i = 0; i < sai_nonstandard_platforms_embed_size(); ++i) {
-    if (toc[i].name == key) return std::string(toc[i].data);
+    if (toc[i].name == key) {
+      // We use round robin hashing for nonstandard platforms, which makes it
+      // easy to predict all possible output through repeated simulation.
+      return absl::StrReplaceAll(toc[i].data, {{R"("algo" : "identity")",
+                                                R"("algo" : "round_robin")"}});
+    }
   }
   LOG(DFATAL) << "couldn't find P4 config for instantiation '"
               << InstantiationToString(instantiation) << "' and platform '"

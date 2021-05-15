@@ -47,7 +47,10 @@ class AclTableTest : public testing::Test {
                                                       /*device_id=*/183807201));
 
     // Push a P4Info file to enable the reading, and writing of entries.
-    ASSERT_OK(pdpi::SetForwardingPipelineConfig(p4rt_session_.get(), p4_info_));
+    ASSERT_OK(pdpi::SetForwardingPipelineConfig(
+        p4rt_session_.get(),
+        p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+        p4_info_));
   }
 
   // AclTableTests are written against the P4 middle block.

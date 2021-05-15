@@ -42,13 +42,19 @@ class ForwardingPipelineConfigTest : public testing::Test {
 
 TEST_F(ForwardingPipelineConfigTest, SetForwardingPipelineConfig) {
   EXPECT_OK(pdpi::SetForwardingPipelineConfig(
-      p4rt_session_.get(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+      p4rt_session_.get(),
+      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+      sai::GetP4Info(sai::Instantiation::kMiddleblock)));
 }
 
 TEST_F(ForwardingPipelineConfigTest, SetDuplicateForwardingPipelineConfig) {
   auto p4_info = sai::GetP4Info(sai::Instantiation::kMiddleblock);
-  EXPECT_OK(pdpi::SetForwardingPipelineConfig(p4rt_session_.get(), p4_info));
-  EXPECT_OK(pdpi::SetForwardingPipelineConfig(p4rt_session_.get(), p4_info));
+  EXPECT_OK(pdpi::SetForwardingPipelineConfig(
+      p4rt_session_.get(),
+      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT, p4_info));
+  EXPECT_OK(pdpi::SetForwardingPipelineConfig(
+      p4rt_session_.get(),
+      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT, p4_info));
 }
 
 TEST_F(ForwardingPipelineConfigTest, FailVerifyAndSave) {
@@ -69,11 +75,16 @@ TEST_F(ForwardingPipelineConfigTest, FailVerifyAndSave) {
 
 TEST_F(ForwardingPipelineConfigTest, ModifyConfig) {
   auto p4_info = sai::GetP4Info(sai::Instantiation::kMiddleblock);
-  EXPECT_OK(pdpi::SetForwardingPipelineConfig(p4rt_session_.get(), p4_info));
+  EXPECT_OK(pdpi::SetForwardingPipelineConfig(
+      p4rt_session_.get(),
+      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT, p4_info));
   p4_info.mutable_tables()->RemoveLast();
-  EXPECT_THAT(pdpi::SetForwardingPipelineConfig(p4rt_session_.get(), p4_info),
-              gutil::StatusIs(absl::StatusCode::kUnimplemented,
-                              testing::HasSubstr("deleted: ")));
+  EXPECT_THAT(
+      pdpi::SetForwardingPipelineConfig(
+          p4rt_session_.get(),
+          SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT, p4_info),
+      gutil::StatusIs(absl::StatusCode::kUnimplemented,
+                      testing::HasSubstr("deleted: ")));
 }
 
 }  // namespace

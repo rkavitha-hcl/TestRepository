@@ -18,6 +18,7 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
@@ -76,14 +77,13 @@ absl::Status InstallPiTableEntries(
 absl::Status SendPiUpdates(P4RuntimeSession* session,
                            absl::Span<const p4::v1::Update> pi_updates);
 
-// Sets the forwarding pipeline from the given p4 info.
-absl::Status SetForwardingPipelineConfig(P4RuntimeSession* session,
-                                         const p4::config::v1::P4Info& p4info);
-
-// Sets the forwarding pipeline from the given p4 info and device configuration.
-absl::Status SetForwardingPipelineConfig(P4RuntimeSession* session,
-                                         const p4::config::v1::P4Info& p4info,
-                                         absl::string_view p4_device_config);
+// Sets the forwarding pipeline to the given P4 info and, optionally, device
+// configuration.
+absl::Status SetForwardingPipelineConfig(
+    P4RuntimeSession* session,
+    p4::v1::SetForwardingPipelineConfigRequest::Action action,
+    const p4::config::v1::P4Info& p4info,
+    absl::optional<absl::string_view> p4_device_config = absl::nullopt);
 
 }  // namespace pdpi
 

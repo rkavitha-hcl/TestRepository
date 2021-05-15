@@ -95,7 +95,9 @@ class FakePacketIoTest : public testing::Test {
 
 TEST_F(FakePacketIoTest, VerifyPacketIn) {
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-      p4rt_session_.get(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+      p4rt_session_.get(),
+      p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+      sai::GetP4Info(sai::Instantiation::kMiddleblock)));
 
   std::vector<p4::v1::PacketIn> expected_packets;
   expected_packets.resize(2);
@@ -195,7 +197,9 @@ TEST_F(FakePacketIoTest, PacketOutFailForSecondary) {
 TEST_F(FakePacketIoTest, VerifyPacketOut) {
   // Needed for PacketOut.
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-      p4rt_session_.get(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+      p4rt_session_.get(),
+      p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+      sai::GetP4Info(sai::Instantiation::kMiddleblock)));
 
   EXPECT_OK(SendPacketOut(0, "test packet1",
                           sai::GetIrP4Info(sai::Instantiation::kMiddleblock)));

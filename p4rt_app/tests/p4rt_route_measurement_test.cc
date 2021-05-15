@@ -164,6 +164,7 @@ class P4rtRouteTest : public Test {
     if (FLAGS_push_config) {
       ASSERT_OK(pdpi::SetForwardingPipelineConfig(
           p4rt_session_.get(),
+          p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
           sai::GetP4Info(sai::Instantiation::kMiddleblock)));
     }
     // Create the dependancy objects for ROUTE_ENTRY.

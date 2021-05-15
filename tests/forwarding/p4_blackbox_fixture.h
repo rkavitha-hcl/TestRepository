@@ -48,6 +48,7 @@ class P4BlackboxFixture : public thinkit::MirrorTestbedFixture {
                                                 GetMirrorTestbed().Sut()));
     ASSERT_OK(pdpi::SetForwardingPipelineConfig(
         sut_p4rt_session_.get(),
+        p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
         sai::GetP4Info(sai::Instantiation::kMiddleblock)));
 
     // Clear entries here in case the previous test did not (e.g. because it

@@ -280,6 +280,7 @@ cc_library(
         "@com_github_google_glog//:glog",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_protobuf//:protobuf",
     ],
@@ -310,8 +311,10 @@ cc_test(
         ":instantiations",
         ":sai_nonstandard_platforms_cc",
         "//gutil:status_matchers",
+        "//thinkit:bazel_test_environment",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
         "@com_google_googletest//:gtest_main",
     ],
 )

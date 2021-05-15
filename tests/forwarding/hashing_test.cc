@@ -377,7 +377,9 @@ uint32_t GetIthL4Port(int i, uint32_t base) {
 absl::Status SetUpSut(pdpi::P4RuntimeSession* p4_session) {
   RETURN_IF_ERROR(
       pdpi::SetForwardingPipelineConfig(
-          p4_session, sai::GetP4Info(sai::Instantiation::kMiddleblock)))
+          p4_session,
+          p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+          sai::GetP4Info(sai::Instantiation::kMiddleblock)))
           .SetPrepend()
       << "Failed to push P4Info for Sut: ";
   RETURN_IF_ERROR(pdpi::ClearTableEntries(
@@ -388,7 +390,9 @@ absl::Status SetUpSut(pdpi::P4RuntimeSession* p4_session) {
 absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession* p4_session) {
   RETURN_IF_ERROR(
       pdpi::SetForwardingPipelineConfig(
-          p4_session, sai::GetP4Info(sai::Instantiation::kMiddleblock)))
+          p4_session,
+          p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+          sai::GetP4Info(sai::Instantiation::kMiddleblock)))
           .SetPrepend()
       << "Failed to push P4Info for Control switch: ";
   RETURN_IF_ERROR(pdpi::ClearTableEntries(

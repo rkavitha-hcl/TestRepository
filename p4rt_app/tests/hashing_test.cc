@@ -88,7 +88,9 @@ class HashingTest : public testing::Test {
 
 TEST_F(HashingTest, InsertAllHashTableAndSwitchTableOk) {
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-      p4rt_session_.get(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+      p4rt_session_.get(),
+      p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+      sai::GetP4Info(sai::Instantiation::kMiddleblock)));
   auto hash_field_keys = p4rt_service_.GetHashAppDbTable().GetAllKeys();
   for (const auto& key : hash_field_keys) {
     if (sonic::IsIpv4HashKey(key)) {
@@ -121,7 +123,10 @@ TEST_F(HashingTest, VerifySwitchTableValuesOk) {
   p4::config::v1::P4Info p4_info;
   EXPECT_TRUE(
       google::protobuf::TextFormat::ParseFromString(kSampleP4Info, &p4_info));
-  ASSERT_OK(pdpi::SetForwardingPipelineConfig(p4rt_session_.get(), p4_info));
+  ASSERT_OK(pdpi::SetForwardingPipelineConfig(
+      p4rt_session_.get(),
+      p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+      p4_info));
   EXPECT_THAT(
       p4rt_service_.GetSwitchAppDbTable().ReadTableEntry("switch"),
       IsOkAndHolds(UnorderedElementsAre(
@@ -138,7 +143,10 @@ TEST_F(HashingTest, HashTableInsertionFails) {
   p4rt_service_.GetHashAppDbTable().SetResponseForKey(
       "compute_ecmp_hash_ipv4", "SWSS_RC_INVALID_PARAM", "my error message");
   EXPECT_THAT(
-      pdpi::SetForwardingPipelineConfig(p4rt_session_.get(), p4_info),
+      pdpi::SetForwardingPipelineConfig(
+          p4rt_session_.get(),
+          p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+          p4_info),
       StatusIs(absl::StatusCode::kInternal, HasSubstr("my error message")));
 }
 
@@ -149,7 +157,10 @@ TEST_F(HashingTest, SwitchTableInsertionFails) {
   p4rt_service_.GetSwitchAppDbTable().SetResponseForKey(
       "switch", "SWSS_RC_INVALID_PARAM", "my error message");
   EXPECT_THAT(
-      pdpi::SetForwardingPipelineConfig(p4rt_session_.get(), p4_info),
+      pdpi::SetForwardingPipelineConfig(
+          p4rt_session_.get(),
+          p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+          p4_info),
       StatusIs(absl::StatusCode::kInternal, HasSubstr("my error message")));
 }
 

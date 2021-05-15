@@ -50,7 +50,9 @@ class FixedL3TableTest : public testing::Test {
 
     // Push a P4Info file to enable the reading, and writing of entries.
     ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-        p4rt_session_.get(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+        p4rt_session_.get(),
+        p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+        sai::GetP4Info(sai::Instantiation::kMiddleblock)));
   }
 
   test_lib::P4RuntimeGrpcService p4rt_service_;

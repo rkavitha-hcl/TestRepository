@@ -48,6 +48,10 @@ inline absl::StatusOr<Instantiation> StringToInstantiation(
       absl::StrCat("invalid Instantiation: ", instantiation));
 }
 
+inline std::ostream& operator<<(std::ostream& os, Instantiation instantiation) {
+  return os << InstantiationToString(instantiation);
+}
+
 }  // namespace sai
 
 #endif  // GOOGLE_SAI_P4_INSTANTIATIONS_GOOGLE_GOOGLE_INSTANTIATIONS_H_
