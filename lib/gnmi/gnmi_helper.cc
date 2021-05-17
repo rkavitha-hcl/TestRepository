@@ -286,12 +286,17 @@ GetInterfaceToOperStatusMapOverGnmi(gnmi::gNMI::StubInterface& stub,
 
 absl::Status CheckAllInterfaceOperStateOverGnmi(
     gnmi::gNMI::StubInterface& stub, absl::string_view interface_oper_state,
-    absl::Duration timeout) {
+    bool skip_non_ethernet_interfaces, absl::Duration timeout) {
   ASSIGN_OR_RETURN(const auto interface_to_oper_status_map,
                    GetInterfaceToOperStatusMapOverGnmi(stub, timeout));
 
   std::vector<std::string> unavailable_interfaces;
   for (const auto& [interface, oper_status] : interface_to_oper_status_map) {
+    if (skip_non_ethernet_interfaces &&
+        !absl::StrContains(interface, "Ethernet")) {
+      LOG(INFO) << "Skipping check on interface: " << interface;
+      continue;
+    }
     if (oper_status != interface_oper_state) {
       unavailable_interfaces.push_back(interface);
     }

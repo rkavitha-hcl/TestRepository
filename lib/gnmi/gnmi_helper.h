@@ -118,6 +118,7 @@ GetInterfaceToOperStatusMapOverGnmi(gnmi::gNMI::StubInterface& stub,
 // Checks if all interfaces oper-status is up/down.
 absl::Status CheckAllInterfaceOperStateOverGnmi(
     gnmi::gNMI::StubInterface& stub, absl::string_view interface_oper_state,
+    bool skip_non_ethernet_interfaces = false,
     absl::Duration timeout = absl::Seconds(60));
 
 // Returns gNMI Path for OC strings.
