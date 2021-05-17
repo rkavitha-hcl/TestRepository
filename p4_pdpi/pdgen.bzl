@@ -14,7 +14,17 @@
 """Rule for invoking the PD generator."""
 
 def p4_pd_proto(name, src, out, package, roles = [""], format = True, visibility = None):
-    """Generates PD proto from p4info file."""
+    """Generates PD proto from p4info file.
+
+    Args:
+        name: name of the PD proto to be generated.
+        src: list of p4info files.
+        out: output file name.
+        package: package the PD proto is used for.
+        roles: roles of the PD proto.
+        format: whether to format output file.
+        visibility: genrule visibility.
+    """
     pdgen = "//p4_pdpi:pdgen"
     p4info = ":" + src
     tools = [pdgen]

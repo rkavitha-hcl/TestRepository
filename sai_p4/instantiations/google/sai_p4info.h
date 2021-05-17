@@ -3,6 +3,7 @@
 
 #include <vector>
 
+#include "absl/status/statusor.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_pdpi/ir.pb.h"
 #include "sai_p4/instantiations/google/instantiations.h"
@@ -20,6 +21,11 @@ const p4::config::v1::P4Info& GetP4Info(Instantiation instantiation);
 // Instantiation is provided, the method does a LOG(DFATAL) and returns an
 // empty IrP4Info.
 const pdpi::IrP4Info& GetIrP4Info(Instantiation instantiation);
+
+// Returns a reference to a static unioned P4Info of all instantiations. The
+// reference is guaranteed to remain valid at all times. For details of the
+// unioning process, see p4info_union_lib.h
+const p4::config::v1::P4Info& GetUnionedP4Info();
 
 }  // namespace sai
 

@@ -8,10 +8,11 @@
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
+#include "p4_pdpi/p4info_union_lib.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/middleblock_p4info_embed.h"
+#include "sai_p4/instantiations/google/unioned_p4info_embed.h"
 #include "sai_p4/instantiations/google/wbb_p4info_embed.h"
-
 namespace sai {
 
 using ::google::protobuf::TextFormat;
@@ -75,6 +76,12 @@ const IrP4Info& GetIrP4Info(Instantiation instantiation) {
   LOG(DFATAL) << "Obtaining IrP4Info for invalid instantiation: "
               << static_cast<int>(instantiation);
   return *empty_info;
+}
+
+const p4::config::v1::P4Info& GetUnionedP4Info() {
+  static const P4Info* unioned_p4info =
+      FileTocToP4Info(unioned_p4info_embed_create());
+  return *unioned_p4info;
 }
 
 }  // namespace sai

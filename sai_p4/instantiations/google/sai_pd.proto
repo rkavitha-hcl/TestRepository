@@ -251,6 +251,50 @@ message AclLookupTableEntry {
   bytes controller_metadata = 8;
 }
 
+// Table entry restrictions:
+// ## WBB only allows for very specific table entries:
+// ## Traceroute (6 entries)
+//   (
+// ## IPv4 or IPv6
+//   ((is_ipv4 == 1 && is_ipv6::mask == 0) ||
+//   (is_ipv4::mask == 0 && is_ipv6 == 1)) &&
+// ## TTL 0, 1, and 2
+//   (ttl == 0 || ttl == 1 || ttl == 2) &&
+//   ether_type::mask == 0 && outer_vlan_id::mask == 0
+//   ) ||
+// ## LLDP
+//   (
+//   ether_type == 0x88cc &&
+//   is_ipv4::mask == 0 && is_ipv6::mask == 0 && ttl::mask == 0 &&
+//   outer_vlan_id::mask == 0
+//   ) ||
+// ## ND
+//   (
+//   outer_vlan_id == 0x0FA0 && ether_type == 0x6007 &&
+//   is_ipv4::mask == 0 && is_ipv6::mask == 0 && ttl::mask == 0
+//   )
+message AclWbbIngressTableEntry {
+  message Match {
+    Optional is_ipv4 = 1;       // optional match / Format::HEX_STRING / 1 bits
+    Optional is_ipv6 = 2;       // optional match / Format::HEX_STRING / 1 bits
+    Ternary ether_type = 3;     // ternary match / Format::HEX_STRING / 16 bits
+    Ternary ttl = 4;            // ternary match / Format::HEX_STRING / 8 bits
+    Ternary outer_vlan_id = 5;  // ternary match / Format::HEX_STRING / 12 bits
+  }
+  Match match = 1;
+  message Action {
+    oneof action {
+      AclWbbIngressCopyAction acl_wbb_ingress_copy = 1;
+      AclWbbIngressTrapAction acl_wbb_ingress_trap = 2;
+    }
+  }
+  Action action = 2;
+  int32 priority = 3;
+  BytesMeterConfig meter_config = 4;
+  BytesAndPacketsCounterData counter_data = 6;
+  bytes controller_metadata = 8;
+}
+
 // -- Actions ------------------------------------------------------------------
 
 message SetDstMacAction {
@@ -313,6 +357,10 @@ message MirrorAction {
   string mirror_session_id = 1;  // Format::STRING
 }
 
+message AclWbbIngressCopyAction {}
+
+message AclWbbIngressTrapAction {}
+
 // -- All tables ---------------------------------------------------------------
 
 message TableEntry {
@@ -327,6 +375,7 @@ message TableEntry {
     L3AdmitTableEntry l3_admit_table_entry = 71;
     AclIngressTableEntry acl_ingress_table_entry = 256;
     AclLookupTableEntry acl_lookup_table_entry = 257;
+    AclWbbIngressTableEntry acl_wbb_ingress_table_entry = 259;
   }
 }
 

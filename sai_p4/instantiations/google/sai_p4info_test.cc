@@ -32,5 +32,7 @@ TEST(GetIrP4InfoTest, DoesNotCheckCrash) {
   }
 }
 
+TEST(GetUnionedP4InfoTest, DoesNotCrashTest) { GetUnionedP4Info(); }
+
 }  // namespace
 }  // namespace sai

@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef P4_PDPI_IR_H
-#define P4_PDPI_IR_H
+#ifndef GOOGLE_P4_PDPI_IR_H_
+#define GOOGLE_P4_PDPI_IR_H_
 // P4 intermediate representation definitions for use in conversion to and from
 // Program-Independent to either Program-Dependent or App-DB formats
 
@@ -111,4 +111,4 @@ absl::StatusOr<grpc::Status> IrWriteRpcStatusToGrpcStatus(
 absl::Status WriteRpcGrpcStatusToAbslStatus(
     const grpc::Status& grpc_status, int number_of_updates_in_write_request);
 }  // namespace pdpi
-#endif  // P4_PDPI_IR_H
+#endif  // GOOGLE_P4_PDPI_IR_H_
