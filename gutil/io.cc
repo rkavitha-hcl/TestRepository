@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "p4_symbolic/util/io.h"
+#include "gutil/io.h"
 
 #include <cerrno>
 #include <fstream>
@@ -22,8 +22,7 @@
 #include "absl/strings/str_format.h"
 #include "gutil/status.h"
 
-namespace p4_symbolic {
-namespace util {
+namespace gutil {
 
 namespace {
 
@@ -71,5 +70,4 @@ absl::Status WriteFile(const std::string &content, const std::string &path) {
   return absl::OkStatus();
 }
 
-}  // namespace util
-}  // namespace p4_symbolic
+}  // namespace gutil

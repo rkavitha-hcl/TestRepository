@@ -20,10 +20,13 @@
 #include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "google/protobuf/text_format.h"
+#include "grpcpp/grpcpp.h"
 #include "gtest/gtest.h"
+#include "gutil/io.h"
 #include "gutil/proto.h"
 #include "gutil/proto_matchers.h"
 #include "gutil/status_matchers.h"
+#include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4_pdpi/connection_management.h"
 #include "p4_pdpi/entity_management.h"
 #include "p4_pdpi/netaddr/ipv4_address.h"
@@ -33,11 +36,19 @@ DEFINE_bool(push_config, false, "Push P4 Info config file");
 DEFINE_int32(batch_size, 1000, "Number of entries in each batch");
 DEFINE_int32(number_batches, 10, "Number of batches");
 DEFINE_int64(election_id, -1, "Election id to be used");
+DEFINE_bool(insecure, false, "Use insecure channel for connection.");
+DEFINE_string(hostname, "", "Hostname of the server to connect.");
+DEFINE_string(ca_cert_file, "", "CA certificate file");
+DEFINE_string(server_key_file, "", "Server key file");
+DEFINE_string(server_cert_file, "", "Server certificate file");
 
 namespace p4rt_app {
 namespace {
 
+using ::testing::IsEmpty;
 using ::testing::Test;
+
+constexpr absl::string_view kServerIpAddress = "127.0.0.1:9559";
 
 static constexpr absl::string_view router_interface = R"pb(
   updates {
@@ -146,10 +157,33 @@ class P4rtRouteTest : public Test {
   }
 
   void SetUp() override {
+    std::unique_ptr<::p4::v1::P4Runtime::Stub> stub;
     // Create connection to P4RT server.
-    auto stub = pdpi::CreateP4RuntimeStub(
-        /*address=*/"127.0.0.1:9559", grpc::InsecureChannelCredentials());
-
+    if (FLAGS_insecure) {
+      stub = pdpi::CreateP4RuntimeStub(std::string(kServerIpAddress),
+                                       grpc::InsecureChannelCredentials());
+    } else {
+      ASSERT_THAT(FLAGS_hostname, Not(IsEmpty()))
+          << "Hostname should be provided for secure connection.";
+      ASSERT_THAT(FLAGS_ca_cert_file, Not(IsEmpty()))
+          << "CA certificate file should be provided for secure connection.";
+      ASSERT_THAT(FLAGS_server_key_file, Not(IsEmpty()))
+          << "Server key file should be provided for secure connection.";
+      ASSERT_THAT(FLAGS_server_cert_file, Not(IsEmpty()))
+          << "Server certificate file should be provided for secure "
+             "connection.";
+      grpc::SslCredentialsOptions ssl_opts;
+      ASSERT_OK_AND_ASSIGN(ssl_opts.pem_root_certs,
+                           gutil::ReadFile(FLAGS_ca_cert_file));
+      ASSERT_OK_AND_ASSIGN(ssl_opts.pem_private_key,
+                           gutil::ReadFile(FLAGS_server_key_file));
+      ASSERT_OK_AND_ASSIGN(ssl_opts.pem_cert_chain,
+                           gutil::ReadFile(FLAGS_server_cert_file));
+      grpc::ChannelArguments args = pdpi::GrpcChannelArgumentsForP4rt();
+      args.SetString(GRPC_SSL_TARGET_NAME_OVERRIDE_ARG, FLAGS_hostname);
+      stub = ::p4::v1::P4Runtime::NewStub(grpc::CreateCustomChannel(
+          std::string(kServerIpAddress), grpc::SslCredentials(ssl_opts), args));
+    }
     absl::uint128 election_id = absl::MakeUint128(
         (FLAGS_election_id == -1 ? absl::ToUnixSeconds(absl::Now())
                                  : FLAGS_election_id),
