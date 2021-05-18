@@ -66,7 +66,7 @@ absl::StatusOr<std::string> ArbitraryToNormalizedByteString(
   if (bitwidth > expected_bitwidth) {
     return gutil::InvalidArgumentErrorBuilder()
            << "Bytestring of length " << bitwidth << " bits does not fit in "
-           << expected_bitwidth << " bits";
+           << expected_bitwidth << " bits.";
   }
 
   const int num_bytes = (expected_bitwidth + 7) / 8;
@@ -80,7 +80,7 @@ absl::StatusOr<uint64_t> ArbitraryByteStringToUint(const std::string &bytes,
     return absl::Status(absl::StatusCode::kInvalidArgument,
                         absl::StrCat("Cannot convert value with "
                                      "bitwidth ",
-                                     bitwidth, " to uint"));
+                                     bitwidth, " to uint."));
   }
   ASSIGN_OR_RETURN(const auto &stripped_value,
                    ArbitraryToNormalizedByteString(bytes, bitwidth));
@@ -103,7 +103,7 @@ absl::StatusOr<std::string> UintToNormalizedByteString(uint64_t value,
     return absl::Status(absl::StatusCode::kInvalidArgument,
                         absl::StrCat("Cannot convert value with "
                                      "bitwidth ",
-                                     bitwidth, " to ByteString"));
+                                     bitwidth, " to ByteString."));
   }
   std::string bytes = "";
   if (bitwidth <= 8) {
@@ -162,7 +162,7 @@ absl::StatusOr<Format> GetFormat(const std::vector<std::string> &annotations,
     if (absl::StartsWith(annotation, "@format(")) {
       if (format != Format::HEX_STRING) {
         return gutil::InvalidArgumentErrorBuilder()
-               << "Found conflicting formatting annotations";
+               << "Found conflicting formatting annotations.";
       }
       if (annotation == "@format(MAC_ADDRESS)") {
         format = Format::MAC;
@@ -172,21 +172,21 @@ absl::StatusOr<Format> GetFormat(const std::vector<std::string> &annotations,
         format = Format::IPV6;
       } else {
         return gutil::InvalidArgumentErrorBuilder()
-               << "Found invalid format annotation: '" << annotation << "'";
+               << "Found invalid format annotation: '" << annotation << "'.";
       }
     }
   }
   if (format == Format::MAC && bitwidth != kNumBitsInMac) {
     return gutil::InvalidArgumentErrorBuilder()
-           << "Only 48 bit values can be formatted as a MAC address";
+           << "Only 48 bit values can be formatted as a MAC address.";
   }
   if (format == Format::IPV4 && bitwidth != kNumBitsInIpv4) {
     return gutil::InvalidArgumentErrorBuilder()
-           << "Only 32 bit values can be formatted as an IPv4 address";
+           << "Only 32 bit values can be formatted as an IPv4 address.";
   }
   if (format == Format::IPV6 && bitwidth != kNumBitsInIpv6) {
     return gutil::InvalidArgumentErrorBuilder()
-           << "Only 128 bit values can be formatted as an IPv6 address";
+           << "Only 128 bit values can be formatted as an IPv6 address.";
   }
   return format;
 }
@@ -243,40 +243,45 @@ absl::Status ValidateIrValueFormat(const IrValue &ir_value, Format format) {
     case Format::MAC: {
       if (format_case != IrValue::kMac) {
         return gutil::InvalidArgumentErrorBuilder()
-               << "Expected format \"" << Format_Name(Format::MAC)
-               << "\", but got \"" << format_case_name << "\" instead";
+               << "Expected format '" << Format_Name(Format::MAC)
+               << "', but got '" << absl::AsciiStrToUpper(format_case_name)
+               << "' instead.";
       }
       break;
     }
     case Format::IPV4: {
       if (format_case != IrValue::kIpv4) {
         return gutil::InvalidArgumentErrorBuilder()
-               << "Expected format \"" << Format_Name(Format::IPV4)
-               << "\", but got \"" << format_case_name << "\" instead";
+               << "Expected format '" << Format_Name(Format::IPV4)
+               << "', but got '" << absl::AsciiStrToUpper(format_case_name)
+               << "' instead.";
       }
       break;
     }
     case Format::IPV6: {
       if (format_case != IrValue::kIpv6) {
         return gutil::InvalidArgumentErrorBuilder()
-               << "Expected format \"" << Format_Name(Format::IPV6)
-               << "\", but got \"" << format_case_name << "\" instead";
+               << "Expected format '" << Format_Name(Format::IPV6)
+               << "', but got '" << absl::AsciiStrToUpper(format_case_name)
+               << "' instead.";
       }
       break;
     }
     case Format::STRING: {
       if (format_case != IrValue::kStr) {
         return gutil::InvalidArgumentErrorBuilder()
-               << "Expected format \"" << Format_Name(Format::STRING)
-               << "\", but got \"" << format_case_name << "\" instead";
+               << "Expected format '" << Format_Name(Format::STRING)
+               << "', but got '" << absl::AsciiStrToUpper(format_case_name)
+               << "' instead.";
       }
       break;
     }
     case Format::HEX_STRING: {
       if (format_case != IrValue::kHexStr) {
         return gutil::InvalidArgumentErrorBuilder()
-               << "Expected format \"" << Format_Name(Format::HEX_STRING)
-               << "\", but got \"" << format_case_name << "\" instead";
+               << "Expected format '" << Format_Name(Format::HEX_STRING)
+               << "', but got '" << absl::AsciiStrToUpper(format_case_name)
+               << "' instead.";
       }
       std::string hex_str = ir_value.hex_str();
       if (absl::StartsWith(hex_str, "0x")) {
@@ -315,24 +320,24 @@ absl::StatusOr<std::string> IrValueToNormalizedByteString(
           bitwidth / 4 + (bitwidth % 4 != 0 ? 1 : 0);
       if (!absl::StartsWith(hex_str, "0x")) {
         return gutil::InvalidArgumentErrorBuilder()
-               << "IR Value \"" << hex_str
-               << "\" with hex string format does not start with 0x";
+               << "IR Value '" << hex_str
+               << "' with hex string format does not start with 0x.";
       }
       absl::string_view stripped_hex = absl::StripPrefix(hex_str, "0x");
       if (expected_num_hex_chars != stripped_hex.size()) {
         return gutil::InvalidArgumentErrorBuilder()
-               << "IR Value \"" << hex_str
-               << "\" has the wrong number of characters. Has "
-               << hex_str.size() << " characters, but expected "
-               << (expected_num_hex_chars + 2) << " instead.";
+               << "IR Value '" << hex_str
+               << "' has the wrong number of characters. Has " << hex_str.size()
+               << " characters, but expected " << (expected_num_hex_chars + 2)
+               << " instead.";
       }
       if (!std::all_of(stripped_hex.begin(), stripped_hex.end(),
                        [](const char c) {
                          return std::isxdigit(c) != 0 && c == std::tolower(c);
                        })) {
         return gutil::InvalidArgumentErrorBuilder()
-               << "IR Value \"" << hex_str
-               << "\" contains non-hexadecimal characters";
+               << "IR Value '" << hex_str
+               << "' contains non-hexadecimal characters.";
       }
 
       std::string byte_string = absl::HexStringToBytes(
@@ -407,9 +412,9 @@ absl::StatusOr<std::string> Intersection(const std::string &left,
                                          const std::string &right) {
   if (left.size() != right.size()) {
     return gutil::InvalidArgumentErrorBuilder()
-           << "Cannot find intersection. \"" << absl::CEscape(left) << "\"("
-           << left.size() << " bytes) and \"" << absl::CEscape(right) << "\"("
-           << right.size() << " bytes) are of unequal length";
+           << "Cannot find intersection. '" << absl::CEscape(left) << "'("
+           << left.size() << " bytes) and '" << absl::CEscape(right) << "'("
+           << right.size() << " bytes) are of unequal length.";
   }
   std::string result = "";
   for (int i = 0; i < left.size(); ++i) {
@@ -452,7 +457,7 @@ absl::StatusOr<std::string> PrefixLenToMask(int prefix_len, int bitwidth) {
 absl::Status IsGoogleRpcCode(int rpc_code) {
   if (rpc_code < 0 || rpc_code > 15) {
     return gutil::InvalidArgumentErrorBuilder()
-           << "Invalid status code: " << rpc_code;
+           << "Invalid status code: " << rpc_code << ".";
   }
   return absl::OkStatus();
 }
@@ -461,7 +466,7 @@ absl::Status ValidateGenericUpdateStatus(google::rpc::Code code,
                                          const std::string &message) {
   if (code == google::rpc::OK && !message.empty()) {
     return absl::InvalidArgumentError(
-        "OK status should not contain error message");
+        "OK status should not contain error message.");
   }
   return absl::OkStatus();
 }

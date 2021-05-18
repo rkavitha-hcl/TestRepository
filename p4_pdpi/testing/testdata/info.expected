@@ -237,7 +237,7 @@ actions {
 }
 
 pdpi::CreateIrP4Info() result:
-INVALID_ARGUMENT: Found invalid format annotation: '@format(IPVx_ADDRESS)'
+INVALID_ARGUMENT: Found invalid format annotation: '@format(IPVx_ADDRESS)'.
 
 =========================================================================
 main.p4

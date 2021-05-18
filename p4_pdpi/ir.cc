@@ -210,6 +210,54 @@ absl::StatusOr<std::vector<IrMatchFieldReference>> GetRefersToAnnotations(
   return result;
 }
 
+std::vector<std::string> GetMissingFields(
+    const absl::flat_hash_set<std::string> &actual_fields,
+    absl::flat_hash_set<std::string> expected_fields) {
+  // Erase actual fields from expected_fields.
+  // Whatever remains are the missing fields.
+  absl::erase_if(expected_fields,
+                 [&](const auto &k) { return actual_fields.contains(k); });
+
+  // Convert to a vector so we can sort the fields to ensure stability.
+  std::vector<std::string> missing_fields(expected_fields.begin(),
+                                          expected_fields.end());
+  std::sort(missing_fields.begin(), missing_fields.end());
+  return missing_fields;
+}
+
+absl::Status CheckMandatoryMatches(
+    const absl::flat_hash_set<std::string> &actual_matches,
+    const IrTableDefinition &table) {
+  auto expected_matches = GetMandatoryMatches(table);
+  if (actual_matches.size() != expected_matches.size()) {
+    auto missing_matches = GetMissingFields(actual_matches, expected_matches);
+    return InvalidArgumentErrorBuilder()
+           << "Missing matches: "
+           << absl::StrCat("'", absl::StrJoin(missing_matches, "', '"), "'")
+           << ". Expected " << expected_matches.size()
+           << " mandatory match conditions, but found " << actual_matches.size()
+           << " instead.";
+  }
+  return absl::OkStatus();
+}
+
+absl::Status CheckParams(const absl::flat_hash_set<std::string> &actual_params,
+                         const IrActionDefinition &action) {
+  absl::flat_hash_set<std::string> expected_params;
+  for (const auto &[name, _] : action.params_by_name()) {
+    expected_params.insert(name);
+  }
+  if (actual_params.size() != expected_params.size()) {
+    auto missing_params = GetMissingFields(actual_params, expected_params);
+    return InvalidArgumentErrorBuilder()
+           << "Missing parameters: "
+           << absl::StrCat("'", absl::StrJoin(missing_params, "'. '"), "'")
+           << ". Expected " << expected_params.size()
+           << " parameters, but found " << actual_params.size() << " instead.";
+  }
+  return absl::OkStatus();
+}
+
 // Verifies the contents of the PI representation and translates to the IR
 // message
 StatusOr<IrMatch> PiMatchFieldToIr(
@@ -411,16 +459,10 @@ StatusOr<IrActionInvocation> PiActionToIr(
 
   action_entry.set_name(ir_action_definition->preamble().alias());
   absl::string_view action_name = action_entry.name();
-  int action_params_size = ir_action_definition->params_by_id().size();
-  if (action_params_size != pi_action.params().size()) {
-    return absl::InvalidArgumentError(GenerateFormattedError(
-        ActionName(action_name),
-        absl::StrCat("Expected ", action_params_size, " parameters, but got ",
-                     pi_action.params().size(), " instead.")));
-  }
   action_entry.set_name(ir_action_definition->preamble().alias());
   absl::flat_hash_set<uint32_t> used_params;
   std::vector<std::string> invalid_reasons;
+  absl::flat_hash_set<std::string> actual_params;
   for (const auto &param : pi_action.params()) {
     const absl::Status duplicate = gutil::InsertIfUnique(
         used_params, param.param_id(),
@@ -449,9 +491,15 @@ StatusOr<IrActionInvocation> PiActionToIr(
                          ir_value.status().message()));
       continue;
     }
+    actual_params.insert(param_entry->name());
     *param_entry->mutable_value() = *ir_value;
   }
-
+  const auto &num_params_status =
+      CheckParams(actual_params, *ir_action_definition);
+  if (!num_params_status.ok()) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, num_params_status.message()));
+  }
   if (!invalid_reasons.empty()) {
     return absl::InvalidArgumentError(GenerateFormattedError(
         ActionName(action_name), absl::StrJoin(invalid_reasons, "\n")));
@@ -551,137 +599,211 @@ StatusOr<O> PiPacketIoToIr(const IrP4Info &info, const std::string &kind,
 }
 
 // Verifies the contents of the IR representation and translates to the PI
-// message
+// message.
 StatusOr<p4::v1::FieldMatch> IrMatchFieldToPi(
     const IrP4Info &info, const IrMatchFieldDefinition &ir_match_definition,
     const IrMatch &ir_match) {
   p4::v1::FieldMatch match_entry;
   const MatchField &match_field = ir_match_definition.match_field();
   uint32_t bitwidth = match_field.bitwidth();
+  absl::string_view match_name = match_field.name();
 
+  std::vector<std::string> invalid_reasons;
   switch (match_field.match_type()) {
     case MatchField::EXACT: {
       if (!ir_match.has_exact()) {
-        return InvalidArgumentErrorBuilder()
-               << "Expected exact match type in IR table entry";
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, "Must be an exact match type."));
+        break;
       }
 
       match_entry.set_field_id(match_field.id());
-      RETURN_IF_ERROR(ValidateIrValueFormat(ir_match.exact(),
-                                            ir_match_definition.format()));
-      ASSIGN_OR_RETURN(
-          const auto &value,
-          IrValueToNormalizedByteString(
-              ir_match.exact(), ir_match_definition.match_field().bitwidth()));
+      const absl::Status &valid =
+          ValidateIrValueFormat(ir_match.exact(), ir_match_definition.format());
+      if (!valid.ok()) {
+        invalid_reasons.push_back(absl::StrCat(kNewBullet, valid.message()));
+        break;
+      }
+      const absl::StatusOr<std::string> &value = IrValueToNormalizedByteString(
+          ir_match.exact(), ir_match_definition.match_field().bitwidth());
+      if (!value.ok()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, value.status().message()));
+        break;
+      }
       if (ir_match_definition.format() == STRING) {
-        match_entry.mutable_exact()->set_value(value);
+        match_entry.mutable_exact()->set_value(*value);
       } else {
         match_entry.mutable_exact()->set_value(
-            ArbitraryToCanonicalByteString(value));
+            ArbitraryToCanonicalByteString(*value));
       }
       break;
     }
     case MatchField::LPM: {
       if (!ir_match.has_lpm()) {
-        return InvalidArgumentErrorBuilder()
-               << "Expected LPM match type in IR table entry";
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, "Must be an LPM match type."));
+        break;
       }
 
       uint32_t prefix_len = ir_match.lpm().prefix_length();
       if (prefix_len > bitwidth) {
-        return InvalidArgumentErrorBuilder()
-               << "Prefix length " << prefix_len << " is greater than bitwidth "
-               << bitwidth << " in LPM";
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, "Prefix length ", prefix_len,
+                         " is greater than bitwidth ", bitwidth, " in LPM."));
+        break;
       }
 
-      RETURN_IF_ERROR(ValidateIrValueFormat(ir_match.lpm().value(),
-                                            ir_match_definition.format()));
-      ASSIGN_OR_RETURN(const auto &value,
-                       IrValueToNormalizedByteString(
-                           ir_match.lpm().value(),
-                           ir_match_definition.match_field().bitwidth()));
+      const absl::Status &valid = ValidateIrValueFormat(
+          ir_match.lpm().value(), ir_match_definition.format());
+      if (!valid.ok()) {
+        invalid_reasons.push_back(absl::StrCat(kNewBullet, valid.message()));
+        break;
+      }
+      const absl::StatusOr<std::string> &value = IrValueToNormalizedByteString(
+          ir_match.lpm().value(), ir_match_definition.match_field().bitwidth());
+      if (!value.ok()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, value.status().message()));
+        break;
+      }
       if (prefix_len == 0) {
-        return InvalidArgumentErrorBuilder()
-               << "A wild-card LPM match (i.e., prefix length of 0) must be "
-                  "represented by omitting the match altogether";
+        invalid_reasons.push_back(absl::StrCat(
+            kNewBullet,
+            "A wild-card LPM match (i.e., prefix length of 0) must be "
+            "represented by omitting the match altogether."));
+        break;
       }
       match_entry.set_field_id(match_field.id());
-      ASSIGN_OR_RETURN(const auto mask, PrefixLenToMask(prefix_len, bitwidth));
-      ASSIGN_OR_RETURN(const auto intersection, Intersection(value, mask));
-      if (value != intersection) {
-        return InvalidArgumentErrorBuilder()
-               << "LPM value has masked bits that are set.\nValue: "
-               << ir_match.lpm().value().DebugString()
-               << "Prefix Length: " << prefix_len;
+      const absl::StatusOr<std::string> &mask =
+          PrefixLenToMask(prefix_len, bitwidth);
+      if (!mask.ok()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, mask.status().message()));
+        break;
+      }
+      const absl::StatusOr<std::string> &intersection =
+          Intersection(*value, *mask);
+      if (!intersection.ok()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, intersection.status().message()));
+        break;
+      }
+      if (*value != *intersection) {
+        invalid_reasons.push_back(absl::StrCat(
+            kNewBullet, "Lpm value has masked bits that are set. Value: ",
+            ir_match.lpm().value().DebugString(),
+            "Prefix Length: ", prefix_len));
+        break;
       }
       match_entry.mutable_lpm()->set_prefix_len(prefix_len);
       match_entry.mutable_lpm()->set_value(
-          ArbitraryToCanonicalByteString(value));
+          ArbitraryToCanonicalByteString(*value));
       break;
     }
     case MatchField::TERNARY: {
       if (!ir_match.has_ternary()) {
-        return InvalidArgumentErrorBuilder()
-               << "Expected ternary match type in IR table entry";
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, "Must be a ternary match type."));
+        break;
       }
 
-      RETURN_IF_ERROR(ValidateIrValueFormat(ir_match.ternary().value(),
-                                            ir_match_definition.format()));
-      RETURN_IF_ERROR(ValidateIrValueFormat(ir_match.ternary().mask(),
-                                            ir_match_definition.format()));
-      ASSIGN_OR_RETURN(const auto &value,
-                       IrValueToNormalizedByteString(
-                           ir_match.ternary().value(),
-                           ir_match_definition.match_field().bitwidth()));
-      ASSIGN_OR_RETURN(const auto &mask,
-                       IrValueToNormalizedByteString(
-                           ir_match.ternary().mask(),
-                           ir_match_definition.match_field().bitwidth()));
-      if (IsAllZeros(mask)) {
-        return InvalidArgumentErrorBuilder()
-               << "A wild-card ternary match (i.e., mask of 0) must be "
-                  "represented by omitting the match altogether";
+      const absl::Status &valid_value = ValidateIrValueFormat(
+          ir_match.ternary().value(), ir_match_definition.format());
+      if (!valid_value.ok()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, valid_value.message()));
+        break;
+      }
+      const absl::Status &valid_mask = ValidateIrValueFormat(
+          ir_match.ternary().mask(), ir_match_definition.format());
+      if (!valid_mask.ok()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, valid_mask.message()));
+        break;
+      }
+      const absl::StatusOr<std::string> &value = IrValueToNormalizedByteString(
+          ir_match.ternary().value(),
+          ir_match_definition.match_field().bitwidth());
+      if (!value.ok()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, value.status().message()));
+        break;
+      }
+      const absl::StatusOr<std::string> &mask = IrValueToNormalizedByteString(
+          ir_match.ternary().mask(),
+          ir_match_definition.match_field().bitwidth());
+      if (!mask.ok()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, mask.status().message()));
+        break;
+      }
+      if (IsAllZeros(*mask)) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet,
+                         "A wild-card ternary match (i.e., mask of 0) must "
+                         "be represented by omitting the match altogether."));
+        break;
       }
       match_entry.set_field_id(match_field.id());
-      ASSIGN_OR_RETURN(const auto intersection, Intersection(value, mask));
-      if (value != intersection) {
-        return InvalidArgumentErrorBuilder()
-               << "Ternary value has masked bits that are set.\nValue: "
-               << ir_match.ternary().value().DebugString()
-               << "Mask : " << ir_match.ternary().mask().DebugString();
+      const absl::StatusOr<std::string> &intersection =
+          Intersection(*value, *mask);
+      if (!intersection.ok()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, intersection.status().message()));
+        break;
+      }
+      if (*value != *intersection) {
+        invalid_reasons.push_back(absl::StrCat(
+            kNewBullet, "Ternary value has masked bits that are set. Value: ",
+            ir_match.ternary().value().DebugString(),
+            "Mask: ", ir_match.ternary().mask().DebugString()));
+        break;
       }
       match_entry.mutable_ternary()->set_value(
-          ArbitraryToCanonicalByteString(value));
+          ArbitraryToCanonicalByteString(*value));
       match_entry.mutable_ternary()->set_mask(
-          ArbitraryToCanonicalByteString(mask));
+          ArbitraryToCanonicalByteString(*mask));
       break;
     }
     case MatchField::OPTIONAL: {
       if (!ir_match.has_optional()) {
-        return InvalidArgumentErrorBuilder()
-               << "Expected optional match type in IR table entry";
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, "Must be an optional match type."));
       }
 
       match_entry.set_field_id(match_field.id());
-      RETURN_IF_ERROR(ValidateIrValueFormat(ir_match.optional().value(),
-                                            ir_match_definition.format()));
-      ASSIGN_OR_RETURN(const auto &value,
-                       IrValueToNormalizedByteString(
-                           ir_match.optional().value(),
-                           ir_match_definition.match_field().bitwidth()));
+      const absl::Status &valid = ValidateIrValueFormat(
+          ir_match.optional().value(), ir_match_definition.format());
+      if (!valid.ok()) {
+        invalid_reasons.push_back(absl::StrCat(kNewBullet, valid.message()));
+        break;
+      }
+      const absl::StatusOr<std::string> &value = IrValueToNormalizedByteString(
+          ir_match.optional().value(),
+          ir_match_definition.match_field().bitwidth());
+      if (!value.ok()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, value.status().message()));
+        break;
+      }
       if (ir_match_definition.format() == STRING) {
-        match_entry.mutable_optional()->set_value(value);
+        match_entry.mutable_optional()->set_value(*value);
       } else {
         match_entry.mutable_optional()->set_value(
-            ArbitraryToCanonicalByteString(value));
+            ArbitraryToCanonicalByteString(*value));
       }
       break;
     }
     default:
-      return InvalidArgumentErrorBuilder()
-             << "Unsupported match type \""
-             << MatchField_MatchType_Name(match_field.match_type()) << "\" in "
-             << "match field with id " << match_entry.field_id();
+      invalid_reasons.push_back(absl::StrCat(
+          kNewBullet, "Unsupported match type '",
+          MatchField_MatchType_Name(match_field.match_type()), "' in ",
+          "match field with id ", match_entry.field_id()));
+  }
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        MatchFieldName(match_name), absl::StrJoin(invalid_reasons, "\n")));
   }
   return match_entry;
 }
@@ -693,55 +815,77 @@ StatusOr<p4::v1::Action> IrActionInvocationToPi(
         &valid_actions) {
   const std::string &action_name = ir_table_action.name();
 
-  ASSIGN_OR_RETURN(
-      const auto *ir_action_definition,
-      gutil::FindPtrOrStatus(info.actions_by_name(), action_name),
-      _ << "Action \"" << action_name << "\" does not exist in P4Info");
+  const auto &status_or_ir_action_definition =
+      gutil::FindPtrOrStatus(info.actions_by_name(), action_name);
+  if (!status_or_ir_action_definition.ok()) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        ActionName(action_name), " does not exist in the P4Info."));
+  }
+  const auto *ir_action_definition = *status_or_ir_action_definition;
 
   if (absl::c_find_if(
           valid_actions, [action_name](const IrActionReference &action) {
             return action.action().preamble().alias() == action_name;
           }) == valid_actions.end()) {
-    return InvalidArgumentErrorBuilder()
-           << "Action \"" << action_name
-           << "\" is not a valid action for this table";
-  }
-
-  int action_params_size = ir_action_definition->params_by_name().size();
-  if (action_params_size != ir_table_action.params().size()) {
-    return InvalidArgumentErrorBuilder()
-           << "Expected " << action_params_size << " parameters, but got "
-           << ir_table_action.params().size() << " instead in action \""
-           << action_name << "\"";
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        ActionName(action_name), "It is not a valid action for this table."));
   }
 
   p4::v1::Action action;
   action.set_action_id(ir_action_definition->preamble().id());
   absl::flat_hash_set<std::string> used_params;
+  std::vector<std::string> invalid_reasons;
   for (const auto &param : ir_table_action.params()) {
-    RETURN_IF_ERROR(gutil::InsertIfUnique(
+    const absl::Status &duplicate = gutil::InsertIfUnique(
         used_params, param.name(),
-        absl::StrCat("Duplicate param field found with name \"", param.name(),
-                     "\"")));
+        absl::StrCat("Duplicate parameter field found with name '",
+                     param.name(), "'."));
+    if (!duplicate.ok()) {
+      invalid_reasons.push_back(absl::StrCat(kNewBullet, duplicate.message()));
+      continue;
+    }
 
-    ASSIGN_OR_RETURN(const auto *ir_param_definition,
-                     gutil::FindPtrOrStatus(
-                         ir_action_definition->params_by_name(), param.name()),
-                     _ << "Unable to find param \"" << param.name()
-                       << "\" in action \"" << action_name << "\"");
+    const auto &status_or_ir_param_definition = gutil::FindPtrOrStatus(
+        ir_action_definition->params_by_name(), param.name());
+    if (!status_or_ir_param_definition.ok()) {
+      invalid_reasons.push_back(absl::StrCat(
+          kNewBullet, "Unable to find parameter '", param.name(), "'."));
+      continue;
+    }
+    const auto *ir_param_definition = *status_or_ir_param_definition;
     p4::v1::Action_Param *param_entry = action.add_params();
     param_entry->set_param_id(ir_param_definition->param().id());
-    RETURN_IF_ERROR(
-        ValidateIrValueFormat(param.value(), ir_param_definition->format()));
-    ASSIGN_OR_RETURN(
-        const auto &value,
-        IrValueToNormalizedByteString(param.value(),
-                                      ir_param_definition->param().bitwidth()));
-    if (ir_param_definition->format() == STRING) {
-      param_entry->set_value(value);
-    } else {
-      param_entry->set_value(ArbitraryToCanonicalByteString(value));
+    const absl::Status &valid =
+        ValidateIrValueFormat(param.value(), ir_param_definition->format());
+    if (!valid.ok()) {
+      invalid_reasons.push_back(
+          GenerateReason(ParamName(param.name()), valid.message()));
+      continue;
     }
+    const absl::StatusOr<std::string> &value = IrValueToNormalizedByteString(
+        param.value(), ir_param_definition->param().bitwidth());
+    if (!value.ok()) {
+      invalid_reasons.push_back(
+          GenerateReason(ParamName(param.name()), value.status().message()));
+      continue;
+    }
+    if (ir_param_definition->format() == STRING) {
+      param_entry->set_value(*value);
+    } else {
+      param_entry->set_value(ArbitraryToCanonicalByteString(*value));
+    }
+  }
+
+  const auto &num_params_status =
+      CheckParams(used_params, *ir_action_definition);
+  if (!num_params_status.ok()) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, num_params_status.message()));
+  }
+
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        ActionName(action_name), absl::StrJoin(invalid_reasons, "\n")));
   }
   return action;
 }
@@ -752,20 +896,32 @@ StatusOr<p4::v1::ActionProfileActionSet> IrActionSetToPi(
     const google::protobuf::RepeatedPtrField<IrActionReference>
         &valid_actions) {
   p4::v1::ActionProfileActionSet pi;
+  std::vector<std::string> invalid_reasons;
   for (const auto &ir_action : ir_action_set.actions()) {
     auto *pi_action = pi.add_action_profile_actions();
-    ASSIGN_OR_RETURN(
-        *pi_action->mutable_action(),
-        IrActionInvocationToPi(info, ir_action.action(), valid_actions));
+    const absl::StatusOr<p4::v1::Action> action =
+        IrActionInvocationToPi(info, ir_action.action(), valid_actions);
+    if (!action.ok()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet, action.status().message()));
+      continue;
+    }
+    *pi_action->mutable_action() = *action;
     if (ir_action.weight() < 1) {
-      return InvalidArgumentErrorBuilder()
-             << "Expected positive action set weight, but got "
-             << ir_action.weight() << " instead";
+      invalid_reasons.push_back(absl::StrCat(
+          kNewBullet, "Expected positive action set weight, but got ",
+          ir_action.weight(), " instead."));
+      continue;
     }
     pi_action->set_weight(ir_action.weight());
     if (!ir_action.watch_port().empty()) {
       pi_action->set_watch_port(ir_action.watch_port());
     }
+  }
+
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        "ActionSet", absl::StrJoin(invalid_reasons, "\n")));
   }
   return pi;
 }
@@ -1096,38 +1252,6 @@ StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info &p4_info) {
 
   return info;
 }
-
-namespace {
-std::vector<std::string> GetMissingMatches(
-    const absl::flat_hash_set<std::string> &actual_matches,
-    absl::flat_hash_set<std::string> expected_matches) {
-  // Erase actual matches from expected_mandatory_matches.
-  // Whatever remains are the missing matches.
-  absl::erase_if(expected_matches,
-                 [&](const auto &k) { return actual_matches.contains(k); });
-
-  // Convert to a vector so we can sort the matches to ensure stability.
-  std::vector<std::string> missing_matches(expected_matches.begin(),
-                                           expected_matches.end());
-  std::sort(missing_matches.begin(), missing_matches.end());
-  return missing_matches;
-}
-
-absl::Status CheckMandatoryMatches(
-    const absl::flat_hash_set<std::string> &actual_matches,
-    const IrTableDefinition &table) {
-  auto expected_matches = GetMandatoryMatches(table);
-  if (actual_matches.size() != expected_matches.size()) {
-    auto missing_matches = GetMissingMatches(actual_matches, expected_matches);
-    return InvalidArgumentErrorBuilder()
-           << "Missing matches: " << absl::StrJoin(missing_matches, ", ")
-           << ". Expected " << expected_matches.size()
-           << " mandatory match conditions but found " << actual_matches.size()
-           << " instead.";
-  }
-  return absl::OkStatus();
-}
-}  // namespace
 
 StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
                                         const p4::v1::TableEntry &pi,
@@ -1492,52 +1616,75 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
                                               const IrTableEntry &ir,
                                               bool key_only /*=false*/) {
   p4::v1::TableEntry pi;
-  ASSIGN_OR_RETURN(
-      const auto *table,
-      gutil::FindPtrOrStatus(info.tables_by_name(), ir.table_name()),
-      _ << "Table name \"" << ir.table_name() << "\" does not exist in P4Info");
+  absl::string_view table_name = ir.table_name();
+  const auto &status_or_table =
+      gutil::FindPtrOrStatus(info.tables_by_name(), ir.table_name());
+  if (!status_or_table.ok()) {
+    return absl::InvalidArgumentError(
+        absl::StrCat(TableName(table_name), " does not exist in the P4Info."));
+  }
+  const auto *table = *status_or_table;
   pi.set_table_id(table->preamble().id());
+
+  std::vector<std::string> invalid_reasons;
 
   // Validate and translate the matches
   absl::flat_hash_set<std::string> used_field_names, mandatory_matches;
   for (const auto &ir_match : ir.matches()) {
-    RETURN_IF_ERROR(gutil::InsertIfUnique(
+    const absl::Status &duplicate = gutil::InsertIfUnique(
         used_field_names, ir_match.name(),
-        absl::StrCat("Duplicate match field found with name \"",
-                     ir_match.name(), "\"")));
+        absl::StrCat("Duplicate match field found with name '", ir_match.name(),
+                     "'."));
+    if (!duplicate.ok()) {
+      invalid_reasons.push_back(absl::StrCat(kNewBullet, duplicate.message()));
+      continue;
+    }
 
-    ASSIGN_OR_RETURN(
-        const auto *match,
-        gutil::FindPtrOrStatus(table->match_fields_by_name(), ir_match.name()),
-        _ << "Match field \"" << ir_match.name()
-          << "\" does not exist in table \"" << ir.table_name() << "\"");
-    ASSIGN_OR_RETURN(
-        const auto &match_entry, IrMatchFieldToPi(info, *match, ir_match),
-        _.SetPrepend() << "In match field '" << ir_match.name() << "'"
-                       << " of table '" << ir.table_name() << "': ");
-    *pi.add_match() = match_entry;
+    const auto &status_or_match =
+        gutil::FindPtrOrStatus(table->match_fields_by_name(), ir_match.name());
+    if (!status_or_match.ok()) {
+      invalid_reasons.push_back(absl::StrCat(kNewBullet, "Match Field '",
+                                             ir_match.name(),
+                                             "' does not exist in table."));
+      continue;
+    }
+    const auto *match = *status_or_match;
+    const absl::StatusOr<p4::v1::FieldMatch> &match_entry =
+        IrMatchFieldToPi(info, *match, ir_match);
+    if (!match_entry.ok()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet, match_entry.status().message()));
+      continue;
+    }
+    *pi.add_match() = *match_entry;
 
     if (match->match_field().match_type() == MatchField::EXACT) {
       mandatory_matches.insert(match->match_field().name());
     }
   }
 
-  RETURN_IF_ERROR(CheckMandatoryMatches(mandatory_matches, *table));
+  const absl::Status &mandatory_match_status =
+      CheckMandatoryMatches(mandatory_matches, *table);
+  if (!mandatory_match_status.ok()) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, mandatory_match_status.message()));
+  }
   if (table->requires_priority()) {
     if (ir.priority() <= 0) {
-      return InvalidArgumentErrorBuilder()
-             << "Table entries with ternary or optional matches require a "
-                "positive non-zero "
-                "priority. Got "
-             << ir.priority() << " instead";
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet,
+                       "Table entries with ternary or optional matches require "
+                       "a positive non-zero priority. Got ",
+                       ir.priority(), " instead."));
     } else {
       pi.set_priority(ir.priority());
     }
   } else if (ir.priority() != 0) {
-    return InvalidArgumentErrorBuilder() << "Table entries with no ternary or "
-                                            "optional matches require a zero "
-                                            "priority. Got "
-                                         << ir.priority() << " instead";
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet,
+                     "Table entries with no ternary or optional "
+                     "matches require a zero priority. Got ",
+                     ir.priority(), " instead."));
   }
   if (!key_only) {
     pi.set_metadata(ir.controller_metadata());
@@ -1546,43 +1693,54 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
     switch (ir.type_case()) {
       case IrTableEntry::kAction: {
         if (table->uses_oneshot()) {
-          return InvalidArgumentErrorBuilder()
-                 << "Table \"" << ir.table_name()
-                 << "\" requires an action set since it uses onseshot. Got "
-                    "action instead";
+          invalid_reasons.push_back(
+              absl::StrCat(kNewBullet,
+                           "Table requires an action set since it uses "
+                           "onseshot. Got action instead."));
+          break;
         }
-        ASSIGN_OR_RETURN(
-            *pi.mutable_action()->mutable_action(),
-            IrActionInvocationToPi(info, ir.action(), table->entry_actions()));
+        const absl::StatusOr<p4::v1::Action> &pi_action =
+            IrActionInvocationToPi(info, ir.action(), table->entry_actions());
+        if (!pi_action.ok()) {
+          invalid_reasons.push_back(
+              absl::StrCat(kNewBullet, pi_action.status().message()));
+          break;
+        }
+        *pi.mutable_action()->mutable_action() = *pi_action;
         break;
       }
       case IrTableEntry::kActionSet: {
         if (!table->uses_oneshot()) {
-          return InvalidArgumentErrorBuilder()
-                 << "Table \"" << ir.table_name()
-                 << "\" requires an action since it does not use onseshot. Got "
-                    "action set instead";
+          invalid_reasons.push_back(
+              absl::StrCat(kNewBullet,
+                           "Table requires an action since it does not "
+                           "use onseshot. Got action set instead."));
+          break;
         }
-        ASSIGN_OR_RETURN(
-            *pi.mutable_action()->mutable_action_profile_action_set(),
-            IrActionSetToPi(info, ir.action_set(), table->entry_actions()));
+        const absl::StatusOr<p4::v1::ActionProfileActionSet> &pi_action_set =
+            IrActionSetToPi(info, ir.action_set(), table->entry_actions());
+        if (!pi_action_set.ok()) {
+          invalid_reasons.push_back(
+              absl::StrCat(kNewBullet, pi_action_set.status().message()));
+          break;
+        }
+        *pi.mutable_action()->mutable_action_profile_action_set() =
+            *pi_action_set;
         break;
       }
       default: {
-        return InvalidArgumentErrorBuilder()
-               << "Action missing in TableEntry with name \"" << ir.table_name()
-               << "\"";
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, "Action is required."));
       }
     }
 
     // Validate and translate meters.
     if (!table->has_meter() && ir.has_meter_config()) {
-      return InvalidArgumentErrorBuilder()
-             << "Table \"" << ir.table_name()
-             << "\" does not have a meter, but table entry contained a meter "
-                "config.";
-    }
-    if (ir.has_meter_config()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet,
+                       "Table does not have a meter, but table entry "
+                       "contained a meter config."));
+    } else if (ir.has_meter_config()) {
       pi.mutable_meter_config()->set_cir(ir.meter_config().cir());
       pi.mutable_meter_config()->set_cburst(ir.meter_config().cburst());
       pi.mutable_meter_config()->set_pir(ir.meter_config().pir());
@@ -1591,16 +1749,20 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
 
     // Validate and translate counters.
     if (!table->has_counter() && ir.has_counter_data()) {
-      return InvalidArgumentErrorBuilder()
-             << "Table \"" << ir.table_name()
-             << "\" does not have a counter, but table entry contained counter "
-                "data.";
-    }
-    if (ir.has_counter_data()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet,
+                       "Table does not have a counter, but table "
+                       "entry contained counter data."));
+    } else if (ir.has_counter_data()) {
       pi.mutable_counter_data()->set_byte_count(ir.counter_data().byte_count());
       pi.mutable_counter_data()->set_packet_count(
           ir.counter_data().packet_count());
     }
+  }
+
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        TableName(table_name), absl::StrJoin(invalid_reasons, "\n")));
   }
 
   return pi;

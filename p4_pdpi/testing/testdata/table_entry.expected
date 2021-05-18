@@ -26,7 +26,7 @@ table_id: 33554433
 
 --- PI is invalid/unsupported:
 INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
-  - Missing matches: ipv4, ipv6. Expected 2 mandatory match conditions but found 0 instead.
+  - Missing matches: 'ipv4', 'ipv6'. Expected 2 mandatory match conditions, but found 0 instead.
   - Action is required.
 
 =========================================================================
@@ -46,7 +46,7 @@ match {
 --- PI is invalid/unsupported:
 INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
   - Match field 'ipv6' is invalid: Must be an exact match type.
-  - Missing matches: ipv4, ipv6. Expected 2 mandatory match conditions but found 0 instead.
+  - Missing matches: 'ipv4', 'ipv6'. Expected 2 mandatory match conditions, but found 0 instead.
   - Action is required.
 
 =========================================================================
@@ -123,7 +123,7 @@ match {
 --- PI is invalid/unsupported:
 INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
   - Match field 11 does not exist in table 'id_test_table'.
-  - Missing matches: ipv4, ipv6. Expected 2 mandatory match conditions but found 0 instead.
+  - Missing matches: 'ipv4', 'ipv6'. Expected 2 mandatory match conditions, but found 0 instead.
   - Action is required.
 
 =========================================================================
@@ -142,7 +142,7 @@ match {
 --- PI is invalid/unsupported:
 INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
   - Match field 'ipv4' is invalid: cannot fit given byte string of 40 bits into 32 bits: 'ff22434532'
-  - Missing matches: ipv4, ipv6. Expected 2 mandatory match conditions but found 0 instead.
+  - Missing matches: 'ipv4', 'ipv6'. Expected 2 mandatory match conditions, but found 0 instead.
   - Action is required.
 
 =========================================================================
@@ -186,7 +186,7 @@ match {
 --- PI is invalid/unsupported:
 INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
   - Duplicate match field found with ID 1.
-  - Missing matches: ipv4. Expected 2 mandatory match conditions but found 1 instead.
+  - Missing matches: 'ipv4'. Expected 2 mandatory match conditions, but found 1 instead.
   - Action is required.
 
 =========================================================================
@@ -225,7 +225,7 @@ priority: 32
 
 --- PI is invalid/unsupported:
 INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
-  - Match field 'normal' is invalid: Bytestring of length 15 bits does not fit in 10 bits
+  - Match field 'normal' is invalid: Bytestring of length 15 bits does not fit in 10 bits.
   - Action is required.
 
 =========================================================================
@@ -245,7 +245,7 @@ priority: 32
 
 --- PI is invalid/unsupported:
 INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
-  - Match field 'normal' is invalid: Bytestring of length 15 bits does not fit in 10 bits
+  - Match field 'normal' is invalid: Bytestring of length 15 bits does not fit in 10 bits.
   - Action is required.
 
 =========================================================================
@@ -468,7 +468,7 @@ action {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action 'do_thing_1' is invalid: Expected 2 parameters, but got 1 instead.
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action 'do_thing_1' is invalid: Missing parameters: 'arg1'. Expected 2 parameters, but found 1 instead.
 
 =========================================================================
 duplicate action param id
@@ -503,7 +503,10 @@ action {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action 'do_thing_1' is invalid: Duplicate param field with ID 1.
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
+  - Action 'do_thing_1' is invalid for the following reasons:
+    - Duplicate param field with ID 1.
+    - Missing parameters: 'arg1'. Expected 2 parameters, but found 1 instead.
 
 =========================================================================
 invalid action param id
@@ -538,7 +541,10 @@ action {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action 'do_thing_1' is invalid: Unable to find param ID 67.
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
+  - Action 'do_thing_1' is invalid for the following reasons:
+    - Unable to find param ID 67.
+    - Missing parameters: 'arg2'. Expected 2 parameters, but found 1 instead.
 
 =========================================================================
 zero lpm prefix length
@@ -824,7 +830,7 @@ empty IR
 --- IR (Input):
 
 --- IR (converting to PI) is invalid/unsupported:
-NOT_FOUND: Key not found; Table name "" does not exist in P4Info
+INVALID_ARGUMENT: Table entry for '' does not exist in the P4Info.
 
 =========================================================================
 invalid table name
@@ -834,7 +840,7 @@ invalid table name
 table_name: "invalid"
 
 --- IR (converting to PI) is invalid/unsupported:
-NOT_FOUND: Key not found; Table name "invalid" does not exist in P4Info
+INVALID_ARGUMENT: Table entry for 'invalid' does not exist in the P4Info.
 
 =========================================================================
 missing matches
@@ -844,7 +850,9 @@ missing matches
 table_name: "id_test_table"
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Missing matches: ipv4, ipv6. Expected 2 mandatory match conditions but found 0 instead.
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
+  - Missing matches: 'ipv4', 'ipv6'. Expected 2 mandatory match conditions, but found 0 instead.
+  - Action is required.
 
 =========================================================================
 invalid match type - expect exact
@@ -863,7 +871,10 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: In match field 'ipv6' of table 'id_test_table': Expected exact match type in IR table entry
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
+  - Match field 'ipv6' is invalid: Must be an exact match type.
+  - Missing matches: 'ipv4', 'ipv6'. Expected 2 mandatory match conditions, but found 0 instead.
+  - Action is required.
 
 =========================================================================
 invalid match type - expect optional
@@ -882,7 +893,12 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: In match field 'ipv6' of table 'optional_table': Expected optional match type in IR table entry
+INVALID_ARGUMENT: Table entry for 'optional_table' is invalid for the following reasons:
+  - Match field 'ipv6' is invalid for the following reasons:
+    - Must be an optional match type.
+    - Oneof field "format" is not set
+  - Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead.
+  - Action is required.
 
 =========================================================================
 invalid match type - expect lpm
@@ -903,7 +919,9 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: In match field 'ipv6' of table 'lpm2_table': Expected LPM match type in IR table entry
+INVALID_ARGUMENT: Table entry for 'lpm2_table' is invalid for the following reasons:
+  - Match field 'ipv6' is invalid: Must be an LPM match type.
+  - Action is required.
 
 =========================================================================
 invalid match type - expect ternary
@@ -920,7 +938,9 @@ matches {
 priority: 32
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: In match field 'ipv6' of table 'ternary_table': Expected ternary match type in IR table entry
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Match field 'ipv6' is invalid: Must be a ternary match type.
+  - Action is required.
 
 =========================================================================
 invalid match field name
@@ -936,7 +956,10 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-NOT_FOUND: Key not found; Match field "invalid" does not exist in table "id_test_table"
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
+  - Match Field 'invalid' does not exist in table.
+  - Missing matches: 'ipv4', 'ipv6'. Expected 2 mandatory match conditions, but found 0 instead.
+  - Action is required.
 
 =========================================================================
 invalid IR value
@@ -952,7 +975,10 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: In match field 'ipv4' of table 'id_test_table': Expected format "IPV4", but got "ipv6" instead
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
+  - Match field 'ipv4' is invalid: Expected format 'IPV4', but got 'IPV6' instead.
+  - Missing matches: 'ipv4', 'ipv6'. Expected 2 mandatory match conditions, but found 0 instead.
+  - Action is required.
 
 =========================================================================
 invalid prefix length
@@ -971,7 +997,9 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: In match field 'ipv4' of table 'lpm1_table': Prefix length 40 is greater than bitwidth 32 in LPM
+INVALID_ARGUMENT: Table entry for 'lpm1_table' is invalid for the following reasons:
+  - Match field 'ipv4' is invalid: Prefix length 40 is greater than bitwidth 32 in LPM.
+  - Action is required.
 
 =========================================================================
 duplicate match field name
@@ -993,7 +1021,10 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Duplicate match field found with name "ipv6"
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
+  - Duplicate match field found with name 'ipv6'.
+  - Missing matches: 'ipv4'. Expected 2 mandatory match conditions, but found 1 instead.
+  - Action is required.
 
 =========================================================================
 lpm value - masked bits set
@@ -1012,9 +1043,11 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: In match field 'ipv4' of table 'lpm1_table': LPM value has masked bits that are set.
-Value: ipv4: "10.43.23.12"
-Prefix Length: 24
+INVALID_ARGUMENT: Table entry for 'lpm1_table' is invalid for the following reasons:
+  - Match field 'ipv4' is invalid for the following reasons:
+    - Lpm value has masked bits that are set. Value: ipv4: "10.43.23.12"
+    Prefix Length: 24
+  - Action is required.
 
 =========================================================================
 ternary value too long
@@ -1036,7 +1069,9 @@ matches {
 priority: 32
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: In match field 'normal' of table 'ternary_table': IR Value "0x4212" has the wrong number of characters. Has 6 characters, but expected 5 instead.
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Match field 'normal' is invalid: IR Value '0x4212' has the wrong number of characters. Has 6 characters, but expected 5 instead.
+  - Action is required.
 
 =========================================================================
 ternary value and mask too long
@@ -1058,7 +1093,9 @@ matches {
 priority: 32
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: In match field 'normal' of table 'ternary_table': IR Value "0x4212" has the wrong number of characters. Has 6 characters, but expected 5 instead.
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Match field 'normal' is invalid: IR Value '0x4212' has the wrong number of characters. Has 6 characters, but expected 5 instead.
+  - Action is required.
 
 =========================================================================
 ternary value - masked bits set
@@ -1080,10 +1117,12 @@ matches {
 priority: 32
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: In match field 'ipv6' of table 'ternary_table': Ternary value has masked bits that are set.
-Value: ipv6: "::0100"
-Mask : ipv6: "::00ff"
-
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Match field 'ipv6' is invalid for the following reasons:
+    - Ternary value has masked bits that are set. Value: ipv6: "::0100"
+    Mask: ipv6: "::00ff"
+    
+  - Action is required.
 
 =========================================================================
 missing action
@@ -1105,7 +1144,7 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Action missing in TableEntry with name "id_test_table"
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action is required.
 
 =========================================================================
 missing action name
@@ -1129,7 +1168,7 @@ action {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-NOT_FOUND: Key not found; Action "" does not exist in P4Info
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action '' does not exist in the P4Info.
 
 =========================================================================
 invalid action name
@@ -1154,7 +1193,7 @@ action {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-NOT_FOUND: Key not found; Action "invalid" does not exist in P4Info
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action 'invalid' does not exist in the P4Info.
 
 =========================================================================
 missing action params
@@ -1185,7 +1224,7 @@ action {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Expected 2 parameters, but got 1 instead in action "do_thing_1"
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action 'do_thing_1' is invalid: Missing parameters: 'arg1'. Expected 2 parameters, but found 1 instead.
 
 =========================================================================
 duplicate action param name
@@ -1222,7 +1261,10 @@ action {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Duplicate param field found with name "arg2"
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
+  - Action 'do_thing_1' is invalid for the following reasons:
+    - Duplicate parameter field found with name 'arg2'.
+    - Missing parameters: 'arg1'. Expected 2 parameters, but found 1 instead.
 
 =========================================================================
 invalid action param name
@@ -1259,7 +1301,7 @@ action {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-NOT_FOUND: Key not found; Unable to find param "arg" in action "do_thing_1"
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action 'do_thing_1' is invalid: Unable to find parameter 'arg'.
 
 =========================================================================
 action set in table with action
@@ -1301,7 +1343,7 @@ action_set {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Table "id_test_table" requires an action since it does not use onseshot. Got action set instead
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Table requires an action since it does not use onseshot. Got action set instead.
 
 =========================================================================
 action in table with action set
@@ -1335,7 +1377,7 @@ action {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Table "wcmp_table" requires an action set since it uses onseshot. Got action instead
+INVALID_ARGUMENT: Table entry for 'wcmp_table' is invalid: Table requires an action set since it uses onseshot. Got action instead.
 
 =========================================================================
 zero lpm prefix length
@@ -1356,7 +1398,7 @@ action {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: In match field 'ipv4' of table 'lpm1_table': A wild-card LPM match (i.e., prefix length of 0) must be represented by omitting the match altogether
+INVALID_ARGUMENT: Table entry for 'lpm1_table' is invalid: Match field 'ipv4' is invalid: A wild-card LPM match (i.e., prefix length of 0) must be represented by omitting the match altogether.
 
 =========================================================================
 zero ternary mask
@@ -1393,7 +1435,9 @@ action {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: In match field 'normal' of table 'ternary_table': A wild-card ternary match (i.e., mask of 0) must be represented by omitting the match altogether
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Match field 'normal' is invalid: A wild-card ternary match (i.e., mask of 0) must be represented by omitting the match altogether.
+  - Action 'do_thing_1' is invalid: It is not a valid action for this table.
 
 =========================================================================
 zero priority
@@ -1429,7 +1473,9 @@ action {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead.
+  - Action 'do_thing_1' is invalid: It is not a valid action for this table.
 
 =========================================================================
 negative priority
@@ -1466,7 +1512,9 @@ action {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Table entries with ternary or optional matches require a positive non-zero priority. Got -32 instead
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Table entries with ternary or optional matches require a positive non-zero priority. Got -32 instead.
+  - Action 'do_thing_1' is invalid: It is not a valid action for this table.
 
 =========================================================================
 absent priority
@@ -1502,7 +1550,9 @@ action {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead.
+  - Action 'do_thing_1' is invalid: It is not a valid action for this table.
 
 =========================================================================
 unexpected priority
@@ -1525,7 +1575,7 @@ action {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Table entries with no ternary or optional matches require a zero priority. Got 32 instead
+INVALID_ARGUMENT: Table entry for 'lpm1_table' is invalid: Table entries with no ternary or optional matches require a zero priority. Got 32 instead.
 
 =========================================================================
 action set with negative weight
@@ -1564,7 +1614,7 @@ action_set {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Expected positive action set weight, but got -1 instead
+INVALID_ARGUMENT: Table entry for 'wcmp_table' is invalid: ActionSet is invalid: Expected positive action set weight, but got -1 instead.
 
 =========================================================================
 action set with invalid action
@@ -1603,7 +1653,7 @@ action_set {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-NOT_FOUND: Key not found; Action "invalid_do_thing_1" does not exist in P4Info
+INVALID_ARGUMENT: Table entry for 'wcmp_table' is invalid: ActionSet is invalid: Action 'invalid_do_thing_1' does not exist in the P4Info.
 
 =========================================================================
 counter in a table with no counters
@@ -1645,7 +1695,7 @@ counter_data {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Table "wcmp_table" does not have a counter, but table entry contained counter data.
+INVALID_ARGUMENT: Table entry for 'wcmp_table' is invalid: Table does not have a counter, but table entry contained counter data.
 
 =========================================================================
 empty PD
@@ -1700,7 +1750,9 @@ id_test_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-In match field 'ipv4' of table 'id_test_table': Invalid IPv4 address: ''
+Table entry for 'id_test_table' is invalid for the following reasons:
+  - Match field 'ipv4' is invalid: Invalid IPv4 address: ''
+  - Missing matches: 'ipv4'. Expected 2 mandatory match conditions, but found 1 instead.
 =========================================================================
 negative prefix length
 =========================================================================
@@ -1759,7 +1811,7 @@ lpm2_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-In match field 'ipv6' of table 'lpm2_table': A wild-card LPM match (i.e., prefix length of 0) must be represented by omitting the match altogether
+Table entry for 'lpm2_table' is invalid: Match field 'ipv6' is invalid: A wild-card LPM match (i.e., prefix length of 0) must be represented by omitting the match altogether.
 =========================================================================
 ternary entry with zero mask
 =========================================================================
@@ -1794,7 +1846,11 @@ ternary_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-In match field 'normal' of table 'ternary_table': A wild-card ternary match (i.e., mask of 0) must be represented by omitting the match altogether
+Table entry for 'ternary_table' is invalid for the following reasons:
+  - Match field 'normal' is invalid: A wild-card ternary match (i.e., mask of 0) must be represented by omitting the match altogether.
+  - Action 'do_thing_3' is invalid for the following reasons:
+    - Param 'arg1': IR Value '0x23' has the wrong number of characters. Has 4 characters, but expected 10 instead.
+    - Param 'arg2': IR Value '0x0251' has the wrong number of characters. Has 6 characters, but expected 10 instead.
 =========================================================================
 lpm value - masked bits set
 =========================================================================
@@ -1814,9 +1870,10 @@ lpm2_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-In match field 'ipv6' of table 'lpm2_table': LPM value has masked bits that are set.
-Value: ipv6: "ffff::abcd:0:aabb"
-Prefix Length: 96
+Table entry for 'lpm2_table' is invalid for the following reasons:
+  - Match field 'ipv6' is invalid for the following reasons:
+    - Lpm value has masked bits that are set. Value: ipv6: "ffff::abcd:0:aabb"
+    Prefix Length: 96
 =========================================================================
 ternary value - masked bits set
 =========================================================================
@@ -1851,10 +1908,14 @@ ternary_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-In match field 'normal' of table 'ternary_table': Ternary value has masked bits that are set.
-Value: hex_str: "0x052"
-Mask : hex_str: "0x001"
-
+Table entry for 'ternary_table' is invalid for the following reasons:
+  - Match field 'normal' is invalid for the following reasons:
+    - Ternary value has masked bits that are set. Value: hex_str: "0x052"
+    Mask: hex_str: "0x001"
+    
+  - Action 'do_thing_3' is invalid for the following reasons:
+    - Param 'arg1': IR Value '0x23' has the wrong number of characters. Has 4 characters, but expected 10 instead.
+    - Param 'arg2': IR Value '0x0251' has the wrong number of characters. Has 6 characters, but expected 10 instead.
 =========================================================================
 action with missing arguments
 =========================================================================
@@ -1875,7 +1936,7 @@ id_test_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-Expected 5 parameters, but got 3 instead in action "do_thing_2"
+Table entry for 'id_test_table' is invalid: Action 'do_thing_2' is invalid: Missing parameters: 'ipv4'. 'ipv6'. Expected 5 parameters, but found 3 instead.
 =========================================================================
 action with wrong argument format
 =========================================================================
@@ -1898,7 +1959,7 @@ id_test_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-IR Value "10.23.43.1" with hex string format does not start with 0x
+Table entry for 'id_test_table' is invalid: Action 'do_thing_2' is invalid: Param 'normal': IR Value '10.23.43.1' with hex string format does not start with 0x.
 =========================================================================
 ternary table with zero priority
 =========================================================================
@@ -1932,7 +1993,11 @@ ternary_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead
+Table entry for 'ternary_table' is invalid for the following reasons:
+  - Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead.
+  - Action 'do_thing_3' is invalid for the following reasons:
+    - Param 'arg1': IR Value '0x23' has the wrong number of characters. Has 4 characters, but expected 10 instead.
+    - Param 'arg2': IR Value '0x0251' has the wrong number of characters. Has 6 characters, but expected 10 instead.
 =========================================================================
 ternary table with negative priority
 =========================================================================
@@ -1967,7 +2032,7 @@ ternary_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-Table entries with ternary or optional matches require a positive non-zero priority. Got -43 instead
+Table entry for 'ternary_table' is invalid: Table entries with ternary or optional matches require a positive non-zero priority. Got -43 instead.
 =========================================================================
 ternary table with priority absent
 =========================================================================
@@ -2001,7 +2066,7 @@ ternary_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead
+Table entry for 'ternary_table' is invalid: Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead.
 =========================================================================
 wcmp table with negative weight
 =========================================================================
@@ -2026,7 +2091,7 @@ wcmp_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-Expected positive action set weight, but got -1 instead
+Table entry for 'wcmp_table' is invalid: ActionSet is invalid: Expected positive action set weight, but got -1 instead.
 =========================================================================
 valid wcmp table with choice of action
 =========================================================================
@@ -3866,7 +3931,10 @@ id_test_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-In match field 'ipv6' of table 'id_test_table': invalid IPv6 address: ''
+Table entry for 'id_test_table' is invalid for the following reasons:
+  - Match field 'ipv6' is invalid: invalid IPv6 address: ''
+  - Match field 'ipv4' is invalid: Invalid IPv4 address: ''
+  - Missing matches: 'ipv4', 'ipv6'. Expected 2 mandatory match conditions, but found 0 instead.
 =========================================================================
 ternary table with priority absent with key_only=true
 =========================================================================
@@ -3900,7 +3968,7 @@ ternary_table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead
+Table entry for 'ternary_table' is invalid: Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead.
 =========================================================================
 ipv4 LPM table with key_only=true
 =========================================================================
