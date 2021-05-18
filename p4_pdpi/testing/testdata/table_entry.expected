@@ -1704,7 +1704,7 @@ empty PD
 --- PD (Input):
 
 --- PD is invalid/unsupported:
-NOT_FOUND: Oneof field "entry" is not set
+INVALID_ARGUMENT: Table is invalid: Oneof field "entry" is not set
 =========================================================================
 missing matches
 =========================================================================
@@ -1714,7 +1714,7 @@ id_test_table_entry {
 }
 
 --- PD is invalid/unsupported:
-INVALID_ARGUMENT: No action set.
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action is required.
 =========================================================================
 missing action
 =========================================================================
@@ -1728,7 +1728,7 @@ id_test_table_entry {
 }
 
 --- PD is invalid/unsupported:
-INVALID_ARGUMENT: No action set.
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action is required.
 =========================================================================
 exact match missing
 =========================================================================
@@ -1772,7 +1772,7 @@ lpm2_table_entry {
 }
 
 --- PD is invalid/unsupported:
-INVALID_ARGUMENT: Prefix length (-4) for match field "ipv6" is out of bounds
+INVALID_ARGUMENT: Table entry for 'lpm2_table' is invalid: Match field 'ipv6' is invalid: Prefix length -4 is out of bounds.
 =========================================================================
 prefix length too large
 =========================================================================
@@ -1792,7 +1792,7 @@ lpm2_table_entry {
 }
 
 --- PD is invalid/unsupported:
-INVALID_ARGUMENT: Prefix length (132) for match field "ipv6" is out of bounds
+INVALID_ARGUMENT: Table entry for 'lpm2_table' is invalid: Match field 'ipv6' is invalid: Prefix length 132 is out of bounds.
 =========================================================================
 zero prefix length
 =========================================================================
