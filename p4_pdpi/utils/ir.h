@@ -22,6 +22,7 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "google/rpc/code.pb.h"
 #include "gutil/status.h"
 #include "p4_pdpi/ir.pb.h"
@@ -55,6 +56,8 @@ constexpr int kNumBitsInIpv4 = 32;
 constexpr int kNumBytesInIpv4 = kNumBitsInIpv4 / kNumBitsInByte;
 constexpr int kNumBitsInIpv6 = 128;
 constexpr int kNumBytesInIpv6 = kNumBitsInIpv6 / kNumBitsInByte;
+constexpr absl::string_view kNewBullet = "- ";
+constexpr absl::string_view kIndent = "  ";
 
 // Returns the format for value, given the annotations on it, it's bitwidth
 // and named type (if any).
@@ -124,5 +127,27 @@ absl::Status ValidateGenericUpdateStatus(google::rpc::Code code,
 // Parses IrUpdateStatus inside of `ir_write_response`` into string.
 std::string IrWriteResponseToReadableMessage(
     const IrWriteResponse &ir_write_response);
+
+// Returns a formatted error message that can be inserted directly into a
+// status.
+std::string GenerateFormattedError(absl::string_view field,
+                                   absl::string_view error_string);
+
+// Generates a descriptive reason to return to caller.
+std::string GenerateReason(absl::string_view entity_name,
+                           absl::string_view error_message);
+
+// Returns a "Table <table_name>" string.
+std::string TableName(absl::string_view table_name);
+
+// Returns a "MatchField <match_name>" string.
+std::string MatchFieldName(absl::string_view match_name);
+
+// Returns a "Action <action_name>" string.
+std::string ActionName(absl::string_view action_name);
+
+// Returns a "Param <param_name>" string.
+std::string ParamName(absl::string_view param_name);
+
 }  // namespace pdpi
 #endif  // P4_PDPI_UTILS_IR_H

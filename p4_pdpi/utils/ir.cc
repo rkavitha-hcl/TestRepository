@@ -424,7 +424,7 @@ absl::StatusOr<std::string> PrefixLenToMask(int prefix_len, int bitwidth) {
   if (prefix_len > bitwidth) {
     return gutil::InvalidArgumentErrorBuilder()
            << "Prefix length " << prefix_len
-           << " cannot be greater than bitwidth " << bitwidth;
+           << " cannot be greater than bitwidth " << bitwidth << ".";
   }
 
   std::string result;
@@ -486,5 +486,42 @@ std::string IrWriteResponseToReadableMessage(
   }
 
   return readable_message;
+}
+
+std::string GenerateFormattedError(absl::string_view field,
+                                   absl::string_view error_string) {
+  const std::vector<absl::string_view> errors =
+      absl::StrSplit(error_string, '\n');
+  if (errors.size() == 1) {
+    std::string error = std::string(error_string);
+    if (absl::StartsWith(error, kNewBullet)) {
+      error = error.erase(0, 2);
+    }
+    return absl::StrCat(field, " is invalid: ", error);
+  }
+  return absl::StrCat(field, " is invalid for the following reasons:\n",
+                      kIndent,
+                      absl::StrJoin(errors, absl::StrCat("\n", kIndent)));
+}
+
+std::string GenerateReason(absl::string_view entity_name,
+                           absl::string_view error_message) {
+  return absl::StrCat(kNewBullet, entity_name, ": ", error_message);
+}
+
+std::string TableName(absl::string_view table_name) {
+  return absl::StrCat("Table entry for '", table_name, "'");
+}
+
+std::string MatchFieldName(absl::string_view match_name) {
+  return absl::StrCat("Match field '", match_name, "'");
+}
+
+std::string ActionName(absl::string_view action_name) {
+  return absl::StrCat("Action '", action_name, "'");
+}
+
+std::string ParamName(absl::string_view param_name) {
+  return absl::StrCat("Param '", param_name, "'");
 }
 }  // namespace pdpi

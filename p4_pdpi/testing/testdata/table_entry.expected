@@ -5,7 +5,7 @@ empty PI
 --- PI (Input):
 
 --- PI is invalid/unsupported:
-NOT_FOUND: Key not found; Table ID 0 does not exist in P4Info
+INVALID_ARGUMENT: Table ID 0 does not exist in the P4Info.
 
 =========================================================================
 invalid table id
@@ -15,7 +15,7 @@ invalid table id
 table_id: 431
 
 --- PI is invalid/unsupported:
-NOT_FOUND: Key not found; Table ID 431 does not exist in P4Info
+INVALID_ARGUMENT: Table ID 431 does not exist in the P4Info.
 
 =========================================================================
 missing matches
@@ -25,7 +25,9 @@ missing matches
 table_id: 33554433
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Expected 2 mandatory match conditions but found 0 instead. Missing matches: ipv4, ipv6.
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
+  - Missing matches: ipv4, ipv6. Expected 2 mandatory match conditions but found 0 instead.
+  - Action is required.
 
 =========================================================================
 invalid match type - expect exact
@@ -42,7 +44,10 @@ match {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Expected exact match type in PI
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
+  - Match field 'ipv6' is invalid: Must be an exact match type.
+  - Missing matches: ipv4, ipv6. Expected 2 mandatory match conditions but found 0 instead.
+  - Action is required.
 
 =========================================================================
 invalid match type - expect lpm
@@ -59,7 +64,9 @@ match {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Expected LPM match type in PI
+INVALID_ARGUMENT: Table entry for 'lpm1_table' is invalid for the following reasons:
+  - Match field 'ipv4' is invalid: Must be an LPM match type.
+  - Action is required.
 
 =========================================================================
 invalid match type - expect ternary
@@ -76,7 +83,9 @@ match {
 priority: 32
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Expected ternary match type in PI
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Match field 'normal' is invalid: Must be a ternary match type.
+  - Action is required.
 
 =========================================================================
 invalid match type - expect optional
@@ -93,7 +102,10 @@ match {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Expected optional match type in PI
+INVALID_ARGUMENT: Table entry for 'optional_table' is invalid for the following reasons:
+  - Match field 'ipv6' is invalid: Must be an optional match type.
+  - Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead.
+  - Action is required.
 
 =========================================================================
 invalid match field id
@@ -109,7 +121,10 @@ match {
 }
 
 --- PI is invalid/unsupported:
-NOT_FOUND: Key not found; Match Field 11 does not exist in table "id_test_table"
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
+  - Match field 11 does not exist in table 'id_test_table'.
+  - Missing matches: ipv4, ipv6. Expected 2 mandatory match conditions but found 0 instead.
+  - Action is required.
 
 =========================================================================
 invalid bytestring value
@@ -125,7 +140,10 @@ match {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: cannot fit given byte string of 40 bits into 32 bits: 'ff22434532'
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
+  - Match field 'ipv4' is invalid: cannot fit given byte string of 40 bits into 32 bits: 'ff22434532'
+  - Missing matches: ipv4, ipv6. Expected 2 mandatory match conditions but found 0 instead.
+  - Action is required.
 
 =========================================================================
 invalid prefix length
@@ -142,7 +160,9 @@ match {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Prefix length 40 is greater than bitwidth 32 in LPM
+INVALID_ARGUMENT: Table entry for 'lpm1_table' is invalid for the following reasons:
+  - Match field 'ipv4' is invalid: Prefix length 40 cannot be greater than bitwidth 32.
+  - Action is required.
 
 =========================================================================
 duplicate match field id
@@ -164,7 +184,10 @@ match {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Duplicate match field found with ID 1
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid for the following reasons:
+  - Duplicate match field found with ID 1.
+  - Missing matches: ipv4. Expected 2 mandatory match conditions but found 1 instead.
+  - Action is required.
 
 =========================================================================
 lpm value - masked bits set
@@ -181,7 +204,9 @@ match {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: LPM value has masked bits that are set. Value: "\020C#\022" Prefix Length: 24
+INVALID_ARGUMENT: Table entry for 'lpm1_table' is invalid for the following reasons:
+  - Match field 'ipv4' is invalid: Lpm value has masked bits that are set. Value: '\020C#\022' Prefix Length: 24
+  - Action is required.
 
 =========================================================================
 ternary value too long
@@ -199,7 +224,9 @@ match {
 priority: 32
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Bytestring of length 15 bits does not fit in 10 bits
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Match field 'normal' is invalid: Bytestring of length 15 bits does not fit in 10 bits
+  - Action is required.
 
 =========================================================================
 ternary value and mask too long
@@ -217,7 +244,9 @@ match {
 priority: 32
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Bytestring of length 15 bits does not fit in 10 bits
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Match field 'normal' is invalid: Bytestring of length 15 bits does not fit in 10 bits
+  - Action is required.
 
 =========================================================================
 ternary value - masked bits set
@@ -235,8 +264,9 @@ match {
 priority: 32
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Ternary value has masked bits that are set.
-Value: \001\000 Mask: \000\377
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Match field 'normal' is invalid: Ternary value has masked bits that are set. Value: \001\000 Mask: \000\377
+  - Action is required.
 
 =========================================================================
 missing action
@@ -258,7 +288,7 @@ match {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Action missing in TableEntry with ID 33554433
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action is required.
 
 =========================================================================
 invalid action
@@ -283,7 +313,7 @@ action {
 }
 
 --- PI is invalid/unsupported:
-UNIMPLEMENTED: Unsupported action type: 2
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Unsupported action type: 2
 
 =========================================================================
 action set in table with action
@@ -323,7 +353,7 @@ action {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Table "id_test_table" requires an action since it does not use onseshot. Got action set instead
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Table requires an action since it does not use oneshot. Got action set instead.
 
 =========================================================================
 action in table with action set
@@ -353,7 +383,7 @@ action {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Table "wcmp_table" requires an action set since it uses onseshot. Got action instead
+INVALID_ARGUMENT: Table entry for 'wcmp_table' is invalid: Table requires an action set since it uses oneshot. Got action instead.
 
 =========================================================================
 missing action id
@@ -380,7 +410,7 @@ action {
 }
 
 --- PI is invalid/unsupported:
-NOT_FOUND: Key not found; Action ID 1 does not exist in P4Info
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: - Action ID 1 does not exist in the P4Info.
 
 =========================================================================
 invalid action id
@@ -407,7 +437,7 @@ action {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Action ID 16777219 is not a valid action for this table
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action ID 16777219 is invalid: It is not a valid action for this table.
 
 =========================================================================
 missing action params
@@ -438,7 +468,7 @@ action {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Expected 2 parameters, but got 1 instead in action with ID 16777217
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action 'do_thing_1' is invalid: Expected 2 parameters, but got 1 instead.
 
 =========================================================================
 duplicate action param id
@@ -473,7 +503,7 @@ action {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Duplicate param field found with ID 1
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action 'do_thing_1' is invalid: Duplicate param field with ID 1.
 
 =========================================================================
 invalid action param id
@@ -508,7 +538,7 @@ action {
 }
 
 --- PI is invalid/unsupported:
-NOT_FOUND: Key not found; Unable to find param ID 67 in action with ID 16777217
+INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action 'do_thing_1' is invalid: Unable to find param ID 67.
 
 =========================================================================
 zero lpm prefix length
@@ -529,7 +559,10 @@ action {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: A wild-card LPM match (i.e., prefix length of 0) must be represented by omitting the match altogether
+INVALID_ARGUMENT: Table entry for 'lpm1_table' is invalid for the following reasons:
+  - Match field 'ipv4' is invalid for the following reasons:
+    - A wild-card LPM match (i.e., prefix length of 0) must be represented by omitting the match altogether.
+    - Lpm value has masked bits that are set. Value: '\0202A\005' Prefix Length: 0
 
 =========================================================================
 zero ternary mask
@@ -560,7 +593,7 @@ action {
 priority: 32
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: A wild-card ternary match (i.e., mask of 0) must be represented by omitting the match altogether
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid: Match field 'normal' is invalid: A wild-card ternary match (i.e., mask of 0) must be represented by omitting the match altogether.
 
 =========================================================================
 zero priority
@@ -590,7 +623,7 @@ action {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid: Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead.
 
 =========================================================================
 negative priority
@@ -621,7 +654,7 @@ action {
 priority: -32
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Table entries with ternary or optional matches require a positive non-zero priority. Got -32 instead
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid: Table entries with ternary or optional matches require a positive non-zero priority. Got -32 instead.
 
 =========================================================================
 absent priority
@@ -651,7 +684,7 @@ action {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid: Table entries with ternary or optional matches require a positive non-zero priority. Got 0 instead.
 
 =========================================================================
 unexpected priority
@@ -674,7 +707,7 @@ action {
 priority: 32
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Table entries with no ternary or optional matches cannot have a priority. Got 32 instead
+INVALID_ARGUMENT: Table entry for 'lpm1_table' is invalid: Table entries with no ternary or optional matches cannot have a priority. Got 32 instead.
 
 =========================================================================
 action set with negative weight
@@ -709,7 +742,7 @@ action {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Expected positive action set weight, but got -1 instead
+INVALID_ARGUMENT: Table entry for 'wcmp_table' is invalid: Action Set is invalid: Expected positive action set weight, but got -1 instead.
 
 =========================================================================
 action set with invalid action
@@ -744,7 +777,7 @@ action {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Action ID 16777218 is not a valid action for this table
+INVALID_ARGUMENT: Table entry for 'wcmp_table' is invalid: Action Set is invalid: Action ID 16777218 is invalid: It is not a valid action for this table.
 
 =========================================================================
 counter in a table with no counters
@@ -782,7 +815,7 @@ counter_data {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Table "wcmp_table" does not have a counter, but table entry contained counter data.
+INVALID_ARGUMENT: Table entry for 'wcmp_table' is invalid: Table does not have a counter, but table entry contained counter data.
 
 =========================================================================
 empty IR
@@ -811,7 +844,7 @@ missing matches
 table_name: "id_test_table"
 
 --- IR (converting to PI) is invalid/unsupported:
-INVALID_ARGUMENT: Expected 2 mandatory match conditions but found 0 instead. Missing matches: ipv4, ipv6.
+INVALID_ARGUMENT: Missing matches: ipv4, ipv6. Expected 2 mandatory match conditions but found 0 instead.
 
 =========================================================================
 invalid match type - expect exact
@@ -903,7 +936,7 @@ matches {
 }
 
 --- IR (converting to PI) is invalid/unsupported:
-NOT_FOUND: Key not found; Match Field "invalid" does not exist in table "id_test_table"
+NOT_FOUND: Key not found; Match field "invalid" does not exist in table "id_test_table"
 
 =========================================================================
 invalid IR value
