@@ -197,7 +197,7 @@ TEST(P4RuntimeImplTest, SendPacketOutIdMismatch) {
       std::move(mock_call_adapter), std::move(port_sockets));
   boost::bimap<std::string, std::string> port_maps;
   ASSERT_THAT(SendPacketOut(ir_p4_info, port_maps, packetio_impl.get(), packet),
-              StatusIs(absl::StatusCode::kNotFound));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(P4RuntimeImplTest, SendPacketOutMultipleValidValues) {

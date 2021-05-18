@@ -149,5 +149,8 @@ std::string ActionName(absl::string_view action_name);
 // Returns a "Param <param_name>" string.
 std::string ParamName(absl::string_view param_name);
 
+// Returns a "Metadata <packet_name>" string.
+std::string MetadataName(absl::string_view metadata_name);
+
 }  // namespace pdpi
 #endif  // P4_PDPI_UTILS_IR_H

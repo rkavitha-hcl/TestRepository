@@ -529,4 +529,8 @@ std::string ActionName(absl::string_view action_name) {
 std::string ParamName(absl::string_view param_name) {
   return absl::StrCat("Param '", param_name, "'");
 }
+std::string MetadataName(absl::string_view metadata_name) {
+  return absl::StrCat("Metadata '", metadata_name, "'");
+}
+
 }  // namespace pdpi

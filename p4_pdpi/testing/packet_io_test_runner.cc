@@ -129,6 +129,12 @@ static void RunPacketOutTests(pdpi::IrP4Info info) {
         metadata { submit_to_ingress: "0x1" egress_port: "eth-1/2/3" }
       )pb"),
       INPUT_IS_VALID);
+  RunPdPacketOutTest(info, "only one field set",
+                     gutil::ParseProtoOrDie<pdpi::PacketOut>(R"pb(
+                       payload: "1"
+                       metadata { submit_to_ingress: "0x1" }
+                     )pb"),
+                     INPUT_IS_VALID);
 }
 
 int main(int argc, char** argv) {
