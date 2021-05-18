@@ -22,6 +22,9 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/map.h"
@@ -502,62 +505,142 @@ absl::StatusOr<grpc::Status> PdWriteRpcStatusToGrpcStatus(
 static absl::Status IrMatchEntryToPd(const IrTableDefinition &ir_table_info,
                                      const IrTableEntry &ir_table_entry,
                                      google::protobuf::Message *pd_match) {
+  std::vector<std::string> invalid_reasons;
   for (const auto &ir_match : ir_table_entry.matches()) {
-    ASSIGN_OR_RETURN(const auto *ir_match_info,
-                     gutil::FindPtrOrStatus(
-                         ir_table_info.match_fields_by_name(), ir_match.name()),
-                     _ << "P4Info for table \""
-                       << ir_table_info.preamble().name()
-                       << "\" does not contain match with name \""
-                       << ir_match.name() << "\"");
+    std::vector<std::string> invalid_match_reasons;
+    const auto &status_or_ir_match_info = gutil::FindPtrOrStatus(
+        ir_table_info.match_fields_by_name(), ir_match.name());
+    if (!status_or_ir_match_info.ok()) {
+      invalid_match_reasons.push_back(absl::StrCat(
+          kNewBullet, "P4Info for table does not contain match with name '",
+          ir_match.name(), "'."));
+      continue;
+    }
+    const auto *ir_match_info = *status_or_ir_match_info;
     switch (ir_match_info->match_field().match_type()) {
       case MatchField::EXACT: {
-        ASSIGN_OR_RETURN(const auto pd_value,
-                         IrValueToFormattedString(ir_match.exact(),
-                                                  ir_match_info->format()));
-        RETURN_IF_ERROR(SetStringField(pd_match, ir_match.name(), pd_value));
+        const absl::StatusOr<std::string> &pd_value =
+            IrValueToFormattedString(ir_match.exact(), ir_match_info->format());
+        if (!pd_value.ok()) {
+          invalid_match_reasons.push_back(
+              absl::StrCat(kNewBullet, pd_value.status().message()));
+          break;
+        }
+        const auto &status =
+            SetStringField(pd_match, ir_match.name(), *pd_value);
+        if (!status.ok()) {
+          invalid_match_reasons.push_back(
+              absl::StrCat(kNewBullet, status.message()));
+          break;
+        }
         break;
       }
       case MatchField::LPM: {
-        ASSIGN_OR_RETURN(auto *pd_lpm,
-                         GetMutableMessage(pd_match, ir_match.name()));
-        ASSIGN_OR_RETURN(const auto pd_value,
-                         IrValueToFormattedString(ir_match.lpm().value(),
-                                                  ir_match_info->format()));
-        RETURN_IF_ERROR(SetStringField(pd_lpm, "value", pd_value));
-        RETURN_IF_ERROR(SetInt32Field(pd_lpm, "prefix_length",
-                                      ir_match.lpm().prefix_length()));
+        const absl::StatusOr<google::protobuf::Message *> &pd_lpm =
+            GetMutableMessage(pd_match, ir_match.name());
+        if (!pd_lpm.ok()) {
+          invalid_match_reasons.push_back(
+              absl::StrCat(kNewBullet, pd_lpm.status().message()));
+          break;
+        }
+        const absl::StatusOr<std::string> &pd_value = IrValueToFormattedString(
+            ir_match.lpm().value(), ir_match_info->format());
+        if (!pd_value.ok()) {
+          invalid_match_reasons.push_back(
+              absl::StrCat(kNewBullet, pd_value.status().message()));
+          break;
+        }
+        const auto &value_status = SetStringField(*pd_lpm, "value", *pd_value);
+        if (!value_status.ok()) {
+          invalid_match_reasons.push_back(
+              absl::StrCat(kNewBullet, value_status.message()));
+          break;
+        }
+        const auto &prefix_length_status = SetInt32Field(
+            *pd_lpm, "prefix_length", ir_match.lpm().prefix_length());
+        if (!prefix_length_status.ok()) {
+          invalid_match_reasons.push_back(
+              absl::StrCat(kNewBullet, prefix_length_status.message()));
+          break;
+        }
         break;
       }
       case MatchField::TERNARY: {
-        ASSIGN_OR_RETURN(auto *pd_ternary,
-                         GetMutableMessage(pd_match, ir_match.name()));
-        ASSIGN_OR_RETURN(const auto pd_value,
-                         IrValueToFormattedString(ir_match.ternary().value(),
-                                                  ir_match_info->format()));
-        RETURN_IF_ERROR(SetStringField(pd_ternary, "value", pd_value));
-        ASSIGN_OR_RETURN(const auto pd_mask,
-                         IrValueToFormattedString(ir_match.ternary().mask(),
-                                                  ir_match_info->format()));
-        RETURN_IF_ERROR(SetStringField(pd_ternary, "mask", pd_mask));
+        const absl::StatusOr<google::protobuf::Message *> &pd_ternary =
+            GetMutableMessage(pd_match, ir_match.name());
+        if (!pd_ternary.ok()) {
+          invalid_match_reasons.push_back(
+              absl::StrCat(kNewBullet, pd_ternary.status().message()));
+          break;
+        }
+        const absl::StatusOr<std::string> &pd_value = IrValueToFormattedString(
+            ir_match.ternary().value(), ir_match_info->format());
+        if (!pd_value.ok()) {
+          invalid_match_reasons.push_back(
+              absl::StrCat(kNewBullet, pd_value.status().message()));
+          break;
+        }
+        const auto &value_status =
+            SetStringField(*pd_ternary, "value", *pd_value);
+        if (!value_status.ok()) {
+          invalid_match_reasons.push_back(
+              absl::StrCat(kNewBullet, value_status.message()));
+          break;
+        }
+        const absl::StatusOr<std::string> &pd_mask = IrValueToFormattedString(
+            ir_match.ternary().mask(), ir_match_info->format());
+        if (!pd_mask.ok()) {
+          invalid_match_reasons.push_back(
+              absl::StrCat(kNewBullet, pd_mask.status().message()));
+          break;
+        }
+        const auto &mask_status = SetStringField(*pd_ternary, "mask", *pd_mask);
+        if (!mask_status.ok()) {
+          invalid_match_reasons.push_back(
+              absl::StrCat(kNewBullet, mask_status.message()));
+          break;
+        }
         break;
       }
       case MatchField::OPTIONAL: {
-        ASSIGN_OR_RETURN(auto *pd_optional,
-                         GetMutableMessage(pd_match, ir_match.name()));
-        ASSIGN_OR_RETURN(const auto pd_value,
-                         IrValueToFormattedString(ir_match.optional().value(),
-                                                  ir_match_info->format()));
-        RETURN_IF_ERROR(SetStringField(pd_optional, "value", pd_value));
+        const absl::StatusOr<google::protobuf::Message *> &pd_optional =
+            GetMutableMessage(pd_match, ir_match.name());
+        if (!pd_optional.ok()) {
+          invalid_match_reasons.push_back(
+              absl::StrCat(kNewBullet, pd_optional.status().message()));
+          break;
+        }
+        const absl::StatusOr<std::string> &pd_value = IrValueToFormattedString(
+            ir_match.optional().value(), ir_match_info->format());
+        if (!pd_value.ok()) {
+          invalid_match_reasons.push_back(
+              absl::StrCat(kNewBullet, pd_value.status().message()));
+          break;
+        }
+        const auto &value_status =
+            SetStringField(*pd_optional, "value", *pd_value);
+        if (!value_status.ok()) {
+          invalid_match_reasons.push_back(
+              absl::StrCat(kNewBullet, value_status.message()));
+          break;
+        }
         break;
       }
       default:
-        return gutil::InvalidArgumentErrorBuilder()
-               << "Unsupported match type \""
-               << MatchField_MatchType_Name(
-                      ir_match_info->match_field().match_type())
-               << "\" in \"" << ir_match.name() << "\"";
+        invalid_match_reasons.push_back(
+            absl::StrCat(kNewBullet, "Unsupported match type '",
+                         MatchField_MatchType_Name(
+                             ir_match_info->match_field().match_type()),
+                         "'."));
     }
+    if (!invalid_match_reasons.empty()) {
+      invalid_reasons.push_back(
+          GenerateFormattedError(MatchFieldName(ir_match.name()),
+                                 absl::StrJoin(invalid_match_reasons, "\n")));
+    }
+  }
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(absl::StrJoin(invalid_reasons, "\n"));
   }
   return absl::OkStatus();
 }
@@ -567,23 +650,56 @@ static absl::Status IrMatchEntryToPd(const IrTableDefinition &ir_table_info,
 static absl::Status IrActionInvocationToPd(
     const IrP4Info &ir_p4info, const IrActionInvocation &ir_action,
     google::protobuf::Message *parent_message) {
-  ASSIGN_OR_RETURN(
-      const auto *ir_action_info,
-      gutil::FindPtrOrStatus(ir_p4info.actions_by_name(), ir_action.name()),
-      _ << "P4Info does not contain action with name \"" << ir_action.name()
-        << "\"");
-  ASSIGN_OR_RETURN(const auto &pd_action_name,
-                   P4NameToProtobufFieldName(ir_action.name(), kP4Action));
-  ASSIGN_OR_RETURN(auto *pd_action,
-                   GetMutableMessage(parent_message, pd_action_name));
+  absl::string_view action_name = ir_action.name();
+  const auto &status_or_ir_action_info = gutil::FindPtrOrStatus(
+      ir_p4info.actions_by_name(), std::string(action_name));
+  if (!status_or_ir_action_info.ok()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        ActionName(action_name),
+        absl::StrCat(kNewBullet, "It does not exist in the P4Info.")));
+  }
+  const auto *ir_action_info = *status_or_ir_action_info;
+  const auto &pd_action_name =
+      P4NameToProtobufFieldName(ir_action.name(), kP4Action);
+  if (!pd_action_name.ok()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        ActionName(action_name),
+        absl::StrCat(kNewBullet, pd_action_name.status().message())));
+  }
+  const auto &pd_action = GetMutableMessage(parent_message, *pd_action_name);
+  if (!pd_action.ok()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        ActionName(action_name),
+        absl::StrCat(kNewBullet, pd_action.status().message())));
+  }
+  std::vector<std::string> invalid_reasons;
   for (const auto &ir_param : ir_action.params()) {
-    ASSIGN_OR_RETURN(const auto *param_info,
-                     gutil::FindPtrOrStatus(ir_action_info->params_by_name(),
-                                            ir_param.name()));
-    ASSIGN_OR_RETURN(
-        const auto &pd_value,
-        IrValueToFormattedString(ir_param.value(), param_info->format()));
-    RETURN_IF_ERROR(SetStringField(pd_action, ir_param.name(), pd_value));
+    const auto &status_or_param_info = gutil::FindPtrOrStatus(
+        ir_action_info->params_by_name(), ir_param.name());
+    absl::string_view param_name = ir_param.name();
+    if (!status_or_param_info.ok()) {
+      invalid_reasons.push_back(GenerateReason(
+          ParamName(param_name), status_or_param_info.status().message()));
+      continue;
+    }
+    const absl::StatusOr<std::string> &pd_value = IrValueToFormattedString(
+        ir_param.value(), (*status_or_param_info)->format());
+    if (!pd_value.ok()) {
+      invalid_reasons.push_back(
+          GenerateReason(ParamName(param_name), pd_value.status().message()));
+      continue;
+    }
+    const auto &value_status =
+        SetStringField(*pd_action, ir_param.name(), *pd_value);
+    if (!value_status.ok()) {
+      invalid_reasons.push_back(
+          GenerateReason(ParamName(param_name), value_status.message()));
+      continue;
+    }
+  }
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        ActionName(action_name), absl::StrJoin(invalid_reasons, "\n")));
   }
   return absl::OkStatus();
 }
@@ -593,115 +709,250 @@ static absl::Status IrActionInvocationToPd(
 static absl::Status IrActionSetToPd(const IrP4Info &ir_p4info,
                                     const IrTableEntry &ir_table_entry,
                                     google::protobuf::Message *pd_table) {
-  ASSIGN_OR_RETURN(const auto *pd_wcmp_action_set_descriptor,
-                   GetFieldDescriptor(*pd_table, "wcmp_actions"));
+  const auto &pd_wcmp_action_set_descriptor =
+      GetFieldDescriptor(*pd_table, "wcmp_actions");
+  if (!pd_wcmp_action_set_descriptor.ok()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        "ActionSet",
+        absl::StrCat(kNewBullet,
+                     pd_wcmp_action_set_descriptor.status().message())));
+  }
+  std::vector<std::string> invalid_reasons;
   for (const auto &ir_action_set_invocation :
        ir_table_entry.action_set().actions()) {
     auto *pd_wcmp_action_set = pd_table->GetReflection()->AddMessage(
-        pd_table, pd_wcmp_action_set_descriptor);
-    ASSIGN_OR_RETURN(auto *pd_action_set,
-                     GetMutableMessage(pd_wcmp_action_set, "action"));
-    RETURN_IF_ERROR(IrActionInvocationToPd(
-        ir_p4info, ir_action_set_invocation.action(), pd_action_set));
-    RETURN_IF_ERROR(SetInt32Field(pd_wcmp_action_set, "weight",
-                                  ir_action_set_invocation.weight()));
-    RETURN_IF_ERROR(SetStringField(pd_wcmp_action_set, "watch_port",
-                                   ir_action_set_invocation.watch_port()));
+        pd_table, *pd_wcmp_action_set_descriptor);
+    const absl::StatusOr<google::protobuf::Message *> &pd_action_set =
+        GetMutableMessage(pd_wcmp_action_set, "action");
+    if (!pd_action_set.ok()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet, pd_action_set.status().message()));
+      continue;
+    }
+    const auto &action_status = IrActionInvocationToPd(
+        ir_p4info, ir_action_set_invocation.action(), *pd_action_set);
+    if (!action_status.ok()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet, action_status.message()));
+      continue;
+    }
+    const auto &weight_status = SetInt32Field(
+        pd_wcmp_action_set, "weight", ir_action_set_invocation.weight());
+    if (!weight_status.ok()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet, weight_status.message()));
+      continue;
+    }
+    const auto &watch_port_status =
+        SetStringField(pd_wcmp_action_set, "watch_port",
+                       ir_action_set_invocation.watch_port());
+    if (!watch_port_status.ok()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet, watch_port_status.message()));
+      continue;
+    }
+  }
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        "ActionSet", absl::StrJoin(invalid_reasons, "\n")));
   }
   return absl::OkStatus();
 }
 
 absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
                               google::protobuf::Message *pd, bool key_only) {
-  ASSIGN_OR_RETURN(
-      const auto *ir_table_info,
-      gutil::FindPtrOrStatus(ir_p4info.tables_by_name(), ir.table_name()),
-      _ << "Table \"" << ir.table_name() << "\" does not exist in P4Info."
-        << kPdProtoAndP4InfoOutOfSync);
-  ASSIGN_OR_RETURN(const auto pd_table_name,
-                   P4NameToProtobufFieldName(ir.table_name(), kP4Table));
-  ASSIGN_OR_RETURN(auto *pd_table, GetMutableMessage(pd, pd_table_name));
+  const auto &status_or_ir_table_info =
+      gutil::FindPtrOrStatus(ir_p4info.tables_by_name(), ir.table_name());
+  if (!status_or_ir_table_info.ok()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        TableName(ir.table_name()),
+        absl::StrCat(kNewBullet, "It does not exist in the P4Info.",
+                     kPdProtoAndP4InfoOutOfSync)));
+  }
+  const auto *ir_table_info = *status_or_ir_table_info;
+  const auto &pd_table_name =
+      P4NameToProtobufFieldName(ir.table_name(), kP4Table);
+  if (!pd_table_name.ok()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        TableName(ir.table_name()),
+        absl::StrCat(kNewBullet, pd_table_name.status().message())));
+  }
+  const auto &status_or_pd_table = GetMutableMessage(pd, *pd_table_name);
+  if (!status_or_pd_table.ok()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        TableName(ir.table_name()),
+        absl::StrCat(kNewBullet, status_or_pd_table.status().message())));
+  }
 
-  ASSIGN_OR_RETURN(auto *pd_match, GetMutableMessage(pd_table, "match"));
-  RETURN_IF_ERROR(IrMatchEntryToPd(*ir_table_info, ir, pd_match));
+  auto *pd_table = *status_or_pd_table;
+
+  std::vector<std::string> invalid_reasons;
+
+  const absl::StatusOr<google::protobuf::Message *> &pd_match =
+      GetMutableMessage(pd_table, "match");
+  if (!pd_match.ok()) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, pd_match.status().message()));
+  } else {
+    const auto &match_status = IrMatchEntryToPd(*ir_table_info, ir, *pd_match);
+    if (!match_status.ok()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet, match_status.message()));
+    }
+  }
 
   if (ir.priority() != 0) {
-    RETURN_IF_ERROR(SetInt32Field(pd_table, "priority", ir.priority()));
+    const auto &priority_status =
+        SetInt32Field(pd_table, "priority", ir.priority());
+    if (!priority_status.ok()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet, priority_status.message()));
+    }
   }
   if (!key_only) {
-    RETURN_IF_ERROR(SetBytesField(pd_table, "controller_metadata",
-                                  ir.controller_metadata()));
+    const auto &metadata_status = SetBytesField(pd_table, "controller_metadata",
+                                                ir.controller_metadata());
+    if (!metadata_status.ok()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet, metadata_status.message()));
+    }
 
     if (ir_table_info->uses_oneshot()) {
-      RETURN_IF_ERROR(IrActionSetToPd(ir_p4info, ir, pd_table));
+      const auto &action_set_status = IrActionSetToPd(ir_p4info, ir, pd_table);
+      if (!action_set_status.ok()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, action_set_status.message()));
+      }
     } else {
-      ASSIGN_OR_RETURN(auto *pd_action, GetMutableMessage(pd_table, "action"));
-      RETURN_IF_ERROR(
-          IrActionInvocationToPd(ir_p4info, ir.action(), pd_action));
+      const absl::StatusOr<google::protobuf::Message *> &pd_action =
+          GetMutableMessage(pd_table, "action");
+      if (!pd_action.ok()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, pd_action.status().message()));
+      } else {
+        const auto &action_status =
+            IrActionInvocationToPd(ir_p4info, ir.action(), *pd_action);
+        if (!action_status.ok()) {
+          invalid_reasons.push_back(
+              absl::StrCat(kNewBullet, action_status.message()));
+        }
+      }
     }
 
     if (ir_table_info->has_meter() && ir.has_meter_config()) {
-      ASSIGN_OR_RETURN(auto *config,
-                       GetMutableMessage(pd_table, "meter_config"));
-      const auto &ir_meter_config = ir.meter_config();
-      if (ir_meter_config.cir() != ir_meter_config.pir()) {
-        return InvalidArgumentErrorBuilder()
-               << "CIR and PIR values should be equal. Got CIR as "
-               << ir_meter_config.cir() << ", PIR as " << ir_meter_config.pir();
-      }
-      if (ir_meter_config.cburst() != ir_meter_config.pburst()) {
-        return InvalidArgumentErrorBuilder()
-               << "CBurst and PBurst values should be equal. Got CBurst as "
-               << ir_meter_config.cburst() << ", PBurst as "
-               << ir_meter_config.pburst();
-      }
-      switch (ir_table_info->meter().unit()) {
-        case p4::config::v1::MeterSpec_Unit_BYTES: {
-          RETURN_IF_ERROR(
-              SetInt64Field(config, "bytes_per_second", ir_meter_config.cir()));
-          RETURN_IF_ERROR(
-              SetInt64Field(config, "burst_bytes", ir_meter_config.cburst()));
-          break;
+      const absl::StatusOr<google::protobuf::Message *> &config =
+          GetMutableMessage(pd_table, "meter_config");
+      if (!config.ok()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, config.status().message()));
+      } else {
+        const auto &ir_meter_config = ir.meter_config();
+        if (ir_meter_config.cir() != ir_meter_config.pir()) {
+          invalid_reasons.push_back(absl::StrCat(
+              kNewBullet, "CIR and PIR values should be equal. Got CIR as ",
+              ir_meter_config.cir(), ", PIR as ", ir_meter_config.pir(), "."));
         }
-        case p4::config::v1::MeterSpec_Unit_PACKETS: {
-          RETURN_IF_ERROR(SetInt64Field(config, "packets_per_second",
-                                        ir_meter_config.cir()));
-          RETURN_IF_ERROR(
-              SetInt64Field(config, "burst_packets", ir_meter_config.cburst()));
-          break;
+        if (ir_meter_config.cburst() != ir_meter_config.pburst()) {
+          invalid_reasons.push_back(absl::StrCat(
+              kNewBullet,
+              "CBurst and PBurst values should be equal. Got CBurst as ",
+              ir_meter_config.cburst(), ", PBurst as ",
+              ir_meter_config.pburst(), "."));
         }
-        default:
-          return InvalidArgumentErrorBuilder()
-                 << "Invalid meter unit: " << ir_table_info->meter().unit();
+        switch (ir_table_info->meter().unit()) {
+          case p4::config::v1::MeterSpec_Unit_BYTES: {
+            const auto &bytes_per_second_status = SetInt64Field(
+                *config, "bytes_per_second", ir_meter_config.cir());
+            if (!bytes_per_second_status.ok()) {
+              invalid_reasons.push_back(
+                  absl::StrCat(kNewBullet, bytes_per_second_status.message()));
+            }
+            const auto &burst_bytes_status =
+                SetInt64Field(*config, "burst_bytes", ir_meter_config.cburst());
+            if (!burst_bytes_status.ok()) {
+              invalid_reasons.push_back(
+                  absl::StrCat(kNewBullet, burst_bytes_status.message()));
+            }
+            break;
+          }
+          case p4::config::v1::MeterSpec_Unit_PACKETS: {
+            const auto &packets_per_second_status = SetInt64Field(
+                *config, "packets_per_second", ir_meter_config.cir());
+            if (!packets_per_second_status.ok()) {
+              invalid_reasons.push_back(absl::StrCat(
+                  kNewBullet, packets_per_second_status.message()));
+            }
+            const auto &burst_packets_status = SetInt64Field(
+                *config, "burst_packets", ir_meter_config.cburst());
+            if (!burst_packets_status.ok()) {
+              invalid_reasons.push_back(
+                  absl::StrCat(kNewBullet, burst_packets_status.message()));
+            }
+            break;
+          }
+          default:
+            invalid_reasons.push_back(absl::StrCat(
+                kNewBullet,
+                "Invalid meter unit: ", ir_table_info->meter().unit()));
+        }
       }
     }
 
     if (ir_table_info->has_counter() && ir.has_counter_data()) {
-      ASSIGN_OR_RETURN(auto *counter_data,
-                       GetMutableMessage(pd_table, "counter_data"));
-      switch (ir_table_info->counter().unit()) {
-        case p4::config::v1::CounterSpec_Unit_BYTES: {
-          RETURN_IF_ERROR(SetInt64Field(counter_data, "byte_count",
-                                        ir.counter_data().byte_count()));
-          break;
+      const absl::StatusOr<google::protobuf::Message *> &counter_data =
+          GetMutableMessage(pd_table, "counter_data");
+      if (!counter_data.ok()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, counter_data.status().message()));
+      } else {
+        switch (ir_table_info->counter().unit()) {
+          case p4::config::v1::CounterSpec_Unit_BYTES: {
+            const auto &byte_count_status = SetInt64Field(
+                *counter_data, "byte_count", ir.counter_data().byte_count());
+            if (!byte_count_status.ok()) {
+              invalid_reasons.push_back(
+                  absl::StrCat(kNewBullet, byte_count_status.message()));
+            }
+            break;
+          }
+          case p4::config::v1::CounterSpec_Unit_PACKETS: {
+            const auto &packet_count_status =
+                SetInt64Field(*counter_data, "packet_count",
+                              ir.counter_data().packet_count());
+            if (!packet_count_status.ok()) {
+              invalid_reasons.push_back(
+                  absl::StrCat(kNewBullet, packet_count_status.message()));
+            }
+            break;
+          }
+          case p4::config::v1::CounterSpec_Unit_BOTH: {
+            const auto &byte_count_status = SetInt64Field(
+                *counter_data, "byte_count", ir.counter_data().byte_count());
+            if (!byte_count_status.ok()) {
+              invalid_reasons.push_back(
+                  absl::StrCat(kNewBullet, byte_count_status.message()));
+            }
+            const auto &packet_count_status =
+                SetInt64Field(*counter_data, "packet_count",
+                              ir.counter_data().packet_count());
+            if (!packet_count_status.ok()) {
+              invalid_reasons.push_back(
+                  absl::StrCat(kNewBullet, packet_count_status.message()));
+            }
+            break;
+          }
+          default:
+            invalid_reasons.push_back(absl::StrCat(
+                kNewBullet,
+                "Invalid counter unit: ", ir_table_info->counter().unit()));
         }
-        case p4::config::v1::CounterSpec_Unit_PACKETS: {
-          RETURN_IF_ERROR(SetInt64Field(counter_data, "packet_count",
-                                        ir.counter_data().packet_count()));
-          break;
-        }
-        case p4::config::v1::CounterSpec_Unit_BOTH: {
-          RETURN_IF_ERROR(SetInt64Field(counter_data, "byte_count",
-                                        ir.counter_data().byte_count()));
-          RETURN_IF_ERROR(SetInt64Field(counter_data, "packet_count",
-                                        ir.counter_data().packet_count()));
-          break;
-        }
-        default:
-          return InvalidArgumentErrorBuilder()
-                 << "Invalid counter unit: " << ir_table_info->counter().unit();
       }
     }
+  }
+
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        TableName(ir.table_name()), absl::StrJoin(invalid_reasons, "\n")));
   }
   return absl::OkStatus();
 }
