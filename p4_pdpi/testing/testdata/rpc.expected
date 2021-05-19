@@ -5,7 +5,7 @@ ReadRequest test: empty
 --- PI (Input):
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Device ID missing
+INVALID_ARGUMENT: Device ID missing.
 
 =========================================================================
 ReadRequest test: no entities
@@ -15,7 +15,7 @@ ReadRequest test: no entities
 device_id: 10
 
 --- PI is invalid/unsupported:
-UNIMPLEMENTED: Only wildcard reads of all table entries are supported. Only 1 entity is supported. Found 0 entities in read request
+UNIMPLEMENTED: Only wildcard reads of all table entries are supported. Only 1 entity is supported. Found 0 entities in read request.
 
 =========================================================================
 ReadRequest test: wrong entities
@@ -29,7 +29,7 @@ entities {
 }
 
 --- PI is invalid/unsupported:
-UNIMPLEMENTED: Only wildcard reads of all table entries are supported. Found an entity that is not a table entry
+UNIMPLEMENTED: Read request is invalid: Only wildcard reads of all table entries are supported. Found an entity that is not a table entry.
 
 =========================================================================
 ReadRequest test: multiple table entries
@@ -47,7 +47,7 @@ entities {
 }
 
 --- PI is invalid/unsupported:
-UNIMPLEMENTED: Only wildcard reads of all table entries are supported. Only 1 entity is supported. Found 2 entities in read request
+UNIMPLEMENTED: Only wildcard reads of all table entries are supported. Only 1 entity is supported. Found 2 entities in read request.
 
 =========================================================================
 ReadRequest test: no meter, no counter
@@ -122,7 +122,7 @@ entities {
 }
 
 --- PI is invalid/unsupported:
-UNIMPLEMENTED: Only table entries are supported in ReadResponse
+UNIMPLEMENTED: Only table entries are supported in ReadResponse.
 
 =========================================================================
 ReadResponse test: valid ternary table
@@ -372,7 +372,9 @@ Update test: empty
 --- PI (Input):
 
 --- PI is invalid/unsupported:
-UNIMPLEMENTED: Only table entries are supported in Update
+INVALID_ARGUMENT: Update is invalid for the following reasons:
+  - Only table entries are supported in Update.
+  - Update type should be specified.
 
 =========================================================================
 Update test: missing type
@@ -385,7 +387,7 @@ entity {
 }
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Update type should be specified
+INVALID_ARGUMENT: Update is invalid: Update type should be specified.
 
 =========================================================================
 Update test: wrong entity
@@ -399,7 +401,7 @@ entity {
 }
 
 --- PI is invalid/unsupported:
-UNIMPLEMENTED: Only table entries are supported in Update
+INVALID_ARGUMENT: Update is invalid: Only table entries are supported in Update.
 
 =========================================================================
 Update test: missing type
@@ -425,7 +427,7 @@ table_entry {
 }
 
 --- PD is invalid/unsupported (detected when translating IR to PI):
-Update type should be specified
+Update is invalid: Update type should be specified.
 =========================================================================
 Update test: valid ternary table
 =========================================================================
@@ -521,7 +523,7 @@ WriteRequest test: invalid role_id
 role_id: 1
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Only the default role is supported, but got role ID 1 instead
+INVALID_ARGUMENT: Write request is invalid: Only the default role is supported, but got role ID 1 instead.
 
 =========================================================================
 WriteRequest test: invalid atomicity
@@ -531,7 +533,7 @@ WriteRequest test: invalid atomicity
 atomicity: ROLLBACK_ON_ERROR
 
 --- PI is invalid/unsupported:
-INVALID_ARGUMENT: Only CONTINUE_ON_ERROR is supported for atomicity
+INVALID_ARGUMENT: Write request is invalid: Only CONTINUE_ON_ERROR is supported for atomicity.
 
 =========================================================================
 WriteRequest test: empty
@@ -868,6 +870,58 @@ updates {
 }
 
 
+=========================================================================
+WriteRequest test: multiple updates, some invalid
+=========================================================================
+
+--- PD (Input):
+device_id: 113
+election_id {
+  high: 1231
+  low: 77989
+}
+updates {
+  type: MODIFY
+  table_entry {
+    ternary_table_entry {
+      match {
+        normal {
+          value: "0x052"
+          mask: "0x273"
+        }
+      }
+      action {
+        do_thing_3 {
+          arg1: "0x01234567"
+          arg2: "0x01234568"
+        }
+      }
+      priority: 32
+    }
+  }
+}
+updates {
+  type: DELETE
+  table_entry {
+    ternary_table_entry {
+      match {
+        normal {
+          value: "0x052"
+          mask: "0x273"
+        }
+      }
+      action {
+        do_thing_3 {
+          arg2: "0x01234568"
+        }
+      }
+      priority: 32
+    }
+  }
+}
+
+--- PD is invalid/unsupported (detected when translating IR to PI):
+Write Request is invalid: updates[1] is invalid: Table entry for 'ternary_table' is invalid: Action 'do_thing_3' is invalid: Missing parameters: 'arg1'. Expected 2 parameters, but found 1 instead.
 =========================================================================
 Invalid gRPC WriteRpcStatus should fail test: Grpc status has ok status with non empty message
 =========================================================================

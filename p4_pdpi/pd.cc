@@ -1041,30 +1041,62 @@ absl::Status IrPacketOutToPd(const IrP4Info &info, const IrPacketOut &packet,
 
 absl::Status IrReadRequestToPd(const IrP4Info &info, const IrReadRequest &ir,
                                google::protobuf::Message *pd) {
+  std::vector<std::string> invalid_reasons;
   if (ir.device_id() == 0) {
-    return UnimplementedErrorBuilder() << "Device ID missing";
+    invalid_reasons.push_back(absl::StrCat(kNewBullet, "Device ID missing."));
   }
-  RETURN_IF_ERROR(SetUint64Field(pd, "device_id", ir.device_id()));
+  const auto &device_id_status =
+      SetUint64Field(pd, "device_id", ir.device_id());
+  if (!device_id_status.ok()) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, device_id_status.message()));
+  }
   if (ir.read_counter_data()) {
-    RETURN_IF_ERROR(
-        SetBoolField(pd, "read_counter_data", ir.read_counter_data()));
+    const auto &read_counter_status =
+        SetBoolField(pd, "read_counter_data", ir.read_counter_data());
+    if (!read_counter_status.ok()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet, read_counter_status.message()));
+    }
   }
   if (ir.read_meter_configs()) {
-    RETURN_IF_ERROR(
-        SetBoolField(pd, "read_meter_configs", ir.read_meter_configs()));
+    const auto &read_meter_status =
+        SetBoolField(pd, "read_meter_configs", ir.read_meter_configs());
+    if (!read_meter_status.ok()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet, read_meter_status.message()));
+    }
+  }
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        "Read Request", absl::StrJoin(invalid_reasons, "\n")));
   }
   return absl::OkStatus();
 }
 
 absl::Status IrReadResponseToPd(const IrP4Info &info, const IrReadResponse &ir,
                                 google::protobuf::Message *read_response) {
+  std::vector<std::string> invalid_reasons;
   for (const auto &ir_table_entry : ir.table_entries()) {
-    ASSIGN_OR_RETURN(const auto *table_entries_descriptor,
-                     GetFieldDescriptor(*read_response, "table_entries"));
-    RETURN_IF_ERROR(
+    const absl::StatusOr<const FieldDescriptor *> &table_entries_descriptor =
+        GetFieldDescriptor(*read_response, "table_entries");
+    if (!table_entries_descriptor.ok()) {
+      invalid_reasons.push_back(
+          absl::StrCat(table_entries_descriptor.status().message()));
+      continue;
+    }
+    const auto &table_entry_status =
         IrTableEntryToPd(info, ir_table_entry,
                          read_response->GetReflection()->AddMessage(
-                             read_response, table_entries_descriptor)));
+                             read_response, *table_entries_descriptor));
+    if (!table_entry_status.ok()) {
+      invalid_reasons.push_back(std::string(table_entry_status.message()));
+      continue;
+    }
+  }
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        "Read Response", absl::StrJoin(invalid_reasons, "\n")));
   }
   return absl::OkStatus();
 }
@@ -1096,10 +1128,22 @@ absl::Status IrWriteRequestToPd(const IrP4Info &info, const IrWriteRequest &ir,
 
   ASSIGN_OR_RETURN(const auto updates_descriptor,
                    GetFieldDescriptor(*write_request, "updates"));
-  for (const auto &ir_update : ir.updates()) {
-    RETURN_IF_ERROR(IrUpdateToPd(info, ir_update,
-                                 write_request->GetReflection()->AddMessage(
-                                     write_request, updates_descriptor)));
+  std::vector<std::string> invalid_reasons;
+  for (int idx = 0; idx < ir.updates_size(); ++idx) {
+    const auto &ir_update = ir.updates(idx);
+    const auto &update_status =
+        IrUpdateToPd(info, ir_update,
+                     write_request->GetReflection()->AddMessage(
+                         write_request, updates_descriptor));
+    if (!update_status.ok()) {
+      invalid_reasons.push_back(GenerateFormattedError(
+          absl::StrCat("updates[", idx, "]"), update_status.message()));
+      continue;
+    }
+  }
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        "Write Request", absl::StrJoin(invalid_reasons, "\n")));
   }
   return absl::OkStatus();
 }
@@ -1206,10 +1250,26 @@ static absl::Status IrWriteResponseToPd(
     google::protobuf::Message *pd_rpc_response) {
   // Iterates through each ir update status and add message to pd via
   // AddRepeatedMutableMessage
+  std::vector<std::string> invalid_reasons;
   for (const IrUpdateStatus &ir_update_status : ir_write_response.statuses()) {
-    ASSIGN_OR_RETURN(auto *pd_update_status,
-                     AddRepeatedMutableMessage(pd_rpc_response, "statuses"));
-    RETURN_IF_ERROR(IrUpdateStatusToPd(ir_update_status, pd_update_status));
+    const auto &pd_update =
+        AddRepeatedMutableMessage(pd_rpc_response, "statuses");
+    if (!pd_update.ok()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet, pd_update.status().message()));
+      continue;
+    }
+    const absl::Status &pd_update_status =
+        IrUpdateStatusToPd(ir_update_status, *pd_update);
+    if (!pd_update_status.ok()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet, pd_update_status.message()));
+      continue;
+    }
+  }
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        "Write Response", absl::StrJoin(invalid_reasons, "\n")));
   }
   return absl::OkStatus();
 }
@@ -1859,14 +1919,22 @@ absl::StatusOr<IrReadResponse> PdReadResponseToIr(
   IrReadResponse ir_response;
   ASSIGN_OR_RETURN(const auto table_entries_descriptor,
                    GetFieldDescriptor(read_response, "table_entries"));
+  std::vector<std::string> invalid_reasons;
   for (auto i = 0; i < read_response.GetReflection()->FieldSize(
                            read_response, table_entries_descriptor);
        ++i) {
-    ASSIGN_OR_RETURN(
-        *ir_response.add_table_entries(),
-        PdTableEntryToIr(info,
-                         read_response.GetReflection()->GetRepeatedMessage(
-                             read_response, table_entries_descriptor, i)));
+    const absl::StatusOr<IrTableEntry> &table_entry = PdTableEntryToIr(
+        info, read_response.GetReflection()->GetRepeatedMessage(
+                  read_response, table_entries_descriptor, i));
+    if (!table_entry.ok()) {
+      invalid_reasons.push_back(std::string(table_entry.status().message()));
+      continue;
+    }
+    *ir_response.add_table_entries() = *table_entry;
+  }
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        "Read Response", absl::StrJoin(invalid_reasons, "\n")));
   }
   return ir_response;
 }
@@ -1911,13 +1979,24 @@ absl::StatusOr<IrWriteRequest> PdWriteRequestToIr(
 
   ASSIGN_OR_RETURN(const auto updates_descriptor,
                    GetFieldDescriptor(write_request, "updates"));
+  std::vector<std::string> invalid_reasons;
   for (auto i = 0; i < write_request.GetReflection()->FieldSize(
                            write_request, updates_descriptor);
        ++i) {
-    ASSIGN_OR_RETURN(
-        *ir_write_request.add_updates(),
+    absl::StatusOr<IrUpdate> ir_update =
         PdUpdateToIr(info, write_request.GetReflection()->GetRepeatedMessage(
-                               write_request, updates_descriptor, i)));
+                               write_request, updates_descriptor, i));
+    if (!ir_update.ok()) {
+      invalid_reasons.push_back(GenerateFormattedError(
+          absl::StrCat("updates[", i, "]"), ir_update.status().message()));
+      continue;
+    }
+    *ir_write_request.add_updates() = *ir_update;
+  }
+
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        "Write Request", absl::StrJoin(invalid_reasons, "\n")));
   }
 
   return ir_write_request;

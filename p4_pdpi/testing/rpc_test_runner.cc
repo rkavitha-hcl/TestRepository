@@ -531,6 +531,33 @@ static void RunWriteRequestTests(pdpi::IrP4Info info) {
         }
       )pb"),
       INPUT_IS_VALID);
+  RunPdWriteRequestTest(
+      info, "multiple updates, some invalid",
+      gutil::ParseProtoOrDie<pdpi::WriteRequest>(R"pb(
+        device_id: 113
+        election_id { high: 1231 low: 77989 }
+        updates {
+          type: MODIFY
+          table_entry {
+            ternary_table_entry {
+              match { normal { value: "0x052" mask: "0x273" } }
+              priority: 32
+              action { do_thing_3 { arg1: "0x01234567" arg2: "0x01234568" } }
+            }
+          }
+        }
+        updates {
+          type: DELETE
+          table_entry {
+            ternary_table_entry {
+              match { normal { value: "0x052" mask: "0x273" } }
+              priority: 32
+              action { do_thing_3 { arg2: "0x01234568" } }
+            }
+          }
+        }
+      )pb"),
+      INPUT_IS_INVALID);
 }
 
 static google::rpc::Status GenerateGoogleRpcStatus(

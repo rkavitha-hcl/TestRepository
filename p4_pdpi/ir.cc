@@ -1481,19 +1481,20 @@ StatusOr<IrPacketOut> PiPacketOutToIr(const IrP4Info &info,
 StatusOr<IrReadRequest> PiReadRequestToIr(
     const IrP4Info &info, const p4::v1::ReadRequest &read_request) {
   IrReadRequest result;
+  std::vector<std::string> invalid_reasons;
   if (read_request.device_id() == 0) {
-    return InvalidArgumentErrorBuilder() << "Device ID missing";
+    return InvalidArgumentErrorBuilder() << "Device ID missing.";
   }
   result.set_device_id(read_request.device_id());
   std::string base = "Only wildcard reads of all table entries are supported. ";
   if (read_request.entities().size() != 1) {
     return UnimplementedErrorBuilder()
            << base << "Only 1 entity is supported. Found "
-           << read_request.entities().size() << " entities in read request";
+           << read_request.entities().size() << " entities in read request.";
   }
   if (!read_request.entities(0).has_table_entry()) {
-    return UnimplementedErrorBuilder()
-           << base << "Found an entity that is not a table entry";
+    invalid_reasons.push_back(absl::StrCat(
+        kNewBullet, base, "Found an entity that is not a table entry."));
   }
   const p4::v1::TableEntry entry = read_request.entities(0).table_entry();
   if (entry.table_id() != 0 || entry.priority() != 0 ||
@@ -1501,24 +1502,29 @@ StatusOr<IrReadRequest> PiReadRequestToIr(
       entry.is_default_action() || !entry.metadata().empty() ||
       entry.has_action() || entry.has_time_since_last_hit() ||
       !entry.match().empty()) {
-    return UnimplementedErrorBuilder()
-           << base
-           << "At least one field (other than counter_data and meter_config is "
-              "set in the table entry";
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, base,
+                     "At least one field (other than counter_data and "
+                     "meter_config is set in the table entry."));
   }
   if (entry.has_meter_config()) {
     if (entry.meter_config().ByteSizeLong() != 0) {
-      return UnimplementedErrorBuilder()
-             << base << "Found a non-empty meter_config in table entry";
+      invalid_reasons.push_back(absl::StrCat(
+          kNewBullet, base, "Found a non-empty meter_config in table entry."));
     }
     result.set_read_meter_configs(true);
   }
   if (entry.has_counter_data()) {
     if (entry.counter_data().ByteSizeLong() != 0) {
-      return UnimplementedErrorBuilder()
-             << base << "Found a non-empty counter_data in table entry";
+      invalid_reasons.push_back(absl::StrCat(
+          kNewBullet, base, "Found a non-empty counter_data in table entry."));
     }
     result.set_read_counter_data(true);
+  }
+
+  if (!invalid_reasons.empty()) {
+    return absl::UnimplementedError(GenerateFormattedError(
+        "Read request", absl::StrJoin(invalid_reasons, "\n")));
   }
   return result;
 }
@@ -1529,7 +1535,7 @@ StatusOr<IrReadResponse> PiReadResponseToIr(
   for (const auto &entity : read_response.entities()) {
     if (!entity.has_table_entry()) {
       return UnimplementedErrorBuilder()
-             << "Only table entries are supported in ReadResponse";
+             << "Only table entries are supported in ReadResponse.";
     }
     ASSIGN_OR_RETURN(*result.add_table_entries(),
                      PiTableEntryToIr(info, entity.table_entry()));
@@ -1540,12 +1546,19 @@ StatusOr<IrReadResponse> PiReadResponseToIr(
 StatusOr<IrUpdate> PiUpdateToIr(const IrP4Info &info,
                                 const p4::v1::Update &update) {
   IrUpdate ir_update;
+  std::vector<std::string> invalid_reasons;
   if (!update.entity().has_table_entry()) {
-    return UnimplementedErrorBuilder()
-           << "Only table entries are supported in Update";
+    invalid_reasons.push_back(absl::StrCat(
+        kNewBullet, "Only table entries are supported in Update."));
   }
   if (update.type() == p4::v1::Update_Type_UNSPECIFIED) {
-    return InvalidArgumentErrorBuilder() << "Update type should be specified";
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, "Update type should be specified."));
+  }
+
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(
+        GenerateFormattedError("Update", absl::StrJoin(invalid_reasons, "\n")));
   }
   ir_update.set_type(update.type());
   ASSIGN_OR_RETURN(*ir_update.mutable_table_entry(),
@@ -1557,27 +1570,45 @@ StatusOr<IrWriteRequest> PiWriteRequestToIr(
     const IrP4Info &info, const p4::v1::WriteRequest &write_request) {
   IrWriteRequest ir_write_request;
 
+  std::vector<std::string> invalid_reasons;
   if (write_request.role_id() != 0) {
-    return InvalidArgumentErrorBuilder()
-           << "Only the default role is supported, but got role ID "
-           << write_request.role_id() << " instead";
+    invalid_reasons.push_back(absl::StrCat(
+        kNewBullet, "Only the default role is supported, but got role ID ",
+        write_request.role_id(), " instead."));
   }
 
   if (write_request.atomicity() !=
       p4::v1::WriteRequest_Atomicity_CONTINUE_ON_ERROR) {
-    return InvalidArgumentErrorBuilder()
-           << "Only CONTINUE_ON_ERROR is supported for atomicity";
+    invalid_reasons.push_back(absl::StrCat(
+        kNewBullet, "Only CONTINUE_ON_ERROR is supported for atomicity."));
   }
 
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        "Write request", absl::StrJoin(invalid_reasons, "\n")));
+  }
+
+  std::vector<std::string> invalid_update_reasons;
   ir_write_request.set_device_id(write_request.device_id());
   if (write_request.election_id().high() > 0 ||
       write_request.election_id().low() > 0) {
     *ir_write_request.mutable_election_id() = write_request.election_id();
   }
 
-  for (const auto &update : write_request.updates()) {
-    ASSIGN_OR_RETURN(*ir_write_request.add_updates(),
-                     PiUpdateToIr(info, update));
+  for (int idx = 0; idx < write_request.updates_size(); ++idx) {
+    const auto &update = write_request.updates(idx);
+    const absl::StatusOr<IrUpdate> &ir_update = PiUpdateToIr(info, update);
+    if (!ir_update.ok()) {
+      invalid_update_reasons.push_back(GenerateFormattedError(
+          absl::StrCat("updates[", idx, "]"), ir_update.status().message()));
+      continue;
+    }
+    *ir_write_request.add_updates() = *ir_update;
+  }
+
+  if (!invalid_update_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        "Write request", absl::StrJoin(invalid_reasons, "\n")));
   }
   return ir_write_request;
 }
@@ -1833,7 +1864,7 @@ StatusOr<p4::v1::ReadRequest> IrReadRequestToPi(
     const IrP4Info &info, const IrReadRequest &read_request) {
   p4::v1::ReadRequest result;
   if (read_request.device_id() == 0) {
-    return UnimplementedErrorBuilder() << "Device ID missing";
+    return UnimplementedErrorBuilder() << "Device ID missing.";
   }
   result.set_device_id(read_request.device_id());
   p4::v1::TableEntry *entry = result.add_entities()->mutable_table_entry();
@@ -1849,9 +1880,20 @@ StatusOr<p4::v1::ReadRequest> IrReadRequestToPi(
 StatusOr<p4::v1::ReadResponse> IrReadResponseToPi(
     const IrP4Info &info, const IrReadResponse &read_response) {
   p4::v1::ReadResponse result;
+  std::vector<std::string> invalid_reasons;
   for (const auto &entity : read_response.table_entries()) {
-    ASSIGN_OR_RETURN(*result.add_entities()->mutable_table_entry(),
-                     IrTableEntryToPi(info, entity));
+    const absl::StatusOr<p4::v1::TableEntry> &table_entry =
+        IrTableEntryToPi(info, entity);
+    if (!table_entry.ok()) {
+      invalid_reasons.push_back(std::string(table_entry.status().message()));
+      continue;
+    }
+    *result.add_entities()->mutable_table_entry() = *table_entry;
+  }
+
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        "Read response", absl::StrJoin(invalid_reasons, "\n")));
   }
   return result;
 }
@@ -1860,12 +1902,18 @@ StatusOr<p4::v1::Update> IrUpdateToPi(const IrP4Info &info,
                                       const IrUpdate &update) {
   p4::v1::Update pi_update;
 
+  std::vector<std::string> invalid_reasons;
   if (!p4::v1::Update_Type_IsValid(update.type())) {
-    return InvalidArgumentErrorBuilder()
-           << "Invalid type value: " << update.type();
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, "Invalid type value: ", update.type()));
   }
   if (update.type() == p4::v1::Update_Type_UNSPECIFIED) {
-    return InvalidArgumentErrorBuilder() << "Update type should be specified";
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, "Update type should be specified."));
+  }
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(
+        GenerateFormattedError("Update", absl::StrJoin(invalid_reasons, "\n")));
   }
   pi_update.set_type(update.type());
   ASSIGN_OR_RETURN(*pi_update.mutable_entity()->mutable_table_entry(),
@@ -1886,9 +1934,21 @@ StatusOr<p4::v1::WriteRequest> IrWriteRequestToPi(
     *pi_write_request.mutable_election_id() = ir_write_request.election_id();
   }
 
-  for (const auto &update : ir_write_request.updates()) {
-    ASSIGN_OR_RETURN(*pi_write_request.add_updates(),
-                     IrUpdateToPi(info, update));
+  std::vector<std::string> invalid_reasons;
+  for (int idx = 0; idx < ir_write_request.updates_size(); ++idx) {
+    const auto &update = ir_write_request.updates(idx);
+    const absl::StatusOr<p4::v1::Update> &pi_update =
+        IrUpdateToPi(info, update);
+    if (!pi_update.ok()) {
+      invalid_reasons.push_back(GenerateFormattedError(
+          absl::StrCat("updates[", idx, "]"), pi_update.status().message()));
+      continue;
+    }
+    *pi_write_request.add_updates() = *pi_update;
+  }
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(GenerateFormattedError(
+        "Write Request", absl::StrJoin(invalid_reasons, "\n")));
   }
   return pi_write_request;
 }
