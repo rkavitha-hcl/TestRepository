@@ -63,7 +63,7 @@ control hashing(in headers_t headers,
   @sai_native_hash_field(SAI_NATIVE_HASH_FIELD_DST_IPV6)
   @sai_native_hash_field(SAI_NATIVE_HASH_FIELD_L4_SRC_PORT)
   @sai_native_hash_field(SAI_NATIVE_HASH_FIELD_L4_DST_PORT)
-  // TODO: add flow label once supported.
+  @sai_native_hash_field(SAI_NATIVE_HASH_FIELD_IPV6_FLOW_LABEL)
   @id(COMPUTE_ECMP_HASH_IPV6_ACTION_ID)
   action compute_ecmp_hash_ipv6() {
     hash(local_metadata.wcmp_selector_input,

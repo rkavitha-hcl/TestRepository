@@ -39,6 +39,7 @@ absl::StatusOr<nlohmann::json> GenerateJsonHashFieldEntries(
       {"SAI_NATIVE_HASH_FIELD_DST_IPV6", "dst_ip"},
       {"SAI_NATIVE_HASH_FIELD_L4_SRC_PORT", "l4_src_port"},
       {"SAI_NATIVE_HASH_FIELD_L4_DST_PORT", "l4_dst_port"},
+      {"SAI_NATIVE_HASH_FIELD_IPV6_FLOW_LABEL", "ipv6_flow_label"},
   };
 
   nlohmann::json json;
@@ -139,9 +140,8 @@ GenerateAppDbHashValueEntries(const pdpi::IrP4Info& ir_p4info) {
         RETURN_IF_ERROR(gutil::InsertIfUnique(
             hash_values_set, std::string(kEcmpHashOffset),
             absl::StrCat("Duplicate hash algorithm offset specified.")));
-        // TODO: Enable after OrchAGent support.
-        /*hash_value_entries.push_back(
-            swss::FieldValueTuple({kEcmpHashOffset, hash_value.body}));*/
+        hash_value_entries.push_back(
+            swss::FieldValueTuple({kEcmpHashOffset, hash_value.body}));
       } else {
         return InvalidArgumentErrorBuilder()
                << "Not a valid hash value label: " << hash_value.label;

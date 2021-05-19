@@ -58,7 +58,8 @@ TEST(HashingTest, GenerateAppDbHashFieldEntriesOk) {
   std::vector<EcmpHashEntry> expected_hash_fields = {
       {"compute_ecmp_hash_ipv6",
        {{"hash_field_list",
-         "[\"src_ip\",\"dst_ip\",\"l4_src_port\",\"l4_dst_port\"]"}}},
+         "[\"src_ip\",\"dst_ip\",\"l4_src_port\",\"l4_dst_port\",\"ipv6_flow_"
+         "label\"]"}}},
       {"compute_ecmp_hash_ipv4",
        {{"hash_field_list",
          "[\"src_ip\",\"dst_ip\",\"l4_src_port\",\"l4_dst_port\"]"}}}};
@@ -140,8 +141,9 @@ TEST(HashingTest, GenerateAppDbHashValueEntriesOk) {
   const pdpi::IrP4Info ir_p4_info =
       sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   std::vector<swss::FieldValueTuple> expected_hash_value = {
-      {"ecmp_hash_algorithm", ""}, {"ecmp_hash_seed", ""},
-      /*{"ecmp_hash_offset", ""}*/};
+      {"ecmp_hash_algorithm", ""},
+      {"ecmp_hash_seed", ""},
+      {"ecmp_hash_offset", ""}};
   ASSERT_OK_AND_ASSIGN(auto actual_hash_value,
                        GenerateAppDbHashValueEntries(ir_p4_info));
   EXPECT_THAT(actual_hash_value, UnorderedPointwise(HashValuesAreEqual(false),
@@ -166,8 +168,9 @@ TEST(HashingTest, GenerateAppDbHashValueEntriesWithFieldsOk) {
            })pb",
       &ir_p4_info));
   std::vector<swss::FieldValueTuple> expected_hash_value = {
-      {"ecmp_hash_algorithm", "crc_32lo"}, {"ecmp_hash_seed", "1"},
-      /*{"ecmp_hash_offset", "2"}*/};
+      {"ecmp_hash_algorithm", "crc_32lo"},
+      {"ecmp_hash_seed", "1"},
+      {"ecmp_hash_offset", "2"}};
   ASSERT_OK_AND_ASSIGN(auto actual_hash_value,
                        GenerateAppDbHashValueEntries(ir_p4_info));
   EXPECT_THAT(actual_hash_value, UnorderedPointwise(HashValuesAreEqual(true),
@@ -259,8 +262,7 @@ TEST(HashingTest, GenerateAppDbHashValueEntriesDuplicateSeed) {
                        testing::HasSubstr("Duplicate hash algorithm seed")));
 }
 
-// TODO: Enable after OrchAgent support.
-TEST(HashingTest, DISABLED_GenerateAppDbHashValueEntriesDuplicateOffset) {
+TEST(HashingTest, GenerateAppDbHashValueEntriesDuplicateOffset) {
   pdpi::IrP4Info ir_p4_info;
   EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
       R"pb(actions_by_name {
