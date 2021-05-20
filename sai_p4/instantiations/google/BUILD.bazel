@@ -73,9 +73,9 @@ build_test(
 
 # Ensures that the checked in and generated unioned P4Infos match.
 # To update the checked in unioned P4Info:
-#   blaze run :union_p4info_test -- --update
+#   blaze run :union_p4info_up_to_date_test -- --update
 cmd_diff_test(
-    name = "union_p4info_test",
+    name = "union_p4info_up_to_date_test",
     actual_cmd = "$(execpath {p4info_union}) --list_of_p4infos='$(location {middleblock_p4info}),$(location {wbb_p4info})'".format(
         p4info_union = "//p4_pdpi:p4info_union",
         middleblock_p4info = "middleblock.p4info.pb.txt",
