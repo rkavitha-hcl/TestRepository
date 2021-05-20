@@ -178,7 +178,6 @@ TEST_P(MasterArbitrationTestFixture, SlaveCannotWrite) {
   ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(2));
   ASSERT_OK_AND_ASSIGN(auto stub, Stub());
   ASSERT_THAT(BecomeMaster(std::move(stub), 1).status(), NotMaster());
-
   ASSERT_OK_AND_ASSIGN(auto stub2, Stub());
   ASSERT_FALSE(
       pdpi::SendPiWriteRequest(
@@ -190,6 +189,9 @@ TEST_P(MasterArbitrationTestFixture, SlaveCanRead) {
   TestEnvironment().SetTestCaseID("fb678921-d150-4535-b7b8-fc8cecb79a78");
 
   ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(1));
+
+  // Clear switch state first when there are write requests involved.
+  ClearSwitchState(connection.get());
   ASSERT_OK(pdpi::SendPiWriteRequest(
       &connection->Stub(),
       GetWriteRequest(0, ElectionIdFromLower(1), DeviceId())));
@@ -250,9 +252,6 @@ TEST_P(MasterArbitrationTestFixture, GetNotifiedOfActualMaster) {
 
 TEST_P(MasterArbitrationTestFixture, NoIdControllerCannotBecomeMaster) {
   TestEnvironment().SetTestCaseID("3699fc43-5ff8-44ee-8965-68f42c71c1ed");
-  // Destroy the p4rt sesseion that was created at `P4BlackboxFixture::Setup()`
-  // to make sure there is no master controller left.
-  DestroyP4RuntimeSession();
 
   // Assemble arbitration request.
   p4::v1::StreamMessageRequest request;
@@ -287,6 +286,9 @@ TEST_P(MasterArbitrationTestFixture, OldMasterCannotWriteAfterNewMasterCameUp) {
   int id1 = 1, id2 = 2;
   // Connects controller C1 with id=1 to become master.
   ASSERT_OK_AND_ASSIGN(auto c1, BecomeMaster(id1));
+
+  // Clear switch state first when there are write requests involved.
+  ClearSwitchState(c1.get());
   ASSERT_OK(pdpi::SendPiWriteRequest(
       &c1->Stub(), GetWriteRequest(0, ElectionIdFromLower(id1), DeviceId())));
   ASSERT_OK(pdpi::ClearTableEntries(c1.get(), IrP4Info()));
@@ -312,6 +314,8 @@ TEST_P(MasterArbitrationTestFixture, MasterDowngradesItself) {
   // Connects controller with id=2 to become master.
   ASSERT_OK_AND_ASSIGN(auto controller, BecomeMaster(id2));
 
+  // Clear switch state first when there are write requests involved.
+  ClearSwitchState(controller.get());
   // Checks new master controller can write.
   ASSERT_OK(pdpi::SendPiWriteRequest(
       &controller->Stub(),

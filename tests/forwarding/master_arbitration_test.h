@@ -11,6 +11,7 @@
 #include "google/rpc/code.pb.h"
 #include "grpcpp/grpcpp.h"
 #include "gtest/gtest.h"
+#include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
@@ -22,22 +23,33 @@ namespace gpins {
 
 using ::p4::v1::P4Runtime;
 
-class MasterArbitrationTestFixture : public P4BlackboxFixture {
+class MasterArbitrationTestFixture : public thinkit::MirrorTestbedFixture {
  public:
   void SetUp() {
-    P4BlackboxFixture::SetUp();
-    // Skip the `ClearTableEntries` in `P4BlackboxFixture` class (parent class).
-    // That class's session object lose the mastership due to the update (i.e.
-    // BecomeMaster()) in master arbitration test. So it doesn't have the
-    // mastership to clear/write. `ClearTableEntries` in this test will be
-    // performed in individual test as needed.
-    P4BlackboxFixture::DisableClearingTableEntriesOnTearDown();
+    MirrorTestbedFixture::SetUp();
+    // Push the gnmi configuration.
+    ASSERT_OK(
+        pins_test::PushGnmiConfig(GetMirrorTestbed().Sut(), GetGnmiConfig()));
+    ASSERT_OK(pins_test::PushGnmiConfig(GetMirrorTestbed().ControlSwitch(),
+                                        GetGnmiConfig()));
+
     device_id_ = GetMirrorTestbed().Sut().DeviceId();
     //  Sleep for one second, so that we are guaranteed to get a higher
     //  election id than the previous test (we use unix seconds in production
     //  for the upper election id bits, too).
     absl::SleepFor(absl::Seconds(1));
     upper_election_id_ = absl::ToUnixSeconds(absl::Now());
+  }
+
+  void ClearSwitchState(pdpi::P4RuntimeSession* p4rt_session) {
+    // Clear entries here in case the previous test did not (e.g. because it
+    // crashed).
+    ASSERT_OK(pdpi::ClearTableEntries(
+        p4rt_session, sai::GetIrP4Info(sai::Instantiation::kMiddleblock)));
+    // Check that switch is in a clean state.
+    ASSERT_OK_AND_ASSIGN(auto read_back_entries,
+                         pdpi::ReadPiTableEntries(p4rt_session));
+    ASSERT_EQ(read_back_entries.size(), 0);
   }
 
   // Returns a P4Runtime stub.
