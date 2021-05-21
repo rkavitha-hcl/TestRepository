@@ -85,11 +85,10 @@ def pins_infra_deps():
     if not native.existing_rule("com_github_gnoi"):
         http_archive(
             name = "com_github_gnoi",
-            # Newest commit on master on 2020-09-10.
-            # TODO: Upstream changes from this private repo to official gnoi repo.
-            url = "https://github.com/vamsipunati/gnoi/archive/f4d40a9c9e7422e488af69490a1f85970e43f325.zip",
-            strip_prefix = "gnoi-f4d40a9c9e7422e488af69490a1f85970e43f325",
-            sha256 = "f44deb4ccb947a14eaf7bc2560c8b8b2d01974b1370e26bcfc14ea015c2fbc6b",
+            # Newest commit on master on 2021-05-20.
+            url = "https://github.com/openconfig/gnoi/archive/c4a8573f7f0070ce3cef0a8127c7541c2bc71e05.zip",
+            strip_prefix = "gnoi-c4a8573f7f0070ce3cef0a8127c7541c2bc71e05",
+            sha256 = "8e3d3fc6a8f28dc2acb4eafbeb9fda7522d28ae9dee3e4edf788efb9a65b39c9",
         )
     if not native.existing_rule("com_github_p4lang_p4c"):
         http_archive(
