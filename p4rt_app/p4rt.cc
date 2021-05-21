@@ -124,6 +124,7 @@ int main(int argc, char** argv) {
   constexpr char kRedisDbHost[] = "localhost";
   constexpr int kRedisDbPort = 6379;
   constexpr char kServerAddress[] = "[::]:9559";
+  constexpr char kInternalServerAddress[] = "unix:/sock/p4rt.sock";
 
   google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -197,6 +198,8 @@ int main(int argc, char** argv) {
     return -1;
   }
   builder.AddListeningPort(kServerAddress, *server_cred);
+  builder.AddListeningPort(kInternalServerAddress,
+                           grpc::InsecureServerCredentials());
   builder.RegisterService(&p4runtime_server);
 
   std::unique_ptr<Server> server(builder.BuildAndStart());
