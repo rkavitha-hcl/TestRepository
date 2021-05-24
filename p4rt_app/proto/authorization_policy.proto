@@ -73,6 +73,7 @@ message AuthorizationPolicy {
     // policy proto. But only mdb_users is used as the user identifier.
     repeated string mdb_users = 1;
     repeated string mdb_groups = 2;
+    repeated string security_realms = 3;
   }
   message RpcPolicy {
     // Authorization principals to use for the RPC method.
