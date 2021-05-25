@@ -139,6 +139,7 @@ absl::Status RestoreApplDb(const std::string& key,
   }
   // Update APPL_DB with the retrieved values from APPL_STATE_DB.
   LOG(INFO) << "Restoring (by update) AppDb entry: " << key;
+  app_db_client.del(key);
   app_db_client.hmset(key, value_tuples);
 
   return absl::OkStatus();
