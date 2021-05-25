@@ -119,10 +119,14 @@ absl::Status AppendTableEntryReads(
             .port_map = port_translation_map},
         ir_table_entry));
 
-    ASSIGN_OR_RETURN(*response.add_entities()->mutable_table_entry(),
-                     pdpi::IrTableEntryToPi(p4_info, ir_table_entry),
-                     _ << "[PDPI] could not translate IR table entry to PI: "
-                       << ir_table_entry.DebugString());
+    auto translate_status = pdpi::IrTableEntryToPi(p4_info, ir_table_entry);
+    if (!translate_status.ok()) {
+      LOG(ERROR) << "PDPI could not translate IR table entry to PI: "
+                 << ir_table_entry.DebugString();
+      return gutil::StatusBuilder(translate_status.status().code())
+             << "[P4RT/PDPI] " << translate_status.status().message();
+    }
+    *response.add_entities()->mutable_table_entry() = *translate_status;
   }
   return absl::OkStatus();
 }
@@ -191,9 +195,14 @@ absl::StatusOr<pdpi::IrTableEntry> DoPiTableEntryToIr(
     const std::string& role_name,
     const boost::bimap<std::string, std::string>& port_translation_map,
     bool translate_key_only) {
-  ASSIGN_OR_RETURN(
-      pdpi::IrTableEntry ir_table_entry,
-      pdpi::PiTableEntryToIr(p4_info, pi_table_entry, translate_key_only));
+  auto translate_status = pdpi::PiTableEntryToIr(p4_info, pi_table_entry);
+  if (!translate_status.ok()) {
+    LOG(WARNING) << "PDPI could not translate PI table entry to IR: "
+                 << pi_table_entry.DebugString();
+    return gutil::StatusBuilder(translate_status.status().code())
+           << "[P4RT/PDPI] " << translate_status.status().message();
+  }
+  pdpi::IrTableEntry ir_table_entry = *translate_status;
 
   // Verify the table entry can be written to the table.
   RETURN_IF_ERROR(
@@ -288,7 +297,15 @@ absl::Status SendPacketOut(
     const p4::v1::PacketOut& packet) {
   // Convert to IR to check validity of PacketOut message (e.g. duplicate or
   // missing metadata fields).
-  ASSIGN_OR_RETURN(auto ir, pdpi::PiPacketOutToIr(p4_info, packet));
+  auto translate_status = pdpi::PiPacketOutToIr(p4_info, packet);
+  if (!translate_status.ok()) {
+    LOG(WARNING) << "PDPI PacketOutToIr failure: " << translate_status.status();
+    LOG(WARNING) << "PDPI could not translate PacketOut packet: "
+                 << packet.DebugString();
+    return gutil::StatusBuilder(translate_status.status().code())
+           << "[P4RT/PDPI] " << translate_status.status().message();
+  }
+  auto ir = *translate_status;
 
   std::string egress_port_id;
   int submit_to_ingress = 0;
@@ -395,6 +412,9 @@ grpc::Status P4RuntimeImpl::Write(grpc::ServerContext* context,
 
     auto grpc_status = pdpi::IrWriteRpcStatusToGrpcStatus(rpc_status);
     if (!grpc_status.ok()) {
+      LOG(ERROR) << "PDPI failed to translate RPC status to gRPC status: "
+                 << rpc_status.DebugString();
+      // TODO: raise critical state.
       return grpc::Status(grpc::StatusCode::INTERNAL,
                           grpc_status.status().ToString());
     }

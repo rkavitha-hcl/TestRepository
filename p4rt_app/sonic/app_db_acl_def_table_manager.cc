@@ -146,7 +146,8 @@ StatusOr<nlohmann::json> GenerateUdfMatchFieldJson(
       kUdfMatchAnnotationLabel, kBase, kOffset, kByteWidth));
 
   ASSIGN_OR_RETURN(auto annotation_components,
-                   pdpi::annotation::ParseAsArgList(annotation.body));
+                   pdpi::annotation::ParseAsArgList(annotation.body),
+                   _.SetPrepend() << "[P4RT/PDPI] ");
   for (const std::string& annotation_component : annotation_components) {
     std::vector<std::string> split_component =
         absl::StrSplit(annotation_component, '=');
@@ -287,10 +288,11 @@ StatusOr<nlohmann::json> GenerateCompositeMatchFieldJson(
   if (match_field.format() != pdpi::STRING) {
     json["bitwidth"] = match_field.match_field().bitwidth();
   }
-  ASSIGN_OR_RETURN(std::vector<std::string> element_annotation_strings,
-                   pdpi::annotation::ParseAsArgList(annotation.body),
-                   _.SetPrepend()
-                       << "Failed to parse composite element annotations: ");
+  ASSIGN_OR_RETURN(
+      std::vector<std::string> element_annotation_strings,
+      pdpi::annotation::ParseAsArgList(annotation.body),
+      _.SetPrepend()
+          << "[P4RT/PDPI] Failed to parse composite element annotations: ");
   std::vector<pdpi::annotation::AnnotationComponents> element_annotations =
       pdpi::GetAllAnnotations(element_annotation_strings);
   if (element_annotations.size() != element_annotation_strings.size()) {
