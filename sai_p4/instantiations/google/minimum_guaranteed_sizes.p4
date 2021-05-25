@@ -33,7 +33,7 @@
 #define WCMP_GROUP_SELECTOR_MAX_SUM_OF_WEIGHTS_ACROSS_ALL_GROUPS 65536
 
 // The maximum sum of weights for each wcmp group.
-#define WCMP_GROUP_SELECTOR_MAX_SUM_OF_WEIGHTS_PER_GROUP 1024
+#define WCMP_GROUP_SELECTOR_MAX_SUM_OF_WEIGHTS_PER_GROUP 256
 
 // -- ACL Table sizes ----------------------------------------------------------
 
