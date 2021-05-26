@@ -40,11 +40,11 @@ P4RuntimeGrpcService::P4RuntimeGrpcService() {
 
   // Create AppDb interfaces used by the P4RT App.
   auto fake_app_db_client = absl::make_unique<swss::FakeDBConnector>();
-  fake_app_db_client->AddAppDbTable(kP4rtTableName, &fake_p4rt_table_);
-  fake_app_db_client->AddAppDbTable(kPortTableName, &fake_port_table_);
-  fake_app_db_client->AddAppDbTable(kVrfTableName, &fake_vrf_table_);
-  fake_app_db_client->AddAppDbTable(kHashTableName, &fake_hash_table_);
-  fake_app_db_client->AddAppDbTable(kSwitchTableName, &fake_switch_table_);
+  fake_app_db_client->AddSonicDbTable(kP4rtTableName, &fake_p4rt_table_);
+  fake_app_db_client->AddSonicDbTable(kPortTableName, &fake_port_table_);
+  fake_app_db_client->AddSonicDbTable(kVrfTableName, &fake_vrf_table_);
+  fake_app_db_client->AddSonicDbTable(kHashTableName, &fake_hash_table_);
+  fake_app_db_client->AddSonicDbTable(kSwitchTableName, &fake_switch_table_);
 
   // P4RT table.
   auto fake_app_db_table_p4rt = absl::make_unique<swss::FakeProducerStateTable>(
@@ -76,8 +76,8 @@ P4RuntimeGrpcService::P4RuntimeGrpcService() {
 
   // Create CounterDb interfaces used by the P4RT App.
   auto fake_counter_db_client = absl::make_unique<swss::FakeDBConnector>();
-  fake_counter_db_client->AddAppDbTable(kCountersTableName,
-                                        &fake_p4rt_counters_table_);
+  fake_counter_db_client->AddSonicDbTable(kCountersTableName,
+                                          &fake_p4rt_counters_table_);
 
   // Create FakePacketIoInterface and save the pointer.
   auto fake_packetio_interface =
