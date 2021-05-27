@@ -211,8 +211,8 @@ TEST_F(ResponsePathTest, RequestWithDuplicateKeysFails) {
   EXPECT_THAT(
       pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
       StatusIs(absl::StatusCode::kUnknown,
-               AllOf(HasSubstr("#1: INVALID_ARGUMENT: Duplicate key"),
-                     HasSubstr("#2: INVALID_ARGUMENT: Duplicate key"))));
+               AllOf(HasSubstr("#1: INVALID_ARGUMENT:"),
+                     HasSubstr("#2: INVALID_ARGUMENT:"))));
 }
 
 }  // namespace

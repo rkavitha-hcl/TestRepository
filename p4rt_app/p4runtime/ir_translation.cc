@@ -117,12 +117,14 @@ absl::Status TranslateAction(const TranslateTableEntryOptions& options,
     if (IsPortType(param_def->param().type_name())) {
       RETURN_IF_ERROR(TranslatePortValue(options.direction, options.port_map,
                                          *param.mutable_value()))
-          << " For action paramter " << param.name() << ".";
+          << " Found in action parameter '" << param.name() << "' of action '"
+          << action.name() << "'.";
     }
     if (IsVrfType(param_def->param().type_name())) {
       RETURN_IF_ERROR(
           TranslateVrfValue(options.direction, *param.mutable_value()))
-          << " For action paramter " << param.name() << ".";
+          << " Found in action parameter '" << param.name() << "' of action '"
+          << action.name() << "'.";
     }
   }
   return absl::OkStatus();
@@ -153,12 +155,12 @@ absl::Status TranslatePortInMatchField(
     case pdpi::IrMatch::kExact:
       RETURN_IF_ERROR(
           TranslatePortValue(direction, port_map, *match.mutable_exact()))
-          << " For match field " << match.name() << ".";
+          << " Found in match field '" << match.name() << "'.";
       break;
     case pdpi::IrMatch::kOptional:
       RETURN_IF_ERROR(TranslatePortValue(
           direction, port_map, *match.mutable_optional()->mutable_value()))
-          << " For match field " << match.name() << ".";
+          << " Found in match field '" << match.name() << "'.";
       break;
     default:
       return gutil::InvalidArgumentErrorBuilder()
@@ -174,12 +176,12 @@ absl::Status TranslateVrfInMatchField(TranslationDirection direction,
   switch (match.match_value_case()) {
     case pdpi::IrMatch::kExact:
       RETURN_IF_ERROR(TranslateVrfValue(direction, *match.mutable_exact()))
-          << " For match field " << match.name() << ".";
+          << " Found in match field '" << match.name() << "'.";
       break;
     default:
       return gutil::InvalidArgumentErrorBuilder()
-             << "The VRF match field is not an exact match type: "
-             << match.name();
+             << "[P4RT App] The VRF match field '" << match.name()
+             << "' is not an exact match type.";
   }
   return absl::OkStatus();
 }
@@ -217,9 +219,9 @@ absl::StatusOr<std::string> TranslatePort(
       auto value = port_map.left.find(port_key);
       if (value == port_map.left.end()) {
         return gutil::InvalidArgumentErrorBuilder()
-               << "Cannot translate port '" << absl::CHexEscape(port_key)
-               << "' for controller. Does it exist and has it been configured "
-               << "with an ID?";
+               << "[P4RT App] Cannot translate port '"
+               << absl::CHexEscape(port_key)
+               << " to P4RT ID. Has the port been configured with an ID?";
       }
       return value->second;
     }
@@ -227,9 +229,9 @@ absl::StatusOr<std::string> TranslatePort(
       auto value = port_map.right.find(port_key);
       if (value == port_map.right.end()) {
         return gutil::InvalidArgumentErrorBuilder()
-               << "Cannot translate port '" << absl::CHexEscape(port_key)
-               << "' for OrchAgent. Does it exist and has it been configured "
-               << "with an ID?";
+               << "[P4RT App] Cannot translate port '"
+               << absl::CHexEscape(port_key)
+               << " to SONiC name. Has the port been configured with an ID?";
       }
       return value->second;
     }

@@ -96,7 +96,7 @@ absl::StatusOr<std::string> DeleteAppDbEntry(
   // Verify key has not been duplicated in this batch request.
   if (duplicate_keys.count(key) > 0) {
     return gutil::InvalidArgumentErrorBuilder()
-           << "Duplicate key in the same batch request: " << key;
+           << "[P4RT App] Found duplicated key in the same batch request.";
   }
 
   std::string p4rt_prefix_key =
@@ -104,7 +104,9 @@ absl::StatusOr<std::string> DeleteAppDbEntry(
   // Check that key exists in the table.
   if (!app_db_client.exists(p4rt_prefix_key)) {
     LOG(WARNING) << "Could not delete missing entry: " << key;
-    return gutil::NotFoundErrorBuilder() << key;
+    return gutil::NotFoundErrorBuilder()
+           << "[P4RT App] Table entry with the given key does not exist in '"
+           << entry.table_name() << "'.";
   }
 
   // Get table entry from the APP_DB (before delete) instead of the one from the
@@ -147,14 +149,16 @@ absl::StatusOr<std::string> InsertAppDbEntry(
   // Verify key has not been duplicated in this batch request.
   if (duplicate_keys.count(key) > 0) {
     return gutil::InvalidArgumentErrorBuilder()
-           << "Duplicate key in the same batch request: " << key;
+           << "[P4RT App] Found duplicated key in the same batch request.";
   }
 
   // Check that key does not already exist in the table.
   if (app_db_client.exists(
           absl::StrCat(p4rt_table.get_table_name(), ":", key))) {
     LOG(WARNING) << "Could not insert duplicate entry: " << key;
-    return gutil::AlreadyExistsErrorBuilder() << key;
+    return gutil::AlreadyExistsErrorBuilder()
+           << "[P4RT App] Table entry with the given key already exist in '"
+           << entry.table_name() << "'.";
   }
 
   // Create a VRF ID if the entry needs it.
@@ -186,13 +190,15 @@ absl::StatusOr<std::string> ModifyAppDbEntry(
   // Verify key has not been duplicated in this batch request.
   if (duplicate_keys.count(key) > 0) {
     return gutil::InvalidArgumentErrorBuilder()
-           << "Duplicate key in the same batch request: " << key;
+           << "[P4RT App] Found duplicated key in the same batch request.";
   }
 
   // Check that key already exist in the table.
   if (!app_db_client.exists(app_db_key)) {
     LOG(WARNING) << "Could not modify missing entry: " << key;
-    return gutil::NotFoundErrorBuilder() << key;
+    return gutil::NotFoundErrorBuilder()
+           << "[P4RT App] Table entry with the given key does not exist in '"
+           << entry.table_name() << "'.";
   }
 
   // Update the VRF IDs depending on the current values inside the AppDb, and
