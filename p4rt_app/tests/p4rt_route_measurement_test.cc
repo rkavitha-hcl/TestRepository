@@ -32,7 +32,7 @@
 #include "p4_pdpi/netaddr/ipv4_address.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 
-DEFINE_bool(push_config, false, "Push P4 Info config file");
+DEFINE_bool(push_config, true, "Push P4 Info config file");
 DEFINE_int32(batch_size, 1000, "Number of entries in each batch");
 DEFINE_int32(number_batches, 10, "Number of batches");
 DEFINE_int64(election_id, -1, "Election id to be used");
@@ -201,6 +201,8 @@ class P4rtRouteTest : public Test {
           p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
           sai::GetP4Info(sai::Instantiation::kMiddleblock)));
     }
+    // Clear the current table entries, if any.
+    ASSERT_OK(pdpi::ClearTableEntries(p4rt_session_.get(), IrP4Info()));
     // Create the dependancy objects for ROUTE_ENTRY.
     // Create Router Intf object.
     ASSERT_OK(ProgramRequest(router_interface, p4::v1::Update::INSERT));
@@ -212,10 +214,8 @@ class P4rtRouteTest : public Test {
 
   void TearDown() override {
     if (p4rt_session_ == nullptr) return;
-    // Remove the depenancy objects that were created, in the reverse order.
-    ASSERT_OK(ProgramRequest(nexthop_entry, p4::v1::Update::DELETE));
-    ASSERT_OK(ProgramRequest(neighbor_entry, p4::v1::Update::DELETE));
-    ASSERT_OK(ProgramRequest(router_interface, p4::v1::Update::DELETE));
+    // Remove table entries that were created.
+    ASSERT_OK(pdpi::ClearTableEntries(p4rt_session_.get(), IrP4Info()));
   }
 
   absl::Status SendBatchRequest(absl::string_view iptable_entry,
@@ -256,7 +256,11 @@ class P4rtRouteTest : public Test {
     return absl::OkStatus();
   }
 
+  const pdpi::IrP4Info& IrP4Info() const { return ir_p4info_; }
+
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
+  pdpi::IrP4Info ir_p4info_ =
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
 };
 
 TEST_F(P4rtRouteTest, ProgramIp4RouteEntries) {
