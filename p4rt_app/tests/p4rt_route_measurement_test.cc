@@ -36,7 +36,7 @@ DEFINE_bool(push_config, true, "Push P4 Info config file");
 DEFINE_int32(batch_size, 1000, "Number of entries in each batch");
 DEFINE_int32(number_batches, 10, "Number of batches");
 DEFINE_int64(election_id, -1, "Election id to be used");
-DEFINE_bool(insecure, false, "Use insecure channel for connection.");
+DEFINE_bool(insecure, true, "Use insecure channel for connection.");
 DEFINE_string(hostname, "", "Hostname of the server to connect.");
 DEFINE_string(ca_cert_file, "", "CA certificate file");
 DEFINE_string(server_key_file, "", "Server key file");
@@ -49,6 +49,7 @@ using ::testing::IsEmpty;
 using ::testing::Test;
 
 constexpr absl::string_view kServerIpAddress = "127.0.0.1:9559";
+constexpr absl::string_view kServerUnixDomainSocket = "unix:/sock/p4rt.sock";
 
 static constexpr absl::string_view router_interface = R"pb(
   updates {
@@ -160,8 +161,9 @@ class P4rtRouteTest : public Test {
     std::unique_ptr<::p4::v1::P4Runtime::Stub> stub;
     // Create connection to P4RT server.
     if (FLAGS_insecure) {
-      stub = pdpi::CreateP4RuntimeStub(std::string(kServerIpAddress),
-                                       grpc::InsecureChannelCredentials());
+      stub =
+          pdpi::CreateP4RuntimeStub(std::string(kServerUnixDomainSocket),
+                                    grpc::experimental::LocalCredentials(UDS));
     } else {
       ASSERT_THAT(FLAGS_hostname, Not(IsEmpty()))
           << "Hostname should be provided for secure connection.";
