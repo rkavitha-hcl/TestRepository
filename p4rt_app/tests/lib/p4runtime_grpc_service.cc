@@ -24,6 +24,7 @@
 #include "swss/fakes/fake_consumer_notifier.h"
 #include "swss/fakes/fake_db_connector.h"
 #include "swss/fakes/fake_producer_state_table.h"
+#include "swss/fakes/fake_sonic_db_table.h"
 #include "swss/notificationproducer.h"
 
 namespace p4rt_app {
@@ -37,6 +38,9 @@ P4RuntimeGrpcService::P4RuntimeGrpcService() {
   const std::string kHashTableName = "HASH_TABLE";
   const std::string kSwitchTableName = "SWITCH_TABLE";
   const std::string kCountersTableName = "COUNTERS";
+
+  // Connect SONiC AppDB tables with their equivelant AppStateDB tables.
+  fake_p4rt_table_ = swss::FakeSonicDbTable(&fake_p4rt_state_table_);
 
   // Create AppDb interfaces used by the P4RT App.
   auto fake_app_db_client = absl::make_unique<swss::FakeDBConnector>();
@@ -73,6 +77,8 @@ P4RuntimeGrpcService::P4RuntimeGrpcService() {
 
   // Create StateDb interfaces used by the P4RT App.
   auto fake_state_db_client = absl::make_unique<swss::FakeDBConnector>();
+  fake_state_db_client->AddSonicDbTable(kP4rtTableName,
+                                        &fake_p4rt_state_table_);
 
   // Create CounterDb interfaces used by the P4RT App.
   auto fake_counter_db_client = absl::make_unique<swss::FakeDBConnector>();
@@ -137,6 +143,10 @@ swss::FakeSonicDbTable& P4RuntimeGrpcService::GetSwitchAppDbTable() {
 
 swss::FakeSonicDbTable& P4RuntimeGrpcService::GetP4rtCountersDbTable() {
   return fake_p4rt_counters_table_;
+}
+
+swss::FakeSonicDbTable& P4RuntimeGrpcService::GetP4rtStateDbTable() {
+  return fake_p4rt_state_table_;
 }
 
 sonic::FakePacketIoInterface& P4RuntimeGrpcService::GetFakePacketIoInterface() {
