@@ -27,6 +27,8 @@
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
+#include "absl/random/random.h"
+#include "absl/random/uniform_int_distribution.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
@@ -69,9 +71,10 @@
 // TODO switch generates router solicitation packets.
 ABSL_FLAG(bool, ignore_router_solicitation_packets, true,
           "Ignore router solicitation packets.");
-// TODO IPV4_SRC_PORT field hashing distribution is not working.
-ABSL_FLAG(bool, ignore_l4_src_port_hashing, true,
-          "Ignore known failure for L4_SRC_PORT field hashing.");
+// TODO: IPV4_SRC_PORT & L4_DST_PORT field hashing distribution is
+// not working.
+ABSL_FLAG(bool, ignore_l4_port_hashing, true,
+          "Ignore known failure for L4_SRC_PORT & L4_DST_PORT field hashing.");
 
 namespace gpins {
 namespace {
@@ -97,11 +100,9 @@ using ::packetlib::UdpPort;
 constexpr absl::Duration kDurationToWaitForPacketsFromSut = absl::Seconds(30);
 
 struct Member {
-  uint32_t member_id;
   uint32_t weight;
   uint32_t port;
 };
-const Member kMembers[] = {{42, 1, 1}, {43, 1, 3}, {44, 1, 5}};
 
 enum PacketField {
   ETH_SRC,
@@ -349,7 +350,9 @@ constexpr int kNumExtraPackets = 10;
 
 // Returns the number of packets to send.
 int GetNumPackets(bool should_be_hashed) {
-  if (should_be_hashed) return 2052;
+  // Current max packets is set for a max sum of weights 15, error rate of 10%
+  // and pvalue of 0.001.
+  if (should_be_hashed) return 7586;
   return 10;
 }
 int GetNumPackets(TestConfiguration config) {
@@ -445,7 +448,8 @@ absl::StatusOr<p4::v1::Update> PdTableEntryToPiUpdate(
 }
 
 // Returns the set of entities required for the hasing test.
-absl::StatusOr<p4::v1::WriteRequest> GetHashingEntities() {
+absl::StatusOr<p4::v1::WriteRequest> GetHashingEntities(
+    absl::Span<const Member> members) {
   p4::v1::WriteRequest result;
 
   // Set default VRF for all packets.
@@ -455,7 +459,7 @@ absl::StatusOr<p4::v1::WriteRequest> GetHashingEntities() {
           gutil::ParseProtoOrDie<sai::TableEntry>(kSetVrfTableEntry)));
 
   // Create router interface, neighbor and nexthop entry for every member.
-  for (const auto& member : kMembers) {
+  for (const auto& member : members) {
     // Create a router interface.
     auto router_interface =
         gutil::ParseProtoOrDie<sai::TableEntry>(kRouterInterfaceTemplate);
@@ -507,7 +511,7 @@ absl::StatusOr<p4::v1::WriteRequest> GetHashingEntities() {
   // Build group and add members.
   auto group_update =
       gutil::ParseProtoOrDie<sai::TableEntry>(kGroupEntryTemplate);
-  for (const auto& member : kMembers) {
+  for (const auto& member : members) {
     auto port = absl::StrCat(member.port);
     auto member_update =
         gutil::ParseProtoOrDie<sai::WcmpGroupTableEntry::WcmpAction>(
@@ -569,13 +573,14 @@ std::string TestConfigurationToPayload(const TestConfiguration& config) {
 // Returns a human-readable description of the observed vs expected
 // distribution.
 std::string DescribeDistribution(
+    absl::Span<const Member> members,
     const absl::flat_hash_map<uint32_t, int>& ports, bool expect_one_port) {
   double total_weight = 0;
-  for (const auto& member : kMembers) {
+  for (const auto& member : members) {
     total_weight += member.weight;
   }
   std::string explanation = "";
-  for (const auto& member : kMembers) {
+  for (const auto& member : members) {
     double actual_count =
         ports.contains(member.port) ? ports.at(member.port) : 0;
     if (expect_one_port) {
@@ -780,6 +785,35 @@ absl::StatusOr<PacketlibPacket> GeneratePacket(const TestConfiguration& config,
   return packet;
 }
 
+// Generate N random weights that add up to max_weight, with at least 1 in each
+// bucket.
+absl::StatusOr<std::vector<int>> GenerateNRandomWeights(const int n,
+                                                        const int max_weight,
+                                                        absl::BitGen& gen) {
+  if (n > max_weight || n <= 0) {
+    return absl::InvalidArgumentError("Invalid input argument");
+  }
+
+  std::vector<int> weights(n, 1);
+  for (int i = 0; i < (max_weight - n); i++) {
+    int x = absl::uniform_int_distribution<int>(0, n - 1)(gen);
+    weights.at(x)++;
+  }
+  return weights;
+}
+
+// TODO: Temporary fix to rescale TH3 weights.
+// To be removed when 256 member support is available.
+int Th3RescaleWeights(const int weight) {
+  if (weight <= 1) {
+    return weight;
+  }
+  if (weight == 2) {
+    return 1;
+  }
+  return (weight - 1) / 2;
+}
+
 // Generate all possible test configurations, send packets for every config, and
 // check that the observed distribution is correct.
 TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
@@ -816,13 +850,6 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
   ASSERT_OK(pins_test::PushGnmiConfig(testbed.ControlSwitch(), gnmi_config));
   ASSERT_OK(SetUpSut(sut_p4_session.get()));
   ASSERT_OK(SetUpControlSwitch(control_p4_session.get()));
-
-  ASSERT_OK_AND_ASSIGN(auto write_request, GetHashingEntities());
-  ASSERT_OK(pdpi::SetMetadataAndSendPiWriteRequest(sut_p4_session.get(),
-                                                   write_request));
-
-  // Save entities
-  EXPECT_OK(SaveProto(testbed, write_request, "flows.pi.txt"));
 
   // Listen for packets from the SUT on the ControlSwitch.
   TestData test_data;
@@ -863,189 +890,235 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
     }
   };
   std::thread receive_packet_fiber(ReceivePacketFiber);
-  // Generate test configuration and send packets.
-  std::vector<TestConfiguration> configs;
-  absl::Time start = absl::Now();
-  int total_packets = 0;
-  for (bool ipv4 : {true, false}) {
-    for (bool encapped : {false}) {
-      for (bool inner_ipv4 : {false}) {
-        for (bool decap : {false}) {
-          for (PacketField field : AllFields()) {
-            // TODO: The switch currently hashes the upper bits
-            // of flow label, so we just skip them here.
-            if (field == FLOW_LABEL_UPPER_4 ||
-                field == INNER_FLOW_LABEL_UPPER_4)
-              continue;
-            TestConfiguration config = {field, ipv4, encapped, inner_ipv4,
-                                        decap};
-            if (!IsValidTestConfiguration(config)) continue;
-            configs.push_back(config);
+  absl::BitGen gen;
+  // Iterate over 3 sets of random weights for 3 ports.
+  for (int iter = 0; iter < 3; iter++) {
+    std::vector<Member> members = {{0, 1}, {0, 3}, {0, 5}};
 
-            // Create test data entry
-            std::string key = TestConfigurationToPayload(config);
-            {
-              absl::MutexLock lock(&test_data.mutex);
-              TestInputOutput inout;
-              inout.config = config;
-              test_data.data.insert({key, inout});
-            }
+    std::vector<int> weights;
+    if (iter == 0) {
+      // Run for ECMP (all weights=1) for first iteration.
+      weights = {1, 1, 1};
+    } else {
+      // Max weights is set to 30 (15 after TH3 re-scaling) to limit
+      // the number of packets required for this testing to be < 10k.
+      // See go/p4-hashing (section How many packets do we need?).
+      ASSERT_OK_AND_ASSIGN(
+          weights, GenerateNRandomWeights(/*n=*/3, /*max_weight=*/30, gen));
+    }
+    for (int i = 0; i < members.size(); i++) {
+      members.at(i).weight = weights.at(i);
+    }
 
-            // Send packets to the switch
-            std::string packet_log = "";
+    ASSERT_OK_AND_ASSIGN(auto write_request, GetHashingEntities(members));
+    // Save entities.
+    EXPECT_OK(SaveProto(testbed, write_request,
+                        absl::StrCat("flows.pi.", iter, ".txt")));
+    ASSERT_OK(pdpi::SetMetadataAndSendPiWriteRequest(sut_p4_session.get(),
+                                                     write_request));
 
-            for (int idx = 0; idx < GetNumPackets(config) + kNumExtraPackets;
-                 idx++) {
-              // Rate limit to 500 packets per second.
-              auto now = absl::Now();
-              auto earliest_send_time =
-                  start + (total_packets * absl::Seconds(1) / 500.0);
-              if (earliest_send_time > now) {
-                absl::SleepFor(earliest_send_time - now);
+    // TODO: Rescale the member weights to <=128 for now to match
+    // Hardware behaviour, remove when hardware supports > 128 weights.
+    for (int i = 0; i < members.size(); i++) {
+      members.at(i).weight = Th3RescaleWeights(members.at(i).weight);
+      LOG(INFO) << "Rescaling member id: " << members.at(i).port
+                << " from weight: " << weights.at(i)
+                << " to new weight: " << members.at(i).weight;
+    }
+
+    // Generate test configuration and send packets.
+    std::vector<TestConfiguration> configs;
+    absl::Time start = absl::Now();
+    int total_packets = 0;
+    for (bool ipv4 : {true, false}) {
+      for (bool encapped : {false}) {
+        for (bool inner_ipv4 : {false}) {
+          for (bool decap : {false}) {
+            for (PacketField field : AllFields()) {
+              // TODO: The switch currently hashes the upper bits
+              // of flow label, so we just skip them here.
+              if (field == FLOW_LABEL_UPPER_4 ||
+                  field == INNER_FLOW_LABEL_UPPER_4)
+                continue;
+              TestConfiguration config = {field, ipv4, encapped, inner_ipv4,
+                                          decap};
+              if (!IsValidTestConfiguration(config)) continue;
+              configs.push_back(config);
+
+              // Create test data entry.
+              std::string key = TestConfigurationToPayload(config);
+              {
+                absl::MutexLock lock(&test_data.mutex);
+                TestInputOutput inout;
+                inout.config = config;
+                test_data.data.insert({key, inout});
               }
 
-              int port = ingress_port;
-              if (field == INPUT_PORT) {
-                port = orion_port_ids[idx % orion_port_ids.size()];
+              // Send packets to the switch.
+              std::string packet_log = "";
+
+              for (int idx = 0; idx < GetNumPackets(config) + kNumExtraPackets;
+                   idx++) {
+                // Rate limit to 500 packets per second.
+                auto now = absl::Now();
+                auto earliest_send_time =
+                    start + (total_packets * absl::Seconds(1) / 500.0);
+                if (earliest_send_time > now) {
+                  absl::SleepFor(earliest_send_time - now);
+                }
+
+                int port = ingress_port;
+                if (field == INPUT_PORT) {
+                  port = orion_port_ids[idx % orion_port_ids.size()];
+                }
+
+                ASSERT_OK_AND_ASSIGN(auto packet, GeneratePacket(config, idx));
+                ASSERT_OK_AND_ASSIGN(auto raw_packet, SerializePacket(packet));
+                ASSERT_OK_AND_ASSIGN(std::string port_string,
+                                     pdpi::IntToDecimalString(port));
+                ASSERT_OK(InjectEgressPacket(port_string, raw_packet, ir_p4info,
+                                             control_p4_session.get()));
+
+                total_packets++;
+
+                Packet p;
+                p.set_port(absl::StrCat(port));
+                *p.mutable_parsed() = packet;
+                p.set_hex(absl::BytesToHexString(raw_packet));
+                packet_log += absl::StrCat(p.DebugString(), "\n\n");
               }
 
-              ASSERT_OK_AND_ASSIGN(auto packet, GeneratePacket(config, idx));
-              ASSERT_OK_AND_ASSIGN(auto raw_packet, SerializePacket(packet));
-              ASSERT_OK_AND_ASSIGN(std::string port_string,
-                                   pdpi::IntToDecimalString(port));
-              ASSERT_OK(InjectEgressPacket(port_string, raw_packet, ir_p4info,
-                                           control_p4_session.get()));
-
-              total_packets += 1;
-
-              Packet p;
-              p.set_port(absl::StrCat(port));
-              *p.mutable_parsed() = packet;
-              p.set_hex(absl::BytesToHexString(raw_packet));
-              packet_log += absl::StrCat(p.DebugString(), "\n\n");
+              // Save log of packets.
+              EXPECT_OK(testbed.Environment().StoreTestArtifact(
+                  absl::StrCat(
+                      "packets-for-config-", iter, "-",
+                      absl::StrJoin(
+                          absl::StrSplit(DescribeTestConfig(config), " "), "-"),
+                      ".txt"),
+                  packet_log));
             }
-
-            // Save log of packets
-            EXPECT_OK(testbed.Environment().StoreTestArtifact(
-                absl::StrCat(
-                    "packets-for-config-",
-                    absl::StrJoin(
-                        absl::StrSplit(DescribeTestConfig(config), " "), "-"),
-                    ".txt"),
-                packet_log));
           }
         }
       }
     }
-  }
 
-  LOG(INFO) << "Sent " << total_packets << " packets in "
-            << (absl::Now() - start) << ".";
+    LOG(INFO) << "Sent " << total_packets << " packets in "
+              << (absl::Now() - start) << ".";
 
-  // Wait for packets from the SUT to arrive.
-  absl::SleepFor(kDurationToWaitForPacketsFromSut);
+    // Wait for packets from the SUT to arrive.
+    absl::SleepFor(kDurationToWaitForPacketsFromSut);
 
-  // Clear table entries.
-  {
-    auto start = absl::Now();
-    EXPECT_OK(pdpi::ClearTableEntries(sut_p4_session.get(), ir_p4info));
-    LOG(INFO) << "cleared table entries on SUT in " << (absl::Now() - start);
+    // Clear table entries.
+    {
+      auto start = absl::Now();
+      EXPECT_OK(pdpi::ClearTableEntries(sut_p4_session.get(), ir_p4info));
+      LOG(INFO) << "Cleared table entries on SUT in " << (absl::Now() - start);
+    }
+
+    // For each test configuration, check the output distribution.
+    {
+      absl::MutexLock lock(&test_data.mutex);
+      for (const auto& config : configs) {
+        const auto& key = TestConfigurationToPayload(config);
+        const TestInputOutput& test = test_data.data[key];
+        auto n_packets = GetNumPackets(config);
+        EXPECT_GE(test.output.size(), n_packets)
+            << "Not enough packets received for " << DescribeTestConfig(config);
+
+        // Proceed with the actual number of packets received
+        n_packets = test.output.size();
+        if (n_packets == 0) continue;
+
+        // Count packets per port
+        absl::flat_hash_map<uint32_t, int> ports;
+        for (const auto& output : test.output) {
+          ASSERT_OK_AND_ASSIGN(uint32_t out_port,
+                               pdpi::DecimalStringToUint32(output.port()));
+          ports[out_port] += 1;
+        }
+
+        // Check we only saw expected ports.
+        for (const auto& port : ports) {
+          bool port_is_memberport = false;
+          for (const auto& member : members) {
+            port_is_memberport |= port.first == member.port;
+          }
+          EXPECT_TRUE(port_is_memberport) << "Unexpected port: " << port.first;
+        }
+
+        LOG(INFO) << "Results for " << DescribeTestConfig(config) << ":";
+        LOG(INFO) << "- received " << test.output.size() << " packets";
+        LOG(INFO) << "- observed distribution was:"
+                  << DescribeDistribution(members, ports,
+                                          !PacketsShouldBeHashed(config));
+
+        if (PacketsShouldBeHashed(config)) {
+          double total_weight = 0;
+          for (const auto& member : members) {
+            total_weight += member.weight;
+          }
+
+          // Compute chi squared value (see go/p4-hashing for the formula).
+          double chi_square = 0;
+          for (const auto& member : members) {
+            double expected_count = n_packets * member.weight / total_weight;
+            double actual_count = ports[member.port];
+            double diff = actual_count - expected_count;
+            chi_square += diff * diff / expected_count;
+          }
+
+          // DOF = total weight - 1
+          const int degrees_of_freedom = total_weight - 1;
+          // Check p-value against threshold.
+          double pvalue =
+              1.0 -
+              (boost::math::cdf(boost::math::chi_squared(degrees_of_freedom),
+                                chi_square));
+          LOG(INFO) << "- chi square is " << chi_square;
+          LOG(INFO) << "- p-value is " << pvalue;
+          if ((config.field != L4_SRC_PORT && config.field != L4_DST_PORT) ||
+              !absl::GetFlag(FLAGS_ignore_l4_port_hashing)) {
+            EXPECT_GT(pvalue, 0.001)
+                << "For config " << DescribeTestConfig(config) << ": "
+                << "The p-value is small enough that we reject the "
+                   "null-hypothesis "
+                   "(H_0 = 'The switch distribution is correct'), and instead "
+                   "have strong evidence that switch produces the wrong "
+                   "distribution:"
+                << DescribeDistribution(members, ports,
+                                        /*expect_one_port=*/false);
+          }
+        } else {
+          LOG(INFO) << "- packets were forwarded to " << ports.size()
+                    << " ports";
+          // Expect all packets to be forwarded to the same port.
+          EXPECT_EQ(ports.size(), 1)
+              << "Expected the test configuration " << std::endl
+              << DescribeTestConfig(config) << std::endl
+              << "to not influence the hash, and thus all packets should be "
+                 "forwarded on a single port.  Instead, the following was "
+                 "observed: "
+              << DescribeDistribution(members, ports, /*expect_one_port=*/true);
+        }
+      }
+
+      LOG(INFO) << "Number of sent packets:               " << total_packets;
+      LOG(INFO) << "Number of received packets (valid):   "
+                << test_data.total_packets_received;
+      LOG(INFO) << "Number of received packets (invalid): "
+                << test_data.total_invalid_packets_received;
+
+      // Clear TestData so that it can used by the next set of members.
+      test_data.data.clear();
+      test_data.total_packets_received = 0;
+      test_data.total_invalid_packets_received = 0;
+    }
   }
 
   // Stop RPC sessions.
   control_p4_session->TryCancel();
   receive_packet_fiber.join();
   sut_p4_session->TryCancel();
-
-  // For each test configuration, check the output distribution.
-  absl::MutexLock lock(&test_data.mutex);
-  for (const auto& config : configs) {
-    const auto& key = TestConfigurationToPayload(config);
-    const TestInputOutput& test = test_data.data[key];
-    auto n_packets = GetNumPackets(config);
-    EXPECT_GE(test.output.size(), n_packets)
-        << "Not enough packets received for " << DescribeTestConfig(config);
-
-    // Proceed with the actual number of packets received
-    n_packets = test.output.size();
-    if (n_packets == 0) continue;
-
-    // Count packets per port
-    absl::flat_hash_map<uint32_t, int> ports;
-    for (const auto& output : test.output) {
-      ASSERT_OK_AND_ASSIGN(uint32_t out_port,
-                           pdpi::DecimalStringToUint32(output.port()));
-      ports[out_port] += 1;
-    }
-
-    // Check we only saw expected ports.
-    for (const auto& port : ports) {
-      bool port_is_memberport = false;
-      for (const auto& member : kMembers) {
-        port_is_memberport |= port.first == member.port;
-      }
-      EXPECT_TRUE(port_is_memberport) << "Unexpected port: " << port.first;
-    }
-
-    LOG(INFO) << "Results for " << DescribeTestConfig(config) << ":";
-    LOG(INFO) << "- received " << test.output.size() << " packets";
-    LOG(INFO) << "- observed distribution was:"
-              << DescribeDistribution(ports, !PacketsShouldBeHashed(config));
-
-    if (PacketsShouldBeHashed(config)) {
-      // DOF = total weight - 1
-      int degrees_of_freedom = -1;
-      for (const auto& member : kMembers) {
-        degrees_of_freedom += member.weight;
-      }
-
-      // Compute chi squared value (see go/p4-hashing for the formula).
-      double chi_square = 0;
-      double total_weight = 0;
-      for (const auto& member : kMembers) {
-        total_weight += member.weight;
-      }
-      for (const auto& member : kMembers) {
-        double expected_count = n_packets * member.weight / total_weight;
-        double actual_count = ports[member.port];
-        double diff = actual_count - expected_count;
-        chi_square += diff * diff / expected_count;
-      }
-
-      // Check p-value against threshold.
-      double pvalue =
-          1.0 - (boost::math::cdf(boost::math::chi_squared(degrees_of_freedom),
-                                  chi_square));
-      LOG(INFO) << "- chi square is " << chi_square;
-      LOG(INFO) << "- p-value is " << pvalue;
-      if (config.field != L4_SRC_PORT ||
-          !absl::GetFlag(FLAGS_ignore_l4_src_port_hashing)) {
-        EXPECT_GT(pvalue, 0.001)
-            << "For config " << DescribeTestConfig(config) << ": "
-            << "The p-value is small enough that we reject the null-hypothesis "
-               "(H_0 = 'The switch distribution is correct'), and instead "
-               "have strong evidence that switch produces the wrong "
-               "distribution:"
-            << DescribeDistribution(ports, /*expect_one_port=*/false);
-      }
-    } else {
-      LOG(INFO) << "- packets were forwarded to " << ports.size() << " ports";
-      // Expect all packets to be forwarded to the same port.
-      EXPECT_EQ(ports.size(), 1)
-          << "Expected the test configuration " << std::endl
-          << DescribeTestConfig(config) << std::endl
-          << "to not influence the hash, and thus all packets should be "
-             "forwarded on a single port.  Instead, the following was "
-             "observed: "
-          << DescribeDistribution(ports, /*expect_one_port=*/true);
-    }
-  }
-
-  LOG(INFO) << "Number of sent packets:               " << total_packets;
-  LOG(INFO) << "Number of received packets (valid):   "
-            << test_data.total_packets_received;
-  LOG(INFO) << "Number of received packets (invalid): "
-            << test_data.total_invalid_packets_received;
 }
 
 }  // namespace
