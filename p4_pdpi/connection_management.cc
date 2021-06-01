@@ -62,9 +62,8 @@ absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
   p4::v1::StreamMessageResponse response;
   if (!session->stream_channel_->Read(&response)) {
     return gutil::InternalErrorBuilder()
-           << "No arbitration response received because: "
-           << gutil::GrpcStatusToAbslStatus(session->stream_channel_->Finish())
-           << " with response: " << response.ShortDebugString();
+           << "P4RT stream closed while awaiting arbitration response: "
+           << gutil::GrpcStatusToAbslStatus(session->stream_channel_->Finish());
   }
   if (response.update_case() != p4::v1::StreamMessageResponse::kArbitration) {
     return gutil::InternalErrorBuilder()
