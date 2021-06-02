@@ -290,6 +290,7 @@ void GetAndVerifyBertResultsWithAdminDownInterfaces(
         const std::string interface_name,
         GetInterfaceNameFromOcInterfacePath(
             result_response.per_port_responses(idx).interface()));
+    LOG(INFO) << "Verifying result for interface: " << interface_name;
     // Check if interface is part of list where admin state was disabled.
     if (IsInterfaceInList(interface_name, sut_admin_down_interfaces) ||
         IsInterfaceInList(interface_name,
@@ -832,7 +833,12 @@ TEST_P(BertTest, RunBertOnMaximumAllowedPorts) {
               num_interfaces_to_disable,
               std::mt19937(absl::GetFlag(FLAGS_idx_seed)));
 
-  LOG(INFO) << "Starting BERT on " << interfaces.size() << " interfaces.";
+  LOG(INFO) << "Starting BERT on " << interfaces.size()
+            << " interfaces: " << absl::StrJoin(interfaces, ",");
+  LOG(INFO) << "Interfaces selected on SUT for admin down: "
+            << absl::StrJoin(sut_interfaces_for_admin_down, ",");
+  LOG(INFO) << "Interfaces selected on control switch for admin down: "
+            << absl::StrJoin(control_switch_interfaces_for_admin_down, ",");
 
   gnoi::diag::StartBERTRequest bert_request;
   // Create the BERT request.
@@ -901,10 +907,12 @@ TEST_P(BertTest, RunBertOnMaximumAllowedPorts) {
   EXPECT_THAT(interfaces_not_up, testing::IsEmpty());
 
   // Get the BERT result from SUT and verify it.
+  LOG(INFO) << "Verify BERT results on SUT interfaces.";
   ASSERT_NO_FATAL_FAILURE(GetAndVerifyBertResultsWithAdminDownInterfaces(
       *sut_gnoi_diag_stub, bert_request, sut_interfaces_for_admin_down,
       control_switch_interfaces_for_admin_down));
   // Get the BERT result from control switch and verify it.
+  LOG(INFO) << "Verify BERT results on control switch interfaces.";
   ASSERT_NO_FATAL_FAILURE(GetAndVerifyBertResultsWithAdminDownInterfaces(
       *control_switch_gnoi_diag_stub, bert_request,
       sut_interfaces_for_admin_down, control_switch_interfaces_for_admin_down));
