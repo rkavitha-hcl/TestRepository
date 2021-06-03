@@ -43,7 +43,7 @@ enum class RequestType {
 // InterfaceInfo represents the mode of an interface and the name of the peer
 // interface.
 struct InterfaceInfo {
-  third_party::pins_infra::thinkit::InterfaceMode interface_mode;
+  thinkit::InterfaceMode interface_mode;
   std::string peer_interface_name;  // Empty if not applicable.
 };
 

@@ -234,7 +234,9 @@ cc_library(
     hdrs = ["generic_testbed_fixture.h"],
     deps = [
         ":generic_testbed",
+        "//thinkit/proto:generic_testbed_cc_proto",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest",
     ],
 )
