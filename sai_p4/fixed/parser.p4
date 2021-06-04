@@ -32,6 +32,7 @@ parser packet_parser(packet_in packet, out headers_t headers,
       ETHERTYPE_IPV4: parse_ipv4;
       ETHERTYPE_IPV6: parse_ipv6;
       ETHERTYPE_ARP:  parse_arp;
+      // TODO: Parse 802.1Q VLAN-tagged packets correctly.
       _:              accept;
     }
   }
