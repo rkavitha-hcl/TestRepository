@@ -235,7 +235,7 @@ void TestGnmiInterfaceConfigSetPortSpeed(
     ASSERT_OK(SetGnmiConfigPath(
         sut_gnmi_stub.get(), if_port_speed_config_path, GnmiSetType::kUpdate,
         ConstructGnmiConfigSetString(kPortSpeed, kNewPortSpeedStr)));
-    absl::SleepFor(absl::Seconds(5));
+    absl::SleepFor(absl::Seconds(30));
 
     // Perform state path verifications.
     // Verify /interfaces/interface[name=<port>]/ethernet/state/port-speed =
@@ -264,7 +264,7 @@ void TestGnmiInterfaceConfigSetPortSpeed(
   ASSERT_OK(SetGnmiConfigPath(
       sut_gnmi_stub.get(), if_port_speed_config_path, GnmiSetType::kUpdate,
       ConstructGnmiConfigSetString(kPortSpeed, kOriginalPortSpeedStr)));
-  absl::SleepFor(absl::Seconds(5));
+  absl::SleepFor(absl::Seconds(30));
 
   // Verify /interfaces/interface[name=<port>]/ethernet/state/port-speed =
   // original speed.
