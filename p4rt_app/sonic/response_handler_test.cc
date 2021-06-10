@@ -238,7 +238,9 @@ TEST(ResponseHandlerTest, RestoreAppDbDelOk) {
       .WillOnce(Return(std::unordered_map<std::string, std::string>{}));
 
   swss::MockDBConnector mock_appdb_client;
-  EXPECT_CALL(mock_appdb_client, del).Times(1).WillOnce(Return(1));
+  EXPECT_CALL(mock_appdb_client, del(std::string(kSampleKey2)))
+      .Times(1)
+      .WillOnce(Return(1));
 
   // Invoke the GetAndProcessResponse call.
   pdpi::IrWriteResponse ir_write_response;
@@ -267,7 +269,9 @@ TEST(ResponseHandlerTest, RestoreAppDbDelError) {
 
   swss::MockDBConnector mock_appdb_client;
   // Return 0 for number of entries deleted.
-  EXPECT_CALL(mock_appdb_client, del).Times(1).WillOnce(Return(0));
+  EXPECT_CALL(mock_appdb_client, del(std::string(kSampleKey2)))
+      .Times(1)
+      .WillOnce(Return(0));
 
   // Invoke the GetAndProcessResponse call.
   pdpi::IrWriteResponse ir_write_response;

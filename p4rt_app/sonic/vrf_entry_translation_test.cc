@@ -52,7 +52,7 @@ class VrfEntryTranslationTest : public ::testing::Test {
 TEST_F(VrfEntryTranslationTest, InsertIgnoresRequestWithoutVrfId) {
   pdpi::IrTableEntry table_entry;
 
-  EXPECT_CALL(mock_vrf_table_, set).Times(0);
+  EXPECT_CALL(mock_vrf_table_, set(_)).Times(0);
   EXPECT_OK(InsertVrfEntryAndUpdateState(
       mock_vrf_table_, mock_vrf_notifier_, mock_app_db_client_,
       mock_state_db_client_, table_entry, &vrf_id_reference_count_));
@@ -102,7 +102,8 @@ TEST_F(VrfEntryTranslationTest, InsertVrfIdFails) {
       .Times(1)
       .WillRepeatedly(Return(std::unordered_map<std::string, std::string>()));
   // Expect the newly inserted entry in APP_DB to be deleted.
-  EXPECT_CALL(mock_app_db_client_, del).WillOnce(Return(/*value=*/1));
+  EXPECT_CALL(mock_app_db_client_, del("VRF_TABLE:vrf-1"))
+      .WillOnce(Return(/*value=*/1));
   EXPECT_THAT(InsertVrfEntryAndUpdateState(
                   mock_vrf_table_, mock_vrf_notifier_, mock_app_db_client_,
                   mock_state_db_client_, table_entry, &vrf_id_reference_count_),
@@ -166,7 +167,7 @@ TEST_F(VrfEntryTranslationTest, DuplicateInserts) {
 TEST_F(VrfEntryTranslationTest, DeleteIgnoresRequestWithoutVrfId) {
   pdpi::IrTableEntry table_entry;
 
-  EXPECT_CALL(mock_vrf_table_, del).Times(0);
+  EXPECT_CALL(mock_vrf_table_, del(_)).Times(0);
   EXPECT_OK(DecrementVrfReferenceCount(mock_vrf_table_, table_entry,
                                        &vrf_id_reference_count_));
   EXPECT_TRUE(vrf_id_reference_count_.empty());
@@ -270,7 +271,7 @@ TEST_F(VrfEntryTranslationTest, DeleteNonExistantVrfIdFails) {
                                                })pb",
                                           &table_entry));
 
-  EXPECT_CALL(mock_vrf_table_, del).Times(0);
+  EXPECT_CALL(mock_vrf_table_, del(_)).Times(0);
   EXPECT_THAT(DecrementVrfReferenceCount(mock_vrf_table_, table_entry,
                                          &vrf_id_reference_count_),
               StatusIs(absl::StatusCode::kInternal));
@@ -315,8 +316,8 @@ TEST_F(VrfEntryTranslationTest, ModifyIgnoresRequestWithoutVrfId) {
   pdpi::IrTableEntry table_entry;
   std::unordered_map<std::string, std::string> app_db_values;
 
-  EXPECT_CALL(mock_vrf_table_, del).Times(0);
-  EXPECT_CALL(mock_vrf_table_, set).Times(0);
+  EXPECT_CALL(mock_vrf_table_, del(_)).Times(0);
+  EXPECT_CALL(mock_vrf_table_, set(_)).Times(0);
 
   EXPECT_OK(ModifyVrfEntryAndUpdateState(
       mock_vrf_table_, mock_vrf_notifier_, mock_app_db_client_,
@@ -340,8 +341,8 @@ TEST_F(VrfEntryTranslationTest, ModifyDoesNotChangeVrfId) {
       {"vrf_id", "vrf-1"}};
   vrf_id_reference_count_["vrf-1"] = 1;
 
-  EXPECT_CALL(mock_vrf_table_, del).Times(0);
-  EXPECT_CALL(mock_vrf_table_, set).Times(0);
+  EXPECT_CALL(mock_vrf_table_, del(_)).Times(0);
+  EXPECT_CALL(mock_vrf_table_, set(_)).Times(0);
   EXPECT_OK(ModifyVrfEntryAndUpdateState(
       mock_vrf_table_, mock_vrf_notifier_, mock_app_db_client_,
       mock_state_db_client_, app_db_values, table_entry,
@@ -409,7 +410,8 @@ TEST_F(VrfEntryTranslationTest, ModifyChangesVrfIdFailsResp) {
   EXPECT_CALL(mock_state_db_client_, hgetall("VRF_TABLE:vrf-1"))
       .Times(1)
       .WillRepeatedly(Return(std::unordered_map<std::string, std::string>()));
-  EXPECT_CALL(mock_app_db_client_, del).WillOnce(Return(/*value=*/1));
+  EXPECT_CALL(mock_app_db_client_, del("VRF_TABLE:vrf-1"))
+      .WillOnce(Return(/*value=*/1));
 
   // Fake an error in the Orchagent response for the new vrf addition.
   EXPECT_CALL(mock_vrf_notifier_, WaitForNotificationAndPop)
