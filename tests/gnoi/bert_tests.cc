@@ -676,8 +676,6 @@ TEST_P(BertTest, StartBertSucceeds) {
   // Select 2 operational state "up" ports.
   std::vector<std::string> interfaces = absl::GetFlag(FLAGS_interfaces);
   if (interfaces.empty()) {
-    ASSERT_OK_AND_ASSIGN(std::unique_ptr<gnmi::gNMI::Stub> sut_gnmi_stub,
-                         sut.CreateGnmiStub());
     ASSERT_NO_FATAL_FAILURE(
         SelectNUpInterfaces(2, *sut_gnmi_stub, &interfaces));
   }
