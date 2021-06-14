@@ -117,9 +117,9 @@ TEST_F(AppDbManagerTest, InsertTableEntry) {
                             .SetAction("set_port_and_src_mac")
                             .AddActionParam("port", "Ethernet28/5")
                             .AddActionParam("src_mac", "00:02:03:04:05:06");
-  EXPECT_CALL(mock_p4rt_table_,
-              set(Eq(expected.GetKey()), expected.GetValueList(), _, _))
-      .Times(1);
+  const std::vector<swss::KeyOpFieldsValuesTuple> expected_key_value = {
+      std::make_tuple(expected.GetKey(), "", expected.GetValueList())};
+  EXPECT_CALL(mock_p4rt_table_, set(expected_key_value)).Times(1);
 
   // Expected OrchAgent response.
   EXPECT_CALL(mock_p4rt_notification_, WaitForNotificationAndPop)
@@ -133,7 +133,7 @@ TEST_F(AppDbManagerTest, InsertTableEntry) {
       UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                   mock_p4rt_table_, mock_p4rt_notification_,
                   mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
-                  mock_vrf_notification_, &vrf_id_reference_count_, &response));
+                  mock_vrf_notification_, vrf_id_reference_count_, &response));
   ASSERT_EQ(response.statuses_size(), 1);
   EXPECT_EQ(response.statuses(0).code(), google::rpc::OK);
 }
@@ -180,7 +180,7 @@ TEST_F(AppDbManagerTest, InsertDuplicateTableEntryFails) {
       UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                   mock_p4rt_table_, mock_p4rt_notification_,
                   mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
-                  mock_vrf_notification_, &vrf_id_reference_count_, &response));
+                  mock_vrf_notification_, vrf_id_reference_count_, &response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::ALREADY_EXISTS);
 }
 
@@ -226,7 +226,7 @@ TEST_F(AppDbManagerTest, ModifyNonExistentTableEntryFails) {
       UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                   mock_p4rt_table_, mock_p4rt_notification_,
                   mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
-                  mock_vrf_notification_, &vrf_id_reference_count_, &response));
+                  mock_vrf_notification_, vrf_id_reference_count_, &response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::NOT_FOUND);
 }
 
@@ -272,7 +272,7 @@ TEST_F(AppDbManagerTest, DeleteNonExistentTableEntryFails) {
       UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                   mock_p4rt_table_, mock_p4rt_notification_,
                   mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
-                  mock_vrf_notification_, &vrf_id_reference_count_, &response));
+                  mock_vrf_notification_, vrf_id_reference_count_, &response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::NOT_FOUND);
 }
 
@@ -580,7 +580,7 @@ TEST_F(AppDbManagerTest, DeleteAppDbEntryFails) {
       UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                   mock_p4rt_table_, mock_p4rt_notification_,
                   mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
-                  mock_vrf_notification_, &vrf_id_reference_count_, &response));
+                  mock_vrf_notification_, vrf_id_reference_count_, &response));
   // Expect INTERNAL error due to non-existent vrf in vrf_id_reference_count_.
   EXPECT_EQ(response.statuses(0).code(), google::rpc::INTERNAL);
 }

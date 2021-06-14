@@ -59,9 +59,7 @@ absl::Status DoInsert(swss::ProducerStateTableInterface& vrf_table,
                       swss::DBConnectorInterface& app_db_client,
                       swss::DBConnectorInterface& state_db_client,
                       const absl::optional<std::string>& vrf_id,
-                      absl::flat_hash_map<std::string, int>* reference_count) {
-  RET_CHECK(reference_count != nullptr) << "reference_count cannot be nullptr.";
-
+                      absl::flat_hash_map<std::string, int>& reference_count) {
   // If the request doesn't have a VRF ID then there is nothing to do.
   if (!vrf_id.has_value()) return absl::OkStatus();
 
@@ -71,8 +69,8 @@ absl::Status DoInsert(swss::ProducerStateTableInterface& vrf_table,
 
   // If the VRF ID is already used by another table entry then we only increment
   // the reference count.
-  auto reference = reference_count->find(*vrf_id);
-  if (reference != reference_count->end()) {
+  auto reference = reference_count.find(*vrf_id);
+  if (reference != reference_count.end()) {
     reference->second++;
     return absl::OkStatus();
   }
@@ -103,7 +101,7 @@ absl::Status DoInsert(swss::ProducerStateTableInterface& vrf_table,
       static_cast<absl::StatusCode>(ir_write_response.statuses(0).code()),
       ir_write_response.statuses(0).message());
   if (status.ok()) {
-    reference_count->insert(std::make_pair(*vrf_id, 1));
+    reference_count.insert(std::make_pair(*vrf_id, 1));
   }
 
   return status;
@@ -112,9 +110,7 @@ absl::Status DoInsert(swss::ProducerStateTableInterface& vrf_table,
 absl::Status DoDecrement(
     swss::ProducerStateTableInterface& vrf_table,
     const absl::optional<std::string>& vrf_id,
-    absl::flat_hash_map<std::string, int>* reference_count) {
-  RET_CHECK(reference_count != nullptr) << "reference_count cannot be nullptr.";
-
+    absl::flat_hash_map<std::string, int>& reference_count) {
   // If the request doesn't have a VRF ID then there is nothing to do.
   if (!vrf_id.has_value()) return absl::OkStatus();
 
@@ -123,8 +119,8 @@ absl::Status DoDecrement(
   if (vrf_id.value().empty()) return absl::OkStatus();
 
   // If we cannot find the reference count then something is wrong.
-  auto reference = reference_count->find(*vrf_id);
-  if (reference == reference_count->end()) {
+  auto reference = reference_count.find(*vrf_id);
+  if (reference == reference_count.end()) {
     LOG(ERROR) << "We are trying to delete VRF '" << *vrf_id
                << "', but it does not exist in the internal state.";
     return gutil::InternalErrorBuilder()
@@ -141,9 +137,9 @@ absl::Status PruneVrfReferences(
     swss::ConsumerNotifierInterface& vrf_notification,
     swss::DBConnectorInterface& app_db_client,
     swss::DBConnectorInterface& state_db_client,
-    absl::flat_hash_map<std::string, int>* reference_count) {
+    absl::flat_hash_map<std::string, int>& reference_count) {
   std::vector<std::string> keys;
-  for (const auto& [vrf_id, count] : *reference_count) {
+  for (const auto& [vrf_id, count] : reference_count) {
     // If another table entry still uses this VRF ID then nothing to do.
     if (count > 0) {
       continue;
@@ -177,7 +173,7 @@ absl::Status PruneVrfReferences(
       vrf_errors.push_back(resp_status.message());
     } else {
       // Remove the VRF_TABLE prefix in the key.
-      reference_count->erase(keys[i].substr(keys[i].find(':') + 1));
+      reference_count.erase(keys[i].substr(keys[i].find(':') + 1));
     }
     i++;
   }
@@ -196,7 +192,7 @@ absl::Status InsertVrfEntryAndUpdateState(
     swss::DBConnectorInterface& app_db_client,
     swss::DBConnectorInterface& state_db_client,
     const pdpi::IrTableEntry& ir_table_entry,
-    absl::flat_hash_map<std::string, int>* reference_count) {
+    absl::flat_hash_map<std::string, int>& reference_count) {
   return DoInsert(vrf_table, vrf_notification, app_db_client, state_db_client,
                   GetVrfId(ir_table_entry), reference_count);
 }
@@ -204,7 +200,7 @@ absl::Status InsertVrfEntryAndUpdateState(
 absl::Status DecrementVrfReferenceCount(
     swss::ProducerStateTableInterface& vrf_table,
     const pdpi::IrTableEntry& ir_table_entry,
-    absl::flat_hash_map<std::string, int>* reference_count) {
+    absl::flat_hash_map<std::string, int>& reference_count) {
   return DoDecrement(vrf_table, GetVrfId(ir_table_entry), reference_count);
 }
 
@@ -215,7 +211,7 @@ absl::Status ModifyVrfEntryAndUpdateState(
     swss::DBConnectorInterface& state_db_client,
     const std::unordered_map<std::string, std::string> app_db_values,
     const pdpi::IrTableEntry& ir_table_entry,
-    absl::flat_hash_map<std::string, int>* reference_count) {
+    absl::flat_hash_map<std::string, int>& reference_count) {
   absl::optional<std::string> vrf_id_to_remove = GetVrfId(app_db_values);
   absl::optional<std::string> vrf_id_to_insert = GetVrfId(ir_table_entry);
 
@@ -238,8 +234,8 @@ absl::Status ModifyVrfEntryAndUpdateState(
   // If the new vrf id insertion failed, increment the old vrf id reference
   // count since the referenced table entry will not be replaced.
   if (!status.ok()) {
-    auto reference = reference_count->find(*vrf_id_to_remove);
-    if (reference != reference_count->end()) reference->second++;
+    auto reference = reference_count.find(*vrf_id_to_remove);
+    if (reference != reference_count.end()) reference->second++;
   }
   return status;
 }

@@ -399,7 +399,7 @@ grpc::Status P4RuntimeImpl::Write(grpc::ServerContext* context,
     auto app_db_write_status = sonic::UpdateAppDb(
         app_db_updates, *ir_p4info_, *app_db_table_p4rt_,
         *app_db_notifier_p4rt_, *app_db_client_, *state_db_client_,
-        *app_db_table_vrf_, *app_db_notifier_vrf_, &vrf_id_reference_count_,
+        *app_db_table_vrf_, *app_db_notifier_vrf_, vrf_id_reference_count_,
         rpc_response);
     if (!app_db_write_status.ok()) {
       // TODO: go into critical state.

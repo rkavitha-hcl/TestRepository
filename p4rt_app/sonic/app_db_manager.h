@@ -58,7 +58,7 @@ absl::Status UpdateAppDb(
     swss::DBConnectorInterface& state_db_client,
     swss::ProducerStateTableInterface& vrf_table,
     swss::ConsumerNotifierInterface& vrf_notification,
-    absl::flat_hash_map<std::string, int>* vrf_id_reference_count,
+    absl::flat_hash_map<std::string, int>& vrf_id_reference_count,
     pdpi::IrWriteResponse* response);
 
 // Returns all P4RT keys currently installed in the AppDb. This does not include

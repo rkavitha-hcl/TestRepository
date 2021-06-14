@@ -36,7 +36,7 @@ absl::Status InsertVrfEntryAndUpdateState(
     swss::DBConnectorInterface& app_db_client,
     swss::DBConnectorInterface& state_db_client,
     const pdpi::IrTableEntry& ir_table_entry,
-    absl::flat_hash_map<std::string, int>* reference_count);
+    absl::flat_hash_map<std::string, int>& reference_count);
 
 // Checks if the IR table entry uses a VRF ID, and after updating the reference
 // count if that ID is still needed. If the entry does not have an ID we ignore
@@ -45,7 +45,7 @@ absl::Status InsertVrfEntryAndUpdateState(
 absl::Status DecrementVrfReferenceCount(
     swss::ProducerStateTableInterface& vrf_table,
     const pdpi::IrTableEntry& ir_table_entry,
-    absl::flat_hash_map<std::string, int>* reference_count);
+    absl::flat_hash_map<std::string, int>& reference_count);
 
 // Checks if the existing AppDb entry, and the new IR TableEntry for a VRF ID.
 // If neither have and IR or the ID is the same this method will be a no-op.
@@ -58,7 +58,7 @@ absl::Status ModifyVrfEntryAndUpdateState(
     swss::DBConnectorInterface& state_db_client,
     const std::unordered_map<std::string, std::string> app_db_values,
     const pdpi::IrTableEntry& ir_table_entry,
-    absl::flat_hash_map<std::string, int>* reference_count);
+    absl::flat_hash_map<std::string, int>& reference_count);
 
 // Walks over the reference count map and deletes the vrf entries whose
 // reference count has reached zero.
@@ -67,7 +67,7 @@ absl::Status PruneVrfReferences(
     swss::ConsumerNotifierInterface& vrf_notification,
     swss::DBConnectorInterface& app_db_client,
     swss::DBConnectorInterface& state_db_client,
-    absl::flat_hash_map<std::string, int>* reference_count);
+    absl::flat_hash_map<std::string, int>& reference_count);
 
 }  // namespace sonic
 }  // namespace p4rt_app

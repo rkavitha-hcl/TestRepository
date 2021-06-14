@@ -55,7 +55,7 @@ TEST_F(VrfEntryTranslationTest, InsertIgnoresRequestWithoutVrfId) {
   EXPECT_CALL(mock_vrf_table_, set(_)).Times(0);
   EXPECT_OK(InsertVrfEntryAndUpdateState(
       mock_vrf_table_, mock_vrf_notifier_, mock_app_db_client_,
-      mock_state_db_client_, table_entry, &vrf_id_reference_count_));
+      mock_state_db_client_, table_entry, vrf_id_reference_count_));
   EXPECT_TRUE(vrf_id_reference_count_.empty());
 }
 
@@ -77,7 +77,7 @@ TEST_F(VrfEntryTranslationTest, InsertVrfIdFromMatchField) {
 
   EXPECT_OK(InsertVrfEntryAndUpdateState(
       mock_vrf_table_, mock_vrf_notifier_, mock_app_db_client_,
-      mock_state_db_client_, table_entry, &vrf_id_reference_count_));
+      mock_state_db_client_, table_entry, vrf_id_reference_count_));
 }
 
 TEST_F(VrfEntryTranslationTest, InsertVrfIdFails) {
@@ -106,7 +106,7 @@ TEST_F(VrfEntryTranslationTest, InsertVrfIdFails) {
       .WillOnce(Return(/*value=*/1));
   EXPECT_THAT(InsertVrfEntryAndUpdateState(
                   mock_vrf_table_, mock_vrf_notifier_, mock_app_db_client_,
-                  mock_state_db_client_, table_entry, &vrf_id_reference_count_),
+                  mock_state_db_client_, table_entry, vrf_id_reference_count_),
               StatusIs(absl::StatusCode::kInternal, HasSubstr("my error")));
 }
 
@@ -130,7 +130,7 @@ TEST_F(VrfEntryTranslationTest, InsertVrfIdFromActionParam) {
 
   EXPECT_OK(InsertVrfEntryAndUpdateState(
       mock_vrf_table_, mock_vrf_notifier_, mock_app_db_client_,
-      mock_state_db_client_, table_entry, &vrf_id_reference_count_));
+      mock_state_db_client_, table_entry, vrf_id_reference_count_));
 }
 
 TEST_F(VrfEntryTranslationTest, DuplicateInserts) {
@@ -154,13 +154,13 @@ TEST_F(VrfEntryTranslationTest, DuplicateInserts) {
   // First insert call will update the Redis DB, and reference count.
   EXPECT_OK(InsertVrfEntryAndUpdateState(
       mock_vrf_table_, mock_vrf_notifier_, mock_app_db_client_,
-      mock_state_db_client_, table_entry, &vrf_id_reference_count_));
+      mock_state_db_client_, table_entry, vrf_id_reference_count_));
   EXPECT_EQ(vrf_id_reference_count_["vrf-1"], 1);
 
   // Second insert call will update only the reference count.
   EXPECT_OK(InsertVrfEntryAndUpdateState(
       mock_vrf_table_, mock_vrf_notifier_, mock_app_db_client_,
-      mock_state_db_client_, table_entry, &vrf_id_reference_count_));
+      mock_state_db_client_, table_entry, vrf_id_reference_count_));
   EXPECT_EQ(vrf_id_reference_count_["vrf-1"], 2);
 }
 
@@ -169,7 +169,7 @@ TEST_F(VrfEntryTranslationTest, DeleteIgnoresRequestWithoutVrfId) {
 
   EXPECT_CALL(mock_vrf_table_, del(_)).Times(0);
   EXPECT_OK(DecrementVrfReferenceCount(mock_vrf_table_, table_entry,
-                                       &vrf_id_reference_count_));
+                                       vrf_id_reference_count_));
   EXPECT_TRUE(vrf_id_reference_count_.empty());
 }
 
@@ -185,7 +185,7 @@ TEST_F(VrfEntryTranslationTest, DeleteVrfIdFromMatchField) {
   vrf_id_reference_count_["vrf-1"] = 1;
 
   EXPECT_OK(DecrementVrfReferenceCount(mock_vrf_table_, table_entry,
-                                       &vrf_id_reference_count_));
+                                       vrf_id_reference_count_));
 
   EXPECT_CALL(mock_vrf_notifier_, WaitForNotificationAndPop)
       .WillOnce(DoAll(SetArgReferee<0>("SWSS_RC_SUCCESS"),
@@ -196,7 +196,7 @@ TEST_F(VrfEntryTranslationTest, DeleteVrfIdFromMatchField) {
 
   EXPECT_OK(PruneVrfReferences(mock_vrf_table_, mock_vrf_notifier_,
                                mock_app_db_client_, mock_state_db_client_,
-                               &vrf_id_reference_count_));
+                               vrf_id_reference_count_));
 }
 
 TEST_F(VrfEntryTranslationTest, DeleteVrfIdFromMatchFieldFails) {
@@ -211,7 +211,7 @@ TEST_F(VrfEntryTranslationTest, DeleteVrfIdFromMatchFieldFails) {
   vrf_id_reference_count_["vrf-1"] = 1;
 
   EXPECT_OK(DecrementVrfReferenceCount(mock_vrf_table_, table_entry,
-                                       &vrf_id_reference_count_));
+                                       vrf_id_reference_count_));
 
   // Fake Orchagent error response for delete vrf.
   EXPECT_CALL(mock_vrf_notifier_, WaitForNotificationAndPop)
@@ -231,7 +231,7 @@ TEST_F(VrfEntryTranslationTest, DeleteVrfIdFromMatchFieldFails) {
 
   EXPECT_THAT(PruneVrfReferences(mock_vrf_table_, mock_vrf_notifier_,
                                  mock_app_db_client_, mock_state_db_client_,
-                                 &vrf_id_reference_count_),
+                                 vrf_id_reference_count_),
               StatusIs(absl::StatusCode::kInternal));
 }
 
@@ -248,7 +248,7 @@ TEST_F(VrfEntryTranslationTest, DeleteVrfIdFromActionParam) {
   EXPECT_CALL(mock_vrf_table_, del(Eq("vrf-2"), _, _)).Times(1);
   vrf_id_reference_count_["vrf-2"] = 1;
   EXPECT_OK(DecrementVrfReferenceCount(mock_vrf_table_, table_entry,
-                                       &vrf_id_reference_count_));
+                                       vrf_id_reference_count_));
   EXPECT_CALL(mock_vrf_notifier_, WaitForNotificationAndPop)
       .WillOnce(DoAll(SetArgReferee<0>("SWSS_RC_SUCCESS"),
                       SetArgReferee<1>("vrf-2"),
@@ -258,7 +258,7 @@ TEST_F(VrfEntryTranslationTest, DeleteVrfIdFromActionParam) {
 
   EXPECT_OK(PruneVrfReferences(mock_vrf_table_, mock_vrf_notifier_,
                                mock_app_db_client_, mock_state_db_client_,
-                               &vrf_id_reference_count_));
+                               vrf_id_reference_count_));
 }
 
 TEST_F(VrfEntryTranslationTest, DeleteNonExistantVrfIdFails) {
@@ -273,7 +273,7 @@ TEST_F(VrfEntryTranslationTest, DeleteNonExistantVrfIdFails) {
 
   EXPECT_CALL(mock_vrf_table_, del(_)).Times(0);
   EXPECT_THAT(DecrementVrfReferenceCount(mock_vrf_table_, table_entry,
-                                         &vrf_id_reference_count_),
+                                         vrf_id_reference_count_),
               StatusIs(absl::StatusCode::kInternal));
 }
 
@@ -292,12 +292,12 @@ TEST_F(VrfEntryTranslationTest, DuplicateDeletes) {
 
   // First delete call will only update the reference count.
   EXPECT_OK(DecrementVrfReferenceCount(mock_vrf_table_, table_entry,
-                                       &vrf_id_reference_count_));
+                                       vrf_id_reference_count_));
   EXPECT_EQ(vrf_id_reference_count_["vrf-1"], 1);
 
   // Second delete call will update the reference count and the DB.
   EXPECT_OK(DecrementVrfReferenceCount(mock_vrf_table_, table_entry,
-                                       &vrf_id_reference_count_));
+                                       vrf_id_reference_count_));
   EXPECT_EQ(vrf_id_reference_count_["vrf-1"], 0);
 
   EXPECT_CALL(mock_vrf_notifier_, WaitForNotificationAndPop)
@@ -309,7 +309,7 @@ TEST_F(VrfEntryTranslationTest, DuplicateDeletes) {
 
   EXPECT_OK(PruneVrfReferences(mock_vrf_table_, mock_vrf_notifier_,
                                mock_app_db_client_, mock_state_db_client_,
-                               &vrf_id_reference_count_));
+                               vrf_id_reference_count_));
 }
 
 TEST_F(VrfEntryTranslationTest, ModifyIgnoresRequestWithoutVrfId) {
@@ -319,10 +319,10 @@ TEST_F(VrfEntryTranslationTest, ModifyIgnoresRequestWithoutVrfId) {
   EXPECT_CALL(mock_vrf_table_, del(_)).Times(0);
   EXPECT_CALL(mock_vrf_table_, set(_)).Times(0);
 
-  EXPECT_OK(ModifyVrfEntryAndUpdateState(
-      mock_vrf_table_, mock_vrf_notifier_, mock_app_db_client_,
-      mock_state_db_client_, app_db_values, table_entry,
-      &vrf_id_reference_count_));
+  EXPECT_OK(ModifyVrfEntryAndUpdateState(mock_vrf_table_, mock_vrf_notifier_,
+                                         mock_app_db_client_,
+                                         mock_state_db_client_, app_db_values,
+                                         table_entry, vrf_id_reference_count_));
   EXPECT_TRUE(vrf_id_reference_count_.empty());
 }
 
@@ -343,10 +343,10 @@ TEST_F(VrfEntryTranslationTest, ModifyDoesNotChangeVrfId) {
 
   EXPECT_CALL(mock_vrf_table_, del(_)).Times(0);
   EXPECT_CALL(mock_vrf_table_, set(_)).Times(0);
-  EXPECT_OK(ModifyVrfEntryAndUpdateState(
-      mock_vrf_table_, mock_vrf_notifier_, mock_app_db_client_,
-      mock_state_db_client_, app_db_values, table_entry,
-      &vrf_id_reference_count_));
+  EXPECT_OK(ModifyVrfEntryAndUpdateState(mock_vrf_table_, mock_vrf_notifier_,
+                                         mock_app_db_client_,
+                                         mock_state_db_client_, app_db_values,
+                                         table_entry, vrf_id_reference_count_));
 }
 
 TEST_F(VrfEntryTranslationTest, ModifyChangesVrfId) {
@@ -378,15 +378,15 @@ TEST_F(VrfEntryTranslationTest, ModifyChangesVrfId) {
                           {swss::FieldValueTuple("err_str", "Ok")})),
                       Return(true)));
 
-  EXPECT_OK(ModifyVrfEntryAndUpdateState(
-      mock_vrf_table_, mock_vrf_notifier_, mock_app_db_client_,
-      mock_state_db_client_, app_db_values, table_entry,
-      &vrf_id_reference_count_));
+  EXPECT_OK(ModifyVrfEntryAndUpdateState(mock_vrf_table_, mock_vrf_notifier_,
+                                         mock_app_db_client_,
+                                         mock_state_db_client_, app_db_values,
+                                         table_entry, vrf_id_reference_count_));
 
   EXPECT_CALL(mock_vrf_table_, del(Eq("vrf-2"), _, _)).Times(1);
   EXPECT_OK(PruneVrfReferences(mock_vrf_table_, mock_vrf_notifier_,
                                mock_app_db_client_, mock_state_db_client_,
-                               &vrf_id_reference_count_));
+                               vrf_id_reference_count_));
 }
 
 TEST_F(VrfEntryTranslationTest, ModifyChangesVrfIdFailsResp) {
@@ -424,7 +424,7 @@ TEST_F(VrfEntryTranslationTest, ModifyChangesVrfIdFailsResp) {
   EXPECT_THAT(ModifyVrfEntryAndUpdateState(
                   mock_vrf_table_, mock_vrf_notifier_, mock_app_db_client_,
                   mock_state_db_client_, app_db_values, table_entry,
-                  &vrf_id_reference_count_),
+                  vrf_id_reference_count_),
               StatusIs(absl::StatusCode::kInternal, HasSubstr("my error")));
 
   // Original vrf-2 should not get deleted.
@@ -432,7 +432,7 @@ TEST_F(VrfEntryTranslationTest, ModifyChangesVrfIdFailsResp) {
 
   EXPECT_OK(PruneVrfReferences(mock_vrf_table_, mock_vrf_notifier_,
                                mock_app_db_client_, mock_state_db_client_,
-                               &vrf_id_reference_count_));
+                               vrf_id_reference_count_));
   // Original vrf-2 reference count should still be 1.
   EXPECT_EQ(vrf_id_reference_count_["vrf-2"], 1);
 }
