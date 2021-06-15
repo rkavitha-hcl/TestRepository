@@ -83,6 +83,7 @@ cc_test(
         "//p4_pdpi:entity_management",
         "//p4rt_app/tests/lib:app_db_entry_builder",
         "//p4rt_app/tests/lib:p4runtime_grpc_service",
+        "//p4rt_app/tests/lib:p4runtime_request_helpers",
         "//sai_p4/instantiations/google:sai_p4info_cc",
         "@com_google_googletest//:gtest_main",
     ],

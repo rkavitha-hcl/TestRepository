@@ -65,24 +65,21 @@ class AclTableTest : public testing::Test {
 
 TEST_F(AclTableTest, SetVrfFlowCreatesVrfTableEntry) {
   // Send the P4 write request to set a VRF ID.
-  p4::v1::WriteRequest request;
-  ASSERT_OK(gutil::ReadProtoFromString(
-      R"pb(updates {
-             type: INSERT
-             entity {
-               table_entry {
-                 table_id: 33554689
-                 priority: 2000
-                 action {
-                   action {
-                     action_id: 16777472
-                     params { param_id: 1 value: "20" }
-                   }
-                 }
-               }
-             }
-           })pb",
-      &request));
+  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 acl_lookup_table_entry {
+                                   match {}
+                                   priority: 2000
+                                   action { set_vrf { vrf_id: "20" } }
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
   EXPECT_OK(
       pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
 
@@ -102,39 +99,31 @@ TEST_F(AclTableTest, SetVrfFlowCreatesVrfTableEntry) {
 
 TEST_F(AclTableTest, VrfTableEntriesPersistsWhileInUse) {
   // Add two ACL flows with different priorities, but use the same VRF ID.
-  p4::v1::WriteRequest insert_request;
-  ASSERT_OK(gutil::ReadProtoFromString(
-      R"pb(updates {
-             type: INSERT
-             entity {
-               table_entry {
-                 table_id: 33554689
-                 priority: 2000
-                 action {
-                   action {
-                     action_id: 16777472
-                     params { param_id: 1 value: "20" }
-                   }
-                 }
-               }
-             }
-           }
-           updates {
-             type: INSERT
-             entity {
-               table_entry {
-                 table_id: 33554689
-                 priority: 2001
-                 action {
-                   action {
-                     action_id: 16777472
-                     params { param_id: 1 value: "20" }
-                   }
-                 }
-               }
-             }
-           })pb",
-      &insert_request));
+  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest insert_request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 acl_lookup_table_entry {
+                                   match {}
+                                   priority: 2000
+                                   action { set_vrf { vrf_id: "20" } }
+                                 }
+                               }
+                             }
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 acl_lookup_table_entry {
+                                   match {}
+                                   priority: 2001
+                                   action { set_vrf { vrf_id: "20" } }
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
 
   // Insert both flows and verify the VRF ID exists.
   EXPECT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
@@ -163,53 +152,41 @@ TEST_F(AclTableTest, VrfTableEntriesPersistsWhileInUse) {
 }
 
 TEST_F(AclTableTest, VrfTableEntryDeleteWithWrongValues) {
-  p4::v1::WriteRequest insert_request;
-  ASSERT_OK(gutil::ReadProtoFromString(
-      R"pb(updates {
-             type: INSERT
-             entity {
-               table_entry {
-                 table_id: 33554689
-                 priority: 2000
-                 action {
-                   action {
-                     action_id: 16777472
-                     params { param_id: 1 value: "20" }
-                   }
-                 }
-               }
-             }
-           })pb",
-      &insert_request));
+  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 acl_lookup_table_entry {
+                                   match {}
+                                   priority: 2000
+                                   action { set_vrf { vrf_id: "20" } }
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
 
-  EXPECT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
-                                                   insert_request));
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
   EXPECT_OK(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"))
       << "VRF ID was never created.";
 
   // Delete request using an incorrect action param (vrf 25 instead of 20).
-  p4::v1::WriteRequest delete_request;
-  ASSERT_OK(gutil::ReadProtoFromString(
-      R"pb(updates {
-             type: DELETE
-             entity {
-               table_entry {
-                 table_id: 33554689
-                 priority: 2000
-                 action {
-                   action {
-                     action_id: 16777472
-                     params { param_id: 1 value: "25" }
-                   }
-                 }
-               }
-             }
-           })pb",
-      &delete_request));
-  EXPECT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
-                                                   delete_request));
-  // Expect the correct APP_DB entry and its corresponding action param to be
-  // cleared.
+  request.mutable_updates(0)->set_type(p4::v1::Update::DELETE);
+  *request.mutable_updates(0)
+       ->mutable_entity()
+       ->mutable_table_entry()
+       ->mutable_action()
+       ->mutable_action()
+       ->mutable_params(0)
+       ->mutable_value() = "25";
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
+
+  // Expect the correct AppDb entry and its corresponding action param to be
+  // cleared since delete only looks at the AppDB key.
   EXPECT_THAT(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"),
               StatusIs(absl::StatusCode::kNotFound));
 }

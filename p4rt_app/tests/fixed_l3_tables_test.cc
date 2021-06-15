@@ -19,6 +19,7 @@
 #include "p4_pdpi/entity_management.h"
 #include "p4rt_app/tests/lib/app_db_entry_builder.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
+#include "p4rt_app/tests/lib/p4runtime_request_helpers.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 
 namespace p4rt_app {
@@ -52,37 +53,39 @@ class FixedL3TableTest : public testing::Test {
     ASSERT_OK(pdpi::SetForwardingPipelineConfig(
         p4rt_session_.get(),
         p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-        sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+        p4_info_));
   }
 
   test_lib::P4RuntimeGrpcService p4rt_service_;
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
+
+  const p4::config::v1::P4Info p4_info_ =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+  const pdpi::IrP4Info ir_p4_info_ =
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
 };
 
 TEST_F(FixedL3TableTest, SupportRouterInterfaceTableFlows) {
   // P4 write request.
-  p4::v1::WriteRequest request;
-  ASSERT_OK(gutil::ReadProtoFromString(
-      R"pb(updates {
-             type: INSERT
-             entity {
-               table_entry {
-                 table_id: 33554497
-                 match {
-                   field_id: 1
-                   exact { value: "16" }
-                 }
-                 action {
-                   action {
-                     action_id: 16777218
-                     params { param_id: 1 value: "2" }
-                     params { param_id: 2 value: "\002\003\004\005\006" }
-                   }
-                 }
-               }
-             }
-           })pb",
-      &request));
+  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 router_interface_table_entry {
+                                   match { router_interface_id: "16" }
+                                   action {
+                                     set_port_and_src_mac {
+                                       port: "2"
+                                       src_mac: "00:02:03:04:05:06"
+                                     }
+                                   }
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
 
   // Expected P4RT AppDb entry.
   auto expected_entry = test_lib::AppDbEntryBuilder{}
@@ -109,54 +112,26 @@ TEST_F(FixedL3TableTest, SupportRouterInterfaceTableFlows) {
               EqualsProto(request.updates(0).entity()));
 }
 
-TEST_F(FixedL3TableTest, SupportNeighborAndNexthopTableFlows) {
+TEST_F(FixedL3TableTest, SupportNeighborTableFlows) {
   // P4 write request.
-  p4::v1::WriteRequest request;
-  ASSERT_OK(gutil::ReadProtoFromString(
-      R"pb(# ----- neighbor entry -----
-           updates {
-             type: INSERT
-             entity {
-               table_entry {
-                 table_id: 33554496
-                 match {
-                   field_id: 1
-                   exact { value: "1" }
-                 }
-                 match {
-                   field_id: 2
-                   exact { value: "fe80::021a:11ff:fe17:5f80" }
-                 }
-                 action {
-                   action {
-                     action_id: 16777217
-                     params { param_id: 1 value: "\000\032\021\027_\200" }
-                   }
-                 }
-               }
-             }
-           }
-           # ----- nexthop entry -----
-           updates {
-             type: INSERT
-             entity {
-               table_entry {
-                 table_id: 33554498
-                 match {
-                   field_id: 1
-                   exact { value: "8" }
-                 }
-                 action {
-                   action {
-                     action_id: 16777219
-                     params { param_id: 1 value: "8" }
-                     params { param_id: 2 value: "fe80::021a:11ff:fe17:5f80" }
-                   }
-                 }
-               }
-             }
-           })pb",
-      &request));
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::WriteRequest request,
+      test_lib::PdWriteRequestToPi(
+          R"pb(
+            updates {
+              type: INSERT
+              table_entry {
+                neighbor_table_entry {
+                  match {
+                    neighbor_id: "fe80::021a:11ff:fe17:5f80"
+                    router_interface_id: "1"
+                  }
+                  action { set_dst_mac { dst_mac: "00:1a:11:17:5f:80" } }
+                }
+              }
+            }
+          )pb",
+          ir_p4_info_));
 
   // Expected P4RT AppDb entries.
   auto neighbor_entry =
@@ -166,6 +141,37 @@ TEST_F(FixedL3TableTest, SupportNeighborAndNexthopTableFlows) {
           .AddMatchField("router_interface_id", "1")
           .SetAction("set_dst_mac")
           .AddActionParam("dst_mac", "00:1a:11:17:5f:80");
+
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_THAT(
+      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(neighbor_entry.GetKey()),
+      IsOkAndHolds(UnorderedElementsAreArray(neighbor_entry.GetValueMap())));
+}
+
+TEST_F(FixedL3TableTest, SupportNexthopTableFlows) {
+  // P4 write request.
+  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 nexthop_table_entry {
+                                   match { nexthop_id: "8" }
+                                   action {
+                                     set_nexthop {
+                                       router_interface_id: "8"
+                                       neighbor_id: "fe80::021a:11ff:fe17:5f80"
+                                     }
+                                   }
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
+
+  // Expected P4RT AppDb entries.
   auto nexthop_entry =
       test_lib::AppDbEntryBuilder{}
           .SetTableName("FIXED_NEXTHOP_TABLE")
@@ -177,40 +183,30 @@ TEST_F(FixedL3TableTest, SupportNeighborAndNexthopTableFlows) {
   EXPECT_OK(
       pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
   EXPECT_THAT(
-      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(neighbor_entry.GetKey()),
-      IsOkAndHolds(UnorderedElementsAreArray(neighbor_entry.GetValueMap())));
-  EXPECT_THAT(
       p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(nexthop_entry.GetKey()),
       IsOkAndHolds(UnorderedElementsAreArray(nexthop_entry.GetValueMap())));
 }
 
 TEST_F(FixedL3TableTest, SupportIpv4TableFlow) {
   // P4 write request.
-  p4::v1::WriteRequest request;
-  ASSERT_OK(gutil::ReadProtoFromString(
-      R"pb(updates {
-             type: INSERT
-             entity {
-               table_entry {
-                 table_id: 33554500
-                 match {
-                   field_id: 1
-                   exact { value: "50" }
-                 }
-                 match {
-                   field_id: 2
-                   lpm { value: "\nQ\010\000" prefix_len: 23 }
-                 }
-                 action {
-                   action {
-                     action_id: 16777221
-                     params { param_id: 1 value: "8" }
-                   }
-                 }
-               }
-             }
-           })pb",
-      &request));
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::WriteRequest request,
+      test_lib::PdWriteRequestToPi(
+          R"pb(
+            updates {
+              type: INSERT
+              table_entry {
+                ipv4_table_entry {
+                  match {
+                    vrf_id: "50"
+                    ipv4_dst { value: "10.81.8.0" prefix_length: 23 }
+                  }
+                  action { set_nexthop_id { nexthop_id: "8" } }
+                }
+              }
+            }
+          )pb",
+          ir_p4_info_));
 
   // Expected P4RT AppDb entry.
   auto expected_entry = test_lib::AppDbEntryBuilder{}
@@ -239,34 +235,24 @@ TEST_F(FixedL3TableTest, SupportIpv4TableFlow) {
 
 TEST_F(FixedL3TableTest, SupportIpv6TableFlow) {
   // P4 write request.
-  p4::v1::WriteRequest request;
-  ASSERT_OK(gutil::ReadProtoFromString(
-      R"pb(updates {
-             type: INSERT
-             entity {
-               table_entry {
-                 table_id: 33554501
-                 match {
-                   field_id: 1
-                   exact { value: "80" }
-                 }
-                 match {
-                   field_id: 2
-                   lpm {
-                     value: " \002\n\027\005\006\301\024\000\000\000\000\000\000\000\000"
-                     prefix_len: 64
-                   }
-                 }
-                 action {
-                   action {
-                     action_id: 16777221
-                     params { param_id: 1 value: "20" }
-                   }
-                 }
-               }
-             }
-           })pb",
-      &request));
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::WriteRequest request,
+      test_lib::PdWriteRequestToPi(
+          R"pb(
+            updates {
+              type: INSERT
+              table_entry {
+                ipv6_table_entry {
+                  match {
+                    vrf_id: "80"
+                    ipv6_dst { value: "2002:a17:506:c114::" prefix_length: 64 }
+                  }
+                  action { set_nexthop_id { nexthop_id: "20" } }
+                }
+              }
+            }
+          )pb",
+          ir_p4_info_));
 
   // Expected P4RT AppDb entry.
   auto expected_entry = test_lib::AppDbEntryBuilder{}
@@ -285,34 +271,24 @@ TEST_F(FixedL3TableTest, SupportIpv6TableFlow) {
 
 TEST_F(FixedL3TableTest, TableEntryInsertReadAndRemove) {
   // P4 write request.
-  p4::v1::WriteRequest write_request;
-  ASSERT_OK(gutil::ReadProtoFromString(
-      R"pb(updates {
-             type: INSERT
-             entity {
-               table_entry {
-                 table_id: 33554501
-                 match {
-                   field_id: 1
-                   exact { value: "80" }
-                 }
-                 match {
-                   field_id: 2
-                   lpm {
-                     value: " \002\n\027\005\006\301\024\000\000\000\000\000\000\000\000"
-                     prefix_len: 64
-                   }
-                 }
-                 action {
-                   action {
-                     action_id: 16777221
-                     params { param_id: 1 value: "20" }
-                   }
-                 }
-               }
-             }
-           })pb",
-      &write_request));
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::WriteRequest write_request,
+      test_lib::PdWriteRequestToPi(
+          R"pb(
+            updates {
+              type: INSERT
+              table_entry {
+                ipv6_table_entry {
+                  match {
+                    vrf_id: "80"
+                    ipv6_dst { value: "2002:a17:506:c114::" prefix_length: 64 }
+                  }
+                  action { set_nexthop_id { nexthop_id: "20" } }
+                }
+              }
+            }
+          )pb",
+          ir_p4_info_));
 
   // Expected P4RT AppDb entry.
   auto expected_entry = test_lib::AppDbEntryBuilder{}
@@ -359,34 +335,24 @@ TEST_F(FixedL3TableTest, TableEntryInsertReadAndRemove) {
 
 TEST_F(FixedL3TableTest, TableEntryModify) {
   // P4 write request.
-  p4::v1::WriteRequest write_request;
-  ASSERT_OK(gutil::ReadProtoFromString(
-      R"pb(updates {
-             type: INSERT
-             entity {
-               table_entry {
-                 table_id: 33554501
-                 match {
-                   field_id: 1
-                   exact { value: "80" }
-                 }
-                 match {
-                   field_id: 2
-                   lpm {
-                     value: " \002\n\027\005\006\301\024\000\000\000\000\000\000\000\000"
-                     prefix_len: 64
-                   }
-                 }
-                 action {
-                   action {
-                     action_id: 16777221
-                     params { param_id: 1 value: "20" }
-                   }
-                 }
-               }
-             }
-           })pb",
-      &write_request));
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::WriteRequest write_request,
+      test_lib::PdWriteRequestToPi(
+          R"pb(
+            updates {
+              type: INSERT
+              table_entry {
+                ipv6_table_entry {
+                  match {
+                    vrf_id: "80"
+                    ipv6_dst { value: "2002:a17:506:c114::" prefix_length: 64 }
+                  }
+                  action { set_nexthop_id { nexthop_id: "20" } }
+                }
+              }
+            }
+          )pb",
+          ir_p4_info_));
 
   // Expected P4RT AppDb entry.
   auto expected_entry = test_lib::AppDbEntryBuilder{}
@@ -426,34 +392,24 @@ TEST_F(FixedL3TableTest, TableEntryModify) {
 
 TEST_F(FixedL3TableTest, DuplicateTableEntryInsertFails) {
   // P4 write request.
-  p4::v1::WriteRequest write_request;
-  ASSERT_OK(gutil::ReadProtoFromString(
-      R"pb(updates {
-             type: INSERT
-             entity {
-               table_entry {
-                 table_id: 33554501
-                 match {
-                   field_id: 1
-                   exact { value: "80" }
-                 }
-                 match {
-                   field_id: 2
-                   lpm {
-                     value: " \002\n\027\005\006\301\024\000\000\000\000\000\000\000\000"
-                     prefix_len: 64
-                   }
-                 }
-                 action {
-                   action {
-                     action_id: 16777221
-                     params { param_id: 1 value: "20" }
-                   }
-                 }
-               }
-             }
-           })pb",
-      &write_request));
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::WriteRequest write_request,
+      test_lib::PdWriteRequestToPi(
+          R"pb(
+            updates {
+              type: INSERT
+              table_entry {
+                ipv6_table_entry {
+                  match {
+                    vrf_id: "80"
+                    ipv6_dst { value: "2002:a17:506:c114::" prefix_length: 64 }
+                  }
+                  action { set_nexthop_id { nexthop_id: "20" } }
+                }
+              }
+            }
+          )pb",
+          ir_p4_info_));
 
   // The first insert is expected to pass since the entry does not exist.
   EXPECT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
@@ -468,64 +424,50 @@ TEST_F(FixedL3TableTest, DuplicateTableEntryInsertFails) {
 
 TEST_F(FixedL3TableTest, TableEntryModifyFailsIfEntryDoesNotExist) {
   // P4 write request.
-  p4::v1::WriteRequest write_request;
-  ASSERT_OK(gutil::ReadProtoFromString(
-      R"pb(updates {
-             type: MODIFY
-             entity {
-               table_entry {
-                 table_id: 33554501
-                 match {
-                   field_id: 1
-                   exact { value: "80" }
-                 }
-                 match {
-                   field_id: 2
-                   lpm {
-                     value: " \002\n\027\005\006\301\024\000\000\000\000\000\000\000\000"
-                     prefix_len: 64
-                   }
-                 }
-                 action {
-                   action {
-                     action_id: 16777221
-                     params { param_id: 1 value: "20" }
-                   }
-                 }
-               }
-             }
-           })pb",
-      &write_request));
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::WriteRequest write_request,
+      test_lib::PdWriteRequestToPi(
+          R"pb(
+            updates {
+              type: MODIFY
+              table_entry {
+                ipv6_table_entry {
+                  match {
+                    vrf_id: "80"
+                    ipv6_dst { value: "2002:a17:506:c114::" prefix_length: 64 }
+                  }
+                  action { set_nexthop_id { nexthop_id: "20" } }
+                }
+              }
+            }
+          )pb",
+          ir_p4_info_));
   EXPECT_THAT(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
                                                      write_request),
               StatusIs(absl::StatusCode::kUnknown, HasSubstr("NOT_FOUND")));
 }
 
 TEST_F(FixedL3TableTest, InvalidPortIdFails) {
-  // P4 write request for the router interface table. Action parameter 1 is the
-  // port, and we give it an unassigned value (i.e. 999).
-  p4::v1::WriteRequest request;
-  ASSERT_OK(gutil::ReadProtoFromString(
-      R"pb(updates {
-             type: INSERT
-             entity {
-               table_entry {
-                 table_id: 33554497
-                 match {
-                   field_id: 1
-                   exact { value: "16" }
-                 }
-                 action {
-                   action {
-                     action_id: 16777218
-                     params { param_id: 1 value: "999" }
-                     params { param_id: 2 value: "\002\003\004\005\006" }
-                   }
-                 }
-               }
-             }
-           })pb",
-      &request));
+  // P4 write request with an unassigned port value (i.e. 999).
+  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 router_interface_table_entry {
+                                   match { router_interface_id: "16" }
+                                   action {
+                                     set_port_and_src_mac {
+                                       port: "999"
+                                       src_mac: "00:02:03:04:05:06"
+                                     }
+                                   }
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
 
   EXPECT_THAT(
       pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
@@ -535,34 +477,24 @@ TEST_F(FixedL3TableTest, InvalidPortIdFails) {
 // TODO: remove special handling when ONF no longer relies on it.
 TEST_F(FixedL3TableTest, SupportDefaultVrf) {
   // P4 write request.
-  p4::v1::WriteRequest request;
-  ASSERT_OK(gutil::ReadProtoFromString(
-      R"pb(updates {
-             type: INSERT
-             entity {
-               table_entry {
-                 table_id: 33554501
-                 match {
-                   field_id: 1
-                   exact { value: "vrf-0" }
-                 }
-                 match {
-                   field_id: 2
-                   lpm {
-                     value: " \002\n\027\005\006\301\024\000\000\000\000\000\000\000\000"
-                     prefix_len: 64
-                   }
-                 }
-                 action {
-                   action {
-                     action_id: 16777221
-                     params { param_id: 1 value: "20" }
-                   }
-                 }
-               }
-             }
-           })pb",
-      &request));
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::WriteRequest request,
+      test_lib::PdWriteRequestToPi(
+          R"pb(
+            updates {
+              type: INSERT
+              table_entry {
+                ipv6_table_entry {
+                  match {
+                    vrf_id: "vrf-0"
+                    ipv6_dst { value: "2002:a17:506:c114::" prefix_length: 64 }
+                  }
+                  action { set_nexthop_id { nexthop_id: "20" } }
+                }
+              }
+            }
+          )pb",
+          ir_p4_info_));
 
   // Expected P4RT AppDb entry.
   auto expected_entry = test_lib::AppDbEntryBuilder{}
