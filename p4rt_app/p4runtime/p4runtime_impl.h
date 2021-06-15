@@ -27,6 +27,7 @@
 #include "grpcpp/grpcpp.h"
 #include "grpcpp/server_context.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
+#include "p4_constraints/backend/constraint_info.h"
 #include "p4_pdpi/ir.h"
 #include "p4rt_app/p4runtime/p4runtime_tweaks.h"
 #include "p4rt_app/p4runtime/sdn_controller_manager.h"
@@ -212,6 +213,10 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
 
   // The P4Info file in IR.
   absl::optional<pdpi::IrP4Info> ir_p4info_ ABSL_GUARDED_BY(server_state_lock_);
+
+  // Constraints set by the P4Info that need to be checked when receiving a new
+  // write request.
+  absl::optional<p4_constraints::ConstraintInfo> p4_constraint_info_;
 
   // The current Forwarding Pipeline Config.
   absl::optional<p4::v1::ForwardingPipelineConfig> forwarding_pipeline_config_

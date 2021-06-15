@@ -33,6 +33,8 @@
 #include "gutil/collections.h"
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
+#include "p4_constraints/backend/constraint_info.h"
+#include "p4_constraints/backend/interpreter.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/utils/annotation_parser.h"
 #include "p4_pdpi/utils/ir.h"
@@ -219,6 +221,7 @@ absl::StatusOr<pdpi::IrTableEntry> DoPiTableEntryToIr(
 
 sonic::AppDbUpdates PiTableEntryUpdatesToIr(
     const p4::v1::WriteRequest& request, const pdpi::IrP4Info& p4_info,
+    const p4_constraints::ConstraintInfo& constraint_info,
     const boost::bimap<std::string, std::string>& port_translation_map,
     pdpi::IrWriteResponse* response, P4RuntimeTweaks* tweak) {
   sonic::AppDbUpdates ir_updates;
@@ -226,6 +229,29 @@ sonic::AppDbUpdates PiTableEntryUpdatesToIr(
     // An RPC response should be created for every updater.
     auto entry_status = response->add_statuses();
     ++ir_updates.total_rpc_updates;
+
+    // If the constraints are not met then we should just report an error (i.e.
+    // do not try to handle the entry in lower layers).
+    absl::StatusOr<bool> meets_constraint =
+        p4_constraints::EntryMeetsConstraint(update.entity().table_entry(),
+                                             constraint_info);
+    if (!meets_constraint.ok()) {
+      // A status failure implies that the TableEntry was not formatted
+      // correctly. So we could not check the constraints.
+      LOG(WARNING) << "Could not verify P4 constraint: "
+                   << update.entity().table_entry().DebugString();
+      *entry_status = GetIrUpdateStatus(meets_constraint.status());
+      continue;
+    }
+    if (*meets_constraint == false) {
+      // A false result implies the constraints were not met.
+      LOG(WARNING) << "Entry does not meet P4 constraint: "
+                   << update.entity().table_entry().DebugString();
+      *entry_status = GetIrUpdateStatus(
+          gutil::InvalidArgumentErrorBuilder()
+          << "Does not meet constraints required for the table entry.");
+      continue;
+    }
 
     // If we cannot translate it then we should just report an error (i.e. do
     // not try to handle it in lower layers). When doing a DELETE, translate
@@ -391,8 +417,9 @@ grpc::Status P4RuntimeImpl::Write(grpc::ServerContext* context,
 
     pdpi::IrWriteRpcStatus rpc_status;
     pdpi::IrWriteResponse* rpc_response = rpc_status.mutable_rpc_response();
-    sonic::AppDbUpdates app_db_updates = PiTableEntryUpdatesToIr(
-        *request, *ir_p4info_, port_translation_map_, rpc_response, &tweak_);
+    sonic::AppDbUpdates app_db_updates =
+        PiTableEntryUpdatesToIr(*request, *ir_p4info_, *p4_constraint_info_,
+                                port_translation_map_, rpc_response, &tweak_);
 
     // Any AppDb update failures should be appended to the `rpc_response`. If
     // UpdateAppDb fails we should go critical.
@@ -613,6 +640,19 @@ grpc::Status P4RuntimeImpl::SetForwardingPipelineConfig(
           << diff_report);
     }
 
+    // Collect any P4RT constraints from the P4Info.
+    auto constraint_info =
+        p4_constraints::P4ToConstraintInfo(request->config().p4info());
+    if (!constraint_info.ok()) {
+      LOG(WARNING) << "Could not get constraint info from P4Info: "
+                   << constraint_info.status();
+      return gutil::AbslStatusToGrpcStatus(
+          absl::Status(constraint_info.status().code(),
+                       absl::StrCat("[P4 Constraint] ",
+                                    constraint_info.status().message())));
+    }
+    p4_constraint_info_ = *std::move(constraint_info);
+
     auto ir_p4info_result = pdpi::CreateIrP4Info(request->config().p4info());
     if (!ir_p4info_result.ok())
       return gutil::AbslStatusToGrpcStatus(ir_p4info_result.status());
@@ -631,6 +671,7 @@ grpc::Status P4RuntimeImpl::SetForwardingPipelineConfig(
     }
     forwarding_pipeline_config_ = request->config();
     LOG(INFO) << "SetForwardingPipelineConfig completed successfully.";
+
     // Collect any port ID to port name translations;
     auto port_map_result = sonic::GetPortIdTranslationMap(*app_db_client_);
     if (!port_map_result.ok()) {

@@ -33,6 +33,7 @@ namespace {
 using ::gutil::EqualsProto;
 using ::gutil::IsOkAndHolds;
 using ::gutil::StatusIs;
+using ::testing::HasSubstr;
 using ::testing::UnorderedElementsAreArray;
 
 class AclTableTest : public testing::Test {
@@ -241,6 +242,30 @@ TEST_F(AclTableTest, ReadMeters) {
   EXPECT_OK(
       pdpi::SetMetadataAndSendPiReadRequest(p4rt_session_.get(), read_request))
       << "Failing read request: " << read_request.ShortDebugString();
+}
+
+TEST_F(AclTableTest, CannotInsertEntryThatFailsAConstraintCheck) {
+  // The ACL lookup table requires the is_ipv4 field to be set if we are
+  // matching on a dst_ip.
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::WriteRequest request,
+      test_lib::PdWriteRequestToPi(
+          R"pb(
+            updates {
+              type: INSERT
+              table_entry {
+                acl_lookup_table_entry {
+                  match { dst_ip { value: "10.0.0.1" mask: "255.255.255.255" } }
+                  priority: 2000
+                  action { set_vrf { vrf_id: "20" } }
+                }
+              }
+            }
+          )pb",
+          ir_p4_info_));
+  EXPECT_THAT(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("#1: INVALID_ARGUMENT")));
 }
 
 }  // namespace

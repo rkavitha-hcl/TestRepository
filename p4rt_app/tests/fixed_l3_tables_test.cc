@@ -521,5 +521,33 @@ TEST_F(FixedL3TableTest, SupportDefaultVrf) {
               EqualsProto(request.updates(0).entity()));
 }
 
+TEST_F(FixedL3TableTest, IncorrectlyFormatedRequestFailsConstraintCheck) {
+  // P4 write request for the "router interface table", but its match field is
+  // missing a value making it invalid.
+  p4::v1::WriteRequest request;
+  ASSERT_OK(gutil::ReadProtoFromString(
+      R"pb(updates {
+             type: INSERT
+             entity {
+               table_entry {
+                 table_id: 33554497
+                 match { field_id: 1 }
+                 action {
+                   action {
+                     action_id: 16777218
+                     params { param_id: 1 value: "2" }
+                     params { param_id: 2 value: "\002\003\004\005\006" }
+                   }
+                 }
+               }
+             }
+           })pb",
+      &request));
+
+  EXPECT_THAT(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("#1: INVALID_ARGUMENT")));
+}
+
 }  // namespace
 }  // namespace p4rt_app
