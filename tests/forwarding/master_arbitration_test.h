@@ -2,6 +2,7 @@
 #define GOOGLE_TESTS_FORWARDING_MASTER_ARBITRATION_TEST_H_
 
 #include "absl/numeric/int128.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/substitute.h"
@@ -11,11 +12,15 @@
 #include "google/rpc/code.pb.h"
 #include "grpcpp/grpcpp.h"
 #include "gtest/gtest.h"
+#include "gutil/status.h"
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/connection_management.h"
+#include "p4_pdpi/entity_management.h"
+#include "sai_p4/instantiations/google/instantiations.h"
+#include "sai_p4/instantiations/google/sai_p4info.h"
 #include "tests/forwarding/p4_blackbox_fixture.h"
 #include "thinkit/test_environment.h"
 
@@ -41,15 +46,27 @@ class MasterArbitrationTestFixture : public thinkit::MirrorTestbedFixture {
     upper_election_id_ = absl::ToUnixSeconds(absl::Now());
   }
 
-  void ClearSwitchState(pdpi::P4RuntimeSession* p4rt_session) {
+  // Puts the switch into a known state:
+  //  * Forwarding pipeline is configured
+  //  * No P4RT entries are programmed.
+  absl::Status NormalizeSwitchState(pdpi::P4RuntimeSession* p4rt_session) {
+    // Set the forwaring pipeline.
+    RETURN_IF_ERROR(pdpi::SetForwardingPipelineConfig(
+        p4rt_session,
+        p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+        sai::GetP4Info(sai::Instantiation::kMiddleblock)));
     // Clear entries here in case the previous test did not (e.g. because it
     // crashed).
-    ASSERT_OK(pdpi::ClearTableEntries(
+    RETURN_IF_ERROR(pdpi::ClearTableEntries(
         p4rt_session, sai::GetIrP4Info(sai::Instantiation::kMiddleblock)));
     // Check that switch is in a clean state.
-    ASSERT_OK_AND_ASSIGN(auto read_back_entries,
-                         pdpi::ReadPiTableEntries(p4rt_session));
-    ASSERT_EQ(read_back_entries.size(), 0);
+    ASSIGN_OR_RETURN(auto entries, pdpi::ReadPiTableEntries(p4rt_session));
+    if (!entries.empty()) {
+      return gutil::FailedPreconditionErrorBuilder()
+             << "Read back '" << entries.size()
+             << "' entries when all entries should have been cleared.";
+    }
+    return absl::OkStatus();
   }
 
   // Returns a P4Runtime stub.
