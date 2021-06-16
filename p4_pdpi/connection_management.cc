@@ -16,6 +16,7 @@
 
 #include <string>
 
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "grpcpp/channel.h"
 #include "grpcpp/create_channel.h"
@@ -125,4 +126,17 @@ std::unique_ptr<P4RuntimeSession> P4RuntimeSession::Default(
   return absl::WrapUnique(
       new P4RuntimeSession(device_id, std::move(stub), device_id, role));
 }
+
+absl::Status P4RuntimeSession::Finish() {
+  stream_channel_->WritesDone();
+
+  // WritesDone() or TryCancel() can close the stream with a CANCELLED status.
+  // Because this case is expected we treat CANCELED as OKAY.
+  grpc::Status finish = stream_channel_->Finish();
+  if (finish.error_code() == grpc::StatusCode::CANCELLED) {
+    return absl::OkStatus();
+  }
+  return gutil::GrpcStatusToAbslStatus(finish);
+}
+
 }  // namespace pdpi

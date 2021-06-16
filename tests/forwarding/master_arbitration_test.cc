@@ -128,14 +128,20 @@ TEST_P(MasterArbitrationTestFixture, ReplaceMasterAfterFailure) {
 
 TEST_P(MasterArbitrationTestFixture, FailToBecomeMasterAfterMasterDisconnect) {
   TestEnvironment().SetTestCaseID("53b4b886-c218-4c85-b212-13d32105c795");
-  { ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(1)); }
-  { ASSERT_THAT(BecomeMaster(0).status(), NotMaster()); }
+  {
+    ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(1));
+    ASSERT_OK(connection->Finish());
+  }
+  ASSERT_THAT(BecomeMaster(0).status(), NotMaster());
 }
 
 TEST_P(MasterArbitrationTestFixture, ReconnectMaster) {
   TestEnvironment().SetTestCaseID("d95a4da4-139d-4bd6-a43c-dbdefb123fcf");
-  { ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(0)); }
-  { ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(0)); }
+  {
+    ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(0));
+    ASSERT_OK(connection->Finish());
+  }
+  ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(0));
 }
 
 TEST_P(MasterArbitrationTestFixture, DoubleMaster) {
@@ -158,6 +164,7 @@ TEST_P(MasterArbitrationTestFixture, LongEvolution) {
       ASSERT_THAT(BecomeMaster(2).status(), NotMaster());
       ASSERT_THAT(BecomeMaster(3).status(), NotMaster());
       ASSERT_THAT(BecomeMaster(4).status(), NotMaster());
+      ASSERT_OK(connection5->Finish());
     }
     ASSERT_OK_AND_ASSIGN(auto connection5, BecomeMaster(5));
     ASSERT_OK_AND_ASSIGN(auto connection6, BecomeMaster(6));

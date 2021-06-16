@@ -134,6 +134,9 @@ class P4RuntimeSession {
   }
   // Cancels the RPC. It is done in a best-effort fashion.
   void TryCancel() { stream_channel_context_->TryCancel(); }
+  // Closes the RPC connection by telling the server it is done writing. Once
+  // the server finishes handling all outstanding writes it will close.
+  absl::Status Finish();
 
  private:
   P4RuntimeSession(uint32_t device_id,
