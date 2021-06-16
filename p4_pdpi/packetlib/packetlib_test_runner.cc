@@ -3,8 +3,10 @@
 #include <utility>
 #include <vector>
 
+#include "absl/status/status.h"
 #include "absl/strings/ascii.h"
 #include "absl/strings/escaping.h"
+#include "absl/strings/str_cat.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gutil/testing.h"
 #include "p4_pdpi/packetlib/packetlib.h"
@@ -24,6 +26,16 @@ constexpr char kOutputHeader[] =
 constexpr char kRoundtripHeader[] =
     "-- ROUNDTRIP ERRORS ------------------------------------------------------"
     "------\n";
+
+// Return "<status_code>: <status_message>. The ToString method for absl::Status
+// is not meant to be used directly in tests.
+const std::string StatusToStableString(const absl::Status& status) {
+  std::string status_message = absl::StatusCodeToString(status.code());
+  if (!status.ok()) {
+    absl::StrAppend(&status_message, ": ", status.message());
+  }
+  return status_message;
+}
 
 // Parses packet from bytes, and if it succeeds, re-serializes the parsed packet
 // to check that the resulting bytes match the original input.
@@ -49,7 +61,8 @@ void RunPacketParseTest(const std::string& name,
   if (packet.reasons_invalid().empty()) {
     auto byte_string_after_roundtrip = SerializePacket(packet);
     if (!byte_string_after_roundtrip.ok()) {
-      std::cout << kRoundtripHeader << byte_string_after_roundtrip.status()
+      std::cout << kRoundtripHeader
+                << StatusToStableString(byte_string_after_roundtrip.status())
                 << "\n";
     } else if (*byte_string_after_roundtrip != *byte_string) {
       std::cout << kRoundtripHeader
@@ -66,14 +79,14 @@ void RunPacketParseTest(const std::string& name,
     if (padded.ok()) {
       std::cout << (*padded ? "true" : "false") << "\n";
     } else {
-      std::cout << padded.status() << "\n";
+      std::cout << StatusToStableString(padded.status()) << "\n";
     }
     auto updated = UpdateAllComputedFields(packet);
     std::cout << "UpdateAllComputedFields(packet) = ";
     if (updated.ok()) {
       std::cout << (*updated ? "true" : "false") << "\n";
     } else {
-      std::cout << updated.status() << "\n";
+      std::cout << StatusToStableString(updated.status()) << "\n";
     }
     if ((padded.ok() && *padded) || (updated.ok() && *updated)) {
       packet.clear_reason_unsupported();
@@ -109,7 +122,7 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
         std::cout << "new " << payload_only.ShortDebugString() << std::endl;
       }
     } else {
-      std::cout << padded.status() << std::endl;
+      std::cout << StatusToStableString(padded.status()) << std::endl;
     }
 
     std::cout << std::endl << "UpdateMissingComputedFields(packet) = ";
@@ -123,13 +136,15 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
                   << std::endl;
       }
     } else {
-      std::cout << updated.status() << std::endl;
+      std::cout << StatusToStableString(updated.status()) << std::endl;
     }
   }
 
   // Try serializing (valid or invalid) packet.
   absl::StatusOr<std::string> bytes = SerializePacket(packet);
-  std::cout << std::endl << "Serialize(Packet) = " << bytes.status() << "\n\n";
+  std::cout << std::endl
+            << "Serialize(Packet) = " << StatusToStableString(bytes.status())
+            << "\n\n";
   if (!bytes.ok()) return;
 
   // Test if the packet can be parsed back.

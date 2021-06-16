@@ -95,6 +95,7 @@ cc_test(
         ":packetlib",
         "//gutil:testing",
         "//p4_pdpi/string_encodings:readable_byte_string",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",
     ],
