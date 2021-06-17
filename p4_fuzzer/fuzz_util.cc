@@ -563,6 +563,8 @@ absl::StatusOr<std::string> FuzzValue(
 
   // An ID that refers to another match field: pick any ID that already exists
   // for that match field.
+  // TODO: This appears to never generate a value, specifically
+  // because GetIdsForMatchField seems to never return anything.
   if (!references.empty()) {
     std::vector<std::string> possible_values =
         switch_state.GetIdsForMatchField(references[0]);

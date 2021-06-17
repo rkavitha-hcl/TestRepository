@@ -250,5 +250,9 @@ TEST(FuzzUtilTest, FuzzActionProfileActionSetWithinParameters) {
 // Test that FuzzActionProfileActionSet correctly handles a request for too
 // many actions with too low weight
 
+// TODO: Add a direct test for FuzzValue that either sometimes
+// generates something for non-standard match fields, or, if that is never
+// correct, makes sure it still works with that possibility removed.
+
 }  // namespace
 }  // namespace p4_fuzzer
