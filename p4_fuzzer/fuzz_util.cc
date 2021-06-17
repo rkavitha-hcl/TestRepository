@@ -39,9 +39,6 @@ constexpr int kBitsInByte = 8;
 // empirically determined to lead to big enough updates so that the test runs
 // fast, but also sometimes generates small updates, which increases coverage.
 constexpr float kAddUpdateProbability = 0.98;
-// Upper bound of the number of actions in an ActionProfileActionSet for tables
-// that support one-shot action selector programming.
-constexpr uint32_t kActionProfileActionSetMax = 32;
 // The probability of performing a mutation on a given table entry.
 constexpr float kMutateUpdateProbability = 0.1;
 // The probability of using a wildcard for a ternary or lpm match field.
@@ -96,7 +93,7 @@ inline int DivideRoundedUp(const unsigned int n, const unsigned int d) {
 absl::StatusOr<p4::v1::ActionProfileAction> FuzzActionProfileAction(
     absl::BitGen* gen, const FuzzerConfig& config,
     const SwitchState& switch_state,
-    const pdpi::IrTableDefinition& ir_table_info) {
+    const pdpi::IrTableDefinition& ir_table_info, int max_weight) {
   p4::v1::ActionProfileAction action;
 
   ASSIGN_OR_RETURN(
@@ -105,7 +102,7 @@ absl::StatusOr<p4::v1::ActionProfileAction> FuzzActionProfileAction(
           gen, config, switch_state,
           ChooseNonDefaultActionRef(gen, config, ir_table_info).action()));
 
-  action.set_weight(Uniform<int32_t>(*gen, 1, kActionProfileActionMaxWeight));
+  action.set_weight(Uniform<int32_t>(*gen, 1, max_weight));
   action.set_watch_port(FuzzPort(gen, config));
 
   return action;
@@ -724,24 +721,38 @@ absl::StatusOr<p4::v1::Action> FuzzAction(
   return action;
 }
 
+// Gets a set of actions with a skewed distribution of weights, which add up to
+// at most kActionProfileActionSetMaxWeight by repeatedly sampling a uniform
+// weight from 1 to the maximum possible weight remaining.
+// We could achieve uniform weights between 1 and
+// kActionProfileActionSetMaxWeight, which add up to
+// kActionProfileActionSetMaxWeight by using e.g. a Dirichlet Distribution via
+// Pólya's urn (see
+// https://en.wikipedia.org/wiki/Dirichlet_distribution#P%C3%B3lya's_urn).
+// However, uniform sampling gives us highly clustered weights almost all the
+// time and we prefer to generate skewed weights more often. Therefore, this
+// simpler approach, should serve us well.
 absl::StatusOr<p4::v1::ActionProfileActionSet> FuzzActionProfileActionSet(
     absl::BitGen* gen, const FuzzerConfig& config,
     const SwitchState& switch_state,
     const pdpi::IrTableDefinition& ir_table_info) {
   p4::v1::ActionProfileActionSet action_set;
 
-  auto number_of_actions =
-      Uniform<int32_t>(*gen, 0, kActionProfileActionSetMax);
+  int number_of_actions =
+      Uniform<int>(*gen, 0, kActionProfileActionSetMaxCardinality);
+  // Since each action must have at least weight 1, any given action can have at
+  // most weight kActionProfileMaxWeight - (number_of_actions - 1).
+  int max_weight = kActionProfileActionSetMaxWeight - (number_of_actions - 1);
 
   // Action sets in GPINS cannot have repeated nexthop members. We hard-code
   // this restriction here in the fuzzer.
   absl::flat_hash_set<std::string> used_nexthops;
   bool is_wcmp_table =
       ir_table_info.preamble().id() == ROUTING_WCMP_GROUP_TABLE_ID;
-  for (auto i = 0; i < number_of_actions; i++) {
-    ASSIGN_OR_RETURN(
-        auto action,
-        FuzzActionProfileAction(gen, config, switch_state, ir_table_info));
+  for (int i = 0; i < number_of_actions; i++) {
+    ASSIGN_OR_RETURN(auto action,
+                     FuzzActionProfileAction(gen, config, switch_state,
+                                             ir_table_info, max_weight));
     bool is_set_nexthop_action =
         action.action().action_id() == ROUTING_SET_NEXTHOP_ID_ACTION_ID;
     // If this nexthop has already been used, skip. This will generate fewer
@@ -752,6 +763,7 @@ absl::StatusOr<p4::v1::ActionProfileActionSet> FuzzActionProfileActionSet(
       continue;
     }
     *action_set.add_action_profile_actions() = action;
+    max_weight -= action.weight();
   }
 
   return action_set;

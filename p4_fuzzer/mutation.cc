@@ -181,7 +181,7 @@ absl::Status MutateInvalidActionSelectorWeight(BitGen* gen,
     action_profile_action->set_weight(0);
   } else {
     action_profile_action->set_weight(
-        absl::Uniform<int32_t>(*gen, -1 * kActionProfileActionMaxWeight, 0));
+        absl::Uniform<int32_t>(*gen, -1 * kActionProfileActionSetMaxWeight, 0));
   }
 
   return absl::OkStatus();

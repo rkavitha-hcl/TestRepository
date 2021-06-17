@@ -30,10 +30,13 @@
 
 namespace p4_fuzzer {
 
-// Upper bound on the weight of each ActionProfileAction in an
-// ActionProfileActionSet for tables that support one-shot action selector
-// programming.
-constexpr int32_t kActionProfileActionMaxWeight = 100;
+// Upper bound of the number of actions in an ActionProfileActionSet for tables
+// that support one-shot action selector programming.
+constexpr uint32_t kActionProfileActionSetMaxCardinality = 32;
+// Upper bound on the weight of an ActionProfileActionSet for tables that
+// support one-shot action selector programming.
+// TODO: Update to use the @max_group_size annotation.
+constexpr int32_t kActionProfileActionSetMaxWeight = 256;
 
 // A predicate over P4 values (match field or action parameter).
 using P4ValuePredicate =
