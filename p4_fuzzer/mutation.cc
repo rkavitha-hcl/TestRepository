@@ -25,44 +25,6 @@ uint32_t UniformNotFromList(BitGen* gen, const std::vector<uint32_t>& list) {
 
   return choice;
 }
-
-// Returns the list of all table IDs in the underlying P4 program.
-const std::vector<uint32_t> AllTableIds(const FuzzerConfig& config) {
-  std::vector<uint32_t> table_ids;
-
-  for (auto& [table_id, table_def] : config.info.tables_by_id()) {
-    table_ids.push_back(table_id);
-  }
-
-  return table_ids;
-}
-
-// Returns the list of all action IDs in the underlying P4 program.
-const std::vector<uint32_t> AllActionIds(const FuzzerConfig& config) {
-  std::vector<uint32_t> action_ids;
-
-  for (auto& [action_id, action_def] : config.info.actions_by_id()) {
-    action_ids.push_back(action_id);
-  }
-
-  return action_ids;
-}
-
-// Returns the list of all match field IDs in the underlying P4 program for
-// table with id table_id.
-const std::vector<uint32_t> AllMatchFieldIds(const FuzzerConfig& config,
-                                             const uint32_t table_id) {
-  std::vector<uint32_t> match_ids;
-
-  for (auto& [match_id, match_def] :
-       gutil::FindOrDie(config.info.tables_by_id(), table_id)
-           .match_fields_by_id()) {
-    match_ids.push_back(match_id);
-  }
-
-  return match_ids;
-}
-
 }  // namespace
 
 absl::Status MutateInvalidMatchFieldId(BitGen* gen, TableEntry* entry,

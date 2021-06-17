@@ -62,6 +62,17 @@ const T& UniformFromVector(absl::BitGen* gen, const std::vector<T>& vec) {
   return vec[index];
 }
 
+// Returns the list of all table IDs in the underlying P4 program.
+const std::vector<uint32_t> AllTableIds(const FuzzerConfig& config);
+
+// Returns the list of all action IDs in the underlying P4 program.
+const std::vector<uint32_t> AllActionIds(const FuzzerConfig& config);
+
+// Returns the list of all match field IDs in the underlying P4 program for
+// table with id table_id.
+const std::vector<uint32_t> AllMatchFieldIds(const FuzzerConfig& config,
+                                             const uint32_t table_id);
+
 // Takes a string `data` that represents a number in network byte
 // order (big-endian), and masks off all but the least significant `used_bits`
 // bits.
