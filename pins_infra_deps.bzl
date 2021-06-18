@@ -16,10 +16,9 @@ def pins_infra_deps():
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
             name = "com_github_grpc_grpc",
-            # Move to newer commit to avoid the use of com_github_google_re2.
-            url = "https://github.com/grpc/grpc/archive/565520443bdbda0b8ac28337a4904f3f20276305.zip",
-            strip_prefix = "grpc-565520443bdbda0b8ac28337a4904f3f20276305",
-            sha256 = "7206cc8e4511620fe70da7234bc98d6a4cd2eb226a7914f68fdbd991ffe38d34",
+            url = "https://github.com/grpc/grpc/archive/v1.38.0.zip",
+            strip_prefix = "grpc-1.38.0",
+            sha256 = "c67bdcd2ca4eb98eb22fce387abec7f5b73db2c7a86fda37e8765deed49570ac",
         )
     if not native.existing_rule("com_google_absl"):
         http_archive(
