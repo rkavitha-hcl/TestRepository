@@ -530,6 +530,8 @@ std::string FuzzNonZeroBits(absl::BitGen* gen, int bits) {
 }
 
 // Fuzzes a value, with special handling for ports and IDs.
+// TODO: This will sometimes return an empty string, which is
+// always an invalid value.
 absl::StatusOr<std::string> FuzzValue(
     absl::BitGen* gen, const FuzzerConfig& config,
     const SwitchState& switch_state,
@@ -746,6 +748,8 @@ absl::StatusOr<p4::v1::ActionProfileActionSet> FuzzActionProfileActionSet(
   // most weight kActionProfileMaxWeight - (number_of_actions - 1).
   int max_weight = kActionProfileActionSetMaxWeight - (number_of_actions - 1);
 
+  // TODO: Repeated nexthop members should be supported. Remove
+  // this workaround once the bug on the switch has been fixed.
   // Action sets in GPINS cannot have repeated nexthop members. We hard-code
   // this restriction here in the fuzzer.
   absl::flat_hash_set<std::string> used_nexthops;
