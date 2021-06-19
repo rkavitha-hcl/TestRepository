@@ -162,13 +162,8 @@ absl::Status ProcessReceiveMessage(struct nl_msg* msg, void* arg) {
           break;
         }
         case GENL_ATTR_PAYLOAD: {
-          // Strip the vlan tag from the packet.
-          // DMAC(6 bytes), SMAC(6 bytes), 802.1Q vlan tag(4 bytes), rest of
-          // packet.
-          packet = absl::StrCat(
-              std::string(static_cast<const char*>(nla_data(attr[i])), 12),
-              std::string(static_cast<const char*>(nla_data(attr[i])) + 16,
-                          static_cast<size_t>(nla_len(attr[i]) - 16)));
+          packet = std::string(static_cast<const char*>(nla_data(attr[i])),
+                               static_cast<size_t>(nla_len(attr[i])));
           break;
         }
         default: {
