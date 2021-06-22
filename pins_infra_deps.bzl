@@ -34,6 +34,13 @@ def pins_infra_deps():
             strip_prefix = "googletest-release-1.10.0",
             sha256 = "9dc9157a9a1551ec7a7e43daea9a694a0bb5fb8bec81235d8a1e6ef64c716dcb",
         )
+    if not native.existing_rule("com_google_benchmark"):
+        http_archive(
+            name = "com_google_benchmark",
+            urls = ["https://github.com/google/benchmark/archive/v1.5.4.tar.gz"],
+            strip_prefix = "benchmark-1.5.4",
+            sha256 = "e3adf8c98bb38a198822725c0fc6c0ae4711f16fbbf6aeb311d5ad11e5a081b5",
+        )
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
