@@ -105,10 +105,12 @@ absl::Status PushGnmiConfig(thinkit::Switch& chassis,
                             const std::string& gnmi_config);
 
 absl::Status CanGetAllInterfaceOverGnmi(
-    gnmi::gNMI::Stub& stub, absl::Duration timeout = absl::Seconds(60));
+    gnmi::gNMI::StubInterface& stub,
+    absl::Duration timeout = absl::Seconds(60));
 
 absl::StatusOr<gnmi::GetResponse> GetAllInterfaceOverGnmi(
-    gnmi::gNMI::Stub& stub, absl::Duration timeout = absl::Seconds(60));
+    gnmi::gNMI::StubInterface& stub,
+    absl::Duration timeout = absl::Seconds(60));
 
 // Gets the interface to oper status map.
 absl::StatusOr<absl::flat_hash_map<std::string, std::string>>
@@ -132,6 +134,10 @@ absl::StatusOr<std::vector<std::string>> GetUpInterfacesOverGnmi(
 // Gets the operational status of an interface.
 absl::StatusOr<OperStatus> GetInterfaceOperStatusOverGnmi(
     gnmi::gNMI::Stub& stub, absl::string_view if_name);
+
+// Gets the interface name to port id map.
+absl::StatusOr<absl::flat_hash_map<std::string, std::string>>
+GetAllInterfaceNameToPortId(gnmi::gNMI::StubInterface& stub);
 
 // Parses the alarms JSON array returned from a gNMI Get request to
 // "openconfig-system:system/alarms/alarm". Returns the list of alarms.
