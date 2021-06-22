@@ -91,8 +91,8 @@ void RunPacketParseTest(const std::string& name,
     if ((padded.ok() && *padded) || (updated.ok() && *updated)) {
       packet.clear_reason_unsupported();
       packet.clear_reasons_invalid();
-      std::cout << "ValidatePacket(packet) = " << ValidatePacket(packet)
-                << "\n";
+      std::cout << "ValidatePacket(packet) = "
+                << StatusToStableString(ValidatePacket(packet)) << "\n";
     }
   }
 }
@@ -108,7 +108,8 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
             << kOutputHeader;
 
   auto valid = ValidatePacket(packet);
-  std::cout << "ValidatePacket(packet) = " << valid << std::endl;
+  std::cout << "ValidatePacket(packet) = " << StatusToStableString(valid)
+            << std::endl;
 
   if (!valid.ok()) {
     std::cout << std::endl << "PadPacketToMinimumSize(packet) = ";
@@ -132,8 +133,8 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
         std::cout << "packet =" << std::endl
                   << packet.DebugString() << std::endl;
         // Try validating once more.
-        std::cout << "ValidatePacket(packet) = " << ValidatePacket(packet)
-                  << std::endl;
+        std::cout << "ValidatePacket(packet) = "
+                  << StatusToStableString(ValidatePacket(packet)) << std::endl;
       }
     } else {
       std::cout << StatusToStableString(updated.status()) << std::endl;
