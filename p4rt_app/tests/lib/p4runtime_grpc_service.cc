@@ -13,6 +13,8 @@
 // limitations under the License.
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
 
+#include <memory>
+
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "glog/logging.h"
@@ -25,6 +27,7 @@
 #include "swss/fakes/fake_db_connector.h"
 #include "swss/fakes/fake_producer_state_table.h"
 #include "swss/fakes/fake_sonic_db_table.h"
+#include "swss/fakes/fake_system_state_helper.h"
 #include "swss/notificationproducer.h"
 
 namespace p4rt_app {
@@ -97,7 +100,8 @@ P4RuntimeGrpcService::P4RuntimeGrpcService() {
       std::move(fake_notify_p4rt), std::move(fake_app_db_table_vrf),
       std::move(fake_notify_vrf), std::move(fake_app_db_table_hash),
       std::move(fake_notify_hash), std::move(fake_app_db_table_switch),
-      std::move(fake_notify_switch), std::move(fake_packetio_interface));
+      std::move(fake_notify_switch), std::move(fake_packetio_interface),
+      fake_system_state_helper_);
 
   // Component tests will use an insecure connection for the service.
   std::string server_address = absl::StrCat("localhost:", GrpcPort());
@@ -151,6 +155,10 @@ swss::FakeSonicDbTable& P4RuntimeGrpcService::GetP4rtStateDbTable() {
 
 sonic::FakePacketIoInterface& P4RuntimeGrpcService::GetFakePacketIoInterface() {
   return *fake_packetio_interface_;
+}
+
+swss::FakeSystemStateHelper& P4RuntimeGrpcService::GetSystemStateHelper() {
+  return fake_system_state_helper_;
 }
 
 }  // namespace test_lib

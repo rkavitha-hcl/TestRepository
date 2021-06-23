@@ -37,6 +37,7 @@
 #include "p4rt_app/sonic/packetio_port.h"
 #include "p4rt_app/sonic/response_handler.h"
 #include "p4rt_app/sonic/vrf_entry_translation.h"
+#include "swss/component_state_helper_interface.h"
 #include "swss/consumernotifierinterface.h"
 #include "swss/dbconnectorinterface.h"
 #include "swss/producerstatetableinterface.h"
@@ -103,6 +104,7 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
       std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_switch,
       std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_switch,
       std::unique_ptr<sonic::PacketIoInterface> packetio_impl,
+      swss::SystemStateHelperInterface& system_state,
       bool use_genetlink = false);
   ~P4RuntimeImpl() override = default;
 
@@ -239,6 +241,10 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
   std::thread receive_thread_;
   std::unique_ptr<sonic::PacketIoInterface> packetio_impl_
       ABSL_GUARDED_BY(server_state_lock_);
+
+  // When the switch is in critical state the P4RT service shuould not accept
+  // write requests, but can still handle reads.
+  swss::SystemStateHelperInterface& system_state_;
 
   // TODO: delete once it is no longer needed.
   P4RuntimeTweaks tweak_ ABSL_GUARDED_BY(server_state_lock_);

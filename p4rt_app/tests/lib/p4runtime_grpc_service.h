@@ -21,6 +21,7 @@
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "p4rt_app/sonic/fake_packetio_interface.h"
 #include "swss/fakes/fake_sonic_db_table.h"
+#include "swss/fakes/fake_system_state_helper.h"
 
 namespace p4rt_app {
 namespace test_lib {
@@ -48,6 +49,9 @@ class P4RuntimeGrpcService {
   // Accessor for PacketIO interface.
   sonic::FakePacketIoInterface& GetFakePacketIoInterface();
 
+  // Accessor for StateHelper interface.
+  swss::FakeSystemStateHelper& GetSystemStateHelper();
+
  private:
   // Faked AppDb tables.
   swss::FakeSonicDbTable fake_p4rt_table_;
@@ -65,6 +69,9 @@ class P4RuntimeGrpcService {
   std::unique_ptr<P4RuntimeImpl> p4runtime_server_;
 
   sonic::FakePacketIoInterface* fake_packetio_interface_;  // No ownership.
+
+  // Faked system state helper.
+  swss::FakeSystemStateHelper fake_system_state_helper_;
 
   std::unique_ptr<grpc::Server> server_;
 };

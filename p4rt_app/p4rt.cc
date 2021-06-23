@@ -36,6 +36,8 @@
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "p4rt_app/sonic/adapters/system_call_adapter.h"
 #include "p4rt_app/sonic/packetio_impl.h"
+#include "swss/component_state_helper.h"
+#include "swss/component_state_helper_interface.h"
 #include "swss/consumernotifier.h"
 #include "swss/dbconnector.h"
 #include "swss/producerstatetable.h"
@@ -179,6 +181,11 @@ int main(int argc, char** argv) {
     return -1;
   }
 
+  // Get the system state helper which will be used to verify the switch is
+  // healthy, and not in a critical state before handling P4 Runtime requests.
+  swss::SystemStateHelperInterface& system_state_singleton =
+      swss::StateHelperManager::SystemSingleton();
+
   // Create the P4RT server.
   p4rt_app::P4RuntimeImpl p4runtime_server(
       std::move(sonic_app_db), std::move(sonic_state_db),
@@ -187,7 +194,7 @@ int main(int argc, char** argv) {
       std::move(notification_channel_vrf), std::move(app_db_table_hash),
       std::move(notification_channel_hash), std::move(app_db_table_switch),
       std::move(notification_channel_switch), std::move(*packetio_impl_or),
-      FLAGS_use_genetlink);
+      system_state_singleton, FLAGS_use_genetlink);
 
   // Start a P4 runtime server
   ServerBuilder builder;

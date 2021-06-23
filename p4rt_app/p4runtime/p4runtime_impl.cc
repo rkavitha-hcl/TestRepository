@@ -290,7 +290,8 @@ P4RuntimeImpl::P4RuntimeImpl(
     std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_hash,
     std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_switch,
     std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_switch,
-    std::unique_ptr<sonic::PacketIoInterface> packetio_impl, bool use_genetlink)
+    std::unique_ptr<sonic::PacketIoInterface> packetio_impl,
+    swss::SystemStateHelperInterface& system_state, bool use_genetlink)
     : app_db_client_(std::move(app_db_client)),
       state_db_client_(std::move(state_db_client)),
       counter_db_client_(std::move(counter_db_client)),
@@ -302,7 +303,8 @@ P4RuntimeImpl::P4RuntimeImpl(
       app_db_notifier_hash_(std::move(app_db_notifier_hash)),
       app_db_table_switch_(std::move(app_db_table_switch)),
       app_db_notifier_switch_(std::move(app_db_notifier_switch)),
-      packetio_impl_(std::move(packetio_impl)) {
+      packetio_impl_(std::move(packetio_impl)),
+      system_state_(system_state) {
   controller_manager_ = absl::make_unique<SdnControllerManager>();
 
   // Spawn the receiver thread to receive In packets.
@@ -403,10 +405,16 @@ grpc::Status P4RuntimeImpl::Write(grpc::ServerContext* context,
 #endif
     absl::MutexLock l(&server_state_lock_);
 
-    // verify the request comes from the primary connection.
+    // Verify the request comes from the primary connection.
     auto connection_status = controller_manager_->AllowRequest(*request);
     if (!connection_status.ok()) {
       return connection_status;
+    }
+
+    // Reject any write request if the switch is in a CRITICAL state.
+    if (system_state_.IsSystemCritical()) {
+      return grpc::Status(grpc::StatusCode::INTERNAL,
+                          system_state_.GetSystemCriticalReason());
     }
 
     // We can only program the flow if the forwarding pipeline has been set.
@@ -600,6 +608,12 @@ grpc::Status P4RuntimeImpl::SetForwardingPipelineConfig(
     auto connection_status = controller_manager_->AllowRequest(*request);
     if (!connection_status.ok()) {
       return connection_status;
+    }
+
+    // The pipeline cannot be changed if the switch is in a CRITICAL state.
+    if (system_state_.IsSystemCritical()) {
+      return grpc::Status(grpc::StatusCode::INTERNAL,
+                          system_state_.GetSystemCriticalReason());
     }
 
     if (request->action() !=

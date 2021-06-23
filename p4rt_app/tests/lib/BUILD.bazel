@@ -56,6 +56,7 @@ cc_library(
         "@sonic_swss_common//tests/fakes:fake_db_connector",
         "@sonic_swss_common//tests/fakes:fake_producer_state_table",
         "@sonic_swss_common//tests/fakes:fake_sonic_db_table",
+        "@sonic_swss_common//tests/fakes:fake_system_state_helper",
     ],
 )
 
