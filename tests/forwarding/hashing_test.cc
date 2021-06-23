@@ -101,7 +101,7 @@ constexpr absl::Duration kDurationToWaitForPacketsFromSut = absl::Seconds(30);
 
 struct Member {
   uint32_t weight;
-  uint32_t port;
+  int port;
 };
 
 enum PacketField {
@@ -271,6 +271,9 @@ bool IsValidTestConfiguration(const TestConfiguration& config) {
   if (config.encapped && !config.ipv4) return false;
   return true;
 }
+
+// Number of Wcmp members in a group for this test.
+constexpr int kNumWcmpMembersForTest = 3;
 
 constexpr absl::string_view kSetVrfTableEntry = R"pb(
   acl_lookup_table_entry {
@@ -458,6 +461,7 @@ absl::StatusOr<p4::v1::WriteRequest> GetHashingEntities(
       PdTableEntryToPiUpdate(
           gutil::ParseProtoOrDie<sai::TableEntry>(kSetVrfTableEntry)));
 
+  int index = 0;
   // Create router interface, neighbor and nexthop entry for every member.
   for (const auto& member : members) {
     // Create a router interface.
@@ -484,9 +488,10 @@ absl::StatusOr<p4::v1::WriteRequest> GetHashingEntities(
     neighbor_entry.mutable_neighbor_table_entry()
         ->mutable_match()
         ->set_router_interface_id(absl::StrCat("rif-", port));
+    std::string neighbor_id = absl::StrCat("10.0.0.", index++);
     neighbor_entry.mutable_neighbor_table_entry()
         ->mutable_match()
-        ->set_neighbor_id(absl::StrCat("10.0.0.", port));
+        ->set_neighbor_id(neighbor_id);
     ASSIGN_OR_RETURN(*result.add_updates(),
                      PdTableEntryToPiUpdate(neighbor_entry));
 
@@ -503,7 +508,7 @@ absl::StatusOr<p4::v1::WriteRequest> GetHashingEntities(
     nexthop_entry.mutable_nexthop_table_entry()
         ->mutable_action()
         ->mutable_set_nexthop()
-        ->set_neighbor_id(absl::StrCat("10.0.0.", port));
+        ->set_neighbor_id(neighbor_id);
     ASSIGN_OR_RETURN(*result.add_updates(),
                      PdTableEntryToPiUpdate(nexthop_entry));
   }
@@ -829,6 +834,8 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
   ASSERT_TRUE(GetParam().port_ids.has_value())
       << "Controller port ids (required) not provided.";
   std::vector<int> orion_port_ids = GetParam().port_ids.value();
+  ASSERT_GE(orion_port_ids.size(), kNumWcmpMembersForTest);
+
   // The port on which we input all dataplane test packets.
   const int ingress_port = orion_port_ids[0];
   // Obtain P4Info for SAI P4 program.
@@ -893,18 +900,24 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
   absl::BitGen gen;
   // Iterate over 3 sets of random weights for 3 ports.
   for (int iter = 0; iter < 3; iter++) {
-    std::vector<Member> members = {{0, 1}, {0, 3}, {0, 5}};
+    std::vector<Member> members(kNumWcmpMembersForTest);
+    for (int i = 0; i < kNumWcmpMembersForTest; i++) {
+      members[i] = Member{.weight = 0, .port = orion_port_ids[i]};
+    }
 
-    std::vector<int> weights;
+    std::vector<int> weights(kNumWcmpMembersForTest);
     if (iter == 0) {
       // Run for ECMP (all weights=1) for first iteration.
-      weights = {1, 1, 1};
+      for (int i = 0; i < kNumWcmpMembersForTest; i++) {
+        weights[i] = 1;
+      }
     } else {
       // Max weights is set to 30 (15 after TH3 re-scaling) to limit
       // the number of packets required for this testing to be < 10k.
       // See go/p4-hashing (section How many packets do we need?).
-      ASSERT_OK_AND_ASSIGN(
-          weights, GenerateNRandomWeights(/*n=*/3, /*max_weight=*/30, gen));
+      ASSERT_OK_AND_ASSIGN(weights,
+                           GenerateNRandomWeights(kNumWcmpMembersForTest,
+                                                  /*max_weight=*/30, gen));
     }
     for (int i = 0; i < members.size(); i++) {
       members.at(i).weight = weights.at(i);
@@ -969,7 +982,7 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
 
                 int port = ingress_port;
                 if (field == INPUT_PORT) {
-                  port = orion_port_ids[idx % orion_port_ids.size()];
+                  port = orion_port_ids[idx % members.size()];
                 }
 
                 ASSERT_OK_AND_ASSIGN(auto packet, GeneratePacket(config, idx));
