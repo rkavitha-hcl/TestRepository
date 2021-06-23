@@ -153,8 +153,8 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
   ABSL_MUST_USE_RESULT absl::StatusOr<std::thread> StartReceive(
       bool use_genetlink);
 
-  std::unique_ptr<SdnControllerManager> controller_manager_
-      ABSL_GUARDED_BY(server_state_lock_);
+  // Mutex for constraining actions to access and modify server state.
+  absl::Mutex server_state_lock_;
 
   // A RedisDB interface to handle requests into AppDb tables that cannot be
   // done through the ProducerStateTable interface. For example, read out all
@@ -196,6 +196,15 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
   std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_switch_
       ABSL_GUARDED_BY(server_state_lock_);
 
+  // P4RT can accept multiple connections to a single switch for redundancy.
+  // When there is >1 connection the switch chooses a primary which is used for
+  // PacketIO, and is the only connection allowed to write updates.
+  //
+  // It is possible for connections to be made for specific roles. In which case
+  // one primary connection is allowed for each distinct role.
+  std::unique_ptr<SdnControllerManager> controller_manager_
+      ABSL_GUARDED_BY(server_state_lock_);
+
   // Before using a VRF value in a P4 table the SONiC data plane needs to know
   // how to handle it. To do this we need to create a VRF_TABLE entry in the
   // AppDb. Only when all rules using this ID are deleted can we remove the
@@ -211,29 +220,28 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
   boost::bimap<std::string, std::string> port_translation_map_
       ABSL_GUARDED_BY(server_state_lock_);
 
-  // The P4Info file in IR.
+  // A forwarding pipeline config with a P4Info protobuf will be set once a
+  // controller connects to the swtich. Only after we receive this config can
+  // the P4RT service start processing write requests.
+  absl::optional<p4::v1::ForwardingPipelineConfig> forwarding_pipeline_config_
+      ABSL_GUARDED_BY(server_state_lock_);
+
+  // Once we receive the P4Info we create a pdpi::IrP4Info object which allows
+  // us to translate the PI requests into human-readable objects.
   absl::optional<pdpi::IrP4Info> ir_p4info_ ABSL_GUARDED_BY(server_state_lock_);
 
-  // Constraints set by the P4Info that need to be checked when receiving a new
-  // write request.
+  // The P4Info can use annotations to specify table constraints for specific
+  // tables. The P4RT service will reject any table entry requests that do not
+  // meet these constraints.
   absl::optional<p4_constraints::ConstraintInfo> p4_constraint_info_;
 
-  // The current Forwarding Pipeline Config.
-  absl::optional<p4::v1::ForwardingPipelineConfig> forwarding_pipeline_config_
+  // PacketIoImplementation object.
+  std::thread receive_thread_;
+  std::unique_ptr<sonic::PacketIoInterface> packetio_impl_
       ABSL_GUARDED_BY(server_state_lock_);
 
   // TODO: delete once it is no longer needed.
   P4RuntimeTweaks tweak_ ABSL_GUARDED_BY(server_state_lock_);
-
-  // Mutex for contraining actions to access and modify server state.
-  absl::Mutex server_state_lock_;
-
-  // Receiver thread.
-  std::thread receive_thread_;
-
-  // PacketIoImplementation object.
-  std::unique_ptr<sonic::PacketIoInterface> packetio_impl_
-      ABSL_GUARDED_BY(server_state_lock_);
 };
 
 }  // namespace p4rt_app
