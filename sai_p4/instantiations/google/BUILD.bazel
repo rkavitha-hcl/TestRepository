@@ -40,6 +40,18 @@ cc_proto_library(
     deps = [":sai_pd_proto"],
 )
 
+cc_library(
+    name = "sai_pd_util",
+    srcs = ["sai_pd_util.cc"],
+    hdrs = ["sai_pd_util.h"],
+    deps = [
+        ":sai_pd_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:optional",
+    ],
+)
+
 build_test(
     name = "sai_pd_proto_test",
     targets = [
@@ -343,6 +355,17 @@ cc_test(
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "sai_pd_util_test",
+    srcs = ["sai_pd_util_test.cc"],
+    deps = [
+        ":sai_pd_cc_proto",
+        ":sai_pd_util",
+        "//gutil:testing",
         "@com_google_googletest//:gtest_main",
     ],
 )
