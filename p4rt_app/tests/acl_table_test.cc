@@ -231,17 +231,40 @@ TEST_F(AclTableTest, ReadCounters) {
               EqualsProto(R"pb(byte_count: 128 packet_count: 1)pb"));
 }
 
-// TODO: update test to validate meter values.
 TEST_F(AclTableTest, ReadMeters) {
-  p4::v1::ReadRequest read_request;
-  auto* entity = read_request.add_entities();
-  entity->mutable_table_entry()->set_table_id(0);
-  entity->mutable_table_entry()->set_priority(0);
-  entity->mutable_table_entry()->mutable_meter_config();
-
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::WriteRequest request,
+      test_lib::PdWriteRequestToPi(
+          R"pb(
+            updates {
+              type: INSERT
+              table_entry {
+                acl_ingress_table_entry {
+                  match { is_ip { value: "0x1" } }
+                  priority: 10
+                  action { copy { qos_queue: "0x1" } }
+                  meter_config { bytes_per_second: 123 burst_bytes: 456 }
+                }
+              }
+            }
+          )pb",
+          ir_p4_info_));
   EXPECT_OK(
-      pdpi::SetMetadataAndSendPiReadRequest(p4rt_session_.get(), read_request))
-      << "Failing read request: " << read_request.ShortDebugString();
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
+
+  // Verify we can read back the meter information.
+  p4::v1::ReadRequest read_request;
+  read_request.add_entities()->mutable_table_entry();
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::ReadResponse read_response,
+      pdpi::SetMetadataAndSendPiReadRequest(p4rt_session_.get(), read_request));
+
+  ASSERT_EQ(read_response.entities_size(), 1);  // Only one write.
+  EXPECT_THAT(read_response.entities(0).table_entry().meter_config(),
+              EqualsProto(
+                  R"pb(
+                    cir: 123 cburst: 456 pir: 123 pburst: 456
+                  )pb"));
 }
 
 TEST_F(AclTableTest, CannotInsertEntryThatFailsAConstraintCheck) {
