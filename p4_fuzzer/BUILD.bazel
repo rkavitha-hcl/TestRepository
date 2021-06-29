@@ -188,6 +188,8 @@ cc_test(
         "//sai_p4/instantiations/google:instantiations",
         "//sai_p4/instantiations/google:sai_p4info_cc",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/random:distributions",
         "@com_google_absl//absl/random:seed_sequences",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
