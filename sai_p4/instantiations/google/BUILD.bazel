@@ -23,6 +23,61 @@ package(
     licenses = ["notice"],
 )
 
+# -- P4 program ----------------------------------------------------------------
+
+MIDDLEBLOCK_DEPS = [
+    "acl_ingress.p4",
+    "acl_linkqual.p4",
+    "acl_lookup.p4",
+    "hashing.p4",
+    "ids.h",
+    "roles.h",
+    "bitwidths.p4",
+    "minimum_guaranteed_sizes.p4",
+    "//sai_p4/fixed",
+]
+
+WBB_DEPS = [
+    "acl_wbb_ingress.p4",
+    "hashing.p4",
+    "ids.h",
+    "roles.h",
+    "bitwidths.p4",
+    "minimum_guaranteed_sizes.p4",
+    "//sai_p4/fixed",
+]
+
+INSTANTIATIONS = [
+    # (<instantiation>, <dependencies>)
+    ("middleblock", MIDDLEBLOCK_DEPS),
+    ("wbb", WBB_DEPS),
+]
+
+[
+    p4_library(
+        name = instantiation,
+        src = "%s.p4" % instantiation,
+        # Do not access directly. Use the C++/Go APIs in the "P4Info" section of
+        # this BUILD file instead.
+        p4info_out = "generated/%s.p4info.pb.txt" % instantiation,
+        deps = deps,
+    )
+    for (instantiation, deps) in INSTANTIATIONS
+]
+
+cc_library(
+    name = "p4_ids",
+    hdrs = ["ids.h"],
+    deps = [
+        "//sai_p4/fixed:p4_ids",
+    ],
+)
+
+cc_library(
+    name = "p4_roles",
+    hdrs = ["roles.h"],
+)
+
 # -- PD proto for SDN controller -----------------------------------------------
 
 proto_library(
@@ -40,6 +95,14 @@ cc_proto_library(
     deps = [":sai_pd_proto"],
 )
 
+build_test(
+    name = "sai_pd_proto_test",
+    targets = [
+        ":sai_pd_proto",
+        ":sai_pd_cc_proto",
+    ],
+)
+
 cc_library(
     name = "sai_pd_util",
     srcs = ["sai_pd_util.cc"],
@@ -52,11 +115,14 @@ cc_library(
     ],
 )
 
-build_test(
-    name = "sai_pd_proto_test",
-    targets = [
-        ":sai_pd_proto",
+cc_test(
+    name = "sai_pd_util_test",
+    srcs = ["sai_pd_util_test.cc"],
+    deps = [
         ":sai_pd_cc_proto",
+        ":sai_pd_util",
+        "//gutil:testing",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
@@ -88,17 +154,19 @@ build_test(
 #   blaze run :union_p4info_up_to_date_test -- --update
 cmd_diff_test(
     name = "union_p4info_up_to_date_test",
-    actual_cmd = "$(execpath {p4info_union}) --list_of_p4infos='$(location {middleblock_p4info}),$(location {wbb_p4info})'".format(
+    actual_cmd = "$(execpath {p4info_union}) --list_of_p4infos='{p4infos}'".format(
         p4info_union = "//p4_pdpi:p4info_union",
-        middleblock_p4info = "middleblock.p4info.pb.txt",
-        wbb_p4info = "wbb.p4info.pb.txt",
+        p4infos = ",".join([
+            "$(location %s.p4info.pb.txt)" % instantiation
+            for (instantiation, _) in INSTANTIATIONS
+        ]),
     ),
-    expected = "//sai_p4/instantiations/google:unioned_p4info.pb.txt",
-    tools = [
-        "//p4_pdpi:p4info_union",
-        "//sai_p4/instantiations/google:middleblock.p4info.pb.txt",
-        "//sai_p4/instantiations/google:wbb.p4info.pb.txt",
+    data = [
+        "%s.p4info.pb.txt" % instantiation
+        for (instantiation, _) in INSTANTIATIONS
     ],
+    expected = "unioned_p4info.pb.txt",
+    tools = ["//p4_pdpi:p4info_union"],
 )
 
 # Only for testing and updating the PD proto when the P4 program changes.
@@ -114,8 +182,7 @@ p4_pd_proto(
 # Linkqual uses only a single table which is present in middleblock.p4.
 p4_pd_proto(
     name = "generated_linkqual_pd",
-    src =
-        "middleblock.p4info.pb.txt",
+    src = "middleblock.p4info.pb.txt",
     # Do not access directly. Use checked in linkqual_pd.proto instead.
     out = "generated/linkqual_pd.proto",
     package = "linkqual",
@@ -146,63 +213,6 @@ cc_library(
     ],
 )
 
-cc_library(
-    name = "instantiations",
-    hdrs = ["instantiations.h"],
-    deps = [
-        "@com_github_google_glog//:glog",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/strings",
-    ],
-)
-
-# Ensures that the checked in and compile-time generated P4Infos match.
-# To update the checked in P4Info:
-#   blaze run :middleblock_p4info_up_to_date_test -- --update
-diff_test(
-    name = "middleblock_p4info_up_to_date_test",
-    actual = "generated/middleblock.p4info.pb.txt",  # Generated.
-    expected = "middleblock.p4info.pb.txt",  # Checked in.
-)
-
-diff_test(
-    name = "wbb_p4info_up_to_date_test",
-    actual = "generated/wbb.p4info.pb.txt",  # Generated.
-    expected = "wbb.p4info.pb.txt",  # Checked in.
-)
-
-# Auxiliary targets, see go/totw/128.
-cc_embed_data(
-    name = "middleblock_p4info_embed",
-    srcs = [
-        "middleblock.p4info.pb.txt",
-    ],
-    cc_file_output = "middleblock_p4info_embed.cc",
-    cpp_namespace = "sai",
-    h_file_output = "middleblock_p4info_embed.h",
-)
-
-cc_embed_data(
-    name = "wbb_p4info_embed",
-    srcs = [
-        "wbb.p4info.pb.txt",
-    ],
-    cc_file_output = "wbb_p4info_embed.cc",
-    cpp_namespace = "sai",
-    h_file_output = "wbb_p4info_embed.h",
-)
-
-cc_embed_data(
-    name = "unioned_p4info_embed",
-    srcs = [
-        "unioned_p4info.pb.txt",
-    ],
-    cc_file_output = "unioned_p4info_embed.cc",
-    cpp_namespace = "sai",
-    h_file_output = "unioned_p4info_embed.h",
-)
-
 cc_test(
     name = "sai_p4info_test",
     srcs = ["sai_p4info_test.cc"],
@@ -218,57 +228,48 @@ cc_test(
     ],
 )
 
-# -- P4 program ----------------------------------------------------------------
-
-MIDDLEBLOCK_DEPS = [
-    "acl_ingress.p4",
-    "acl_linkqual.p4",
-    "acl_lookup.p4",
-    "hashing.p4",
-    "ids.h",
-    "roles.h",
-    "bitwidths.p4",
-    "minimum_guaranteed_sizes.p4",
-    "//sai_p4/fixed",
-]
-
-WBB_DEPS = [
-    "acl_wbb_ingress.p4",
-    "hashing.p4",
-    "ids.h",
-    "roles.h",
-    "bitwidths.p4",
-    "minimum_guaranteed_sizes.p4",
-    "//sai_p4/fixed",
-]
-
-p4_library(
-    name = "middleblock",
-    src = "middleblock.p4",
-    # Do not access directly. Use checked in sai.p4info.pb.txt instead.
-    p4info_out = "generated/middleblock.p4info.pb.txt",
-    deps = MIDDLEBLOCK_DEPS,
-)
-
-p4_library(
-    name = "wbb",
-    src = "wbb.p4",
-    # Do not access directly. Use checked in wbb.p4info.pb.txt instead.
-    p4info_out = "generated/wbb.p4info.pb.txt",
-    deps = WBB_DEPS,
-)
-
 cc_library(
-    name = "p4_ids",
-    hdrs = ["ids.h"],
+    name = "instantiations",
+    hdrs = ["instantiations.h"],
     deps = [
-        "//sai_p4/fixed:p4_ids",
+        "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
     ],
 )
 
-cc_library(
-    name = "p4_roles",
-    hdrs = ["roles.h"],
+[
+    [
+        # Ensures that the checked in and compile-time generated P4Infos match.
+        # To update the checked in P4Info:
+        #   blaze run :<instantiation>_p4info_up_to_date_test -- --update
+        diff_test(
+            name = "%s_p4info_up_to_date_test" % instantiation,
+            actual = "generated/%s.p4info.pb.txt" % instantiation,  # Generated.
+            expected = "%s.p4info.pb.txt" % instantiation,  # Checked in.
+        ),
+
+        # Auxiliary targets, see go/totw/128.
+        cc_embed_data(
+            name = "%s_p4info_embed" % instantiation,
+            srcs = ["%s.p4info.pb.txt" % instantiation],
+            cc_file_output = "%s_p4info_embed.cc" % instantiation,
+            cpp_namespace = "sai",
+            h_file_output = "%s_p4info_embed.h" % instantiation,
+        ),
+    ]
+    for (instantiation, _) in INSTANTIATIONS
+]
+
+cc_embed_data(
+    name = "unioned_p4info_embed",
+    srcs = [
+        "unioned_p4info.pb.txt",
+    ],
+    cc_file_output = "unioned_p4info_embed.cc",
+    cpp_namespace = "sai",
+    h_file_output = "unioned_p4info_embed.h",
 )
 
 # -- Non-standard platforms ----------------------------------------------------
@@ -279,31 +280,25 @@ NONSTANDARD_PLATFORMS = [
     ("p4_symbolic", "PLATFORM_P4SYMBOLIC"),
 ]
 
-ROLES = [
-    # (<name>, <dependencies>)
-    ("middleblock", MIDDLEBLOCK_DEPS),
-    ("wbb", WBB_DEPS),
-]
-
 [
     p4_library(
-        name = "sai_%s_%s" % (role, platform_name),
-        src = "%s.p4" % role,
+        name = "sai_%s_%s" % (instantiation, platform_name),
+        src = "%s.p4" % instantiation,
         extra_args = "-D%s" % platform_macro,
-        p4info_out = "generated/sai_%s_%s.p4info.pb.txt" % (role, platform_name),
+        p4info_out = "generated/sai_%s_%s.p4info.pb.txt" % (instantiation, platform_name),
         target = "bmv2",
-        target_out = "generated/sai_%s_%s.config.json" % (role, platform_name),
+        target_out = "generated/sai_%s_%s.config.json" % (instantiation, platform_name),
         deps = deps,
     )
-    for (role, deps) in ROLES
+    for (instantiation, deps) in INSTANTIATIONS
     for (platform_name, platform_macro) in NONSTANDARD_PLATFORMS
 ]
 
 build_test(
     name = "sai_nonstandard_platforms_build_test",
     targets = [
-        ":sai_%s_%s" % (role, platform)
-        for (role, _) in ROLES
+        ":sai_%s_%s" % (instantiation, platform)
+        for (instantiation, _) in INSTANTIATIONS
         for (platform, _) in NONSTANDARD_PLATFORMS
     ],
 )
@@ -330,8 +325,8 @@ cc_library(
 cc_embed_data(
     name = "sai_nonstandard_platforms_embed",
     srcs = [
-        "generated/sai_%s_%s.%s" % (role, platform, extension)
-        for (role, _) in ROLES
+        "generated/sai_%s_%s.%s" % (instantiation, platform, extension)
+        for (instantiation, _) in INSTANTIATIONS
         for (platform, _) in NONSTANDARD_PLATFORMS
         for extension in [
             "config.json",
@@ -355,17 +350,6 @@ cc_test(
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "sai_pd_util_test",
-    srcs = ["sai_pd_util_test.cc"],
-    deps = [
-        ":sai_pd_cc_proto",
-        ":sai_pd_util",
-        "//gutil:testing",
         "@com_google_googletest//:gtest_main",
     ],
 )
