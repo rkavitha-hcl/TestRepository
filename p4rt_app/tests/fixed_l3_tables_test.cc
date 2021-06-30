@@ -316,8 +316,14 @@ TEST_F(FixedL3TableTest, TableEntryInsertReadAndRemove) {
   EXPECT_THAT(read_response.entities(0),
               EqualsProto(write_request.updates(0).entity()));
 
-  // Modify the P4 write request to delete the entry.
+  // Modify the P4 write request to delete the entry. We should be able to
+  // delete the entry with only the match key.
   write_request.mutable_updates(0)->set_type(p4::v1::Update::DELETE);
+  write_request.mutable_updates(0)
+      ->mutable_entity()
+      ->mutable_table_entry()
+      ->mutable_action()
+      ->Clear();
 
   // The delete write request should not fail, and once complete the entry
   // should no longer exist in the P4RT AppDb table.

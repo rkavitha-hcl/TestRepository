@@ -197,7 +197,8 @@ absl::StatusOr<pdpi::IrTableEntry> DoPiTableEntryToIr(
     const std::string& role_name,
     const boost::bimap<std::string, std::string>& port_translation_map,
     bool translate_key_only) {
-  auto translate_status = pdpi::PiTableEntryToIr(p4_info, pi_table_entry);
+  auto translate_status =
+      pdpi::PiTableEntryToIr(p4_info, pi_table_entry, translate_key_only);
   if (!translate_status.ok()) {
     LOG(WARNING) << "PDPI could not translate PI table entry to IR: "
                  << pi_table_entry.DebugString();
