@@ -276,7 +276,7 @@ bool IsValidTestConfiguration(const TestConfiguration& config) {
 constexpr int kNumWcmpMembersForTest = 3;
 
 constexpr absl::string_view kSetVrfTableEntry = R"pb(
-  acl_lookup_table_entry {
+  acl_pre_ingress_table_entry {
     match {}
     action { set_vrf { vrf_id: "vrf-80" } }
     priority: 1129

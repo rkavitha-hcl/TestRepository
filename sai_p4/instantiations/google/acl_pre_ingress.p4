@@ -1,5 +1,5 @@
-#ifndef SAI_ACL_LOOKUP_P4_
-#define SAI_ACL_LOOKUP_P4_
+#ifndef SAI_ACL_PRE_INGRESS_P4_
+#define SAI_ACL_PRE_INGRESS_P4_
 
 #include <v1model.p4>
 #include "../../fixed/headers.p4"
@@ -8,26 +8,26 @@
 #include "roles.h"
 #include "minimum_guaranteed_sizes.p4"
 
-control acl_lookup(in headers_t headers,
+control acl_pre_ingress(in headers_t headers,
                    inout local_metadata_t local_metadata,
                    in standard_metadata_t standard_metadata) {
   // First 6 bits of IPv4 TOS or IPv6 traffic class (or 0, for non-IP packets)
   bit<6> dscp = 0;
 
-  @id(ACL_LOOKUP_COUNTER_ID)
-  direct_counter(CounterType.packets_and_bytes) acl_lookup_counter;
+  @id(ACL_PRE_INGRESS_COUNTER_ID)
+  direct_counter(CounterType.packets_and_bytes) acl_pre_ingress_counter;
 
-  @id(ACL_LOOKUP_SET_VRF_ACTION_ID)
+  @id(ACL_PRE_INGRESS_SET_VRF_ACTION_ID)
   @sai_action(SAI_PACKET_ACTION_FORWARD)
-  action set_vrf(@sai_action_param(SAI_ACL_ENTRY_ATTR_EXTENSIONS_ACTION_SET_VRF)
+  action set_vrf(@sai_action_param(SAI_ACL_ENTRY_ATTR_ACTION_SET_VRF)
                  @id(1) vrf_id_t vrf_id) {
     local_metadata.vrf_id = vrf_id;
-    acl_lookup_counter.count();
+    acl_pre_ingress_counter.count();
   }
 
   @p4runtime_role(P4RUNTIME_ROLE_SDN_CONTROLLER)
-  @id(ACL_LOOKUP_TABLE_ID)
-  @sai_acl(LOOKUP)
+  @id(ACL_PRE_INGRESS_TABLE_ID)
+  @sai_acl(PRE_INGRESS)
   @entry_restriction("
     // Only allow IP field matches for IP packets.
     dscp::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);
@@ -41,7 +41,7 @@ control acl_lookup(in headers_t headers,
     is_ipv4::mask != 0 -> (is_ipv4 == 1);
     is_ipv6::mask != 0 -> (is_ipv6 == 1);
   ")
-  table acl_lookup_table {
+  table acl_pre_ingress_table {
     key = {
       headers.ipv4.isValid() || headers.ipv6.isValid() : optional @name("is_ip") @id(1)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_ACL_IP_TYPE/IP);
@@ -65,8 +65,8 @@ control acl_lookup(in headers_t headers,
       @defaultonly NoAction;
     }
     const default_action = NoAction;
-    counters = acl_lookup_counter;
-    size = ACL_LOOKUP_TABLE_MINIMUM_GUARANTEED_SIZE;
+    counters = acl_pre_ingress_counter;
+    size = ACL_PRE_INGRESS_TABLE_MINIMUM_GUARANTEED_SIZE;
   }
 
   apply {
@@ -76,8 +76,8 @@ control acl_lookup(in headers_t headers,
       dscp = headers.ipv6.dscp;
     }
 
-    acl_lookup_table.apply();
+    acl_pre_ingress_table.apply();
   }
-}  // control acl_lookup
+}  // control acl_pre_ingress
 
-#endif  // SAI_ACL_LOOKUP_P4_
+#endif  // SAI_ACL_PRE_INGRESS_P4_
