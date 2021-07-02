@@ -149,6 +149,7 @@ absl::Status SwitchReadyWithSsh(thinkit::Switch& thinkit_switch,
   RETURN_IF_ERROR(SSHable(thinkit_switch, ssh_client));
   RETURN_IF_ERROR(P4rtAble(thinkit_switch));
   RETURN_IF_ERROR(GnmiAble(thinkit_switch));
+  RETURN_IF_ERROR(PortsUp(thinkit_switch));
   RETURN_IF_ERROR(GnoiAble(thinkit_switch));
   return NoAlarms(thinkit_switch);
 }

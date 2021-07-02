@@ -59,7 +59,8 @@ using ::testing::HasSubstr;
 
 constexpr int kEpochMarginalError = 2;
 constexpr absl::Duration kColdRebootWaitForDownTime = absl::Seconds(30);
-constexpr absl::Duration kColdRebootWaitForUpTime = absl::Minutes(4);
+// TODO: Reduce reboot up time.
+constexpr absl::Duration kColdRebootWaitForUpTime = absl::Minutes(6);
 constexpr char kMtuJsonVal[] = "{\"mtu\":2000}";
 constexpr char kV3ReleaseConfigBlob[] = R"({
    "openconfig-platform:components" : {
