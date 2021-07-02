@@ -58,6 +58,7 @@ void TestGnmiInterfaceConfigSetAdminStatus(thinkit::Switch& sut,
       absl::StrCat("interfaces/interface[name=", if_name, "]/config/enabled");
   ASSERT_OK(SetGnmiConfigPath(sut_gnmi_stub.get(), if_enabled_config_path,
                               GnmiSetType::kUpdate, kEnabledFalse));
+  absl::SleepFor(absl::Seconds(5));
 
   // Perform state path verifications.
   // Verify /interfaces/interface[name=<port>]/state/enabled = false.
@@ -91,6 +92,7 @@ void TestGnmiInterfaceConfigSetAdminStatus(thinkit::Switch& sut,
   LOG(INFO) << "Enabling front panel port: " << if_name;
   ASSERT_OK(SetGnmiConfigPath(sut_gnmi_stub.get(), if_enabled_config_path,
                               GnmiSetType::kUpdate, kEnabledTrue));
+  absl::SleepFor(absl::Seconds(5));
 
   // Perform state path verifications.
   // Verify /interfaces/interface[name=<port>]/state/enabled = true.
@@ -112,7 +114,6 @@ void TestGnmiInterfaceConfigSetAdminStatus(thinkit::Switch& sut,
   EXPECT_THAT(state_path_response, HasSubstr(kStateUp));
 
   // Verify /interfaces/interface[name=<port>]/state/oper-status = UP.
-  absl::SleepFor(absl::Seconds(5));
   if_state_path = absl::StrCat("interfaces/interface[name=", if_name,
                                "]/state/oper-status");
   resp_parse_str = "openconfig-interfaces:oper-status";
