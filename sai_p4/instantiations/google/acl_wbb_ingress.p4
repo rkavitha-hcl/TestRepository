@@ -62,8 +62,14 @@ control acl_wbb_ingress(in headers_t headers,
     ) ||
     // ND
     (
-      outer_vlan_id == 0x0FA0 && ether_type == 0x6007 &&
-      is_ipv4::mask == 0 && is_ipv6::mask == 0 && ttl::mask == 0
+    // TODO remove optional match for VLAN ID once VLAN ID is
+    // completely removed from ND flows.
+      (( outer_vlan_id::mask == 0xfff && outer_vlan_id == 0x0FA0) ||
+      outer_vlan_id::mask == 0);
+      ether_type == 0x6007;
+      is_ipv4::mask == 0;
+      is_ipv6::mask == 0;
+      ttl::mask == 0
     )
   ")
   table acl_wbb_ingress_table {
