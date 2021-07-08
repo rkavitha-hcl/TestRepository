@@ -31,7 +31,7 @@ using ::testing::Not;
 
 constexpr absl::string_view kTableEntries = R"pb(
   entries {
-    acl_pre_ingress_table_entry {
+    acl_lookup_table_entry {
       match {
         src_mac { value: "22:22:22:11:11:11" mask: "ff:ff:ff:ff:ff:ff" }
         dst_ip { value: "10.0.10.0" mask: "255.255.255.255" }

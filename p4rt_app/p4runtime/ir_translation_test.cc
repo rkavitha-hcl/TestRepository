@@ -146,7 +146,7 @@ TEST(PortTranslationTest, OptionalMatchField) {
 
   pdpi::IrTableEntry table_entry;
   ASSERT_TRUE(TextFormat::ParseFromString(R"pb(
-                                            table_name: "acl_pre_ingress_table"
+                                            table_name: "acl_lookup_table"
                                             matches {
                                               name: "in_port"
                                               optional { value { str: "2" } }
@@ -166,7 +166,7 @@ TEST(VrfTranslationTest, ActionParameters) {
   pdpi::IrTableEntry table_entry;
   ASSERT_TRUE(TextFormat::ParseFromString(
       R"pb(
-        table_name: "acl_pre_ingress_table"
+        table_name: "acl_lookup_table"
         action {
           name: "set_vrf"
           params {
