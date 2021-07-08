@@ -36,7 +36,7 @@ struct HttpResponse {
 enum class RequestType {
   kGet,
   kPost,
-  kPut,
+  kPatch,
   kDelete,
 };
 
@@ -68,6 +68,7 @@ class GenericTestbed {
   GetSutInterfaceInfo() = 0;
 
   // Sends a REST request to the Ixia and returns the response.
+  // `url` can be either "https://...", "/api/...", or "/ixnetwork/...".
   virtual absl::StatusOr<HttpResponse> SendRestRequestToIxia(
       RequestType type, absl::string_view url, absl::string_view payload) = 0;
 };

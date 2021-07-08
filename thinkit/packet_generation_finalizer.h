@@ -9,5 +9,8 @@ class PacketGenerationFinalizer {
  public:
   virtual ~PacketGenerationFinalizer() = 0;
 };
+
+inline PacketGenerationFinalizer::~PacketGenerationFinalizer() {}
+
 }  // namespace thinkit
 #endif  // GOOGLE_THINKIT_PACKET_GENERATION_FINALIZER_H_
