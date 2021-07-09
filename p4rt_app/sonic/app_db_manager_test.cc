@@ -43,7 +43,6 @@ using ::google::protobuf::TextFormat;
 using ::gutil::EqualsProto;
 using ::gutil::StatusIs;
 using ::p4rt_app::test_lib::AppDbEntryBuilder;
-using ::testing::_;
 using ::testing::ContainerEq;
 using ::testing::DoAll;
 using ::testing::Eq;
