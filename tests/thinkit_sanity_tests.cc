@@ -54,13 +54,13 @@ namespace pins_test {
 namespace {
 
 using ::nlohmann::json;
-using ::std::abs;
 using ::testing::HasSubstr;
 
 constexpr int kEpochMarginalError = 2;
 constexpr absl::Duration kColdRebootWaitForDownTime = absl::Seconds(30);
 // TODO: Reduce reboot up time.
 constexpr absl::Duration kColdRebootWaitForUpTime = absl::Minutes(6);
+constexpr absl::Duration kWaitForApplicationsReady = absl::Minutes(1);
 constexpr char kMtuJsonVal[] = "{\"mtu\":2000}";
 constexpr char kV3ReleaseConfigBlob[] = R"({
    "openconfig-platform:components" : {
@@ -402,7 +402,18 @@ void TestGnoiSystemColdReboot(thinkit::Switch& sut) {
                        GetGnmiSystemBootTime(sut, sut_gnmi_stub.get()));
 
   EXPECT_GT((latest_boot_time - first_boot_time), kEpochMarginalError);
-  EXPECT_OK(SwitchReady(sut));
+
+  // Wait for the switch applications to become ready.
+  start_time = absl::Now();
+  bool switch_ready = false;
+  while (absl::Now() < (start_time + kWaitForApplicationsReady)) {
+    if (SwitchReady(sut) == absl::OkStatus()) {
+      switch_ready = true;
+      break;
+    }
+  }
+  EXPECT_TRUE(switch_ready)
+      << "Switch applications were not ready in " << kWaitForApplicationsReady;
 }
 
 }  // namespace pins_test
