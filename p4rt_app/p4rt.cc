@@ -18,11 +18,11 @@
 #include <stdexcept>
 #include <string>
 
-#include "absl/flags/flag.h"
 #include "absl/flags/parse.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "authz_policy/authz_policy_processor.h"
+#include "gflags/gflags.h"
 #include "glog/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/text_format.h"

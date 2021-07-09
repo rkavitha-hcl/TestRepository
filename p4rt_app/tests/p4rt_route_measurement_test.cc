@@ -14,9 +14,9 @@
 #include <memory>
 #include <vector>
 
-#include "absl/flags/flag.h"
 #include "absl/numeric/int128.h"
 #include "absl/strings/substitute.h"
+#include "gflags/gflags.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "google/protobuf/text_format.h"
