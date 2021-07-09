@@ -85,6 +85,12 @@ absl::Status SetForwardingPipelineConfig(
     const p4::config::v1::P4Info& p4info,
     absl::optional<absl::string_view> p4_device_config = absl::nullopt);
 
+// Gets the forwarding pipeline from the device.
+absl::StatusOr<p4::v1::GetForwardingPipelineConfigResponse>
+GetForwardingPipelineConfig(
+    P4RuntimeSession* session,
+    p4::v1::GetForwardingPipelineConfigRequest::ResponseType type);
+
 }  // namespace pdpi
 
 #endif  // GOOGLE_P4_PDPI_ENTITY_MANAGEMENT_H_

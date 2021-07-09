@@ -11,18 +11,23 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "gutil/proto_matchers.h"
 #include "gutil/status_matchers.h"
+#include "p4/config/v1/p4info.pb.h"
+#include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/entity_management.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
+#include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 
 namespace p4rt_app {
+namespace {
 
+using ::p4::v1::GetForwardingPipelineConfigResponse;
 using ::p4::v1::SetForwardingPipelineConfigRequest;
 using ::p4::v1::SetForwardingPipelineConfigResponse;
-
-namespace {
 
 class ForwardingPipelineConfigTest : public testing::Test {
  protected:
@@ -45,6 +50,21 @@ TEST_F(ForwardingPipelineConfigTest, SetForwardingPipelineConfig) {
       p4rt_session_.get(),
       SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
       sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+}
+
+TEST_F(ForwardingPipelineConfigTest, GetForwardingPipelineConfig) {
+  const p4::config::v1::P4Info p4_info =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+  ASSERT_OK(pdpi::SetForwardingPipelineConfig(
+      p4rt_session_.get(),
+      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT, p4_info));
+  ASSERT_OK_AND_ASSIGN(GetForwardingPipelineConfigResponse response,
+                       pdpi::GetForwardingPipelineConfig(
+                           p4rt_session_.get(),
+                           p4::v1::GetForwardingPipelineConfigRequest::ALL));
+
+  // Ensure the P4Info we read back matches what we set.
+  EXPECT_THAT(response.config().p4info(), gutil::EqualsProto(p4_info));
 }
 
 TEST_F(ForwardingPipelineConfigTest, SetDuplicateForwardingPipelineConfig) {

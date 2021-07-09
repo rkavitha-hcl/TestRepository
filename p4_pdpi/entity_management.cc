@@ -192,4 +192,22 @@ absl::Status SetForwardingPipelineConfig(
                                                   &response));
 }
 
+absl::StatusOr<p4::v1::GetForwardingPipelineConfigResponse>
+GetForwardingPipelineConfig(
+    P4RuntimeSession* session,
+    p4::v1::GetForwardingPipelineConfigRequest::ResponseType type) {
+  p4::v1::GetForwardingPipelineConfigRequest request;
+  request.set_device_id(session->DeviceId());
+  request.set_response_type(type);
+
+  grpc::ClientContext context;
+  p4::v1::GetForwardingPipelineConfigResponse response;
+  grpc::Status response_status =
+      session->Stub().GetForwardingPipelineConfig(&context, request, &response);
+  if (!response_status.ok()) {
+    return gutil::GrpcStatusToAbslStatus(response_status);
+  }
+  return response;
+}
+
 }  // namespace pdpi
