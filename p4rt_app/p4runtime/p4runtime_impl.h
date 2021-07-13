@@ -104,8 +104,7 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
       std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_switch,
       std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_switch,
       std::unique_ptr<sonic::PacketIoInterface> packetio_impl,
-      swss::SystemStateHelperInterface& system_state,
-      bool use_genetlink = false);
+      swss::SystemStateHelperInterface& system_state, bool use_genetlink);
   ~P4RuntimeImpl() override = default;
 
   // Determines the type of write request (e.g. table entry, direct counter
