@@ -60,7 +60,8 @@ class AclTableTest : public testing::Test {
   const pdpi::IrP4Info ir_p4_info_ =
       sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
 
-  test_lib::P4RuntimeGrpcService p4rt_service_;
+  test_lib::P4RuntimeGrpcService p4rt_service_ =
+      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
 };
 

@@ -104,7 +104,8 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
       std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_switch,
       std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_switch,
       std::unique_ptr<sonic::PacketIoInterface> packetio_impl,
-      swss::SystemStateHelperInterface& system_state, bool use_genetlink);
+      swss::SystemStateHelperInterface& system_state, bool use_genetlink,
+      bool translate_port_ids);
   ~P4RuntimeImpl() override = default;
 
   // Determines the type of write request (e.g. table entry, direct counter
@@ -244,6 +245,10 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
   // When the switch is in critical state the P4RT service shuould not accept
   // write requests, but can still handle reads.
   swss::SystemStateHelperInterface& system_state_;
+
+  // Some switch enviornments cannot rely on the SONiC port names, and can
+  // instead choose to use port ID's configured through gNMI.
+  const bool translate_port_ids_;
 
   // TODO: delete once it is no longer needed.
   P4RuntimeTweaks tweak_ ABSL_GUARDED_BY(server_state_lock_);

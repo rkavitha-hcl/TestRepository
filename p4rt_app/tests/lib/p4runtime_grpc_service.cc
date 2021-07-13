@@ -33,7 +33,8 @@
 namespace p4rt_app {
 namespace test_lib {
 
-P4RuntimeGrpcService::P4RuntimeGrpcService() {
+P4RuntimeGrpcService::P4RuntimeGrpcService(
+    const P4RuntimeGrpcServiceOptions& options) {
   LOG(INFO) << "Starting the P4 runtime gRPC service.";
   const std::string kP4rtTableName = "P4RT";
   const std::string kPortTableName = "PORT_TABLE";
@@ -101,7 +102,8 @@ P4RuntimeGrpcService::P4RuntimeGrpcService() {
       std::move(fake_notify_vrf), std::move(fake_app_db_table_hash),
       std::move(fake_notify_hash), std::move(fake_app_db_table_switch),
       std::move(fake_notify_switch), std::move(fake_packetio_interface),
-      fake_system_state_helper_, /*use_genetlink=*/false);
+      fake_system_state_helper_, options.use_genetlink,
+      options.translate_port_ids);
 
   // Component tests will use an insecure connection for the service.
   std::string server_address = absl::StrCat("localhost:", GrpcPort());

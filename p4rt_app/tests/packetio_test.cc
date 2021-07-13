@@ -38,19 +38,18 @@ using ::testing::Eq;
 class FakePacketIoTest : public testing::Test {
  protected:
   void SetUp() override {
-    p4rt_service_ = absl::make_unique<test_lib::P4RuntimeGrpcService>();
     const std::string address =
-        absl::StrCat("localhost:", p4rt_service_->GrpcPort());
+        absl::StrCat("localhost:", p4rt_service_.GrpcPort());
     auto stub =
         pdpi::CreateP4RuntimeStub(address, grpc::InsecureChannelCredentials());
     ASSERT_OK_AND_ASSIGN(
         p4rt_session_, pdpi::P4RuntimeSession::Create(std::move(stub),
                                                       /*device_id=*/183807201));
 
-    p4rt_service_->GetPortAppDbTable().InsertTableEntry("Ethernet0",
-                                                        {{"id", "0"}});
-    p4rt_service_->GetPortAppDbTable().InsertTableEntry("Ethernet1",
-                                                        {{"id", "1"}});
+    p4rt_service_.GetPortAppDbTable().InsertTableEntry("Ethernet0",
+                                                       {{"id", "0"}});
+    p4rt_service_.GetPortAppDbTable().InsertTableEntry("Ethernet1",
+                                                       {{"id", "1"}});
   }
 
   // Form PacketOut message and write to stream channel.
@@ -88,7 +87,8 @@ class FakePacketIoTest : public testing::Test {
     }
   }
 
-  std::unique_ptr<test_lib::P4RuntimeGrpcService> p4rt_service_;
+  test_lib::P4RuntimeGrpcService p4rt_service_ =
+      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
   std::vector<p4::v1::StreamMessageResponse> actual_responses_;
 };
@@ -118,9 +118,9 @@ TEST_F(FakePacketIoTest, VerifyPacketIn) {
   std::thread receive_thread(&FakePacketIoTest::ReadResponses, this,
                              /*expected_count=*/2);
   // Push the expected PacketIn.
-  EXPECT_OK(p4rt_service_->GetFakePacketIoInterface().PushPacketIn(
+  EXPECT_OK(p4rt_service_.GetFakePacketIoInterface().PushPacketIn(
       "Ethernet0", "Ethernet0", "test packet1"));
-  EXPECT_OK(p4rt_service_->GetFakePacketIoInterface().PushPacketIn(
+  EXPECT_OK(p4rt_service_.GetFakePacketIoInterface().PushPacketIn(
       "Ethernet1", "Ethernet1", "test packet2"));
   // Retry a few times to check if all expected packets arrived.
   for (int i = 0; i < 10; i++) {
@@ -175,7 +175,7 @@ TEST_F(FakePacketIoTest, PacketOutFailForSecondary) {
       *request.mutable_packet(),
       pdpi::PdPacketOutToPi(sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                             packet_out));
-  std::string address = absl::StrCat("localhost:", p4rt_service_->GrpcPort());
+  std::string address = absl::StrCat("localhost:", p4rt_service_.GrpcPort());
   auto channel =
       grpc::CreateChannel(address, grpc::InsecureChannelCredentials());
   auto stub = P4Runtime::NewStub(channel);
@@ -211,7 +211,7 @@ TEST_F(FakePacketIoTest, VerifyPacketOut) {
   // rpc call to reach the P4RT server and the write request processed.
   for (int i = 0; i < 10; i++) {
     packets_or =
-        p4rt_service_->GetFakePacketIoInterface().VerifyPacketOut("Ethernet0");
+        p4rt_service_.GetFakePacketIoInterface().VerifyPacketOut("Ethernet0");
     if (!packets_or.ok() || (*packets_or).size() != 2) {
       absl::SleepFor(absl::Seconds(2));
     } else {

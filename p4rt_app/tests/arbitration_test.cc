@@ -65,7 +65,8 @@ class ArbitrationTest : public testing::Test {
 
   int GetDeviceId() const { return 183807201; }
 
-  test_lib::P4RuntimeGrpcService p4rt_service_;
+  test_lib::P4RuntimeGrpcService p4rt_service_ =
+      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
   std::unique_ptr<p4::v1::P4Runtime::Stub> stub_;
 };
 

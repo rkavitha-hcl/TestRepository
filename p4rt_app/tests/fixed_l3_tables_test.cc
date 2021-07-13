@@ -56,7 +56,8 @@ class FixedL3TableTest : public testing::Test {
         p4_info_));
   }
 
-  test_lib::P4RuntimeGrpcService p4rt_service_;
+  test_lib::P4RuntimeGrpcService p4rt_service_ =
+      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
 
   const p4::config::v1::P4Info p4_info_ =

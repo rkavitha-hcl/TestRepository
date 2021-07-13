@@ -65,6 +65,11 @@ DEFINE_string(authorization_policy_file_name, "authorization_policy.proto.txt",
 DEFINE_bool(use_genetlink, false,
             "Enable Generic Netlink model for Packet Receive");
 
+// TODO: default to false.
+DEFINE_bool(use_port_ids, true,
+            "Controller will use Port ID values configured over gNMI instead "
+            "of the SONiC interface names.");
+
 absl::StatusOr<std::shared_ptr<ServerCredentials>> BuildServerCredentials() {
   constexpr int kCertRefreshIntervalSec = 5;
   constexpr char kRootCertName[] = "root_cert";
@@ -194,7 +199,7 @@ int main(int argc, char** argv) {
       std::move(notification_channel_vrf), std::move(app_db_table_hash),
       std::move(notification_channel_hash), std::move(app_db_table_switch),
       std::move(notification_channel_switch), std::move(*packetio_impl_or),
-      system_state_singleton, FLAGS_use_genetlink);
+      system_state_singleton, FLAGS_use_genetlink, FLAGS_use_port_ids);
 
   // Start a P4 runtime server
   ServerBuilder builder;

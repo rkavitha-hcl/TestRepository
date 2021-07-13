@@ -82,7 +82,8 @@ class HashingTest : public testing::Test {
                                                       /*device_id=*/183807201));
   }
 
-  test_lib::P4RuntimeGrpcService p4rt_service_;
+  test_lib::P4RuntimeGrpcService p4rt_service_ =
+      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
 };
 

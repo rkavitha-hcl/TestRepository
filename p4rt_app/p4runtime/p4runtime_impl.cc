@@ -292,7 +292,8 @@ P4RuntimeImpl::P4RuntimeImpl(
     std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_switch,
     std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_switch,
     std::unique_ptr<sonic::PacketIoInterface> packetio_impl,
-    swss::SystemStateHelperInterface& system_state, bool use_genetlink)
+    swss::SystemStateHelperInterface& system_state, bool use_genetlink,
+    bool translate_port_ids)
     : app_db_client_(std::move(app_db_client)),
       state_db_client_(std::move(state_db_client)),
       counter_db_client_(std::move(counter_db_client)),
@@ -305,7 +306,8 @@ P4RuntimeImpl::P4RuntimeImpl(
       app_db_table_switch_(std::move(app_db_table_switch)),
       app_db_notifier_switch_(std::move(app_db_notifier_switch)),
       packetio_impl_(std::move(packetio_impl)),
-      system_state_(system_state) {
+      system_state_(system_state),
+      translate_port_ids_(translate_port_ids) {
   controller_manager_ = absl::make_unique<SdnControllerManager>();
 
   // Spawn the receiver thread to receive In packets.

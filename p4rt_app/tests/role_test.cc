@@ -44,7 +44,8 @@ class RoleTest : public testing::Test {
   }
 
   // Fake P4RT gRPC service.
-  test_lib::P4RuntimeGrpcService p4rt_service_;
+  test_lib::P4RuntimeGrpcService p4rt_service_ =
+      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
   std::string p4rt_grpc_address_;
   int p4rt_device_id_ = 183807201;
 
