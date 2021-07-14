@@ -669,7 +669,7 @@ absl::StatusOr<p4::v1::FieldMatch> FuzzExactFieldMatch(
   ASSIGN_OR_RETURN(
       std::string value,
       FuzzValue(gen, config, switch_state, field.type_name(), field.bitwidth(),
-                ir_match_field_info.references(), /*non_zero=*/false));
+                ir_match_field_info.references(), /*non_zero=*/true));
 
   match.mutable_exact()->set_value(value);
   return match;
@@ -738,7 +738,7 @@ absl::StatusOr<p4::v1::Action> FuzzAction(
         std::string value,
         FuzzValue(gen, config, switch_state, ir_param.param().type_name(),
                   ir_param.param().bitwidth(), ir_param.references(),
-                  /*non_zero=*/false));
+                  /*non_zero=*/true));
     param->set_value(value);
   }
 
