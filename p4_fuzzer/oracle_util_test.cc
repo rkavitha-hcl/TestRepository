@@ -11,6 +11,7 @@
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "p4_fuzzer/test_utils.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/netaddr/ipv4_address.h"
@@ -87,7 +88,7 @@ struct UpdateStatus {
 
 // Checks whether the update+state combo is plausible or not
 absl::Status Check(const std::vector<UpdateStatus>& updates,
-                   const SwitchState& state, bool valid) {
+                   const FuzzerTestState& fuzzer_state, bool valid) {
   WriteRequest request;
   std::vector<p4::v1::Error> statuses;
   for (const auto& [update, status] : updates) {
@@ -96,9 +97,8 @@ absl::Status Check(const std::vector<UpdateStatus>& updates,
     p4_error.set_canonical_code(static_cast<int32_t>(status));
     statuses.push_back(p4_error);
   }
-  absl::optional<std::vector<std::string>> oracle =
-      WriteRequestOracle(sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
-                         request, statuses, state);
+  absl::optional<std::vector<std::string>> oracle = WriteRequestOracle(
+      fuzzer_state.config.info, request, statuses, fuzzer_state.switch_state);
   if (valid) {
     if (oracle.has_value()) {
       std::string explanation = absl::StrCat(
@@ -142,58 +142,61 @@ void AddTableEntry(const TableEntry& table_entry, SwitchState* state) {
   CHECK(status.ok());
 }
 
+// TODO: Enable this test after batching is handled correctly.
 TEST(OracleUtilTest, DISABLED_SameKeyInBatch) {
   // Two entries, same key but different values/actions.
   TableEntry table_entry_1 = GetIngressAclTableEntry(/*match=*/0, /*action=*/1);
   TableEntry table_entry_2 = GetIngressAclTableEntry(/*match=*/0, /*action=*/2);
+  FuzzerTestState fuzzer_state = ConstructFuzzerTestStateFromSaiMiddleBlock();
 
   // Same key should be rejected.
   EXPECT_OK(
       Check({MakeInsert(table_entry_1, absl::StatusCode::kOk),
              MakeInsert(table_entry_2, absl::StatusCode::kInvalidArgument)},
-            EmptyState(), /*valid=*/false));
+            fuzzer_state, /*valid=*/false));
   EXPECT_OK(
       Check({MakeInsert(table_entry_1, absl::StatusCode::kInvalidArgument),
              MakeInsert(table_entry_2, absl::StatusCode::kOk)},
-            EmptyState(), /*valid=*/false));
+            fuzzer_state, /*valid=*/false));
   EXPECT_OK(
       Check({MakeInsert(table_entry_1, absl::StatusCode::kInvalidArgument),
              MakeInsert(table_entry_2, absl::StatusCode::kInvalidArgument)},
-            EmptyState(), /*valid=*/true));
+            fuzzer_state, /*valid=*/true));
 
   // Even if some are insert and some are delete
   EXPECT_OK(
       Check({MakeDelete(table_entry_1, absl::StatusCode::kInvalidArgument),
              MakeInsert(table_entry_2, absl::StatusCode::kInvalidArgument)},
-            EmptyState(), /*valid=*/true));
+            fuzzer_state, /*valid=*/true));
 }
 
 TEST(OracleUtilTest, BatchResources) {
   // Create a state that's full.
-  SwitchState full(sai::GetIrP4Info(sai::Instantiation::kMiddleblock));
+  FuzzerTestState full_state = ConstructFuzzerTestStateFromSaiMiddleBlock();
   for (int i = 1; i <= AclIngressTableSize(); i++) {
-    AddTableEntry(GetIngressAclTableEntry(/*match=*/i, /*action=*/0), &full);
+    AddTableEntry(GetIngressAclTableEntry(/*match=*/i, /*action=*/0),
+                  &full_state.switch_state);
   }
 
   TableEntry next = GetIngressAclTableEntry(
       /*match=*/AclIngressTableSize() + 1, /*action=*/0);
 
   // Inserting into full table is okay.
-  EXPECT_OK(
-      Check({MakeInsert(next, absl::StatusCode::kOk)}, full, /*valid=*/true));
+  EXPECT_OK(Check({MakeInsert(next, absl::StatusCode::kOk)}, full_state,
+                  /*valid=*/true));
 
   // Resource exhasted is okay too.
   EXPECT_OK(Check({MakeInsert(next, absl::StatusCode::kResourceExhausted)},
-                  full,
+                  full_state,
                   /*valid=*/true));
 }
 
 TEST(OracleUtilTest, BatchResourcesAlmostFull) {
   // Create a state that's almost full (1 entry remaining).
-  SwitchState almost_full(sai::GetIrP4Info(sai::Instantiation::kMiddleblock));
+  FuzzerTestState almost_full = ConstructFuzzerTestStateFromSaiMiddleBlock();
   for (int i = 1; i <= AclIngressTableSize() - 1; i++) {
     AddTableEntry(GetIngressAclTableEntry(/*match=*/i, /*action=*/0),
-                  &almost_full);
+                  &almost_full.switch_state);
   }
 
   TableEntry next1 = GetIngressAclTableEntry(
@@ -201,7 +204,7 @@ TEST(OracleUtilTest, BatchResourcesAlmostFull) {
   TableEntry next2 = GetIngressAclTableEntry(
       /*match=*/AclIngressTableSize() + 2, /*action=*/0);
 
-  // Resource exhasted is not okay.
+  // Resource exhausted is not okay.
   EXPECT_OK(Check({MakeInsert(next1, absl::StatusCode::kResourceExhausted)},
                   almost_full, /*valid=*/false));
 
