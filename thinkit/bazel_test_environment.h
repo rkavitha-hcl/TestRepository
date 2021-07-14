@@ -27,8 +27,11 @@ namespace thinkit {
 class BazelTestEnvironment : public TestEnvironment {
  public:
   BazelTestEnvironment() = delete;
-  BazelTestEnvironment(bool mask_known_failures)
-      : mask_known_failures_{mask_known_failures} {}
+  explicit BazelTestEnvironment(
+      bool mask_known_failures,
+      std::function<void(absl::string_view)> set_test_case_id = [](auto) {})
+      : mask_known_failures_{mask_known_failures},
+        set_test_case_id_(std::move(set_test_case_id)) {}
 
   absl::Status StoreTestArtifact(absl::string_view filename,
                                  absl::string_view contents) override;
@@ -40,8 +43,13 @@ class BazelTestEnvironment : public TestEnvironment {
 
   bool MaskKnownFailures() override { return mask_known_failures_; };
 
+  void SetTestCaseID(absl::string_view test_case_id) override {
+    set_test_case_id_(test_case_id);
+  }
+
  private:
   bool mask_known_failures_;
+  std::function<void(absl::string_view)> set_test_case_id_;
 };
 
 }  // namespace thinkit

@@ -1,40 +1,66 @@
 #include "thinkit/bazel_test_environment.h"
 
 #include <cstdlib>
+#include <memory>
+#include <string>
 
 // Switching benchmark dependency to third_party seems to not output any
 // benchmarking information when run.
+#include "absl/memory/memory.h"
 #include "absl/strings/string_view.h"
 #include "benchmark/benchmark.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/status_matchers.h"
+#include "thinkit/test_environment.h"
 
 namespace thinkit {
 namespace {
 
 using ::gutil::IsOk;
+using ::testing::StrEq;
 
 // -- Tests --------------------------------------------------------------------
 
 constexpr absl::string_view kTestArtifact = "my_test_artifact.txt";
 
-class BazelTestEnvironmentTest : public testing::Test {
- protected:
-  std::unique_ptr<TestEnvironment> environment_ =
+TEST(BazelTestEnvironmentTest, StoreTestArtifact) {
+  std::unique_ptr<TestEnvironment> environment =
       absl::make_unique<BazelTestEnvironment>(/*mask_known_failures=*/true);
-};
-
-TEST_F(BazelTestEnvironmentTest, StoreTestArtifact) {
-  EXPECT_OK(environment_->StoreTestArtifact(kTestArtifact, "Hello, World!\n"));
-  EXPECT_OK(environment_->StoreTestArtifact(kTestArtifact, "Hello, Test!\n"));
+  EXPECT_OK(environment->StoreTestArtifact(kTestArtifact, "Hello, World!\n"));
+  EXPECT_OK(environment->StoreTestArtifact(kTestArtifact, "Hello, Test!\n"));
 }
 
-TEST_F(BazelTestEnvironmentTest, AppendToTestArtifact) {
+TEST(BazelTestEnvironmentTest, AppendToTestArtifact) {
+  std::unique_ptr<TestEnvironment> environment =
+      absl::make_unique<BazelTestEnvironment>(/*mask_known_failures=*/true);
   EXPECT_OK(
-      environment_->AppendToTestArtifact(kTestArtifact, "Hello, World!\n"));
-  EXPECT_OK(
-      environment_->AppendToTestArtifact(kTestArtifact, "Hello, Test!\n"));
+      environment->AppendToTestArtifact(kTestArtifact, "Hello, World!\n"));
+  EXPECT_OK(environment->AppendToTestArtifact(kTestArtifact, "Hello, Test!\n"));
+}
+
+// Test that SetTestCaseID correctly calls its input function.
+TEST(BazelTestEnvironmentTest, SetTestCaseIdCallsMemberFunction) {
+  std::string stored_test_case_id;
+  std::string test_id = "1";
+
+  std::unique_ptr<TestEnvironment> environment =
+      absl::make_unique<BazelTestEnvironment>(
+          /*mask_known_failures=*/true,
+          /*set_test_case_id=*/[&](absl::string_view test_case_id) {
+            stored_test_case_id = test_case_id;
+          });
+
+  environment->SetTestCaseID(test_id);
+  EXPECT_THAT(test_id, StrEq(stored_test_case_id));
+}
+
+// SetTestCaseID should not crash even if the environment is constructed without
+// a function.
+TEST(BazelTestEnvironmentTest, SetTestCaseIdWorksForUnaryConstructor) {
+  std::unique_ptr<TestEnvironment> environment =
+      absl::make_unique<BazelTestEnvironment>(/*mask_known_failures=*/true);
+  environment->SetTestCaseID("1");
 }
 
 // -- Benchmarks ---------------------------------------------------------------

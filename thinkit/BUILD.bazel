@@ -174,7 +174,9 @@ cc_test(
     srcs = ["bazel_test_environment_test.cc"],
     deps = [
         ":bazel_test_environment",
+        ":test_environment",
         "@com_google_googletest//:gtest_main",
+        "@com_google_absl//absl/memory",
         "@com_google_absl//absl/strings",
         # This dependency is not technically needed inside Google3,
         # but is a hack to keep the Copybara rules simple.
