@@ -237,7 +237,6 @@ TEST(FuzzActionProfileActionSetTest, HandlesLowMaxGroupSizeCorrectly) {
         fuzzer_state.config.info.tables_by_id().at(
             options.action_selector_table_id);
 
-    // Fuzz an ActionProfileActionSet.
     ASSERT_OK_AND_ASSIGN(auto action_profile_set,
                          FuzzActionProfileActionSet(
                              &fuzzer_state.gen, fuzzer_state.config,
