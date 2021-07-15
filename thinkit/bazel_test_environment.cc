@@ -24,6 +24,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/synchronization/mutex.h"
 #include "gtest/gtest.h"
 #include "gutil/status.h"
 #include "thinkit/test_environment.h"
@@ -84,11 +85,13 @@ absl::Status WriteToTestArtifact(absl::string_view filename,
 
 absl::Status BazelTestEnvironment::StoreTestArtifact(
     absl::string_view filename, absl::string_view contents) {
+  absl::MutexLock lock(&this->write_mutex_);
   return WriteToTestArtifact(filename, contents, std::ios_base::trunc);
 }
 
 absl::Status BazelTestEnvironment::AppendToTestArtifact(
     absl::string_view filename, absl::string_view contents) {
+  absl::MutexLock lock(&this->write_mutex_);
   return WriteToTestArtifact(filename, contents, std::ios_base::app);
 }
 
