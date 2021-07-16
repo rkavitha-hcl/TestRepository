@@ -37,7 +37,7 @@ std::string PrettyPrintElectionId(const absl::optional<absl::uint128>& id) {
   return "<backup>";
 }
 
-grpc::Status ValidateConnection(
+grpc::Status VerifyElectionIdIsUnused(
     const absl::optional<std::string>& role_name,
     const absl::optional<absl::uint128>& election_id,
     const std::vector<SdnConnection*>& active_connections) {
@@ -91,16 +91,6 @@ grpc::Status SdnControllerManager::HandleArbitrationUpdate(
   // TODO: arbitration should fail with invalid device id.
   device_id_ = update.device_id();
 
-  // Verify the request's device ID is being sent to the correct device.
-  if (update.device_id() != device_id_) {
-    return grpc::Status(
-        grpc::StatusCode::FAILED_PRECONDITION,
-        absl::StrCat("Arbitration request has the wrong device ID '",
-                     update.device_id(),
-                     "'. Cannot establish connection to this device '",
-                     device_id_, "'."));
-  }
-
   // If the role name is not set then we assume the connection is a 'root'
   // connection.
   absl::optional<std::string> role_name;
@@ -116,35 +106,72 @@ grpc::Status SdnControllerManager::HandleArbitrationUpdate(
                                     update.election_id().low());
   }
 
-  // If the controller is already initialized we check if the role & election ID
-  // match. Assuming nothing has changed then there is nothing we need to do.
-  if (controller->IsInitialized() && controller->GetRoleName() == role_name &&
-      controller->GetElectionId() == election_id) {
-    SendArbitrationResponse(controller);
-    return grpc::Status::OK;
-  }
+  if (!controller->IsInitialized()) {
+    // First arbitration message sent by this controller.
 
-  // Verify that this is a valid connection, and wont mess up internal state.
-  auto valid_connection =
-      ValidateConnection(role_name, election_id, connections_);
-  if (!valid_connection.ok()) {
-    return valid_connection;
-  }
+    // Verify the request's device ID is being sent to the correct device.
+    if (update.device_id() != device_id_) {
+      return grpc::Status(
+          grpc::StatusCode::NOT_FOUND,
+          absl::StrCat("Arbitration request has the wrong device ID '",
+                       update.device_id(),
+                       "'. Cannot establish connection to this device '",
+                       device_id_, "'."));
+    }
 
-  // Update the connection with the arbitration data and initalize.
-  if (controller->IsInitialized()) {
+    // Check if the election ID is being use by another connection.
+    auto election_id_is_unused =
+        VerifyElectionIdIsUnused(role_name, election_id, connections_);
+    if (!election_id_is_unused.ok()) {
+      return election_id_is_unused;
+    }
+
+    controller->SetRoleName(role_name);
+    controller->SetElectionId(election_id);
+    controller->Initialize();
+    connections_.push_back(controller);
+    LOG(INFO) << "New SDN connection: " << update.ShortDebugString();
+  } else {
+    // Update arbitration message sent from the controller.
+
+    // The device ID cannot change.
+    if (update.device_id() != device_id_) {
+      return grpc::Status(
+          grpc::StatusCode::FAILED_PRECONDITION,
+          absl::StrCat("Arbitration request cannot change the device ID from '",
+                       device_id_, "' to '", update.device_id(), "'."));
+    }
+
+    // The role cannot change without closing the connection.
+    if (role_name != controller->GetRoleName()) {
+      return grpc::Status(
+          grpc::StatusCode::FAILED_PRECONDITION,
+          absl::StrCat("Arbitration request cannot change the role from ",
+                       PrettyPrintRoleName(controller->GetRoleName()), " to ",
+                       PrettyPrintRoleName(role_name), "."));
+    }
+
+    // Assuming the role and election ID have not changed then we do not need to
+    // inform the other connections.
+    if (controller->GetElectionId() == election_id) {
+      SendArbitrationResponse(controller);
+      return grpc::Status::OK;
+    }
+
+    // Check if the election ID is being use by another connection.
+    auto election_id_is_unused =
+        VerifyElectionIdIsUnused(role_name, election_id, connections_);
+    if (!election_id_is_unused.ok()) {
+      return election_id_is_unused;
+    }
+    controller->SetElectionId(election_id);
+
     LOG(INFO) << absl::StreamFormat(
         "Update SDN connection (%s, %s): %s",
         PrettyPrintRoleName(controller->GetRoleName()),
         PrettyPrintElectionId(controller->GetElectionId()),
         update.ShortDebugString());
-  } else {
-    LOG(INFO) << "New SDN connection: " << update.ShortDebugString();
   }
-  controller->SetRoleName(role_name);
-  controller->SetElectionId(election_id);
-  controller->Initialize();
-  connections_.push_back(controller);
 
   // Check for any primary connection changes, and inform all active connections
   // as needed.

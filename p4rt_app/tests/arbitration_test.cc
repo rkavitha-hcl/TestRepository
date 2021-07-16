@@ -70,6 +70,37 @@ class ArbitrationTest : public testing::Test {
   std::unique_ptr<p4::v1::P4Runtime::Stub> stub_;
 };
 
+// TODO: arbitration should fail with invalid device id.
+TEST_F(ArbitrationTest, DISABLED_DeviceIdMustMatch) {
+  grpc::ClientContext context;
+  std::unique_ptr<P4RuntimeStream> stream = stub_->StreamChannel(&context);
+
+  p4::v1::StreamMessageResponse response;
+  p4::v1::StreamMessageRequest request;
+  request.mutable_arbitration()->set_device_id(GetDeviceId() + 1);
+  request.mutable_arbitration()->mutable_election_id()->set_high(2);
+  stream->Write(request);
+  EXPECT_EQ(stream->Finish().error_code(), grpc::StatusCode::NOT_FOUND);
+}
+
+// TODO: arbitration should fail with invalid device id.
+TEST_F(ArbitrationTest, DISABLED_DeviceIdCannotChange) {
+  grpc::ClientContext context;
+  std::unique_ptr<P4RuntimeStream> stream = stub_->StreamChannel(&context);
+
+  p4::v1::StreamMessageResponse response;
+  p4::v1::StreamMessageRequest request;
+  request.mutable_arbitration()->set_device_id(GetDeviceId());
+  request.mutable_arbitration()->mutable_election_id()->set_high(2);
+  ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream, request));
+  ASSERT_EQ(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  request.mutable_arbitration()->set_device_id(GetDeviceId() + 1);
+  stream->Write(request);
+  EXPECT_EQ(stream->Finish().error_code(),
+            grpc::StatusCode::FAILED_PRECONDITION);
+}
+
 TEST_F(ArbitrationTest, PrimaryConnectionWithElectionId) {
   grpc::ClientContext context;
   std::unique_ptr<P4RuntimeStream> stream = stub_->StreamChannel(&context);
@@ -403,6 +434,24 @@ TEST_F(ArbitrationTest, TwoConnectionsCannotReuseElectionId) {
   request.mutable_arbitration()->mutable_election_id()->set_high(2);
   backup->Write(request);
   EXPECT_EQ(backup->Finish().error_code(), grpc::StatusCode::INVALID_ARGUMENT);
+}
+
+TEST_F(ArbitrationTest, ConnectionCannotChangeItsRoleId) {
+  grpc::ClientContext context;
+  std::unique_ptr<P4RuntimeStream> stream = stub_->StreamChannel(&context);
+
+  p4::v1::StreamMessageResponse response;
+  p4::v1::StreamMessageRequest request;
+  request.mutable_arbitration()->set_device_id(GetDeviceId());
+  request.mutable_arbitration()->mutable_election_id()->set_high(2);
+  *request.mutable_arbitration()->mutable_role()->mutable_name() = "A";
+  ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream, request));
+  ASSERT_EQ(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  *request.mutable_arbitration()->mutable_role()->mutable_name() = "B";
+  stream->Write(request);
+  EXPECT_EQ(stream->Finish().error_code(),
+            grpc::StatusCode::FAILED_PRECONDITION);
 }
 
 }  // namespace
