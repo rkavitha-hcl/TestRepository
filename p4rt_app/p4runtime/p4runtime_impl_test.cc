@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
 
+#include "absl/strings/string_view.h"
 #include "boost/bimap.hpp"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
@@ -51,13 +52,13 @@ void SetupPacketInMetadata(const std::string& ingress_port,
   metadata->set_value(target_egress);
 }
 
-void SetupPacketOutMetadata(int egress_port, int egress_bitwidth,
+void SetupPacketOutMetadata(const std::string& egress_port, int egress_bitwidth,
                             int submit_to_ingress, int ingress_bitwidth,
                             p4::v1::PacketOut& packet) {
   auto metadata = packet.add_metadata();
   metadata->set_metadata_id(
       PACKET_OUT_EGRESS_PORT_ID);  // metadata id for egress_port.
-  metadata->set_value(absl::StrCat(egress_port));
+  metadata->set_value(egress_port);
 
   metadata = packet.add_metadata();
   metadata->set_metadata_id(
@@ -77,10 +78,9 @@ void SetupPacketOutMetadata(int egress_port, int egress_bitwidth,
   metadata->set_value(pad);
 }
 
-TEST(P4RuntimeImplTest, SendPacketOutEgressPortOk) {
+TEST(P4RuntimeImplTest, SendPacketOutEgressPortUsingPortIdOk) {
   p4::v1::PacketOut packet;
-  int egress_port = 1;
-  SetupPacketOutMetadata(egress_port, /*egress_bitwidth*/ 9,
+  SetupPacketOutMetadata(/*egress_port*/ "1", /*egress_bitwidth*/ 9,
                          /*submit_to_ingress*/ 0,
                          /*ingress_bitwidth*/ 1, packet);
   pdpi::IrP4Info ir_p4_info =
@@ -107,12 +107,46 @@ TEST(P4RuntimeImplTest, SendPacketOutEgressPortOk) {
   EXPECT_CALL(*mock_call_adapter, write).Times(1);
   auto packetio_impl = absl::make_unique<sonic::PacketIoImpl>(
       std::move(mock_call_adapter), std::move(port_sockets));
-  EXPECT_OK(SendPacketOut(ir_p4_info, port_maps, packetio_impl.get(), packet));
+  EXPECT_OK(SendPacketOut(ir_p4_info, /*translate_port_ids=*/true, port_maps,
+                          packetio_impl.get(), packet));
+}
+
+TEST(P4RuntimeImplTest, SendPacketOutEgressPortUsingPortNameOk) {
+  p4::v1::PacketOut packet;
+  SetupPacketOutMetadata(/*egress_port*/ "Ethernet1", /*egress_bitwidth*/ 9,
+                         /*submit_to_ingress*/ 0,
+                         /*ingress_bitwidth*/ 1, packet);
+  pdpi::IrP4Info ir_p4_info =
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
+  int fd[2];
+  EXPECT_GE(pipe(fd), 0);
+  std::vector<std::unique_ptr<p4rt_app::sonic::PacketIoPortSockets>>
+      port_sockets;
+  port_sockets.push_back(
+      absl::make_unique<p4rt_app::sonic::PacketIoPortSockets>("Ethernet1",
+                                                              fd[1]));
+
+  boost::bimap<std::string, std::string> port_maps;
+  port_maps.insert({"Ethernet1", "1"});
+
+  auto mock_call_adapter = absl::make_unique<sonic::MockSystemCallAdapter>();
+  struct ifreq if_resp { /*ifr_name=*/
+    {""}, /*ifr_flags=*/{
+      { IFF_UP | IFF_RUNNING }
+    }
+  };
+  EXPECT_CALL(*mock_call_adapter, ioctl)
+      .WillOnce(DoAll(SetArgPointee<2>(if_resp), Return(0)));
+  EXPECT_CALL(*mock_call_adapter, write).Times(1);
+  auto packetio_impl = absl::make_unique<sonic::PacketIoImpl>(
+      std::move(mock_call_adapter), std::move(port_sockets));
+  EXPECT_OK(SendPacketOut(ir_p4_info, /*translate_port_ids=*/false, port_maps,
+                          packetio_impl.get(), packet));
 }
 
 TEST(P4RuntimeImplTest, SendPacketOutIngressInjectOk) {
   p4::v1::PacketOut packet;
-  SetupPacketOutMetadata(/*egress_port*/ 0, /*egress_bitwidth*/ 9,
+  SetupPacketOutMetadata(/*egress_port*/ "0", /*egress_bitwidth*/ 9,
                          /*submit_to_ingress*/ 1,
                          /*ingress_bitwidth*/ 1, packet);
   pdpi::IrP4Info ir_p4_info =
@@ -138,13 +172,14 @@ TEST(P4RuntimeImplTest, SendPacketOutIngressInjectOk) {
       std::move(mock_call_adapter), std::move(port_sockets));
 
   boost::bimap<std::string, std::string> port_maps;
-  EXPECT_OK(SendPacketOut(ir_p4_info, port_maps, packetio_impl.get(), packet));
+  EXPECT_OK(SendPacketOut(ir_p4_info, /*translate_port_ids=*/true, port_maps,
+                          packetio_impl.get(), packet));
 }
 
 TEST(P4RuntimeImplTest, SendPacketOutDuplicateId) {
   p4::v1::PacketOut packet;
   // Create default and then modify to make duplcate metadata id.
-  SetupPacketOutMetadata(/*egress_port*/ 1, /*egress_bitwidth*/ 9,
+  SetupPacketOutMetadata(/*egress_port*/ "1", /*egress_bitwidth*/ 9,
                          /*submit_to_ingress*/ 0,
                          /*ingress_bitwidth*/ 1, packet);
   for (auto iter = packet.mutable_metadata()->begin();
@@ -166,14 +201,15 @@ TEST(P4RuntimeImplTest, SendPacketOutDuplicateId) {
   auto packetio_impl = absl::make_unique<sonic::PacketIoImpl>(
       std::move(mock_call_adapter), std::move(port_sockets));
   boost::bimap<std::string, std::string> port_maps;
-  ASSERT_THAT(SendPacketOut(ir_p4_info, port_maps, packetio_impl.get(), packet),
+  ASSERT_THAT(SendPacketOut(ir_p4_info, /*translate_port_ids=*/true, port_maps,
+                            packetio_impl.get(), packet),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(P4RuntimeImplTest, SendPacketOutIdMismatch) {
   p4::v1::PacketOut packet;
   // Make metadata id mismatch with what is in P4Info.
-  SetupPacketOutMetadata(/*egress_port*/ 1, /*egress_bitwidth*/ 9,
+  SetupPacketOutMetadata(/*egress_port*/ "1", /*egress_bitwidth*/ 9,
                          /*submit_to_ingress*/ 0,
                          /*ingress_bitwidth*/ 1, packet);
   for (auto iter = packet.mutable_metadata()->begin();
@@ -196,14 +232,15 @@ TEST(P4RuntimeImplTest, SendPacketOutIdMismatch) {
   auto packetio_impl = absl::make_unique<sonic::PacketIoImpl>(
       std::move(mock_call_adapter), std::move(port_sockets));
   boost::bimap<std::string, std::string> port_maps;
-  ASSERT_THAT(SendPacketOut(ir_p4_info, port_maps, packetio_impl.get(), packet),
+  ASSERT_THAT(SendPacketOut(ir_p4_info, /*translate_port_ids=*/true, port_maps,
+                            packetio_impl.get(), packet),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(P4RuntimeImplTest, SendPacketOutMultipleValidValues) {
   p4::v1::PacketOut packet;
   // Make multiple values valid.
-  SetupPacketOutMetadata(/*egress_port*/ 1, /*egress_bitwidth*/ 9,
+  SetupPacketOutMetadata(/*egress_port*/ "1", /*egress_bitwidth*/ 9,
                          /*submit_to_ingress*/ 1,
                          /*ingress_bitwidth*/ 1, packet);
 
@@ -229,12 +266,13 @@ TEST(P4RuntimeImplTest, SendPacketOutMultipleValidValues) {
   auto packetio_impl = absl::make_unique<sonic::PacketIoImpl>(
       std::move(mock_call_adapter), std::move(port_sockets));
   boost::bimap<std::string, std::string> port_maps;
-  ASSERT_OK(SendPacketOut(ir_p4_info, port_maps, packetio_impl.get(), packet));
+  ASSERT_OK(SendPacketOut(ir_p4_info, /*translate_port_ids=*/true, port_maps,
+                          packetio_impl.get(), packet));
 }
 
 TEST(P4RuntimeImplTest, SendPacketOutPortZero) {
   p4::v1::PacketOut packet;
-  SetupPacketOutMetadata(/*egress_port*/ 0, /*egress_bitwidth*/ 9,
+  SetupPacketOutMetadata(/*egress_port*/ "0", /*egress_bitwidth*/ 9,
                          /*submit_to_ingress*/ 0,
                          /*ingress_bitwidth*/ 1, packet);
 
@@ -261,7 +299,8 @@ TEST(P4RuntimeImplTest, SendPacketOutPortZero) {
   EXPECT_CALL(*mock_call_adapter, write).Times(1);
   auto packetio_impl = absl::make_unique<sonic::PacketIoImpl>(
       std::move(mock_call_adapter), std::move(port_sockets));
-  ASSERT_OK(SendPacketOut(ir_p4_info, port_maps, packetio_impl.get(), packet));
+  ASSERT_OK(SendPacketOut(ir_p4_info, /*translate_port_ids=*/true, port_maps,
+                          packetio_impl.get(), packet));
 }
 
 TEST(P4RuntimeImplTest, AddPacketInMetadataOk) {

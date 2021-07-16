@@ -51,7 +51,7 @@ absl::StatusOr<p4::v1::PacketIn> CreatePacketInMessage(
 // Utility function to parse the packet metadata and send it out via the
 // socket interface.
 absl::Status SendPacketOut(
-    const pdpi::IrP4Info& p4_info,
+    const pdpi::IrP4Info& p4_info, bool translate_port_ids,
     const boost::bimap<std::string, std::string>& port_translation_map,
     sonic::PacketIoInterface* const packetio_impl,
     const p4::v1::PacketOut& packet);

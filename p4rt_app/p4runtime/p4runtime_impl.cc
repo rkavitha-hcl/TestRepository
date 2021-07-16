@@ -92,6 +92,7 @@ absl::Status AllowRoleAccessToTable(const std::string& role_name,
 absl::Status AppendTableEntryReads(
     p4::v1::ReadResponse& response, const p4::v1::TableEntry& pi_table_entry,
     const pdpi::IrP4Info& p4_info, const std::string& role_name,
+    bool translate_port_ids,
     const boost::bimap<std::string, std::string>& port_translation_map,
     swss::DBConnectorInterface& app_db_client,
     swss::DBConnectorInterface& counters_db_client, P4RuntimeTweaks* tweak) {
@@ -118,6 +119,7 @@ absl::Status AppendTableEntryReads(
         TranslateTableEntryOptions{
             .direction = TranslationDirection::kForController,
             .ir_p4_info = p4_info,
+            .translate_port_ids = translate_port_ids,
             .port_map = port_translation_map},
         ir_table_entry));
 
@@ -135,6 +137,7 @@ absl::Status AppendTableEntryReads(
 
 absl::StatusOr<p4::v1::ReadResponse> DoRead(
     const p4::v1::ReadRequest& request, const pdpi::IrP4Info p4_info,
+    bool translate_port_ids,
     const boost::bimap<std::string, std::string>& port_translation_map,
     swss::DBConnectorInterface& app_db_client,
     swss::DBConnectorInterface& counters_db_client, P4RuntimeTweaks* tweak) {
@@ -145,7 +148,8 @@ absl::StatusOr<p4::v1::ReadResponse> DoRead(
       case p4::v1::Entity::kTableEntry: {
         RETURN_IF_ERROR(AppendTableEntryReads(
             response, entity.table_entry(), p4_info, request.role(),
-            port_translation_map, app_db_client, counters_db_client, tweak));
+            translate_port_ids, port_translation_map, app_db_client,
+            counters_db_client, tweak));
         break;
       }
       default:
@@ -194,7 +198,7 @@ bool P4InfoEquals(const p4::config::v1::P4Info& left,
 
 absl::StatusOr<pdpi::IrTableEntry> DoPiTableEntryToIr(
     const p4::v1::TableEntry& pi_table_entry, const pdpi::IrP4Info& p4_info,
-    const std::string& role_name,
+    const std::string& role_name, bool translate_port_ids,
     const boost::bimap<std::string, std::string>& port_translation_map,
     bool translate_key_only) {
   auto translate_status =
@@ -215,6 +219,7 @@ absl::StatusOr<pdpi::IrTableEntry> DoPiTableEntryToIr(
       TranslateTableEntryOptions{
           .direction = TranslationDirection::kForOrchAgent,
           .ir_p4_info = p4_info,
+          .translate_port_ids = translate_port_ids,
           .port_map = port_translation_map},
       ir_table_entry));
   return ir_table_entry;
@@ -223,6 +228,7 @@ absl::StatusOr<pdpi::IrTableEntry> DoPiTableEntryToIr(
 sonic::AppDbUpdates PiTableEntryUpdatesToIr(
     const p4::v1::WriteRequest& request, const pdpi::IrP4Info& p4_info,
     const p4_constraints::ConstraintInfo& constraint_info,
+    bool translate_port_ids,
     const boost::bimap<std::string, std::string>& port_translation_map,
     pdpi::IrWriteResponse* response, P4RuntimeTweaks* tweak) {
   sonic::AppDbUpdates ir_updates;
@@ -260,7 +266,8 @@ sonic::AppDbUpdates PiTableEntryUpdatesToIr(
     // plane is not required to send the full entry.
     auto ir_table_entry = DoPiTableEntryToIr(
         update.entity().table_entry(), p4_info, request.role(),
-        port_translation_map, update.type() == p4::v1::Update::DELETE);
+        translate_port_ids, port_translation_map,
+        update.type() == p4::v1::Update::DELETE);
     *entry_status = GetIrUpdateStatus(ir_table_entry.status());
     if (!ir_table_entry.ok()) {
       LOG(WARNING) << "Could not translate PI to IR: "
@@ -322,7 +329,7 @@ P4RuntimeImpl::P4RuntimeImpl(
 }
 
 absl::Status SendPacketOut(
-    const pdpi::IrP4Info& p4_info,
+    const pdpi::IrP4Info& p4_info, bool translate_port_ids,
     const boost::bimap<std::string, std::string>& port_translation_map,
     sonic::PacketIoInterface* const packetio_impl,
     const p4::v1::PacketOut& packet) {
@@ -371,9 +378,13 @@ absl::Status SendPacketOut(
     sonic_port_name = std::string(sonic::kSubmitToIngress);
   } else {
     // Use egress_port_id attribute value.
-    ASSIGN_OR_RETURN(sonic_port_name,
-                     TranslatePort(TranslationDirection::kForOrchAgent,
-                                   port_translation_map, egress_port_id));
+    if (translate_port_ids) {
+      ASSIGN_OR_RETURN(sonic_port_name,
+                       TranslatePort(TranslationDirection::kForOrchAgent,
+                                     port_translation_map, egress_port_id));
+    } else {
+      sonic_port_name = egress_port_id;
+    }
   }
 
   // Send packet out via the socket.
@@ -428,9 +439,9 @@ grpc::Status P4RuntimeImpl::Write(grpc::ServerContext* context,
 
     pdpi::IrWriteRpcStatus rpc_status;
     pdpi::IrWriteResponse* rpc_response = rpc_status.mutable_rpc_response();
-    sonic::AppDbUpdates app_db_updates =
-        PiTableEntryUpdatesToIr(*request, *ir_p4info_, *p4_constraint_info_,
-                                port_translation_map_, rpc_response, &tweak_);
+    sonic::AppDbUpdates app_db_updates = PiTableEntryUpdatesToIr(
+        *request, *ir_p4info_, *p4_constraint_info_, translate_port_ids_,
+        port_translation_map_, rpc_response, &tweak_);
 
     // Any AppDb update failures should be appended to the `rpc_response`. If
     // UpdateAppDb fails we should go critical.
@@ -486,9 +497,9 @@ grpc::Status P4RuntimeImpl::Read(
                           "ReadResponse writer cannot be a nullptr.");
     }
 
-    auto response_status =
-        DoRead(*request, ir_p4info_.value(), port_translation_map_,
-               *app_db_client_, *counter_db_client_, &tweak_);
+    auto response_status = DoRead(
+        *request, ir_p4info_.value(), translate_port_ids_,
+        port_translation_map_, *app_db_client_, *counter_db_client_, &tweak_);
     if (!response_status.ok()) {
       LOG(WARNING) << "Read failure: " << response_status.status();
       return grpc::Status(
@@ -558,8 +569,9 @@ grpc::Status P4RuntimeImpl::StreamChannel(
                      "ForwardingPipelineConfig."));
             } else {
               auto status =
-                  SendPacketOut(ir_p4info_.value(), port_translation_map_,
-                                packetio_impl_.get(), request.packet());
+                  SendPacketOut(ir_p4info_.value(), translate_port_ids_,
+                                port_translation_map_, packetio_impl_.get(),
+                                request.packet());
               if (!status.ok()) {
                 // Get the primary streamchannel and write into the stream.
                 controller_manager_->SendStreamMessageToPrimary(
@@ -690,12 +702,14 @@ grpc::Status P4RuntimeImpl::SetForwardingPipelineConfig(
     LOG(INFO) << "SetForwardingPipelineConfig completed successfully.";
 
     // Collect any port ID to port name translations;
-    auto port_map_result = sonic::GetPortIdTranslationMap(*app_db_client_);
-    if (!port_map_result.ok()) {
-      return gutil::AbslStatusToGrpcStatus(port_map_result.status());
+    if (translate_port_ids_) {
+      auto port_map_result = sonic::GetPortIdTranslationMap(*app_db_client_);
+      if (!port_map_result.ok()) {
+        return gutil::AbslStatusToGrpcStatus(port_map_result.status());
+      }
+      port_translation_map_ = *port_map_result;
+      LOG(INFO) << "Collected port ID to port name mappings.";
     }
-    port_translation_map_ = *port_map_result;
-    LOG(INFO) << "Collected port ID to port name mappings.";
 
 #ifdef __EXCEPTIONS
   } catch (const std::exception& e) {
@@ -784,22 +798,33 @@ absl::StatusOr<std::thread> P4RuntimeImpl::StartReceive(bool use_genetlink) {
       [this](const std::string& source_port_name,
              const std::string& target_port_name,
              const std::string& payload) -> absl::Status {
+    absl::MutexLock l(&server_state_lock_);
+
     // Convert Sonic port name to controller port number.
-    ASSIGN_OR_RETURN(std::string source_port_id,
-                     TranslatePort(TranslationDirection::kForController,
-                                   port_translation_map_, source_port_name),
-                     _.SetCode(absl::StatusCode::kInternal).LogError()
-                         << "Failed to parse source port");
+    std::string source_port_id;
+    if (translate_port_ids_) {
+      ASSIGN_OR_RETURN(source_port_id,
+                       TranslatePort(TranslationDirection::kForController,
+                                     port_translation_map_, source_port_name),
+                       _.SetCode(absl::StatusCode::kInternal).LogError()
+                           << "Failed to parse source port");
+    } else {
+      source_port_id = source_port_name;
+    }
 
     // TODO: Until string port names are supported, re-assign empty
     // target egress port names to match the ingress port.
     std::string target_port_id = source_port_id;
     if (!target_port_name.empty()) {
-      ASSIGN_OR_RETURN(target_port_id,
-                       TranslatePort(TranslationDirection::kForController,
-                                     port_translation_map_, target_port_name),
-                       _.SetCode(absl::StatusCode::kInternal).LogError()
-                           << "Failed to parse target port");
+      if (translate_port_ids_) {
+        ASSIGN_OR_RETURN(target_port_id,
+                         TranslatePort(TranslationDirection::kForController,
+                                       port_translation_map_, target_port_name),
+                         _.SetCode(absl::StatusCode::kInternal).LogError()
+                             << "Failed to parse target port");
+      } else {
+        target_port_id = target_port_name;
+      }
     }
 
     // Form the PacketIn metadata fields before writing into the
@@ -809,7 +834,6 @@ absl::StatusOr<std::thread> P4RuntimeImpl::StartReceive(bool use_genetlink) {
     p4::v1::StreamMessageResponse response;
     *response.mutable_packet() = packet_in;
     *response.mutable_packet()->mutable_payload() = payload;
-    absl::MutexLock l(&server_state_lock_);
     // Get the primary streamchannel and write into the stream.
     controller_manager_->SendStreamMessageToPrimary(
         P4RUNTIME_ROLE_SDN_CONTROLLER, response);

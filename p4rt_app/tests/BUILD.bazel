@@ -164,6 +164,25 @@ cc_test(
 )
 
 cc_test(
+    name = "port_name_and_id_test",
+    srcs = ["port_name_and_id_test.cc"],
+    tags = ["exclusive"],
+    deps = [
+        "//gutil:status_matchers",
+        "//p4_pdpi:connection_management",
+        "//p4_pdpi:entity_management",
+        "//p4rt_app/tests/lib:p4runtime_grpc_service",
+        "//p4rt_app/tests/lib:p4runtime_request_helpers",
+        "//sai_p4/instantiations/google:instantiations",
+        "//sai_p4/instantiations/google:sai_p4info_cc",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "response_path_test",
     srcs = ["response_path_test.cc"],
     tags = ["exclusive"],

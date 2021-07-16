@@ -26,6 +26,7 @@ enum class TranslationDirection { kForController, kForOrchAgent };
 struct TranslateTableEntryOptions {
   const TranslationDirection& direction;
   const pdpi::IrP4Info& ir_p4_info;
+  bool translate_port_ids = false;
 
   // boost::bimap<SONiC port name, controller ID>;
   const boost::bimap<std::string, std::string>& port_map;

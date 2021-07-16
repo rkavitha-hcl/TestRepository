@@ -114,7 +114,8 @@ absl::Status TranslateAction(const TranslateTableEntryOptions& options,
              << "Could not find action param definition for " << param.name()
              << ".";
     }
-    if (IsPortType(param_def->param().type_name())) {
+    if (options.translate_port_ids &&
+        IsPortType(param_def->param().type_name())) {
       RETURN_IF_ERROR(TranslatePortValue(options.direction, options.port_map,
                                          *param.mutable_value()))
           << " Found in action parameter '" << param.name() << "' of action '"
@@ -198,7 +199,8 @@ absl::Status TranslateMatchField(const TranslateTableEntryOptions& options,
            << ".";
   }
 
-  if (IsPortType(match_def->match_field().type_name())) {
+  if (options.translate_port_ids &&
+      IsPortType(match_def->match_field().type_name())) {
     RETURN_IF_ERROR(
         TranslatePortInMatchField(options.direction, options.port_map, match));
   }
