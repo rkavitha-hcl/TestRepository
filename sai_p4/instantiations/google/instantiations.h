@@ -15,18 +15,25 @@ namespace sai {
 // slightly modified further for each switch within a role, e.g. to configure
 // the hashing seed).
 enum class Instantiation {
+  kFabricBorderRouter,
   kMiddleblock,
   kWbb,
 };
 
 // Returns all switch roles.
 inline std::vector<Instantiation> AllInstantiations() {
-  return {Instantiation::kMiddleblock, Instantiation::kWbb};
+  return {
+      Instantiation::kFabricBorderRouter,
+      Instantiation::kMiddleblock,
+      Instantiation::kWbb,
+  };
 }
 
 // Returns the name of the given switch role.
 inline std::string InstantiationToString(Instantiation role) {
   switch (role) {
+    case Instantiation::kFabricBorderRouter:
+      return "fabric_border_router";
     case Instantiation::kMiddleblock:
       return "middleblock";
     case Instantiation::kWbb:
@@ -38,14 +45,14 @@ inline std::string InstantiationToString(Instantiation role) {
 
 // Returns the name of the given switch role.
 inline absl::StatusOr<Instantiation> StringToInstantiation(
-    const std::string& instantiation) {
-  if (instantiation == InstantiationToString(Instantiation::kMiddleblock)) {
-    return Instantiation::kMiddleblock;
-  } else if (instantiation == InstantiationToString(Instantiation::kWbb)) {
-    return Instantiation::kWbb;
+    const std::string& instantiation_name) {
+  for (auto instantiation : AllInstantiations()) {
+    if (instantiation_name == InstantiationToString(instantiation)) {
+      return instantiation;
+    }
   }
   return absl::InvalidArgumentError(
-      absl::StrCat("invalid Instantiation: ", instantiation));
+      absl::StrCat("invalid Instantiation: ", instantiation_name));
 }
 
 inline std::ostream& operator<<(std::ostream& os, Instantiation instantiation) {

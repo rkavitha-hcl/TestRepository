@@ -9,6 +9,7 @@
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/p4info_union_lib.h"
+#include "sai_p4/instantiations/google/fabric_border_router_p4info_embed.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/middleblock_p4info_embed.h"
 #include "sai_p4/instantiations/google/unioned_p4info_embed.h"
@@ -40,46 +41,53 @@ IrP4Info* CreateIrP4Info(const P4Info& info) {
 
 }  // namespace
 
-// Adapted from go/totw/128.
 const P4Info& GetP4Info(Instantiation instantiation) {
-  // Safe static object initialization following go/totw/110.
-  static const absl::flat_hash_map<Instantiation,
-                                   P4Info*>* instantiation_to_info = [] {
-    return new absl::flat_hash_map<Instantiation, P4Info*>(
-        {{Instantiation::kMiddleblock,
-          FileTocToP4Info(middleblock_p4info_embed_create())},
-         {Instantiation::kWbb, FileTocToP4Info(wbb_p4info_embed_create())}});
-  }();
-  static const P4Info* empty_info = [] { return new P4Info(); }();
-  if (instantiation_to_info->contains(instantiation)) {
-    return *instantiation_to_info->at(instantiation);
+  static const P4Info* const kFabricBorderRouterP4Info =
+      FileTocToP4Info(fabric_border_router_p4info_embed_create());
+  static const P4Info* const kMiddleblockP4Info =
+      FileTocToP4Info(middleblock_p4info_embed_create());
+  static const P4Info* const kWbbP4Info =
+      FileTocToP4Info(wbb_p4info_embed_create());
+
+  switch (instantiation) {
+    case Instantiation::kFabricBorderRouter:
+      return *kFabricBorderRouterP4Info;
+    case Instantiation::kMiddleblock:
+      return *kMiddleblockP4Info;
+    case Instantiation::kWbb:
+      return *kWbbP4Info;
   }
   LOG(DFATAL) << "Obtaining P4Info for invalid instantiation: "
               << static_cast<int>(instantiation);
-  return *empty_info;
+
+  static const P4Info* const kEmptyP4Info = new P4Info();
+  return *kEmptyP4Info;
 }
 
 const IrP4Info& GetIrP4Info(Instantiation instantiation) {
-  // Safe static object initialization following go/totw/110.
-  static const absl::flat_hash_map<Instantiation,
-                                   IrP4Info*>* instantiation_to_info = [] {
-    auto result = new absl::flat_hash_map<Instantiation, IrP4Info*>();
-    for (Instantiation instantiation : AllInstantiations()) {
-      result->insert({instantiation, CreateIrP4Info(GetP4Info(instantiation))});
-    }
-    return result;
-  }();
-  static const IrP4Info* empty_info = [] { return new IrP4Info(); }();
-  if (instantiation_to_info->contains(instantiation)) {
-    return *instantiation_to_info->at(instantiation);
+  static const IrP4Info* const kFabricBorderRouterIrP4Info =
+      CreateIrP4Info(GetP4Info(Instantiation::kFabricBorderRouter));
+  static const IrP4Info* const kMiddleblockIrP4Info =
+      CreateIrP4Info(GetP4Info(Instantiation::kMiddleblock));
+  static const IrP4Info* const kWbbIrP4Info =
+      CreateIrP4Info(GetP4Info(Instantiation::kWbb));
+
+  switch (instantiation) {
+    case Instantiation::kFabricBorderRouter:
+      return *kFabricBorderRouterIrP4Info;
+    case Instantiation::kMiddleblock:
+      return *kMiddleblockIrP4Info;
+    case Instantiation::kWbb:
+      return *kWbbIrP4Info;
   }
-  LOG(DFATAL) << "Obtaining IrP4Info for invalid instantiation: "
+  LOG(DFATAL) << "Obtaining P4Info for invalid instantiation: "
               << static_cast<int>(instantiation);
-  return *empty_info;
+  static const IrP4Info* const kEmptyIrP4Info = new IrP4Info();
+  return *kEmptyIrP4Info;
 }
 
 const p4::config::v1::P4Info& GetUnionedP4Info() {
-  static const P4Info* unioned_p4info =
+  static const P4Info* const unioned_p4info =
       FileTocToP4Info(unioned_p4info_embed_create());
   return *unioned_p4info;
 }
