@@ -10,8 +10,10 @@
 #include "absl/strings/string_view.h"
 #include "benchmark/benchmark.h"
 #include "gmock/gmock.h"
+#include "google/protobuf/wrappers.pb.h"
 #include "gtest/gtest.h"
 #include "gutil/status_matchers.h"
+#include "gutil/testing.h"
 #include "thinkit/test_environment.h"
 
 namespace thinkit {
@@ -37,6 +39,18 @@ TEST(BazelTestEnvironmentTest, AppendToTestArtifact) {
   EXPECT_OK(
       environment->AppendToTestArtifact(kTestArtifact, "Hello, World!\n"));
   EXPECT_OK(environment->AppendToTestArtifact(kTestArtifact, "Hello, Test!\n"));
+}
+
+TEST(BazelTestEnvironmentTest,
+     BazelTestEnvironmentStoreAndAppendTestArtifactWithProto) {
+  // Explicitly uses the BazelTestEnvironment to ensure that we inherit
+  // definitions from TestEnvironment appropriately.
+  std::unique_ptr<BazelTestEnvironment> environment =
+      absl::make_unique<BazelTestEnvironment>(/*mask_known_failures=*/true);
+  auto foo_proto = gutil::ParseProtoOrDie<google::protobuf::Int32Value>(R"pb(
+    value: 42)pb");
+  EXPECT_OK(environment->StoreTestArtifact(kTestArtifact, foo_proto));
+  EXPECT_OK(environment->AppendToTestArtifact(kTestArtifact, foo_proto));
 }
 
 // Test that SetTestCaseID correctly calls its input function.
