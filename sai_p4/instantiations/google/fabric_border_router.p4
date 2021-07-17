@@ -1,3 +1,5 @@
+#define SAI_INSTANTIATION_FABRIC_BORDER_ROUTER
+
 #include <v1model.p4>
 
 // These headers have to come first, to override their fixed counterparts.

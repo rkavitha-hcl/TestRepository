@@ -487,6 +487,15 @@ tables {
     bitwidth: 32
     match_type: TERNARY
   }
+  match_fields {
+    id: 17
+    name: "in_port"
+    annotations: "@sai_field(SAI_ACL_TABLE_ATTR_FIELD_IN_PORT)"
+    match_type: OPTIONAL
+    type_name {
+      name: "port_id_t"
+    }
+  }
   action_refs {
     id: 16777473
     annotations: "@proto_id(1)"

@@ -128,6 +128,10 @@ control acl_ingress(in headers_t headers,
               @sai_udf(base=SAI_UDF_BASE_L3, offset=24, length=2),
               @sai_udf(base=SAI_UDF_BASE_L3, offset=26, length=2)
           ) @format(IPV4_ADDRESS);
+#ifdef SAI_INSTANTIATION_FABRIC_BORDER_ROUTER
+      local_metadata.ingress_port : optional @name("in_port") @id(17)
+          @sai_field(SAI_ACL_TABLE_ATTR_FIELD_IN_PORT);
+#endif
     }
     actions = {
       // TODO: add action to set color to yellow

@@ -164,11 +164,17 @@ cmd_diff_test(
         p4infos = ",".join([
             "$(location %s.p4info.pb.txt)" % instantiation
             for (instantiation, _) in INSTANTIATIONS
+            # TODO: Remove the line below once the Union algorithm
+            # properly handles non-identical tables.
+            if instantiation != "fabric_border_router"
         ]),
     ),
     data = [
         "%s.p4info.pb.txt" % instantiation
         for (instantiation, _) in INSTANTIATIONS
+        # TODO: Remove the line below once the Union algorithm
+        # properly handles non-identical tables.
+        if instantiation != "fabric_border_router"
     ],
     expected = "unioned_p4info.pb.txt",
     tools = ["//p4_pdpi:p4info_union"],
