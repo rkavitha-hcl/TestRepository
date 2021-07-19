@@ -73,7 +73,7 @@ TEST_F(AclTableTest, SetVrfFlowCreatesVrfTableEntry) {
                              updates {
                                type: INSERT
                                table_entry {
-                                 acl_lookup_table_entry {
+                                 acl_pre_ingress_table_entry {
                                    match {}
                                    priority: 2000
                                    action { set_vrf { vrf_id: "20" } }
@@ -87,7 +87,7 @@ TEST_F(AclTableTest, SetVrfFlowCreatesVrfTableEntry) {
 
   // Verify the correct ACL entry is added the the P4RT table.
   auto expected_entry = test_lib::AppDbEntryBuilder{}
-                            .SetTableName("ACL_ACL_LOOKUP_TABLE")
+                            .SetTableName("ACL_ACL_PRE_INGRESS_TABLE")
                             .SetPriority(2000)
                             .SetAction("set_vrf")
                             .AddActionParam("vrf_id", "p4rt-20");
@@ -107,7 +107,7 @@ TEST_F(AclTableTest, VrfTableEntriesPersistsWhileInUse) {
                              updates {
                                type: INSERT
                                table_entry {
-                                 acl_lookup_table_entry {
+                                 acl_pre_ingress_table_entry {
                                    match {}
                                    priority: 2000
                                    action { set_vrf { vrf_id: "20" } }
@@ -117,7 +117,7 @@ TEST_F(AclTableTest, VrfTableEntriesPersistsWhileInUse) {
                              updates {
                                type: INSERT
                                table_entry {
-                                 acl_lookup_table_entry {
+                                 acl_pre_ingress_table_entry {
                                    match {}
                                    priority: 2001
                                    action { set_vrf { vrf_id: "20" } }
@@ -160,7 +160,7 @@ TEST_F(AclTableTest, VrfTableEntryDeleteWithWrongValues) {
                              updates {
                                type: INSERT
                                table_entry {
-                                 acl_lookup_table_entry {
+                                 acl_pre_ingress_table_entry {
                                    match {}
                                    priority: 2000
                                    action { set_vrf { vrf_id: "20" } }
@@ -269,7 +269,7 @@ TEST_F(AclTableTest, ReadMeters) {
 }
 
 TEST_F(AclTableTest, CannotInsertEntryThatFailsAConstraintCheck) {
-  // The ACL lookup table requires the is_ipv4 field to be set if we are
+  // The ACL pre ingress table requires the is_ipv4 field to be set if we are
   // matching on a dst_ip.
   ASSERT_OK_AND_ASSIGN(
       p4::v1::WriteRequest request,
@@ -278,7 +278,7 @@ TEST_F(AclTableTest, CannotInsertEntryThatFailsAConstraintCheck) {
             updates {
               type: INSERT
               table_entry {
-                acl_lookup_table_entry {
+                acl_pre_ingress_table_entry {
                   match { dst_ip { value: "10.0.0.1" mask: "255.255.255.255" } }
                   priority: 2000
                   action { set_vrf { vrf_id: "20" } }
