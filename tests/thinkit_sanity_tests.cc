@@ -388,7 +388,7 @@ void TestGnoiSystemColdReboot(thinkit::Switch& sut) {
   // Wait for system to become reachable over gNOI.
   start_time = absl::Now();
   while (absl::Now() < (start_time + kColdRebootWaitForUpTime)) {
-    if (GnoiAble(sut) == absl::OkStatus()) {
+    if (SwitchReady(sut) == absl::OkStatus()) {
       system_down = false;
       break;
     }
@@ -402,18 +402,6 @@ void TestGnoiSystemColdReboot(thinkit::Switch& sut) {
                        GetGnmiSystemBootTime(sut, sut_gnmi_stub.get()));
 
   EXPECT_GT((latest_boot_time - first_boot_time), kEpochMarginalError);
-
-  // Wait for the switch applications to become ready.
-  start_time = absl::Now();
-  bool switch_ready = false;
-  while (absl::Now() < (start_time + kWaitForApplicationsReady)) {
-    if (SwitchReady(sut) == absl::OkStatus()) {
-      switch_ready = true;
-      break;
-    }
-  }
-  EXPECT_TRUE(switch_ready)
-      << "Switch applications were not ready in " << kWaitForApplicationsReady;
 }
 
 }  // namespace pins_test
