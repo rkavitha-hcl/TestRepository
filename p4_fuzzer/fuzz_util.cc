@@ -817,33 +817,21 @@ absl::StatusOr<p4::v1::ActionProfileActionSet> FuzzActionProfileActionSet(
     int remaining_actions = number_of_actions - i - 1;
     int max_weight = unallocated_weight - remaining_actions;
 
-    auto action = FuzzActionProfileAction(gen, config, switch_state,
-                                          ir_table_info, max_weight);
-    // Due to a bug in FuzzValue, FuzzActionProfileAction is currently flaky
-    // and may require several attempts to succeed.
-    // TODO: Once the bug is fixed, just a simple assign_or_return
-    // should work.
-    while (!action.ok()) {
-      // We do not want to accidentally mask errors unrelated to bug 191307441.
-      if (absl::StrContains(action.status().message(), "referenced fields")) {
-        action = FuzzActionProfileAction(gen, config, switch_state,
-                                         ir_table_info, max_weight);
-      } else {
-        return action.status();
-      }
-    }
+    ASSIGN_OR_RETURN(auto action,
+                     FuzzActionProfileAction(gen, config, switch_state,
+                                             ir_table_info, max_weight));
 
     bool is_set_nexthop_action =
-        action->action().action_id() == ROUTING_SET_NEXTHOP_ID_ACTION_ID;
+        action.action().action_id() == ROUTING_SET_NEXTHOP_ID_ACTION_ID;
     // If this nexthop has already been used, skip. This will generate fewer
     // actions, but that's fine.
     if (is_wcmp_table && is_set_nexthop_action &&
-        action->action().params_size() == 1 &&
-        used_nexthops.insert(action->action().params()[0].value()).second) {
+        action.action().params_size() == 1 &&
+        used_nexthops.insert(action.action().params()[0].value()).second) {
       continue;
     }
-    *action_set.add_action_profile_actions() = *action;
-    unallocated_weight -= action->weight();
+    *action_set.add_action_profile_actions() = action;
+    unallocated_weight -= action.weight();
   }
 
   return action_set;
