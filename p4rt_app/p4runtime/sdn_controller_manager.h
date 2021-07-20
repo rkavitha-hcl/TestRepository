@@ -83,11 +83,11 @@ class SdnControllerManager {
 
   grpc::Status AllowRequest(const absl::optional<std::string>& role_name,
                             const absl::optional<absl::uint128>& election_id)
-      ABSL_LOCKS_EXCLUDED(lock_);
+      const ABSL_LOCKS_EXCLUDED(lock_);
 
-  grpc::Status AllowRequest(const p4::v1::WriteRequest& request);
+  grpc::Status AllowRequest(const p4::v1::WriteRequest& request) const;
   grpc::Status AllowRequest(
-      const p4::v1::SetForwardingPipelineConfigRequest& request);
+      const p4::v1::SetForwardingPipelineConfigRequest& request) const;
 
   bool SendStreamMessageToPrimary(const absl::optional<std::string>& role_name,
                                   const p4::v1::StreamMessageResponse& response)
@@ -117,7 +117,7 @@ class SdnControllerManager {
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(lock_);
 
   // Lock for protecting SdnControllerManager member fields.
-  absl::Mutex lock_;
+  mutable absl::Mutex lock_;
 
   // Device ID is used to ensure all requests are connecting to the intended
   // place.

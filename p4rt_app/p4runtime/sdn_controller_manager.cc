@@ -216,7 +216,7 @@ void SdnControllerManager::Disconnect(SdnConnection* connection) {
 
 grpc::Status SdnControllerManager::AllowRequest(
     const absl::optional<std::string>& role_name,
-    const absl::optional<absl::uint128>& election_id) {
+    const absl::optional<absl::uint128>& election_id) const {
   absl::MutexLock l(&lock_);
 
   if (!election_id.has_value()) {
@@ -239,7 +239,7 @@ grpc::Status SdnControllerManager::AllowRequest(
 }
 
 grpc::Status SdnControllerManager::AllowRequest(
-    const p4::v1::WriteRequest& request) {
+    const p4::v1::WriteRequest& request) const {
   absl::optional<std::string> role_name;
   if (!request.role().empty()) {
     role_name = request.role();
@@ -254,7 +254,7 @@ grpc::Status SdnControllerManager::AllowRequest(
 }
 
 grpc::Status SdnControllerManager::AllowRequest(
-    const p4::v1::SetForwardingPipelineConfigRequest& request) {
+    const p4::v1::SetForwardingPipelineConfigRequest& request) const {
   absl::optional<std::string> role_name;
   if (!request.role().empty()) {
     role_name = request.role();
