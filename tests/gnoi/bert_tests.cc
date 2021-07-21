@@ -60,6 +60,8 @@ constexpr absl::Duration kSyncDuration = absl::Minutes(5);
 // Maximum allowed BERT delay duration due to setup, sync and recovery
 // operations.
 constexpr absl::Duration kDelayDuration = absl::Minutes(10);
+// Wait duration after requesting BERT to read the oper status of the port.
+constexpr absl::Duration kWaitToReadOperStatus = absl::Seconds(30);
 // Polling interval.
 constexpr absl::Duration kPollInterval = absl::Seconds(30);
 // Minimum wait time after the BERT request to read the BERT result.
@@ -715,8 +717,11 @@ TEST_P(BertTest, StartBertSucceeds) {
                                                        &bert_response));
   }
 
-  // Wait for sync duration.
-  absl::SleepFor(kSyncDuration);
+  // Get start timestamp.
+  absl::Time start_time = absl::Now();
+  // Wait before reading the oper status.
+  absl::SleepFor(kWaitToReadOperStatus);
+
   // Verify that ports should be in TESTING mode now.
   for (const std::string& interface : interfaces) {
     SCOPED_TRACE(
@@ -724,11 +729,11 @@ TEST_P(BertTest, StartBertSucceeds) {
     ASSERT_OK_AND_ASSIGN(
         pins_test::OperStatus oper_status,
         pins_test::GetInterfaceOperStatusOverGnmi(*sut_gnmi_stub, interface));
-    ASSERT_TRUE(oper_status == pins_test::OperStatus::kTesting);
+    ASSERT_EQ(oper_status, pins_test::OperStatus::kTesting);
     ASSERT_OK_AND_ASSIGN(oper_status,
                          pins_test::GetInterfaceOperStatusOverGnmi(
                              *control_switch_gnmi_stub, interface));
-    ASSERT_TRUE(oper_status == pins_test::OperStatus::kTesting);
+    ASSERT_EQ(oper_status, pins_test::OperStatus::kTesting);
   }
 
   // Request another StartBert on the same ports on SUT and it should fail.
@@ -768,8 +773,8 @@ TEST_P(BertTest, StartBertSucceeds) {
 
   // Poll for remaining BERT duration.
   int max_poll_count =
-      1 + (absl::ToInt64Seconds(kDelayDuration + kTestDuration - kSyncDuration -
-                                kWaitTime - absl::Seconds(1)) /
+      1 + (absl::ToInt64Seconds(kDelayDuration + kTestDuration -
+                                (absl::Now() - start_time) - absl::Seconds(1)) /
            ToInt64Seconds(kPollInterval));
   std::vector<std::string> interfaces_not_up = interfaces;
   for (int count = 0; count < max_poll_count; ++count) {
