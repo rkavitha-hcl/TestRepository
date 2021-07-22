@@ -65,8 +65,7 @@ DEFINE_string(authorization_policy_file_name, "authorization_policy.proto.txt",
 DEFINE_bool(use_genetlink, false,
             "Enable Generic Netlink model for Packet Receive");
 
-// TODO: default to false.
-DEFINE_bool(use_port_ids, true,
+DEFINE_bool(use_port_ids, false,
             "Controller will use Port ID values configured over gNMI instead "
             "of the SONiC interface names.");
 
