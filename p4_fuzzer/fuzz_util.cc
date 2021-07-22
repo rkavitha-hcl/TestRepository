@@ -210,10 +210,9 @@ Update::Type FuzzUpdateType(absl::BitGen* gen, const SwitchState& state) {
       return Update::INSERT;
     } else {
       // Equally split the rest between modify and delete.
-      // TODO: MODIFY is broken at the moment.
-      // if (absl::Bernoulli(*gen, 0.5)) {
-      //   return Update::MODIFY;
-      // }
+      if (absl::Bernoulli(*gen, 0.5)) {
+        return Update::MODIFY;
+      }
       return Update::DELETE;
     }
   }
