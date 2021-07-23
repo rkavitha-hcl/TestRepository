@@ -113,7 +113,7 @@ absl::Status UnionTypeInfo(const p4::config::v1::P4Info& info,
   }
   for (const auto& [type_name, type_spec] : info.type_info().new_types()) {
     auto it = unioned_info.type_info().new_types().find(type_name);
-    if (it == unioned_info.type_info().new_types().end()) {
+    if (it != unioned_info.type_info().new_types().end()) {
       google::protobuf::util::MessageDifferencer msg_diff;
       std::string diff_result;
       msg_diff.ReportDifferencesToString(&diff_result);
