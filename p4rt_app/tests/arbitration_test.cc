@@ -26,6 +26,8 @@
 namespace p4rt_app {
 namespace {
 
+using ::gutil::StatusIs;
+
 using P4RuntimeStream =
     ::grpc::ClientReaderWriter<p4::v1::StreamMessageRequest,
                                p4::v1::StreamMessageResponse>;
@@ -241,6 +243,85 @@ TEST_F(ArbitrationTest, NotifyAllConnectionsWhenPrimaryDisconnects) {
             grpc::StatusCode::NOT_FOUND);
 }
 
+TEST_F(ArbitrationTest, NofityAllConnectionsIfPrimaryIncreasesItsElectionId) {
+  grpc::ClientContext context0;
+  std::unique_ptr<P4RuntimeStream> stream0 = stub_->StreamChannel(&context0);
+
+  grpc::ClientContext context1;
+  std::unique_ptr<P4RuntimeStream> stream1 = stub_->StreamChannel(&context1);
+
+  // Send first arbitration request, and because it's the first request it will
+  // default to the primary connection.
+  p4::v1::StreamMessageRequest request0;
+  request0.mutable_arbitration()->set_device_id(GetDeviceId());
+  *request0.mutable_arbitration()->mutable_election_id() = GetElectionId(2);
+  ASSERT_OK_AND_ASSIGN(p4::v1::StreamMessageResponse response,
+                       SendStreamRequest(*stream0, request0));
+  EXPECT_EQ(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  // Send second arbitration request with a lower election ID. Because the
+  // election ID is lower than the first it becomes a backup connection.
+  p4::v1::StreamMessageRequest request1;
+  request1.mutable_arbitration()->set_device_id(GetDeviceId());
+  *request1.mutable_arbitration()->mutable_election_id() = GetElectionId(1);
+  ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream1, request1));
+  EXPECT_NE(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  // From the current primary connection update the election ID. It should still
+  // be the primary.
+  *request0.mutable_arbitration()->mutable_election_id() = GetElectionId(3);
+  ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream0, request0));
+  EXPECT_EQ(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  // Because the primary connection changed we expect all connections to be
+  // informed about the new election ID.
+  ASSERT_OK_AND_ASSIGN(response, GetStreamResponse(*stream1));
+  EXPECT_EQ(response.arbitration().status().code(),
+            grpc::StatusCode::ALREADY_EXISTS);
+  EXPECT_EQ(response.arbitration().election_id().high(),
+            request0.arbitration().election_id().high());
+  EXPECT_EQ(response.arbitration().election_id().low(),
+            request0.arbitration().election_id().low());
+}
+
+// Assuming the backup is still lower than the current primary.
+TEST_F(ArbitrationTest, DoNotNofityIfBackupIncreasesItsElectionId) {
+  grpc::ClientContext context0;
+  std::unique_ptr<P4RuntimeStream> stream0 = stub_->StreamChannel(&context0);
+
+  grpc::ClientContext context1;
+  std::unique_ptr<P4RuntimeStream> stream1 = stub_->StreamChannel(&context1);
+
+  // Send first arbitration request, and because it's the first request it will
+  // default to the primary connection.
+  p4::v1::StreamMessageRequest request0;
+  request0.mutable_arbitration()->set_device_id(GetDeviceId());
+  *request0.mutable_arbitration()->mutable_election_id() = GetElectionId(3);
+  ASSERT_OK_AND_ASSIGN(p4::v1::StreamMessageResponse response,
+                       SendStreamRequest(*stream0, request0));
+  EXPECT_EQ(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  // Send second arbitration request with a lower election ID. Because the
+  // election ID is lower than the first it becomes a backup connection.
+  p4::v1::StreamMessageRequest request1;
+  request1.mutable_arbitration()->set_device_id(GetDeviceId());
+  *request1.mutable_arbitration()->mutable_election_id() = GetElectionId(1);
+  ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream1, request1));
+  EXPECT_NE(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  // From the current backup connection update the election ID such that it is
+  // higher than the current, but not high enough to become the primary.
+  *request1.mutable_arbitration()->mutable_election_id() = GetElectionId(2);
+  ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream1, request1));
+  EXPECT_NE(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  // Stop the primary stream, and because it wasn't notified we should see no
+  // response.
+  stream0->WritesDone();
+  EXPECT_THAT(GetStreamResponse(*stream0),
+              StatusIs(absl::StatusCode::kInternal));
+}
+
 TEST_F(ArbitrationTest, NotifyAllConnectionsWhenPrimaryBecomesBackup) {
   grpc::ClientContext context0;
   std::unique_ptr<P4RuntimeStream> stream0 = stub_->StreamChannel(&context0);
@@ -306,6 +387,59 @@ TEST_F(ArbitrationTest, PrimaryConnectionCanReestablishAfterGoingDown) {
 
   // Because the old stream was flushed we can re-establish the connection.
   EXPECT_EQ(response.arbitration().status().code(), grpc::StatusCode::OK);
+}
+
+TEST_F(ArbitrationTest, PrimaryConnectionCanReestablishAfterBecomingBackup) {
+  grpc::ClientContext context0;
+  std::unique_ptr<P4RuntimeStream> stream0 = stub_->StreamChannel(&context0);
+
+  grpc::ClientContext context1;
+  std::unique_ptr<P4RuntimeStream> stream1 = stub_->StreamChannel(&context1);
+
+  // Send first arbitration request, and because it's the first request it will
+  // default to the primary connection.
+  p4::v1::StreamMessageRequest request0;
+  request0.mutable_arbitration()->set_device_id(GetDeviceId());
+  *request0.mutable_arbitration()->mutable_election_id() = GetElectionId(2);
+  ASSERT_OK_AND_ASSIGN(p4::v1::StreamMessageResponse response,
+                       SendStreamRequest(*stream0, request0));
+  EXPECT_EQ(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  // Send second arbitration request with a lower election ID. Because the
+  // election ID is lower than the first it becomes a backup connection.
+  p4::v1::StreamMessageRequest request1;
+  request1.mutable_arbitration()->set_device_id(GetDeviceId());
+  *request1.mutable_arbitration()->mutable_election_id() = GetElectionId(1);
+  ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream1, request1));
+  EXPECT_NE(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  // Update the primary connection's election ID, and force it to become a
+  // backup. Because there is no longer an active primary connection we epxect
+  // the connections to receive a NOT_FOUND response.
+  request0.mutable_arbitration()->mutable_election_id()->Clear();
+  ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream0, request0));
+  EXPECT_EQ(response.arbitration().status().code(),
+            grpc::StatusCode::NOT_FOUND);
+
+  // Because the primary connection changed we expect all connections to be
+  // informed. Because there is no longer an active primary connection we
+  // epxect the existing connections to receive a NOT_FOUND response.
+  ASSERT_OK_AND_ASSIGN(response, GetStreamResponse(*stream1));
+  EXPECT_EQ(response.arbitration().status().code(),
+            grpc::StatusCode::NOT_FOUND);
+
+  // Send third arbitration request with the same election ID as the first.
+  // Because it's the highest ID seen so far, it becomes primary again.
+  *request0.mutable_arbitration()->mutable_election_id() = GetElectionId(2);
+  ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*stream0, request0));
+  EXPECT_EQ(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  // Because the primary connection changed we expect all connections to be
+  // informed. Because there a new active primary connection we epxect the
+  // existing connections to receive a ALREADY_EXISTS response.
+  ASSERT_OK_AND_ASSIGN(response, GetStreamResponse(*stream1));
+  EXPECT_EQ(response.arbitration().status().code(),
+            grpc::StatusCode::ALREADY_EXISTS);
 }
 
 TEST_F(ArbitrationTest, PrimaryMustUseElectionIdHigherThanAllPastConnections) {

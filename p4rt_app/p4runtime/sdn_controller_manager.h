@@ -151,7 +151,7 @@ class SdnControllerManager {
   //                     connection)
   absl::flat_hash_map<absl::optional<std::string>,
                       absl::optional<absl::uint128>>
-      primary_election_id_map_ ABSL_GUARDED_BY(lock_);
+      election_id_past_by_role_ ABSL_GUARDED_BY(lock_);
 };
 
 }  // namespace p4rt_app
