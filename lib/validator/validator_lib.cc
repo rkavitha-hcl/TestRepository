@@ -12,7 +12,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "grpcpp/impl/codegen/client_context.h"
-#include "grpcpp/impl/codegen/status_code_enum.h"
+#include "grpcpp/support/status.h"
 #include "gutil/status.h"
 #include "lib/gnmi/gnmi_helper.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
