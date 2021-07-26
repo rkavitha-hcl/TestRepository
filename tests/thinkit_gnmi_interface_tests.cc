@@ -302,7 +302,7 @@ void TestGnmiInterfaceConfigSetId(thinkit::Switch& sut,
   // Verify /interfaces/interface[name=<port>]/state/id = <configured_value>.
   std::string if_state_path =
       absl::StrCat("interfaces/interface[name=", if_name, "]/state/id");
-  std::string resp_parse_str = "openconfig-pins-interfaces:id";
+  std::string resp_parse_str = "openconfig-p4rt:id";
   ASSERT_OK_AND_ASSIGN(
       std::string state_path_response,
       GetGnmiStatePathInfo(sut_gnmi_stub.get(), if_state_path, resp_parse_str));
