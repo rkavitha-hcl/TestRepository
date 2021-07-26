@@ -33,7 +33,7 @@
 #include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "grpcpp/impl/codegen/client_context.h"
-#include "grpcpp/impl/codegen/status.h"
+#include "grpcpp/support/status.h"
 #include "gtest/gtest.h"
 #include "gutil/status.h"
 #include "gutil/status_matchers.h"
