@@ -39,6 +39,25 @@ absl::Status ContainsUnsupportedField(
   return absl::OkStatus();
 }
 
+// Returns the id of the given `p4info.proto` Message (e.g. `Table`, `Action`,
+// etc.) The generic implementation expects the message to contain a preamble,
+// which contains an id. Messages without preambles have specialized
+// implementations given below.
+template <typename T>
+uint32_t GetId(const T& field) {
+  return field.preamble().id();
+}
+uint32_t GetId(const p4::config::v1::MatchField& field) { return field.id(); }
+uint32_t GetId(const p4::config::v1::ActionRef& field) { return field.id(); }
+uint32_t GetId(const p4::config::v1::Preamble& field) { return field.id(); }
+uint32_t GetId(
+    const p4::config::v1::ControllerPacketMetadata::Metadata& field) {
+  return field.id();
+}
+uint32_t GetId(const p4::config::v1::Action::Param& field) {
+  return field.id();
+}
+
 // Unions pkg_info field of`info` into `unioned_info`.
 // If pkg_info of `info` differs from other pkg_info, return
 // InvalidArgumentError.
@@ -59,36 +78,35 @@ absl::Status UnionPkgInfos(const p4::config::v1::P4Info& info,
   return absl::OkStatus();
 }
 
-// Unions `repeated_fields` of type T into `unioned_repeated_fields` using
-// Preamble::id. This function assumes type T has Preamble::id field.
+// Unions `fields` of type T into `unioned_fields` using their ids (as returned
+// by GetId).
 template <class T>
 absl::Status UnionRepeatedFields(
-    const google::protobuf::RepeatedPtrField<T>& repeated_fields,
-    google::protobuf::RepeatedPtrField<T>& unioned_repeated_fields) {
-  for (const auto& field : repeated_fields) {
+    const google::protobuf::RepeatedPtrField<T>& fields,
+    google::protobuf::RepeatedPtrField<T>& unioned_fields) {
+  for (const auto& field : fields) {
     // If a field matching the given field's ID is already in
-    // `unioned_repeated_fields`, checks that the fields are equal, returning an
-    // error with the diff if they're not.
-    uint32_t preamble_id = field.preamble().id();
-    bool found_field_with_same_preamble_id = false;
-    for (const auto& field_in_union : unioned_repeated_fields) {
-      if (field_in_union.preamble().id() == preamble_id) {
-        found_field_with_same_preamble_id = true;
+    // `unioned_fields`, checks that the fields are equal, returning
+    // an error with the diff if they're not.
+    uint32_t id = GetId(field);
+    bool found_field_with_same_id = false;
+    for (auto& field_in_union : unioned_fields) {
+      if (GetId(field_in_union) == id) {
+        found_field_with_same_id = true;
         google::protobuf::util::MessageDifferencer msg_diff;
         std::string diff_result;
         msg_diff.ReportDifferencesToString(&diff_result);
         if (!msg_diff.Compare(field, field_in_union)) {
           return absl::InvalidArgumentError(absl::Substitute(
-              "Fields of type $0, which share the same preamble id, $1, "
+              "Fields of type $0, which share the same id, $1, "
               "are not identical. Diff result: $2",
-              field_in_union.GetDescriptor()->name(), preamble_id,
-              diff_result));
+              field_in_union.GetDescriptor()->name(), id, diff_result));
         }
         break;
       }
     }
-    if (!found_field_with_same_preamble_id) {
-      *unioned_repeated_fields.Add() = field;
+    if (!found_field_with_same_id) {
+      *unioned_fields.Add() = field;
     }
   }
   return absl::OkStatus();
