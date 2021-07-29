@@ -73,6 +73,35 @@ absl::Status AssertEqual(const T& field1, const T& field2) {
   return absl::OkStatus();
 }
 
+// Unions the given two instances of a field, asserting also that their IDs are
+// equal. Returns invalid argument error if unioning fails, and internal error
+// if the IDs are not equal, since the latter is always a serious programming
+// flaw. The default implementation here only allows fields to be exactly equal,
+// doing no additional unioning; the function may be specialized for concrete
+// fields to implement a more sophisticated unioning logic.
+// Requires: GetId(field) == GetId(unioned_field)
+template <typename T>
+absl::Status UnionFieldAssertingIdenticalId(const T& field,
+                                            const T& unioned_field) {
+  if (GetId(field) != GetId(unioned_field)) {
+    // We throw an internal error here, rather than an InvalidArgumentError, to
+    // signal that this is a catastrophic failure, which should be unreachable
+    // code. The function has been used incorrectly in a way suggesting that the
+    // library is wrong, rather than the p4infos given to its entry function.
+    return absl::InternalError(absl::Substitute(
+        "$0 tried to union fields with different ids: $1 and $2", __func__,
+        GetId(field), GetId(unioned_field)));
+  }
+
+  // We fail unless the fields are identical.
+  RETURN_IF_ERROR(AssertEqual(field, unioned_field)).SetPrepend()
+      << absl::Substitute(
+             "$0 failed since fields sharing the same id, '$1', were not "
+             "equal: ",
+             __func__, GetId(field));
+  return absl::OkStatus();
+}
+
 // Unions pkg_info field of`info` into `unioned_info`.
 // If pkg_info of `info` differs from other pkg_info, return
 // InvalidArgumentError.
@@ -104,11 +133,7 @@ absl::Status UnionRepeatedFields(
     for (auto& field_in_union : unioned_fields) {
       if (GetId(field_in_union) == id) {
         found_field_with_same_id = true;
-        RETURN_IF_ERROR(AssertEqual(field, field_in_union)).SetPrepend()
-            << absl::Substitute(
-                   "$0 failed since fields sharing the same id, '$1', were not "
-                   "equal: ",
-                   __func__, GetId(field));
+        RETURN_IF_ERROR(UnionFieldAssertingIdenticalId(field, field_in_union));
         break;
       }
     }
