@@ -18,6 +18,7 @@
 #include "absl/container/btree_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/substitute.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
@@ -52,7 +53,7 @@ absl::Status UnionPkgInfos(const p4::config::v1::P4Info& info,
   msg_diff.ReportDifferencesToString(&diff_result);
   if (!msg_diff.Compare(info.pkg_info(), unioned_info.pkg_info())) {
     return absl::InvalidArgumentError(absl::StrCat(
-        "pkg_info are not the same for all infos. Diff result:", diff_result));
+        "pkg_info is not the same for all infos. Diff result: ", diff_result));
   }
 
   return absl::OkStatus();
@@ -77,11 +78,11 @@ absl::Status UnionRepeatedFields(
         std::string diff_result;
         msg_diff.ReportDifferencesToString(&diff_result);
         if (!msg_diff.Compare(field, field_in_union)) {
-          auto field_descriptor = field_in_union.GetDescriptor();
-          return gutil::InvalidArgumentErrorBuilder()
-                 << "Fields of type: " << field_descriptor->name()
-                 << ", which share the same preamble id: " << preamble_id
-                 << " are not identical. Diff: " << diff_result;
+          return absl::InvalidArgumentError(absl::Substitute(
+              "Fields of type $0, which share the same preamble id, $1, "
+              "are not identical. Diff result: $2",
+              field_in_union.GetDescriptor()->name(), preamble_id,
+              diff_result));
         }
         break;
       }
@@ -103,9 +104,9 @@ absl::Status UnionTypeInfo(const p4::config::v1::P4Info& info,
       info.type_info().header_unions_size() != 0 ||
       info.type_info().enums_size() != 0 || info.type_info().has_error() ||
       info.type_info().serializable_enums_size()) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "UnionTypeInfo only support P4TypeInfo::new_types. P4TypeInfo: "
-           << info.type_info().DebugString();
+    return absl::InvalidArgumentError(absl::StrCat(
+        "UnionTypeInfo only support P4TypeInfo::new_types. P4TypeInfo: ",
+        info.type_info().DebugString()));
   }
   if (!unioned_info.has_type_info()) {
     *unioned_info.mutable_type_info() = info.type_info();
@@ -119,8 +120,9 @@ absl::Status UnionTypeInfo(const p4::config::v1::P4Info& info,
       msg_diff.ReportDifferencesToString(&diff_result);
       if (!msg_diff.Compare(type_spec, it->second)) {
         return absl::InvalidArgumentError(
-            absl::StrCat("P4NewTypeSpec that share the same key:", it->first,
-                         " are not identical. Diff result:", diff_result));
+            absl::Substitute("P4NewTypeSpec that share the same key, $0, are "
+                             "not identical. Diff result: $1",
+                             it->first, diff_result));
       } else {
         (*unioned_info.mutable_type_info()->mutable_new_types())[type_name] =
             type_spec;
