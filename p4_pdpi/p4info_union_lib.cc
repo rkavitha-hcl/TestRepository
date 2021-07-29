@@ -58,6 +58,21 @@ uint32_t GetId(const p4::config::v1::Action::Param& field) {
   return field.id();
 }
 
+// Checks that two fields are equal returning an InvalidArgumentError containing
+// the diff otherwise.
+template <typename T>
+absl::Status AssertEqual(const T& field1, const T& field2) {
+  std::string diff_result;
+  google::protobuf::util::MessageDifferencer msg_diff;
+  msg_diff.ReportDifferencesToString(&diff_result);
+  if (!msg_diff.Compare(field1, field2)) {
+    return absl::InvalidArgumentError(
+        absl::Substitute("diff result from comparing fields of type '$0': $1",
+                         field1.GetDescriptor()->name(), diff_result));
+  }
+  return absl::OkStatus();
+}
+
 // Unions pkg_info field of`info` into `unioned_info`.
 // If pkg_info of `info` differs from other pkg_info, return
 // InvalidArgumentError.
@@ -67,13 +82,9 @@ absl::Status UnionPkgInfos(const p4::config::v1::P4Info& info,
     *unioned_info.mutable_pkg_info() = info.pkg_info();
     return absl::OkStatus();
   }
-  google::protobuf::util::MessageDifferencer msg_diff;
-  std::string diff_result;
-  msg_diff.ReportDifferencesToString(&diff_result);
-  if (!msg_diff.Compare(info.pkg_info(), unioned_info.pkg_info())) {
-    return absl::InvalidArgumentError(absl::StrCat(
-        "pkg_info is not the same for all infos. Diff result: ", diff_result));
-  }
+  RETURN_IF_ERROR(AssertEqual(info.pkg_info(), unioned_info.pkg_info()))
+          .SetPrepend()
+      << absl::StrCat(__func__, " failed: ");
 
   return absl::OkStatus();
 }
@@ -93,15 +104,11 @@ absl::Status UnionRepeatedFields(
     for (auto& field_in_union : unioned_fields) {
       if (GetId(field_in_union) == id) {
         found_field_with_same_id = true;
-        google::protobuf::util::MessageDifferencer msg_diff;
-        std::string diff_result;
-        msg_diff.ReportDifferencesToString(&diff_result);
-        if (!msg_diff.Compare(field, field_in_union)) {
-          return absl::InvalidArgumentError(absl::Substitute(
-              "Fields of type $0, which share the same id, $1, "
-              "are not identical. Diff result: $2",
-              field_in_union.GetDescriptor()->name(), id, diff_result));
-        }
+        RETURN_IF_ERROR(AssertEqual(field, field_in_union)).SetPrepend()
+            << absl::Substitute(
+                   "$0 failed since fields sharing the same id, '$1', were not "
+                   "equal: ",
+                   __func__, GetId(field));
         break;
       }
     }
@@ -133,18 +140,13 @@ absl::Status UnionTypeInfo(const p4::config::v1::P4Info& info,
   for (const auto& [type_name, type_spec] : info.type_info().new_types()) {
     auto it = unioned_info.type_info().new_types().find(type_name);
     if (it != unioned_info.type_info().new_types().end()) {
-      google::protobuf::util::MessageDifferencer msg_diff;
-      std::string diff_result;
-      msg_diff.ReportDifferencesToString(&diff_result);
-      if (!msg_diff.Compare(type_spec, it->second)) {
-        return absl::InvalidArgumentError(
-            absl::Substitute("P4NewTypeSpec that share the same key, $0, are "
-                             "not identical. Diff result: $1",
-                             it->first, diff_result));
-      } else {
-        (*unioned_info.mutable_type_info()->mutable_new_types())[type_name] =
-            type_spec;
-      }
+      RETURN_IF_ERROR(AssertEqual(type_spec, it->second)).SetPrepend()
+          << absl::Substitute(
+                 "$0 failed since fields sharing the same key '$1', were not "
+                 "equal: ",
+                 __func__, it->first);
+      (*unioned_info.mutable_type_info()->mutable_new_types())[type_name] =
+          type_spec;
     }
   }
   return absl::OkStatus();
