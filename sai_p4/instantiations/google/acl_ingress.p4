@@ -4,8 +4,8 @@
 #include <v1model.p4>
 #include "../../fixed/headers.p4"
 #include "../../fixed/metadata.p4"
+#include "acl_common_actions.p4"
 #include "ids.h"
-#include "roles.h"
 #include "minimum_guaranteed_sizes.p4"
 
 control acl_ingress(in headers_t headers,
@@ -139,6 +139,7 @@ control acl_ingress(in headers_t headers,
       @proto_id(2) trap();
       @proto_id(3) forward();
       @proto_id(4) mirror();
+      @proto_id(5) acl_drop(standard_metadata);
       @defaultonly NoAction;
     }
     const default_action = NoAction;

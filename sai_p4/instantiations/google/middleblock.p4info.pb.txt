@@ -504,6 +504,10 @@ tables {
     annotations: "@proto_id(4)"
   }
   action_refs {
+    id: 16777481
+    annotations: "@proto_id(5)"
+  }
+  action_refs {
     id: 21257015
     annotations: "@defaultonly"
     scope: DEFAULT_ONLY
@@ -573,6 +577,14 @@ actions {
     name: "NoAction"
     alias: "NoAction"
     annotations: "@noWarn(\"unused\")"
+  }
+}
+actions {
+  preamble {
+    id: 16777481
+    name: "acl_drop"
+    alias: "acl_drop"
+    annotations: "@sai_action(SAI_PACKET_ACTION_DROP)"
   }
 }
 actions {

@@ -513,6 +513,10 @@ tables {
     annotations: "@proto_id(4)"
   }
   action_refs {
+    id: 16777481
+    annotations: "@proto_id(5)"
+  }
+  action_refs {
     id: 21257015
     annotations: "@defaultonly"
     scope: DEFAULT_ONLY
@@ -576,12 +580,68 @@ tables {
   const_default_action_id: 21257015
   size: 1024
 }
+tables {
+  preamble {
+    id: 33554692
+    name: "egress.acl_egress.acl_egress_table"
+    alias: "acl_egress_table"
+    annotations: "@p4runtime_role(\"sdn_controller\")"
+    annotations: "@sai_acl(EGRESS)"
+  }
+  match_fields {
+    id: 1
+    name: "ether_type"
+    annotations: "@sai_field(SAI_ACL_TABLE_ATTR_FIELD_ETHER_TYPE)"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 2
+    name: "ip_protocol"
+    annotations: "@sai_field(SAI_ACL_TABLE_ATTR_FIELD_IP_PROTOCOL)"
+    bitwidth: 8
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 3
+    name: "l4_dst_port"
+    annotations: "@sai_field(SAI_ACL_TABLE_ATTR_FIELD_L4_DST_PORT)"
+    bitwidth: 16
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 4
+    name: "out_port"
+    annotations: "@sai_field(SAI_ACL_TABLE_ATTR_FIELD_OUT_PORT)"
+    bitwidth: 9
+    match_type: OPTIONAL
+  }
+  action_refs {
+    id: 16777481
+    annotations: "@proto_id(1)"
+  }
+  action_refs {
+    id: 21257015
+    annotations: "@defaultonly"
+    scope: DEFAULT_ONLY
+  }
+  const_default_action_id: 21257015
+  size: 128
+}
 actions {
   preamble {
     id: 21257015
     name: "NoAction"
     alias: "NoAction"
     annotations: "@noWarn(\"unused\")"
+  }
+}
+actions {
+  preamble {
+    id: 16777481
+    name: "acl_drop"
+    alias: "acl_drop"
+    annotations: "@sai_action(SAI_PACKET_ACTION_DROP)"
   }
 }
 actions {

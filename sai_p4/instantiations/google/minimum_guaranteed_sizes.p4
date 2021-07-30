@@ -39,6 +39,7 @@
 
 #define ACL_INGRESS_TABLE_MINIMUM_GUARANTEED_SIZE 128
 #define ACL_PRE_INGRESS_TABLE_MINIMUM_GUARANTEED_SIZE 256
+#define ACL_EGRESS_TABLE_MINIMUM_GUARANTEED_SIZE 128
 
 // Maximum channelization for current use-cases is 96 ports, and each port may
 // have up to 2 linkqual flows associated with it.

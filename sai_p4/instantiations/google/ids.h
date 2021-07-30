@@ -20,6 +20,7 @@
 #define ACL_PRE_INGRESS_TABLE_ID 0x02000101  // 33554689
 #define ACL_LINKQUAL_TABLE_ID 0x02000102     // 33554690
 #define ACL_WBB_INGRESS_TABLE_ID 0x02000103  // 33554691
+#define ACL_EGRESS_TABLE_ID 0x02000104       // 33554692
 
 // --- Actions -----------------------------------------------------------------
 
@@ -35,6 +36,7 @@
 #define ACL_LINKQUAL_SET_PORT_ACTION_ID 0x01000106    // 16777478
 #define ACL_WBB_INGRESS_COPY_ACTION_ID 0x01000107     // 16777479
 #define ACL_WBB_INGRESS_TRAP_ACTION_ID 0x01000108     // 16777480
+#define ACL_DROP_ACTION_ID 0x01000109                 // 16777481
 
 // --- Meters ------------------------------------------------------------------
 #define ACL_INGRESS_METER_ID 0x15000100      // 352321792
