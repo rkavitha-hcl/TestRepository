@@ -1,9 +1,16 @@
-// This file serves double duty, testing both Ipv4Address and the template class
-// NetworkAddress from which Ipv4Address derives.
+// Copyright 2021 Google LLC
 //
-// For other classes derived from NetworkAddress, it suffices to test the
-// non-inherited functions.
-
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//      http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 #include <bitset>
 #include <cstdint>
 #include <string>
@@ -21,6 +28,12 @@
 #include "p4_pdpi/netaddr/ipv4_address.h"
 #include "p4_pdpi/netaddr/network_address.h"
 #include "p4_pdpi/string_encodings/safe.h"
+
+// This file serves double duty, testing both Ipv4Address and the template class
+// NetworkAddress from which Ipv4Address derives.
+//
+// For other classes derived from NetworkAddress, it suffices to test the
+// non-inherited functions.
 
 namespace netaddr {
 namespace {
