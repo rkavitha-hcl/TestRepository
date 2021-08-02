@@ -126,5 +126,41 @@ BENCHMARK(BM_Bazel_StoreTestArtifact)
     ->Args({/*write_size in bytes=*/1})
     ->Args({1024})
     ->Args({1024 * 1024});
+
+// Benchmarks how performance of Append changes based on the size of the file
+// that is appended to. Ideally, performance should not change at all, but this
+// problem came up in a previous issue (b/193839478).
+void BenchmarkAppendTimeBasedOnStartingSize(benchmark::State& state,
+                                            int start_size, int append_size) {
+  const std::string filename = "benchmark_file";
+  BazelTestEnvironment env(false);
+
+  // We create a file of the given size to start, then benchmark the time that
+  // appends take.
+  ASSERT_THAT(env.StoreTestArtifact(filename, std::string(start_size, 'a')),
+              IsOk());
+  std::string str(append_size, 'a');
+  for (auto s : state) {
+    ASSERT_THAT(env.AppendToTestArtifact(filename, str), IsOk());
+  }
+
+  // Causes number of iterations (items) per second to be output.
+  state.SetItemsProcessed(static_cast<int64_t>(state.iterations()));
+}
+
+void BM_Bazel_AppendTimeBasedOnStartingSize(benchmark::State& state) {
+  BenchmarkAppendTimeBasedOnStartingSize(state, /*start_size=*/state.range(0),
+                                         /*append_size=*/state.range(1));
+}
+
+BENCHMARK(BM_Bazel_AppendTimeBasedOnStartingSize)
+    ->Args({
+        /*start_size in bytes=*/1,
+        /*write_size in bytes=*/1024,
+    })
+    ->Args({1024, 1024})
+    ->Args({1024 * 1024, 1024})
+    ->Args({1024 * 1024 * 1024, 1024});
+
 }  // namespace
 }  // namespace thinkit
