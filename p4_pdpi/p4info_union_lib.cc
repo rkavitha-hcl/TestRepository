@@ -117,6 +117,7 @@ absl::Status AssertTableCompatibility(const p4::config::v1::Table& table1,
 
   if (auto diff_result =
           DiffMessages(table1, table2,
+                       /*ignored_fields=*/
                        {"preamble", "match_fields", "action_refs",
                         "direct_resource_ids", "other_properties"});
       diff_result.has_value()) {
@@ -143,6 +144,7 @@ absl::Status AssertPreambleCompatibility(
 
   if (auto diff_result = DiffMessages(
           preamble1, preamble2,
+          /*ignored_fields=*/
           {"annotations", "annotation_locations", "structured_annotations"});
       diff_result.has_value()) {
     return absl::InvalidArgumentError(absl::StrCat(
