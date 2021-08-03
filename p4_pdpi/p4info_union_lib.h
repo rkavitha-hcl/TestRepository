@@ -25,9 +25,13 @@ namespace pdpi {
 // Unions `infos` into one unioned version.
 // Entities (i.e. tables, actions, etc.) with distinct IDs are unioned as if
 // they were declared in the same P4 program. Entities with identical IDs must
-// be identical and are unioned into a single copy, or the function will return
-// an error describing the diff. Entities that are not supported, such as
-// externs, cause the function to return UNIMPLEMENTED.
+// be identical (except for those described below) and are unioned into a single
+// copy, or the function will return an error describing the diff. Entities that
+// are not supported, such as externs, cause the function to return
+// UNIMPLEMENTED.
+// Entities that need not be identical include:
+// - Tables, which will have their match fields, action refs,
+//   direct resource ids and preambles unioned.
 absl::StatusOr<::p4::config::v1::P4Info> UnionP4info(
     const std::vector<::p4::config::v1::P4Info> &infos);
 
