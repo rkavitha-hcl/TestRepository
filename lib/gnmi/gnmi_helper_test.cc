@@ -714,6 +714,104 @@ TEST(CheckAllInterfaceOperState, AllInterfacesUp) {
       CheckAllInterfaceOperStateOverGnmi(stub, /*interface_oper_state=*/"UP"));
 }
 
+TEST(CheckInterfaceOperState, FailsToGetInterfaceOperStatusMap) {
+  gnmi::MockgNMIStub stub;
+  EXPECT_CALL(stub, Get).WillOnce(
+      Return(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "")));
+  EXPECT_THAT(CheckInterfaceOperStateOverGnmi(
+                  stub, /*interface_oper_state=*/"UP", {"Ethernet0"}),
+              StatusIs(absl::StatusCode::kDeadlineExceeded));
+}
+
+TEST(CheckInterfaceOperState, InterfaceNotUp) {
+  gnmi::MockgNMIStub stub;
+  EXPECT_CALL(stub, Get).WillOnce(DoAll(
+      SetArgPointee<2>(gutil::ParseProtoOrDie<gnmi::GetResponse>(
+          R"pb(notification {
+                 timestamp: 1620348032128305716
+                 prefix { origin: "openconfig" }
+                 update {
+                   path { elem { name: "interfaces" } }
+                   val {
+                     json_ietf_val: "{\"openconfig-interfaces:interfaces\":{\"interface\":[{\"name\":\"Ethernet0\",\"state\":{\"oper-status\":\"DOWN\"}}]}}"
+                   }
+                 }
+               })pb")),
+      Return(grpc::Status::OK)));
+
+  EXPECT_THAT(
+      CheckInterfaceOperStateOverGnmi(stub, /*interface_oper_state=*/"UP",
+                                      {"Ethernet0"}),
+      StatusIs(absl::StatusCode::kUnavailable,
+               HasSubstr("Some interfaces are not in the expected state")));
+}
+
+TEST(CheckInterfaceOperState, InterfaceNotDown) {
+  gnmi::MockgNMIStub stub;
+  EXPECT_CALL(stub, Get).WillOnce(DoAll(
+      SetArgPointee<2>(gutil::ParseProtoOrDie<gnmi::GetResponse>(
+          R"pb(notification {
+                 timestamp: 1620348032128305716
+                 prefix { origin: "openconfig" }
+                 update {
+                   path { elem { name: "interfaces" } }
+                   val {
+                     json_ietf_val: "{\"openconfig-interfaces:interfaces\":{\"interface\":[{\"name\":\"Ethernet0\",\"state\":{\"oper-status\":\"TESTING\"}}]}}"
+                   }
+                 }
+               })pb")),
+      Return(grpc::Status::OK)));
+
+  EXPECT_THAT(
+      CheckInterfaceOperStateOverGnmi(stub, /*interface_oper_state=*/"DOWN",
+                                      {"Ethernet0"}),
+      StatusIs(absl::StatusCode::kUnavailable,
+               HasSubstr("Some interfaces are not in the expected state")));
+}
+
+TEST(CheckInterfaceOperState, InterfaceDownUp) {
+  gnmi::MockgNMIStub stub;
+  EXPECT_CALL(stub, Get).WillOnce(DoAll(
+      SetArgPointee<2>(gutil::ParseProtoOrDie<gnmi::GetResponse>(
+          R"pb(notification {
+                 timestamp: 1620348032128305716
+                 prefix { origin: "openconfig" }
+                 update {
+                   path { elem { name: "interfaces" } }
+                   val {
+                     json_ietf_val: "{\"openconfig-interfaces:interfaces\":{\"interface\":[{\"name\":\"Ethernet0\",\"state\":{\"oper-status\":\"UP\"}},{\"name\":\"Ethernet4\",\"state\":{\"oper-status\":\"DOWN\"}}]}}"
+                   }
+                 }
+               })pb")),
+      Return(grpc::Status::OK)));
+
+  EXPECT_THAT(
+      CheckInterfaceOperStateOverGnmi(stub, /*interface_oper_state=*/"UP",
+                                      {"Ethernet0", "Ethernet4"}),
+      StatusIs(absl::StatusCode::kUnavailable,
+               HasSubstr("Some interfaces are not in the expected state")));
+}
+
+TEST(CheckInterfaceOperState, AllInterfacesUp) {
+  gnmi::MockgNMIStub stub;
+  EXPECT_CALL(stub, Get).WillOnce(DoAll(
+      SetArgPointee<2>(gutil::ParseProtoOrDie<gnmi::GetResponse>(
+          R"pb(notification {
+                 timestamp: 1620348032128305716
+                 prefix { origin: "openconfig" }
+                 update {
+                   path { elem { name: "interfaces" } }
+                   val {
+                     json_ietf_val: "{\"openconfig-interfaces:interfaces\":{\"interface\":[{\"name\":\"Ethernet0\",\"state\":{\"oper-status\":\"UP\"}}]}}"
+                   }
+                 }
+               })pb")),
+      Return(grpc::Status::OK)));
+
+  ASSERT_OK(CheckInterfaceOperStateOverGnmi(stub, /*interface_oper_state=*/"UP",
+                                            {"Ethernet0"}));
+}
+
 TEST(GetUpInterfaces, FailsToGetInterfaceOperStatusMap) {
   gnmi::MockgNMIStub stub;
   EXPECT_CALL(stub, Get).WillOnce(

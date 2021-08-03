@@ -117,6 +117,12 @@ absl::StatusOr<absl::flat_hash_map<std::string, std::string>>
 GetInterfaceToOperStatusMapOverGnmi(gnmi::gNMI::StubInterface& stub,
                                     absl::Duration timeout);
 
+// Checks if given interfaces' oper-status is up/down.
+absl::Status CheckInterfaceOperStateOverGnmi(
+    gnmi::gNMI::StubInterface& stub, absl::string_view interface_oper_state,
+    absl::Span<const std::string> interfaces,
+    absl::Duration timeout = absl::Seconds(60));
+
 // Checks if all interfaces oper-status is up/down.
 absl::Status CheckAllInterfaceOperStateOverGnmi(
     gnmi::gNMI::StubInterface& stub, absl::string_view interface_oper_state,

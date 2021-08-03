@@ -14,11 +14,13 @@
 
 #include "lib/gnmi/gnmi_helper.h"
 
+#include <algorithm>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -282,6 +284,40 @@ GetInterfaceToOperStatusMapOverGnmi(gnmi::gNMI::StubInterface& stub,
   }
 
   return interface_to_oper_status_map;
+}
+
+absl::Status CheckInterfaceOperStateOverGnmi(
+    gnmi::gNMI::StubInterface& stub, absl::string_view interface_oper_state,
+    absl::Span<const std::string> interfaces, absl::Duration timeout) {
+  ASSIGN_OR_RETURN(const auto interface_to_oper_status_map,
+                   GetInterfaceToOperStatusMapOverGnmi(stub, timeout));
+
+  absl::flat_hash_set<std::string> matching_interfaces;
+  for (const auto& [interface, oper_status] : interface_to_oper_status_map) {
+    if (oper_status == interface_oper_state) {
+      matching_interfaces.insert(interface);
+    }
+  }
+
+  bool all_interfaces_found = true;
+  for (const std::string& interface : interfaces) {
+    if (!matching_interfaces.contains(interface)) {
+      LOG(INFO) << "Interface "
+                << interface << " not found in interfaces that are "
+                << interface_oper_state;
+      all_interfaces_found = false;
+    }
+  }
+
+  if (!all_interfaces_found) {
+    return absl::UnavailableError(
+        absl::StrCat("Some interfaces are not in the expected "
+                     "state.\nInterfaces provided: \n",
+                     absl::StrJoin(interfaces, "\n"),
+                     "\nInterfaces in the expected state: \n",
+                     absl::StrJoin(matching_interfaces, "\n")));
+  }
+  return absl::OkStatus();
 }
 
 absl::Status CheckAllInterfaceOperStateOverGnmi(
