@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef SONIC_ADAPTERS_SYSTEM_CALL_ADAPTER_H_
-#define SONIC_ADAPTERS_SYSTEM_CALL_ADAPTER_H_
+#ifndef GOOGLE_P4RT_APP_SONIC_ADAPTERS_SYSTEM_CALL_ADAPTER_H_
+#define GOOGLE_P4RT_APP_SONIC_ADAPTERS_SYSTEM_CALL_ADAPTER_H_
 
 #include <ifaddrs.h>
 #include <net/if.h>
@@ -51,4 +50,4 @@ class SystemCallAdapter {
 }  // namespace sonic
 }  // namespace p4rt_app
 
-#endif  // SONIC_ADAPTERS_SYSTEM_CALL_ADAPTER_H_
+#endif  // GOOGLE_P4RT_APP_SONIC_ADAPTERS_SYSTEM_CALL_ADAPTER_H_

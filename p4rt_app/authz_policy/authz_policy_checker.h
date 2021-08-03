@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef AUTHZ_POLICY_AUTHZ_POLICY_CHECKER_H_
-#define AUTHZ_POLICY_AUTHZ_POLICY_CHECKER_H_
+#ifndef GOOGLE_P4RT_APP_AUTHZ_POLICY_AUTHZ_POLICY_CHECKER_H_
+#define GOOGLE_P4RT_APP_AUTHZ_POLICY_AUTHZ_POLICY_CHECKER_H_
 
 #include <string>
 
@@ -60,4 +59,4 @@ class GrpcAuthzPolicyChecker {
 }  // namespace grpc_authz_processor
 }  // namespace p4rt_app
 
-#endif  // AUTHZ_POLICY_AUTHZ_POLICY_CHECKER_H_
+#endif  // GOOGLE_P4RT_APP_AUTHZ_POLICY_AUTHZ_POLICY_CHECKER_H_

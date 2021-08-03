@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef P4RUNTIME_P4RUNTIME_IMPL_H_
-#define P4RUNTIME_P4RUNTIME_IMPL_H_
+#ifndef GOOGLE_P4RT_APP_P4RUNTIME_P4RUNTIME_IMPL_H_
+#define GOOGLE_P4RT_APP_P4RUNTIME_P4RUNTIME_IMPL_H_
 
 #include <memory>
 #include <vector>
@@ -256,4 +255,4 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
 
 }  // namespace p4rt_app
 
-#endif  // P4RUNTIME_P4RUNTIME_IMPL_H_
+#endif  // GOOGLE_P4RT_APP_P4RUNTIME_P4RUNTIME_IMPL_H_

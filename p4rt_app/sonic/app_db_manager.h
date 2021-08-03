@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef SONIC_APP_DB_MANAGER_H_
-#define SONIC_APP_DB_MANAGER_H_
+#ifndef GOOGLE_P4RT_APP_SONIC_APP_DB_MANAGER_H_
+#define GOOGLE_P4RT_APP_SONIC_APP_DB_MANAGER_H_
 
 #include <memory>
 
@@ -91,4 +91,4 @@ absl::StatusOr<boost::bimap<std::string, std::string>> GetPortIdTranslationMap(
 }  // namespace sonic
 }  // namespace p4rt_app
 
-#endif  // SONIC_APP_DB_MANAGER_H_
+#endif  // GOOGLE_P4RT_APP_SONIC_APP_DB_MANAGER_H_

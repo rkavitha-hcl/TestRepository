@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef UTILS_IR_BUILDER_H_
-#define UTILS_IR_BUILDER_H_
+#ifndef GOOGLE_P4RT_APP_UTILS_IR_BUILDER_H_
+#define GOOGLE_P4RT_APP_UTILS_IR_BUILDER_H_
 
 #include "google/protobuf/text_format.h"
 #include "p4_pdpi/ir.pb.h"
@@ -166,4 +166,4 @@ class IrTableDefinitionBuilder {
 
 }  // namespace p4rt_app
 
-#endif  // UTILS_IR_BUILDER_H_
+#endif  // GOOGLE_P4RT_APP_UTILS_IR_BUILDER_H_

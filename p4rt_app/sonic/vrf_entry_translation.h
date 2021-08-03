@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SONIC_VRF_ENTRY_TRANSLATION_H_
-#define SONIC_VRF_ENTRY_TRANSLATION_H_
+#ifndef GOOGLE_P4RT_APP_SONIC_VRF_ENTRY_TRANSLATION_H_
+#define GOOGLE_P4RT_APP_SONIC_VRF_ENTRY_TRANSLATION_H_
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
@@ -72,4 +72,4 @@ absl::Status PruneVrfReferences(
 }  // namespace sonic
 }  // namespace p4rt_app
 
-#endif  // SONIC_VRF_ENTRY_TRANSLATION_H_
+#endif  // GOOGLE_P4RT_APP_SONIC_VRF_ENTRY_TRANSLATION_H_

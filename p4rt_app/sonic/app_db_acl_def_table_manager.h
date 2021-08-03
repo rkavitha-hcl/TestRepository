@@ -11,9 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
-#ifndef SONIC_APP_DB_ACL_DEF_TABLE_MANAGER_H_
-#define SONIC_APP_DB_ACL_DEF_TABLE_MANAGER_H_
+#ifndef GOOGLE_P4RT_APP_SONIC_APP_DB_ACL_DEF_TABLE_MANAGER_H_
+#define GOOGLE_P4RT_APP_SONIC_APP_DB_ACL_DEF_TABLE_MANAGER_H_
 
 #include "absl/status/status.h"
 #include "absl/strings/ascii.h"
@@ -47,4 +46,4 @@ inline absl::StatusOr<pdpi::IrTableDefinition> ReadAclTableDefinition(
 }  // namespace sonic
 }  // namespace p4rt_app
 
-#endif  // SONIC_APP_DB_ACL_DEF_TABLE_MANAGER_H_
+#endif  // GOOGLE_P4RT_APP_SONIC_APP_DB_ACL_DEF_TABLE_MANAGER_H_

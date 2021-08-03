@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef SONIC_PACKETIO_IMPL_H_
-#define SONIC_PACKETIO_IMPL_H_
+#ifndef GOOGLE_P4RT_APP_SONIC_PACKETIO_IMPL_H_
+#define GOOGLE_P4RT_APP_SONIC_PACKETIO_IMPL_H_
 
 #include <memory>
 #include <string>
@@ -63,4 +63,4 @@ class PacketIoImpl final : public PacketIoInterface {
 }  // namespace sonic
 }  // namespace p4rt_app
 
-#endif  // SONIC_PACKETIO_IMPL_H_
+#endif  // GOOGLE_P4RT_APP_SONIC_PACKETIO_IMPL_H_

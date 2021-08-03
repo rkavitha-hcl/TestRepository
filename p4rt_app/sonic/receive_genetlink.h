@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef RECEIVE_GENET_LINK_H_
-#define RECEIVE_GENET_LINK_H_
+#ifndef GOOGLE_P4RT_APP_SONIC_RECEIVE_GENETLINK_H_
+#define GOOGLE_P4RT_APP_SONIC_RECEIVE_GENETLINK_H_
 
 #include <thread>  //NOLINT
 
@@ -35,4 +35,4 @@ ABSL_MUST_USE_RESULT absl::StatusOr<std::thread> StartReceive(
 
 }  // namespace packet_metadata
 
-#endif  // RECEIVE_GENET_LINK_H_
+#endif  // GOOGLE_P4RT_APP_SONIC_RECEIVE_GENETLINK_H_

@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef _SONIC_RESPONSE_HANDLER_H_
-#define _SONIC_RESPONSE_HANDLER_H_
+#ifndef GOOGLE_P4RT_APP_SONIC_RESPONSE_HANDLER_H_
+#define GOOGLE_P4RT_APP_SONIC_RESPONSE_HANDLER_H_
 
 #include "p4_pdpi/utils/ir.h"
 #include "swss/consumernotifierinterface.h"
@@ -48,4 +47,4 @@ absl::Status GetAndProcessResponseNotification(
 }  // namespace sonic
 }  // namespace p4rt_app
 
-#endif  // _SONIC_RESPONSE_HANDLER_H_
+#endif  // GOOGLE_P4RT_APP_SONIC_RESPONSE_HANDLER_H_

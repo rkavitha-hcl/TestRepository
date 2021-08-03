@@ -13,8 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-#ifndef SONIC_ADAPTERS_MOCK_SYSTEM_CALL_ADAPTER_H
-#define SONIC_ADAPTERS_MOCK_SYSTEM_CALL_ADAPTER_H
+#ifndef GOOGLE_P4RT_APP_SONIC_ADAPTERS_MOCK_SYSTEM_CALL_ADAPTER_H
+#define GOOGLE_P4RT_APP_SONIC_ADAPTERS_MOCK_SYSTEM_CALL_ADAPTER_H
 
 #include "gmock/gmock.h"
 #include "p4rt_app/sonic/adapters/system_call_adapter.h"
@@ -43,4 +43,4 @@ class MockSystemCallAdapter final : public SystemCallAdapter {
 }  // namespace sonic
 }  // namespace p4rt_app
 
-#endif  // SONIC_ADAPTERS_MOCK_SYSTEM_CALL_ADAPTER_H
+#endif  // GOOGLE_P4RT_APP_SONIC_ADAPTERS_MOCK_SYSTEM_CALL_ADAPTER_H

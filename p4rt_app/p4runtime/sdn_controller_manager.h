@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef _SDN_CONTROLLER_MANAGER_H_
-#define _SDN_CONTROLLER_MANAGER_H_
+#ifndef GOOGLE_P4RT_APP_P4RUNTIME_SDN_CONTROLLER_MANAGER_H_
+#define GOOGLE_P4RT_APP_P4RUNTIME_SDN_CONTROLLER_MANAGER_H_
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/numeric/int128.h"
@@ -156,4 +155,4 @@ class SdnControllerManager {
 
 }  // namespace p4rt_app
 
-#endif  // _SDN_CONTROLLER_MANAGER_H_
+#endif  // GOOGLE_P4RT_APP_P4RUNTIME_SDN_CONTROLLER_MANAGER_H_

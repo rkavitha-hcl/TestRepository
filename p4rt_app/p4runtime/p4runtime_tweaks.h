@@ -13,9 +13,8 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-
-#ifndef _P4RUNTIME_P4RUNTIME_TWEAKS_H_
-#define _P4RUNTIME_P4RUNTIME_TWEAKS_H_
+#ifndef GOOGLE_P4RT_APP_P4RUNTIME_P4RUNTIME_TWEAKS_H_
+#define GOOGLE_P4RT_APP_P4RUNTIME_P4RUNTIME_TWEAKS_H_
 
 #include "absl/container/flat_hash_map.h"
 #include "p4_pdpi/ir.h"
@@ -34,4 +33,4 @@ class P4RuntimeTweaks {
 
 }  // namespace p4rt_app
 
-#endif  // _P4RUNTIME_P4RUNTIME_TWEAKS_H_
+#endif  // GOOGLE_P4RT_APP_P4RUNTIME_P4RUNTIME_TWEAKS_H_
