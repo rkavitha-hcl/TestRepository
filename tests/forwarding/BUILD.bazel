@@ -59,10 +59,10 @@ cc_library(
 )
 
 cc_library(
-    name = "master_arbitration_test",
+    name = "arbitration_test",
     testonly = True,
-    srcs = ["master_arbitration_test.cc"],
-    hdrs = ["master_arbitration_test.h"],
+    srcs = ["arbitration_test.cc"],
+    hdrs = ["arbitration_test.h"],
     deps = [
         ":p4_blackbox_fixture",
         "//gutil:status",

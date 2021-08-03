@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "tests/forwarding/master_arbitration_test.h"
+#include "tests/forwarding/arbitration_test.h"
 
 #include "absl/numeric/int128.h"
 #include "absl/status/statusor.h"

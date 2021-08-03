@@ -11,8 +11,8 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef GOOGLE_TESTS_FORWARDING_MASTER_ARBITRATION_TEST_H_
-#define GOOGLE_TESTS_FORWARDING_MASTER_ARBITRATION_TEST_H_
+#ifndef GOOGLE_TESTS_FORWARDING_ARBITRATION_TEST_H_
+#define GOOGLE_TESTS_FORWARDING_ARBITRATION_TEST_H_
 
 #include "absl/numeric/int128.h"
 #include "absl/status/status.h"
@@ -127,4 +127,4 @@ class ArbitrationTestFixture : public thinkit::MirrorTestbedFixture {
 
 }  // namespace gpins
 
-#endif  // GOOGLE_TESTS_FORWARDING_MASTER_ARBITRATION_TEST_H_
+#endif  // GOOGLE_TESTS_FORWARDING_ARBITRATION_TEST_H_
