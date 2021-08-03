@@ -82,7 +82,7 @@ def pins_infra_deps():
     if not native.existing_rule("com_github_gnmi"):
         http_archive(
             name = "com_github_gnmi",
-            # Newest commit on master on 2020-09-10.
+            # Newest commit on main on 2020-09-10.
             # TODO: Upstream changes from this private repo to official gnmi repo.
             url = "https://github.com/vamsipunati/gnmi/archive/ffcc8725208e76d19981e71d22006b779819ae0a.zip",
             strip_prefix = "gnmi-ffcc8725208e76d19981e71d22006b779819ae0a",
@@ -91,7 +91,7 @@ def pins_infra_deps():
     if not native.existing_rule("com_github_gnoi"):
         http_archive(
             name = "com_github_gnoi",
-            # Newest commit on master on 2021-05-20.
+            # Newest commit on main on 2021-05-20.
             url = "https://github.com/openconfig/gnoi/archive/c4a8573f7f0070ce3cef0a8127c7541c2bc71e05.zip",
             strip_prefix = "gnoi-c4a8573f7f0070ce3cef0a8127c7541c2bc71e05",
             sha256 = "8e3d3fc6a8f28dc2acb4eafbeb9fda7522d28ae9dee3e4edf788efb9a65b39c9",
@@ -99,7 +99,7 @@ def pins_infra_deps():
     if not native.existing_rule("com_github_p4lang_p4c"):
         http_archive(
             name = "com_github_p4lang_p4c",
-            # Newest commit on master on 2020-09-10.
+            # Newest commit on main on 2020-09-10.
             url = "https://github.com/p4lang/p4c/archive/557b77f8c41fc5ee1158710eda1073d84f5acf53.zip",
             strip_prefix = "p4c-557b77f8c41fc5ee1158710eda1073d84f5acf53",
             sha256 = "c0b39fe2a3f394a87ff8fd055df4b5f1d19790bfa27a6cff68f484380746363e",
@@ -109,7 +109,7 @@ def pins_infra_deps():
         # rather than a release.
         http_archive(
             name = "com_github_p4lang_p4runtime",
-            # 0332e is the newest commit on master as of 2021-04-29.
+            # 0332e is the newest commit on main as of 2021-04-29.
             urls = ["https://github.com/p4lang/p4runtime/archive/0332e999c24c6bb6795181ad407cbb759bfa827d.zip"],
             strip_prefix = "p4runtime-0332e999c24c6bb6795181ad407cbb759bfa827d/proto",
             sha256 = "50a2251a5250bcfba3037fb7712e232b3581684a7cbd983840fc97363243921f",

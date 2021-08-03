@@ -116,7 +116,7 @@ class P4RuntimeSession {
 
   // Returns the id of the node that this session belongs to.
   uint32_t DeviceId() const { return device_id_; }
-  // Returns the election id that has been used to perform master arbitration.
+  // Returns the election id that has been used to perform arbitration.
   p4::v1::Uint128 ElectionId() const { return election_id_; }
   // Returns the role of this session.
   std::string Role() const { return role_; }
@@ -153,14 +153,14 @@ class P4RuntimeSession {
 
   // The id of the node that this session belongs to.
   uint32_t device_id_;
-  // The election id that has been used to perform master arbitration.
+  // The election id that has been used to perform arbitration.
   p4::v1::Uint128 election_id_;
   // The role of this session.
   std::string role_;
   // The P4Runtime stub of the switch that this session belongs to.
   std::unique_ptr<p4::v1::P4Runtime::Stub> stub_;
 
-  // This stream channel and context are used to perform master arbitration,
+  // This stream channel and context are used to perform arbitration,
   // but can now also be used for packet IO.
   std::unique_ptr<grpc::ClientContext> stream_channel_context_;
   std::unique_ptr<grpc::ClientReaderWriter<p4::v1::StreamMessageRequest,

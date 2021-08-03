@@ -39,10 +39,10 @@ namespace pdpi {
 //    P4Info file.
 // 2. Canonical Byte String: This is the shortest string that fits the encoded
 //    value. This is the format used by P4RT as described in
-//    https://p4.org/p4runtime/spec/master/P4Runtime-Spec.html#sec-bytestrings.
+//    https://p4.org/p4-spec/p4runtime/main/P4Runtime-Spec.html#sec-bytestrings.
 // 3. Arbitrary Byte String: Any byte string encoding described by the P4RT
 //    specification (specifically
-//    https://p4.org/p4runtime/spec/master/P4Runtime-Spec.html#sec-bytestrings).
+//    https://p4.org/p4-spec/p4runtime/main/P4Runtime-Spec.html#sec-bytestrings).
 //    This can be the canonical representation, but it could also contain
 //    additional leading zeros.
 //
