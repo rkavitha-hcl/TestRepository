@@ -15,8 +15,11 @@
 #ifndef GOOGLE_THINKIT_BAZEL_TEST_ENVIRONMENT_H_
 #define GOOGLE_THINKIT_BAZEL_TEST_ENVIRONMENT_H_
 
+#include <fstream>
 #include <ios>
+#include <string>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/strings/string_view.h"
 #include "absl/synchronization/mutex.h"
 #include "thinkit/test_environment.h"
@@ -58,6 +61,10 @@ class BazelTestEnvironment : public TestEnvironment {
  private:
   bool mask_known_failures_;
   std::function<void(absl::string_view)> set_test_case_id_;
+  // Open files are cached to avoid closing them after every append. On certain
+  // file systems (e.g. b/111316875) closing files is abnormally slow and this
+  // avoids it. However, this approach should also generally be faster.
+  absl::flat_hash_map<std::string, std::ofstream> open_file_by_filepath_;
   // The mutex is used to ensure that writes to disk are sequential.
   absl::Mutex write_mutex_;
 };

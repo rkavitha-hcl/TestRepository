@@ -54,6 +54,18 @@ TEST(BazelTestEnvironmentTest, AppendToTestArtifact) {
   EXPECT_OK(environment->AppendToTestArtifact(kTestArtifact, "Hello, Test!\n"));
 }
 
+// Sanity check to rule out crashes and error statuses with mixed appends and
+// stores.
+TEST(BazelTestEnvironmentTest, AppendStoreAppendTestArtifact) {
+  std::unique_ptr<TestEnvironment> environment =
+      absl::make_unique<BazelTestEnvironment>(/*mask_known_failures=*/true);
+  EXPECT_OK(
+      environment->AppendToTestArtifact(kTestArtifact, "Hello, World!\n"));
+  EXPECT_OK(environment->StoreTestArtifact(kTestArtifact, "Hello, Test!\n"));
+  EXPECT_OK(environment->AppendToTestArtifact(kTestArtifact,
+                                              "Hello again, World!\n"));
+}
+
 TEST(BazelTestEnvironmentTest,
      BazelTestEnvironmentStoreAndAppendTestArtifactWithProto) {
   // Explicitly uses the BazelTestEnvironment to ensure that we inherit
