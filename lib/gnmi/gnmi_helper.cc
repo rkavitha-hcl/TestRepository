@@ -183,13 +183,12 @@ absl::Status PushGnmiConfig(gnmi::gNMI::Stub& stub,
   gnmi::Update* replace = req.add_replace();
   replace->mutable_path();
   replace->mutable_val()->set_json_ietf_val(gnmi_config);
-  gnmi_ext::MasterArbitration* master_arbitration =
+  gnmi_ext::MasterArbitration* arbitration =
       req.add_extension()->mutable_master_arbitration();
-  master_arbitration->mutable_role()->set_id("dataplane test");
-  master_arbitration->mutable_election_id()->set_high(
+  arbitration->mutable_role()->set_id("dataplane test");
+  arbitration->mutable_election_id()->set_high(
       absl::Uint128High64(election_id));
-  master_arbitration->mutable_election_id()->set_low(
-      absl::Uint128Low64(election_id));
+  arbitration->mutable_election_id()->set_low(absl::Uint128Low64(election_id));
 
   gnmi::SetResponse resp;
   grpc::ClientContext context;
