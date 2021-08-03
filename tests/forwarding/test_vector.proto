@@ -59,9 +59,13 @@ message SwitchInput {
     DEFAULT = 0;
     // Send a packet to the switch on the dataplane.
     DATAPLANE = 1;
-    // Inject a packet into the switch using packet io.
+    // Inject a packet into the switch using packet IO.
     // The packet will be sent out of the given port without any pre-processing.
     PACKET_OUT = 2;
+    // Inject a packet into the switch using packet IO. The packet will be
+    // processed as if it had been received on the dataplane. The `packet.port`
+    // will be ignored.
+    SUBMIT_TO_INGRESS = 3;
   }
   Type type = 1;
   // The packet that's being sent to the switch (required).
