@@ -112,92 +112,93 @@ absl::Status SendStreamMessageRequest(
                    << request.DebugString();
 }
 
-// Returns a matcher that checks if the attempt to become master was successful.
-testing::Matcher<absl::Status> NotMaster() { return Not(gutil::IsOk()); }
+// Returns a matcher that checks if the attempt to become primary was
+// successful.
+testing::Matcher<absl::Status> NotPrimary() { return Not(gutil::IsOk()); }
 
-TEST_P(MasterArbitrationTestFixture, BecomeMaster) {
+TEST_P(ArbitrationTestFixture, BecomePrimary) {
   TestEnvironment().SetTestCaseID("c6506d76-5041-4f69-b398-a808ab473186");
-  ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(0));
+  ASSERT_OK_AND_ASSIGN(auto connection, BecomePrimary(0));
 }
 
-TEST_P(MasterArbitrationTestFixture, FailToBecomeMaster) {
+TEST_P(ArbitrationTestFixture, FailToBecomePrimary) {
   TestEnvironment().SetTestCaseID("60c56f72-96ca-4aea-8cdc-16e1b928d53a");
-  ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(1));
-  ASSERT_THAT(BecomeMaster(0).status(), NotMaster());
+  ASSERT_OK_AND_ASSIGN(auto connection, BecomePrimary(1));
+  ASSERT_THAT(BecomePrimary(0).status(), NotPrimary());
 }
 
-TEST_P(MasterArbitrationTestFixture, ReplaceMaster) {
+TEST_P(ArbitrationTestFixture, ReplacePrimary) {
   TestEnvironment().SetTestCaseID("03da98ad-c4c7-443f-bcc0-53f97103d0c3");
-  ASSERT_OK_AND_ASSIGN(auto connection1, BecomeMaster(1));
-  ASSERT_OK_AND_ASSIGN(auto connection2, BecomeMaster(2));
+  ASSERT_OK_AND_ASSIGN(auto connection1, BecomePrimary(1));
+  ASSERT_OK_AND_ASSIGN(auto connection2, BecomePrimary(2));
 }
 
-TEST_P(MasterArbitrationTestFixture, ReplaceMasterAfterFailure) {
+TEST_P(ArbitrationTestFixture, ReplacePrimaryAfterFailure) {
   TestEnvironment().SetTestCaseID("d5ffe4cc-ff0e-4d93-8334-a23f06c6232a");
-  ASSERT_OK_AND_ASSIGN(auto connection1, BecomeMaster(1));
-  ASSERT_THAT(BecomeMaster(0).status(), NotMaster());
-  ASSERT_OK_AND_ASSIGN(auto connection2, BecomeMaster(2));
+  ASSERT_OK_AND_ASSIGN(auto connection1, BecomePrimary(1));
+  ASSERT_THAT(BecomePrimary(0).status(), NotPrimary());
+  ASSERT_OK_AND_ASSIGN(auto connection2, BecomePrimary(2));
 }
 
-TEST_P(MasterArbitrationTestFixture, FailToBecomeMasterAfterMasterDisconnect) {
+TEST_P(ArbitrationTestFixture, FailToBecomePrimaryAfterPrimaryDisconnect) {
   TestEnvironment().SetTestCaseID("53b4b886-c218-4c85-b212-13d32105c795");
   {
-    ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(1));
+    ASSERT_OK_AND_ASSIGN(auto connection, BecomePrimary(1));
     ASSERT_OK(connection->Finish());
   }
-  ASSERT_THAT(BecomeMaster(0).status(), NotMaster());
+  ASSERT_THAT(BecomePrimary(0).status(), NotPrimary());
 }
 
-TEST_P(MasterArbitrationTestFixture, ReconnectMaster) {
+TEST_P(ArbitrationTestFixture, ReconnectPrimary) {
   TestEnvironment().SetTestCaseID("d95a4da4-139d-4bd6-a43c-dbdefb123fcf");
   {
-    ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(0));
+    ASSERT_OK_AND_ASSIGN(auto connection, BecomePrimary(0));
     ASSERT_OK(connection->Finish());
   }
-  ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(0));
+  ASSERT_OK_AND_ASSIGN(auto connection, BecomePrimary(0));
 }
 
-TEST_P(MasterArbitrationTestFixture, DoubleMaster) {
+TEST_P(ArbitrationTestFixture, DoublePrimary) {
   TestEnvironment().SetTestCaseID("19614b15-ce8f-4832-9164-342c5585283a");
-  ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(0));
-  ASSERT_THAT(BecomeMaster(0).status(), NotMaster());
+  ASSERT_OK_AND_ASSIGN(auto connection, BecomePrimary(0));
+  ASSERT_THAT(BecomePrimary(0).status(), NotPrimary());
 }
 
-TEST_P(MasterArbitrationTestFixture, LongEvolution) {
+TEST_P(ArbitrationTestFixture, LongEvolution) {
   TestEnvironment().SetTestCaseID("a65deb93-e350-4322-a932-af699c4b583c");
   {
-    ASSERT_OK_AND_ASSIGN(auto connection1, BecomeMaster(1));
-    ASSERT_THAT(BecomeMaster(0).status(), NotMaster());
-    ASSERT_OK_AND_ASSIGN(auto connection2, BecomeMaster(2));
-    ASSERT_THAT(BecomeMaster(1).status(), NotMaster());
-    ASSERT_OK_AND_ASSIGN(auto connection3, BecomeMaster(3));
-    ASSERT_OK_AND_ASSIGN(auto connection4, BecomeMaster(4));
+    ASSERT_OK_AND_ASSIGN(auto connection1, BecomePrimary(1));
+    ASSERT_THAT(BecomePrimary(0).status(), NotPrimary());
+    ASSERT_OK_AND_ASSIGN(auto connection2, BecomePrimary(2));
+    ASSERT_THAT(BecomePrimary(1).status(), NotPrimary());
+    ASSERT_OK_AND_ASSIGN(auto connection3, BecomePrimary(3));
+    ASSERT_OK_AND_ASSIGN(auto connection4, BecomePrimary(4));
     {
-      ASSERT_OK_AND_ASSIGN(auto connection5, BecomeMaster(5));
-      ASSERT_THAT(BecomeMaster(2).status(), NotMaster());
-      ASSERT_THAT(BecomeMaster(3).status(), NotMaster());
-      ASSERT_THAT(BecomeMaster(4).status(), NotMaster());
+      ASSERT_OK_AND_ASSIGN(auto connection5, BecomePrimary(5));
+      ASSERT_THAT(BecomePrimary(2).status(), NotPrimary());
+      ASSERT_THAT(BecomePrimary(3).status(), NotPrimary());
+      ASSERT_THAT(BecomePrimary(4).status(), NotPrimary());
       ASSERT_OK(connection5->Finish());
     }
-    ASSERT_OK_AND_ASSIGN(auto connection5, BecomeMaster(5));
-    ASSERT_OK_AND_ASSIGN(auto connection6, BecomeMaster(6));
-    ASSERT_OK_AND_ASSIGN(auto connection7, BecomeMaster(7));
-    ASSERT_THAT(BecomeMaster(7).status(), NotMaster());
+    ASSERT_OK_AND_ASSIGN(auto connection5, BecomePrimary(5));
+    ASSERT_OK_AND_ASSIGN(auto connection6, BecomePrimary(6));
+    ASSERT_OK_AND_ASSIGN(auto connection7, BecomePrimary(7));
+    ASSERT_THAT(BecomePrimary(7).status(), NotPrimary());
   }
-  ASSERT_THAT(BecomeMaster(1).status(), NotMaster());
-  ASSERT_THAT(BecomeMaster(2).status(), NotMaster());
-  ASSERT_THAT(BecomeMaster(3).status(), NotMaster());
-  ASSERT_THAT(BecomeMaster(4).status(), NotMaster());
-  ASSERT_THAT(BecomeMaster(6).status(), NotMaster());
-  ASSERT_OK_AND_ASSIGN(auto connection7, BecomeMaster(7));
+  ASSERT_THAT(BecomePrimary(1).status(), NotPrimary());
+  ASSERT_THAT(BecomePrimary(2).status(), NotPrimary());
+  ASSERT_THAT(BecomePrimary(3).status(), NotPrimary());
+  ASSERT_THAT(BecomePrimary(4).status(), NotPrimary());
+  ASSERT_THAT(BecomePrimary(6).status(), NotPrimary());
+  ASSERT_OK_AND_ASSIGN(auto connection7, BecomePrimary(7));
 }
 
-TEST_P(MasterArbitrationTestFixture, SlaveCannotWrite) {
+TEST_P(ArbitrationTestFixture, BackupCannotWrite) {
   TestEnvironment().SetTestCaseID("4c714d8-73c6-48b1-ada6-8ac2e5267714");
 
-  ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(2));
+  ASSERT_OK_AND_ASSIGN(auto connection, BecomePrimary(2));
   ASSERT_OK_AND_ASSIGN(auto stub, Stub());
-  ASSERT_THAT(BecomeMaster(std::move(stub), 1).status(), NotMaster());
+  ASSERT_THAT(BecomePrimary(std::move(stub), 1).status(), NotPrimary());
   ASSERT_OK_AND_ASSIGN(auto stub2, Stub());
   ASSERT_FALSE(
       pdpi::SendPiWriteRequest(
@@ -205,10 +206,10 @@ TEST_P(MasterArbitrationTestFixture, SlaveCannotWrite) {
           .ok());
 }
 
-TEST_P(MasterArbitrationTestFixture, SlaveCanRead) {
+TEST_P(ArbitrationTestFixture, BackupCanRead) {
   TestEnvironment().SetTestCaseID("fb678921-d150-4535-b7b8-fc8cecb79a78");
 
-  ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(1));
+  ASSERT_OK_AND_ASSIGN(auto connection, BecomePrimary(1));
 
   // Normalize switch state first when there are write requests involved.
   ASSERT_OK(NormalizeSwitchState(connection.get()));
@@ -218,7 +219,7 @@ TEST_P(MasterArbitrationTestFixture, SlaveCanRead) {
       GetWriteRequest(0, ElectionIdFromLower(1), DeviceId())));
 
   ASSERT_OK_AND_ASSIGN(auto stub, Stub());
-  ASSERT_THAT(BecomeMaster(std::move(stub), 0).status(), NotMaster());
+  ASSERT_THAT(BecomePrimary(std::move(stub), 0).status(), NotPrimary());
 
   ReadRequest read_everything = gutil::ParseProtoOrDie<ReadRequest>(R"pb(
     entities { table_entry { meter_config {} } }
@@ -237,9 +238,9 @@ TEST_P(MasterArbitrationTestFixture, SlaveCanRead) {
   ASSERT_OK(pdpi::ClearTableEntries(connection.get(), IrP4Info()));
 }
 
-TEST_P(MasterArbitrationTestFixture, GetNotifiedOfActualMaster) {
+TEST_P(ArbitrationTestFixture, GetNotifiedOfActualPrimary) {
   TestEnvironment().SetTestCaseID("46b83014-759b-4393-bb58-220c0ca38711");
-  ASSERT_OK_AND_ASSIGN(auto connection, BecomeMaster(1));
+  ASSERT_OK_AND_ASSIGN(auto connection, BecomePrimary(1));
 
   // Assemble arbitration request.
   p4::v1::StreamMessageRequest request;
@@ -271,7 +272,7 @@ TEST_P(MasterArbitrationTestFixture, GetNotifiedOfActualMaster) {
   EXPECT_EQ(response.arbitration().status().code(), ALREADY_EXISTS);
 }
 
-TEST_P(MasterArbitrationTestFixture, NoIdControllerCannotBecomeMaster) {
+TEST_P(ArbitrationTestFixture, NoIdControllerCannotBecomePrimary) {
   TestEnvironment().SetTestCaseID("3699fc43-5ff8-44ee-8965-68f42c71c1ed");
 
   // Assemble arbitration request.
@@ -295,18 +296,18 @@ TEST_P(MasterArbitrationTestFixture, NoIdControllerCannotBecomeMaster) {
   EXPECT_EQ(response.arbitration().device_id(), DeviceId());
   EXPECT_EQ(response.arbitration().role().name(),
             P4RUNTIME_ROLE_SDN_CONTROLLER);
-  // Check that there is no master controller found. In other words, the master
-  // arbitration request with no election id failed.
+  // Check that there is no primary controller found. In other words, the
+  // primary arbitration request with no election id failed.
   EXPECT_EQ(response.arbitration().status().code(),
             grpc::StatusCode::NOT_FOUND);
 }
 
-TEST_P(MasterArbitrationTestFixture, OldMasterCannotWriteAfterNewMasterCameUp) {
+TEST_P(ArbitrationTestFixture, OldPrimaryCannotWriteAfterNewPrimaryCameUp) {
   TestEnvironment().SetTestCaseID("e4bc86a2-84f0-450a-888a-8a6f5f26fa8c");
 
   int id1 = 1, id2 = 2;
-  // Connects controller C1 with id=1 to become master.
-  ASSERT_OK_AND_ASSIGN(auto c1, BecomeMaster(id1));
+  // Connects controller C1 with id=1 to become primary.
+  ASSERT_OK_AND_ASSIGN(auto c1, BecomePrimary(id1));
 
   // Normalize switch state first when there are write requests involved.
   ASSERT_OK(NormalizeSwitchState(c1.get()));
@@ -315,38 +316,38 @@ TEST_P(MasterArbitrationTestFixture, OldMasterCannotWriteAfterNewMasterCameUp) {
       &c1->Stub(), GetWriteRequest(0, ElectionIdFromLower(id1), DeviceId())));
   ASSERT_OK(pdpi::ClearTableEntries(c1.get(), IrP4Info()));
 
-  // Connects controller C2 with id=2 > 1 to become master.
-  ASSERT_OK_AND_ASSIGN(auto c2, BecomeMaster(id2));
-  // Checks new master C2 can write.
+  // Connects controller C2 with id=2 > 1 to become primary.
+  ASSERT_OK_AND_ASSIGN(auto c2, BecomePrimary(id2));
+  // Checks new primary C2 can write.
   ASSERT_OK(pdpi::SendPiWriteRequest(
       &c2->Stub(), GetWriteRequest(1, ElectionIdFromLower(id2), DeviceId())));
   ASSERT_OK(pdpi::ClearTableEntries(c2.get(), IrP4Info()));
 
-  // Checks C1 cannot write after new master C2 came up.
+  // Checks C1 cannot write after new primary C2 came up.
   ASSERT_FALSE(
       pdpi::SendPiWriteRequest(
           &c1->Stub(), GetWriteRequest(2, ElectionIdFromLower(id1), DeviceId()))
           .ok());
 }
 
-TEST_P(MasterArbitrationTestFixture, MasterDowngradesItself) {
+TEST_P(ArbitrationTestFixture, PrimaryDowngradesItself) {
   TestEnvironment().SetTestCaseID("3cb62c0f-4a1a-430c-978c-a3a2a11078cd");
   int id1 = 1, id2 = 2;
 
-  // Connects controller with id=2 to become master.
-  ASSERT_OK_AND_ASSIGN(auto controller, BecomeMaster(id2));
+  // Connects controller with id=2 to become primary.
+  ASSERT_OK_AND_ASSIGN(auto controller, BecomePrimary(id2));
 
   // Normalize switch state first when there are write requests involved.
   ASSERT_OK(NormalizeSwitchState(controller.get()));
 
-  // Checks new master controller can write.
+  // Checks new primary controller can write.
   ASSERT_OK(pdpi::SendPiWriteRequest(
       &controller->Stub(),
       GetWriteRequest(0, ElectionIdFromLower(id2), DeviceId())));
 
   ASSERT_OK(pdpi::ClearTableEntries(controller.get(), IrP4Info()));
 
-  // C2 sends master arbitration request with id=1 to downgrade itself.
+  // C2 sends primary arbitration request with id=1 to downgrade itself.
   p4::v1::StreamMessageRequest request;
   auto arbitration = request.mutable_arbitration();
   arbitration->set_device_id(DeviceId());

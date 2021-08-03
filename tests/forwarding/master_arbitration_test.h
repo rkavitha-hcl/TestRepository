@@ -41,7 +41,7 @@ namespace gpins {
 
 using ::p4::v1::P4Runtime;
 
-class MasterArbitrationTestFixture : public thinkit::MirrorTestbedFixture {
+class ArbitrationTestFixture : public thinkit::MirrorTestbedFixture {
  public:
   void SetUp() {
     MirrorTestbedFixture::SetUp();
@@ -94,13 +94,8 @@ class MasterArbitrationTestFixture : public thinkit::MirrorTestbedFixture {
     return absl::MakeUint128(upper_election_id_, lower_election_id);
   }
 
-  // Attempts to become master on a given stub.
-  // TODO Consider replace slave/master. See go/cstyle#Inclusive_Language
-  // - "In all code, including naming and comments, use inclusive language and
-  // avoid terms that other programmers might find disrespectful or offensive
-  // (such as "master" and "slave", "blacklist" and "whitelist", or "redline"),
-  // even if the terms also have an ostensibly neutral meaning.".
-  absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>> BecomeMaster(
+  // Attempts to become primary on a given stub.
+  absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>> BecomePrimary(
       std::unique_ptr<P4Runtime::Stub> stub, uint64_t lower_election_id) const {
     return pdpi::P4RuntimeSession::Create(
         std::move(stub), device_id_,
@@ -108,11 +103,11 @@ class MasterArbitrationTestFixture : public thinkit::MirrorTestbedFixture {
             .election_id = ElectionIdFromLower(lower_election_id)});
   }
 
-  // Attempts to become master on a new stub.
-  absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>> BecomeMaster(
+  // Attempts to become primary on a new stub.
+  absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>> BecomePrimary(
       uint64_t lower_election_id) {
     ASSIGN_OR_RETURN(auto stub, Stub());
-    return BecomeMaster(std::move(stub), lower_election_id);
+    return BecomePrimary(std::move(stub), lower_election_id);
   }
 
   uint32_t DeviceId() const { return device_id_; }
