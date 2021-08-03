@@ -201,6 +201,7 @@ message AclIngressTableEntry {
     Ternary icmpv6_type = 14;  // ternary match / Format::HEX_STRING / 8 bits
     Ternary l4_dst_port = 15;  // ternary match / Format::HEX_STRING / 16 bits
     Ternary arp_tpa = 16;      // ternary match / Format::IPV4
+    Optional in_port = 17;     // optional match / Format::STRING
   }
   Match match = 1;
   message Action {
@@ -302,6 +303,22 @@ message AclWbbIngressTableEntry {
   bytes controller_metadata = 8;
 }
 
+message AclEgressTableEntry {
+  message Match {
+    Ternary ether_type = 1;   // ternary match / Format::HEX_STRING / 16 bits
+    Ternary ip_protocol = 2;  // ternary match / Format::HEX_STRING / 8 bits
+    Ternary l4_dst_port = 3;  // ternary match / Format::HEX_STRING / 16 bits
+    Optional out_port = 4;    // optional match / Format::HEX_STRING / 9 bits
+  }
+  Match match = 1;
+  message Action {
+    AclDropAction acl_drop = 1;
+  }
+  Action action = 2;
+  int32 priority = 3;
+  bytes controller_metadata = 8;
+}
+
 // -- Actions ------------------------------------------------------------------
 
 message SetDstMacAction {
@@ -385,6 +402,7 @@ message TableEntry {
     AclIngressTableEntry acl_ingress_table_entry = 256;
     AclPreIngressTableEntry acl_pre_ingress_table_entry = 257;
     AclWbbIngressTableEntry acl_wbb_ingress_table_entry = 259;
+    AclEgressTableEntry acl_egress_table_entry = 260;
   }
 }
 
