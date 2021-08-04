@@ -502,11 +502,10 @@ GetAllInterfaceNameToPortId(gnmi::gNMI::StubInterface& stub) {
     }
 
     const auto element_id_json =
-        element_interface_state_json->find("openconfig-pins-interfaces:id");
+        element_interface_state_json->find("openconfig-p4rt:id");
     if (element_id_json == element_interface_state_json->end()) {
-      return absl::NotFoundError(
-          absl::StrCat("'openconfig-pins-interfaces:id' not found: ",
-                       element.value().dump()));
+      return absl::NotFoundError(absl::StrCat(
+          "'openconfig-p4rt:id' not found: ", element.value().dump()));
     }
     interface_name_to_port_id[name] = absl::StrCat(element_id_json->get<int>());
   }
