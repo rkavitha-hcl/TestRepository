@@ -966,30 +966,31 @@ TEST_P(BertTest, RunBertOnMaximumAllowedPorts) {
                                 kTestDuration - (end_time - start_time) -
                                 absl::Seconds(1)) /
            ToInt64Seconds(kPollInterval));
-  std::vector<std::string> interfaces_not_up = interfaces;
+  std::vector<std::string> interfaces_in_testing = interfaces;
   for (int count = 0; count < max_poll_count; ++count) {
     absl::SleepFor(kPollInterval);
-    // If port is "UP" and no longer in "TESTING" oper state on both sides of
-    // link, BERT has completed on the link and full BERT result is ready.
-    for (auto it = interfaces_not_up.begin(); it != interfaces_not_up.end();) {
+    // If port is no longer in "TESTING" oper state on both sides of the link,
+    // linkqual has completed on the link and full result is ready.
+    for (auto it = interfaces_in_testing.begin();
+         it != interfaces_in_testing.end();) {
       ASSERT_OK_AND_ASSIGN(
           pins_test::OperStatus oper_status,
           pins_test::GetInterfaceOperStatusOverGnmi(*sut_gnmi_stub, *it));
-      if (oper_status == pins_test::OperStatus::kUp) {
+      if (oper_status != pins_test::OperStatus::kTesting) {
         ASSERT_OK_AND_ASSIGN(oper_status,
                              pins_test::GetInterfaceOperStatusOverGnmi(
                                  *control_switch_gnmi_stub, *it));
-        if (oper_status == pins_test::OperStatus::kUp) {
-          it = interfaces_not_up.erase(it);
+        if (oper_status != pins_test::OperStatus::kTesting) {
+          it = interfaces_in_testing.erase(it);
           continue;
         }
       }
       ++it;
     }
-    if (interfaces_not_up.empty()) break;
+    if (interfaces_in_testing.empty()) break;
   }
 
-  EXPECT_THAT(interfaces_not_up, testing::IsEmpty());
+  EXPECT_THAT(interfaces_in_testing, testing::IsEmpty());
 
   // Get the BERT result from SUT and verify it.
   LOG(INFO) << "Verify BERT results on SUT interfaces.";
