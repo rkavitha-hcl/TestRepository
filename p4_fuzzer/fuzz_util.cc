@@ -991,9 +991,6 @@ AnnotatedWriteRequest FuzzWriteRequest(absl::BitGen* gen,
 
   while (absl::Bernoulli(*gen, kAddUpdateProbability)) {
     *request.add_updates() = FuzzUpdate(gen, config, switch_state);
-    // TODO: For now, we only send requests of size <= 1. This makes
-    // debugging easier.
-    break;
   }
 
   return request;
