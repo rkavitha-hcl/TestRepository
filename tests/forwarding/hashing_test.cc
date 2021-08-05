@@ -827,6 +827,11 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
   thinkit::MirrorTestbed& testbed =
       GetParam().mirror_testbed->GetMirrorTestbed();
 
+  // TODO: Re-enable (or turn into a vector) once it is possible to
+  // set multiple test case ids to a single test.
+  // testbed.Environment().SetTestCaseID("fdaa1b1e-67a3-497f-aa62-fd62d711c415");
+  testbed.Environment().SetTestCaseID("789dad22-96d1-4550-8acb-d42c1f69ca21");
+
   const std::string& gnmi_config = GetParam().gnmi_config;
   ASSERT_OK(
       testbed.Environment().StoreTestArtifact("gnmi_config.txt", gnmi_config));
