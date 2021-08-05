@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "p4_fuzzer/fuzzer_tests.h"
+#include "tests/forwarding/fuzzer_tests.h"
 
 #include <algorithm>
 #include <set>
