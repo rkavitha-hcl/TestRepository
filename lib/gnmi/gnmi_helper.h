@@ -26,6 +26,7 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "p4_pdpi/connection_management.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
 #include "proto/gnmi/gnmi.pb.h"
@@ -139,7 +140,7 @@ absl::StatusOr<std::vector<std::string>> GetUpInterfacesOverGnmi(
 
 // Gets the operational status of an interface.
 absl::StatusOr<OperStatus> GetInterfaceOperStatusOverGnmi(
-    gnmi::gNMI::Stub& stub, absl::string_view if_name);
+    gnmi::gNMI::StubInterface& stub, absl::string_view if_name);
 
 // Gets the interface name to port id map.
 absl::StatusOr<absl::flat_hash_map<std::string, std::string>>

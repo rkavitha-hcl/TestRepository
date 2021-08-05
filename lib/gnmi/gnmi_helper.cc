@@ -14,12 +14,12 @@
 
 #include "lib/gnmi/gnmi_helper.h"
 
-#include <algorithm>
 #include <memory>
 #include <string>
 #include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/numeric/int128.h"
 #include "absl/status/status.h"
@@ -30,7 +30,9 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
+#include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "glog/logging.h"
 #include "google/protobuf/map.h"
 #include "grpcpp/impl/codegen/client_context.h"
@@ -423,7 +425,7 @@ absl::StatusOr<std::vector<std::string>> GetUpInterfacesOverGnmi(
 }
 
 absl::StatusOr<OperStatus> GetInterfaceOperStatusOverGnmi(
-    gnmi::gNMI::Stub& stub, absl::string_view if_name) {
+    gnmi::gNMI::StubInterface& stub, absl::string_view if_name) {
   std::string if_req = absl::StrCat("interfaces/interface[name=", if_name,
                                     "]/state/oper-status");
   ASSIGN_OR_RETURN(auto request,
@@ -443,13 +445,13 @@ absl::StatusOr<OperStatus> GetInterfaceOperStatusOverGnmi(
       std::string oper_status,
       ParseGnmiGetResponse(response, "openconfig-interfaces:oper-status"));
 
-  if (absl::StrContains((oper_status), "UP")) {
+  if (absl::StrContains(oper_status, "UP")) {
     return OperStatus::kUp;
   }
-  if (absl::StrContains((oper_status), "DOWN")) {
+  if (absl::StrContains(oper_status, "DOWN")) {
     return OperStatus::kDown;
   }
-  if (absl::StrContains((oper_status), "TESTING")) {
+  if (absl::StrContains(oper_status, "TESTING")) {
     return OperStatus::kTesting;
   }
   return OperStatus::kUnknown;
