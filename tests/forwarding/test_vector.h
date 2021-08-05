@@ -20,6 +20,11 @@
 #include "tests/forwarding/test_vector.pb.h"
 namespace gpins {
 
+// Needed to make gUnit produce human-readable output in open source.
+inline std::ostream& operator<<(std::ostream& os, const SwitchOutput& output) {
+  return os << output.DebugString();
+}
+
 // Holds a test vector along with the actual SUT output generated in response to
 // the test vector's input. The actual output may be empty, if the switch drops
 // the input packet. The test vector may be empty, if the switch generates

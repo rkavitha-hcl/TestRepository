@@ -1,0 +1,327 @@
+#include "absl/strings/substitute.h"
+#include "absl/types/optional.h"
+#include "gutil/testing.h"
+#include "p4_pdpi/packetlib/packetlib.h"
+#include "tests/forwarding/test_vector.h"
+#include "tests/forwarding/test_vector.pb.h"
+
+namespace gpins {
+namespace {
+
+using ::gutil::ParseProtoOrDie;
+
+// A test case for the `CheckForTestVectorFailure` function.
+struct TestCase {
+  // Human-readable description of this test case, for documentation.
+  std::string description;
+  // The inputs to the `CheckForTestVectorFailure` function to be used by this
+  // test case.
+  TestVector test_vector;
+  SwitchOutput actual_output;
+};
+
+// Defines and returns test cases (i.e., inputs) for the
+// `CheckForTestVectorFailure` oracle, which will produce error messages when
+// given these inputs. Used to test the quality of the oracle's error messages.
+std::vector<TestCase> TestCases() {
+  std::vector<TestCase> tests;
+
+  {
+    TestCase& test = tests.emplace_back();
+    test = TestCase{
+        .description =
+            "Packet is expected to be forwarded (out of one\nof several "
+            "acceptable ports), but gets dropped.",
+        .test_vector = ParseProtoOrDie<TestVector>(R"pb(
+          input {
+            type: DATAPLANE
+            packet {
+              port: "1"
+              parsed {
+                headers {
+                  ethernet_header {
+                    ethernet_destination: "02:08:02:08:10:40"
+                    ethernet_source: "40:04:10:04:04:20"
+                    ethertype: "0x86dd"
+                  }
+                }
+                headers {
+                  ipv6_header {
+                    version: "0x6"
+                    dscp: "0x00"
+                    ecn: "0x0"
+                    flow_label: "0x00000"
+                    payload_length: "0x00ee"
+                    next_header: "0x3a"
+                    hop_limit: "0x80"
+                    ipv6_source: "fe80::"
+                    ipv6_destination: "2002:a05:6860:4f00::"
+                  }
+                }
+                headers {
+                  icmp_header {
+                    type: "0x00"
+                    code: "0x00"
+                    checksum: "0x1461"
+                    rest_of_header: "0x00000000"
+                  }
+                }
+                payload: "test packet"
+              }
+            }
+          }
+          # Acceptable outputs filled in below.
+        )pb"),
+        // The packet gets dropped -- no output.
+        .actual_output = SwitchOutput(),
+    };
+    // We expect the packet to be forwarded unmodified, out of one of several
+    // acceptable ports (due to WCMP, for example).
+    for (std::string port : {"8", "12", "16", "20"}) {
+      auto& acceptable_output =
+          *test.test_vector.add_acceptable_outputs()->add_packets();
+      acceptable_output = test.test_vector.input().packet();
+      acceptable_output.set_port(port);
+    }
+  }
+
+  {
+    TestCase& test = tests.emplace_back();
+    test = TestCase{
+        .description =
+            "Submit-to-ingress packet is expected to be\nforwarded and "
+            "mirrored and punted, but doesn't get punted.",
+        .test_vector = ParseProtoOrDie<TestVector>(R"pb(
+          input {
+            type: SUBMIT_TO_INGRESS
+            packet {
+              port: "1"
+              parsed {
+                headers {
+                  ethernet_header {
+                    ethernet_destination: "02:08:02:08:10:40"
+                    ethernet_source: "40:04:10:04:04:20"
+                    ethertype: "0x86dd"
+                  }
+                }
+                headers {
+                  ipv6_header {
+                    version: "0x6"
+                    dscp: "0x00"
+                    ecn: "0x0"
+                    flow_label: "0x00000"
+                    payload_length: "0x00ee"
+                    next_header: "0x3a"
+                    hop_limit: "0x80"
+                    ipv6_source: "fe80::"
+                    ipv6_destination: "2002:a05:6860:4f00::"
+                  }
+                }
+                headers {
+                  icmp_header {
+                    type: "0x00"
+                    code: "0x00"
+                    checksum: "0x1461"
+                    rest_of_header: "0x00000000"
+                  }
+                }
+                payload: "test packet"
+              }
+            }
+          }
+          acceptable_outputs {
+            # The mirrored (and encapsulated) packet.
+            packets {
+              port: "1"
+              parsed {
+                headers {
+                  ethernet_header {
+                    ethernet_destination: "00:1a:11:17:5f:80"
+                    ethernet_source: "00:02:03:04:05:06"
+                    ethertype: "0x0800"
+                  }
+                }
+                headers {
+                  ipv4_header {
+                    version: "0x4"
+                    ihl: "0x5"
+                    dscp: "0x00"
+                    ecn: "0x0"
+                    total_length: "0x0116"
+                    identification: "0x0000"
+                    flags: "0x2"
+                    fragment_offset: "0x0000"
+                    ttl: "0x40"
+                    protocol: "0x2f"
+                    checksum: "0xbe0b"
+                    ipv4_source: "10.206.196.0"
+                    ipv4_destination: "172.20.0.203"
+                  }
+                }
+                # Mirrored packets get encapsulated but packetlib does not parse
+                # inner headers, hence the strange payload here containing the
+                # encapsulated headers.
+                payload: "\000\000\210\276\002\n\000 \000\000\002*\020\200\000\005\010\000Ex\000\360\000\000\000\000\020\375\323\372\n\000\000\000\n5\300jtest packet"
+              }
+            }
+            # The forwarded packet.
+            packets {
+              port: "31"
+              parsed {
+                headers {
+                  ethernet_header {
+                    ethernet_destination: "00:1a:11:17:5f:80"
+                    ethernet_source: "02:2a:10:00:00:06"
+                    ethertype: "0x0800"
+                  }
+                }
+                headers {
+                  ipv4_header {
+                    version: "0x4"
+                    ihl: "0x5"
+                    dscp: "0x1e"
+                    ecn: "0x0"
+                    total_length: "0x00f0"
+                    identification: "0x0000"
+                    flags: "0x0"
+                    fragment_offset: "0x0000"
+                    ttl: "0x0f"
+                    protocol: "0xfd"
+                    checksum: "0xd4fa"
+                    ipv4_source: "10.0.0.0"
+                    ipv4_destination: "10.53.192.106"
+                  }
+                }
+                payload: "test packet"
+              }
+            }
+            # The punted packet.
+            packet_ins {
+              metadata { ingress_port: "1" target_egress_port: "1" }
+              parsed {
+                headers {
+                  ethernet_header {
+                    ethernet_destination: "02:0a:00:20:00:00"
+                    ethernet_source: "02:2a:10:80:00:05"
+                    ethertype: "0x0800"
+                  }
+                }
+                headers {
+                  ipv4_header {
+                    version: "0x4"
+                    ihl: "0x5"
+                    dscp: "0x1e"
+                    ecn: "0x0"
+                    total_length: "0x00f0"
+                    identification: "0x0000"
+                    flags: "0x0"
+                    fragment_offset: "0x0000"
+                    ttl: "0x10"
+                    protocol: "0xfd"
+                    checksum: "0xd3fa"
+                    ipv4_source: "10.0.0.0"
+                    ipv4_destination: "10.53.192.106"
+                  }
+                }
+                payload: "test packet"
+              }
+            }
+          }
+        )pb"),
+    };
+    // Actual output: the forwarded and mirrored packet, but not the punted
+    // packet.
+    *test.actual_output.mutable_packets() =
+        test.test_vector.acceptable_outputs(0).packets();
+  }
+
+  {
+    TestCase& test = tests.emplace_back();
+    test = TestCase{
+        .description =
+            "Packet gets forwarded with an unexpected\nmodification of a header"
+            " field.",
+        .test_vector = ParseProtoOrDie<TestVector>(R"pb(
+          input {
+            type: DATAPLANE
+            packet {
+              port: "1"
+              parsed {
+                headers {
+                  ethernet_header {
+                    ethernet_destination: "02:03:04:05:06:07"
+                    ethernet_source: "00:01:02:03:04:05"
+                    ethertype: "0x0800"
+                  }
+                }
+                headers {
+                  ipv4_header {
+                    version: "0x4"
+                    ihl: "0x5"
+                    dscp: "0x1c"
+                    ecn: "0x0"
+                    total_length: "0x012e"
+                    identification: "0x0000"
+                    flags: "0x0"
+                    fragment_offset: "0x0000"
+                    ttl: "0x20"
+                    protocol: "0x11"
+                    checksum: "0x1b62"
+                    ipv4_source: "10.0.0.0"
+                    ipv4_destination: "10.206.105.32"
+                  }
+                }
+                headers {
+                  udp_header {
+                    source_port: "0x0000"
+                    destination_port: "0x0000"
+                    length: "0x011a"
+                    checksum: "0xad82"
+                  }
+                }
+                payload: "test packet"
+              }
+            }
+          }
+          # Acceptable outputs and actual output filled in below.
+        )pb"),
+        // Overridden below.
+        .actual_output = SwitchOutput(),
+    };
+
+    // We expect the packet to be forwarded out of port 12 unmodified.
+    auto& acceptable_output =
+        *test.test_vector.add_acceptable_outputs()->add_packets();
+    acceptable_output = test.test_vector.input().packet();
+    acceptable_output.set_port("12");
+
+    // The packet instead gets forwarded with a header field modification.
+    auto& actual_output = *test.actual_output.add_packets();
+    actual_output = acceptable_output;
+    actual_output.mutable_parsed()
+        ->mutable_headers(1)
+        ->mutable_ipv4_header()
+        ->set_dscp("0x00");
+  }
+
+  return tests;
+}
+
+void main() {
+  for (auto& test : TestCases()) {
+    absl::optional<std::string> error =
+        CheckForTestVectorFailure(test.test_vector, test.actual_output);
+    CHECK(error.has_value())  // Crash OK: this is test code.
+        << "for test case with description '" << test.description << "'";
+    std::cout << std::string(80, '=')
+              << "\nCheckForTestVectorFailure Test: " << test.description
+              << "\n"
+              << std::string(80, '=') << "\n"
+              << *error << "\n\n";
+  }
+}
+
+}  // namespace
+}  // namespace gpins
+
+int main() { gpins::main(); }

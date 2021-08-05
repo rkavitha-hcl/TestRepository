@@ -14,6 +14,7 @@
 
 #include "tests/forwarding/test_vector.h"
 
+#include <ostream>
 #include <utility>
 
 #include "absl/strings/str_cat.h"
@@ -23,6 +24,7 @@
 #include "gtest/gtest.h"
 #include "p4_pdpi/packetlib/packetlib.pb.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
+#include "tests/forwarding/test_vector.pb.h"
 
 namespace gpins {
 

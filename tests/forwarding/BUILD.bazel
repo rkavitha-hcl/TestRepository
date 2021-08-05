@@ -1,3 +1,4 @@
+load("//p4_pdpi/testing:diff_test.bzl", "cmd_diff_test")
 
 package(
     default_visibility = ["//visibility:public"],
@@ -178,4 +179,26 @@ cc_library(
         "@com_google_googletest//:gtest",
     ],
     alwayslink = True,
+)
+
+# go/golden-test-with-coverage
+cc_test(
+    name = "test_vector_test_runner",
+    srcs = ["test_vector_test_runner.cc"],
+    linkstatic = True,
+    deps = [
+        ":test_vector",
+        ":test_vector_cc_proto",
+        "//gutil:testing",
+        "//p4_pdpi/packetlib",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/types:optional",
+    ],
+)
+
+cmd_diff_test(
+    name = "test_vector_test",
+    actual_cmd = "$(execpath :test_vector_test_runner)",
+    expected = ":test_vector_test.expected.output",
+    tools = [":test_vector_test_runner"],
 )
