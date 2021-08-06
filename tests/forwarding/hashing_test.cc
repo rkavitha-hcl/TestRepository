@@ -24,8 +24,6 @@
 #include "absl/algorithm/container.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
-#include "absl/random/random.h"
-#include "absl/random/uniform_int_distribution.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
@@ -310,35 +308,6 @@ std::string DescribeDistribution(
   return explanation;
 }
 
-// Generate N random weights that add up to max_weight, with at least 1 in each
-// bucket.
-absl::StatusOr<std::vector<int>> GenerateNRandomWeights(const int n,
-                                                        const int max_weight,
-                                                        absl::BitGen& gen) {
-  if (n > max_weight || n <= 0) {
-    return absl::InvalidArgumentError("Invalid input argument");
-  }
-
-  std::vector<int> weights(n, 1);
-  for (int i = 0; i < (max_weight - n); i++) {
-    int x = absl::uniform_int_distribution<int>(0, n - 1)(gen);
-    weights.at(x)++;
-  }
-  return weights;
-}
-
-// TODO: Temporary fix to rescale TH3 weights.
-// To be removed when 256 member support is available.
-int Th3RescaleWeights(const int weight) {
-  if (weight <= 1) {
-    return weight;
-  }
-  if (weight == 2) {
-    return 1;
-  }
-  return (weight - 1) / 2;
-}
-
 // Generate all possible test configurations, send packets for every config, and
 // check that the observed distribution is correct.
 TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
@@ -424,7 +393,7 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
     }
   };
   std::thread receive_packet_fiber(ReceivePacketFiber);
-  absl::BitGen gen;
+
   // Iterate over 3 sets of random weights for 3 ports.
   for (int iter = 0; iter < 3; iter++) {
     std::vector<Member> members(kNumWcmpMembersForTest);
@@ -443,8 +412,8 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
       // the number of packets required for this testing to be < 10k.
       // See go/p4-hashing (section How many packets do we need?).
       ASSERT_OK_AND_ASSIGN(weights,
-                           GenerateNRandomWeights(kNumWcmpMembersForTest,
-                                                  /*max_weight=*/30, gen));
+                           gpins::GenerateNRandomWeights(kNumWcmpMembersForTest,
+                                                         /*total_weight=*/30));
     }
     for (int i = 0; i < members.size(); i++) {
       members.at(i).weight = weights.at(i);
@@ -455,7 +424,8 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
     // TODO: Rescale the member weights to <=128 for now to match
     // Hardware behaviour, remove when hardware supports > 128 weights.
     for (int i = 0; i < members.size(); i++) {
-      members.at(i).weight = Th3RescaleWeights(members.at(i).weight);
+      members.at(i).weight =
+          gpins::RescaleWeightForTomahawk3(members.at(i).weight);
       LOG(INFO) << "Rescaling member id: " << members.at(i).port
                 << " from weight: " << weights.at(i)
                 << " to new weight: " << members.at(i).weight;
