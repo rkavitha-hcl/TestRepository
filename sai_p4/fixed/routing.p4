@@ -175,7 +175,8 @@ control routing(in headers_t headers,
       @defaultonly NoAction;
     }
     const default_action = NoAction;
-    implementation = wcmp_group_selector;
+    @id(ROUTING_WCMP_GROUP_SELECTOR_ACTION_PROFILE_ID)
+        implementation = wcmp_group_selector;
     size = WCMP_GROUP_TABLE_MINIMUM_GUARANTEED_SIZE;
   }
 

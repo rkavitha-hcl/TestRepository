@@ -39,6 +39,11 @@
 #define COMPUTE_ECMP_HASH_IPV4_ACTION_ID 0x0100000B           // 16777227
 #define COMPUTE_ECMP_HASH_IPV6_ACTION_ID 0x0100000C           // 16777228
 
+// --- Action Profiles and Selectors (8 most significant bits = 0x11) ----------
+// This value should ideally be 0x11000001, but we currently have this value for
+// legacy reasons.
+#define ROUTING_WCMP_GROUP_SELECTOR_ACTION_PROFILE_ID 0x11DC4EC8  // 299650760
+
 // --- Copy to CPU session -----------------------------------------------------
 
 // The COPY_TO_CPU_SESSION_ID must be programmed in the target using P4Runtime:
