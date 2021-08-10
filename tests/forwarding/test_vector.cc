@@ -27,6 +27,7 @@
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "gmock/gmock.h"
+#include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gtest/gtest.h"
 #include "gutil/status.h"
@@ -50,9 +51,10 @@ bool PacketInLessThan(const PacketIn* a, const PacketIn* b) {
   return a->hex() < b->hex();
 }
 
-bool CompareSwitchOutputs(SwitchOutput actual_output,
-                          SwitchOutput expected_output,
-                          MatchResultListener* listener) {
+bool CompareSwitchOutputs(
+    SwitchOutput actual_output, SwitchOutput expected_output,
+    const std::vector<const google::protobuf::FieldDescriptor*>& ignored_fields,
+    MatchResultListener* listener) {
   if (actual_output.packets_size() != expected_output.packets_size()) {
     *listener << "has mismatched number of packets (actual: "
               << actual_output.packets_size()
@@ -82,6 +84,7 @@ bool CompareSwitchOutputs(SwitchOutput actual_output,
     const Packet& actual_packet = actual_output.packets(i);
     const Packet& expected_packet = expected_output.packets(i);
     MessageDifferencer differ;
+    for (auto* field : ignored_fields) differ.IgnoreField(field);
     std::string diff;
     differ.ReportDifferencesToString(&diff);
     if (!differ.Compare(expected_packet.parsed(), actual_packet.parsed())) {
@@ -96,6 +99,7 @@ bool CompareSwitchOutputs(SwitchOutput actual_output,
     const PacketIn& expected_packet_in = expected_output.packet_ins(i);
 
     MessageDifferencer differ;
+    for (auto* field : ignored_fields) differ.IgnoreField(field);
     std::string diff;
     differ.ReportDifferencesToString(&diff);
     if (!differ.Compare(expected_packet_in.parsed(),
@@ -120,12 +124,15 @@ bool CompareSwitchOutputs(SwitchOutput actual_output,
 // `test_vector`, returning `absl::nullopt` if the actual output is acceptable,
 // or an explanation of why it is not otherwise.
 absl::optional<std::string> CompareSwitchOutputs(
-    const TestVector test_vector, const SwitchOutput& actual_output) {
+    const TestVector test_vector, const SwitchOutput& actual_output,
+    const std::vector<const google::protobuf::FieldDescriptor*>&
+        ignored_fields) {
   testing::StringMatchResultListener listener;
   for (int i = 0; i < test_vector.acceptable_outputs_size(); ++i) {
     const SwitchOutput& expected_output = test_vector.acceptable_outputs(i);
     listener << "- acceptable output #" << (i + 1) << " ";
-    if (CompareSwitchOutputs(actual_output, expected_output, &listener)) {
+    if (CompareSwitchOutputs(actual_output, expected_output, ignored_fields,
+                             &listener)) {
       return absl::nullopt;
     }
   }
@@ -237,9 +244,11 @@ static constexpr absl::string_view kInputBanner =
 }  // namespace
 
 absl::optional<std::string> CheckForTestVectorFailure(
-    const TestVector& test_vector, const SwitchOutput& actual_output) {
+    const TestVector& test_vector, const SwitchOutput& actual_output,
+    const std::vector<const google::protobuf::FieldDescriptor*>&
+        ignored_fields) {
   const absl::optional<std::string> diff =
-      CompareSwitchOutputs(test_vector, actual_output);
+      CompareSwitchOutputs(test_vector, actual_output, ignored_fields);
   if (!diff.has_value()) return absl::nullopt;
 
   // To make the diff more digestible, we first give an abstract
@@ -256,6 +265,16 @@ absl::optional<std::string> CheckForTestVectorFailure(
       acceptable_characterizations.contains(actual_characterization);
 
   std::string expectation = DescribeExpectation(acceptable_characterizations);
+  if (!ignored_fields.empty()) {
+    absl::StrAppend(
+        &expectation, "\n          (ignoring the field(s) ",
+        absl::StrJoin(ignored_fields, ",",
+                      [](std::string* out,
+                         const google::protobuf::FieldDescriptor* field) {
+                        absl::StrAppend(out, "'", field->name(), "'");
+                      }),
+        ")");
+  }
   std::string actual = DescribeActual(actual_characterization);
   if (actual_characterization_matches_expected_one) {
     absl::StrAppend(&actual, ", but with unexpected modifications");

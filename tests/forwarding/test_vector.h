@@ -35,10 +35,13 @@ struct TestVectorAndActualOutput {
   SwitchOutput actual_output;
 };
 
-// Checks if the `actual_output` conforms to the `test_vector`, returning a
-// failure description in case of a mismatch.
+// Checks if the `actual_output` conforms to the `test_vector` when ignoring the
+// given `ignored_fields`, if any. Returns a failure description in case of a
+// mismatch, or `absl::nullopt` otherwise.
 absl::optional<std::string> CheckForTestVectorFailure(
-    const TestVector& test_vector, const SwitchOutput& actual_output);
+    const TestVector& test_vector, const SwitchOutput& actual_output,
+    const std::vector<const google::protobuf::FieldDescriptor*>&
+        ignored_fields = {});
 
 }  // namespace gpins
 
