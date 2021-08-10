@@ -35,6 +35,7 @@
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/backend/interpreter.h"
+#include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/utils/annotation_parser.h"
 #include "p4_pdpi/utils/ir.h"
@@ -768,14 +769,25 @@ absl::Status P4RuntimeImpl::ApplyForwardingPipelineConfig(
           sonic::InsertAclTableDefinition(*app_db_table_p4rt_, table),
           _ << "Failed to add ACL table definition [" << table_name
             << "] to AppDb.");
+
       // Prefix P4RT: to the key and form the keys vector.
+      pdpi::IrWriteRpcStatus ir_write_status;
       std::vector<std::string> keys;
       keys.push_back(
           absl::StrCat(app_db_table_p4rt_->get_table_name(), ":", acl_key));
-      pdpi::IrWriteResponse ir_write_response;
       RETURN_IF_ERROR(sonic::GetAndProcessResponseNotification(
-          keys, 1, *app_db_notifier_p4rt_, *app_db_client_, *state_db_client_,
-          ir_write_response));
+          keys, /*expected_response_count=*/1, *app_db_notifier_p4rt_,
+          *app_db_client_, *state_db_client_,
+          *ir_write_status.mutable_rpc_response()));
+
+      // Any issue with the forwarding config should be sent back to the
+      // controller as an INVALID_ARGUMENT.
+      ASSIGN_OR_RETURN(grpc::Status grpc_status,
+                       pdpi::IrWriteRpcStatusToGrpcStatus(ir_write_status));
+      if (!grpc_status.ok()) {
+        return gutil::InvalidArgumentErrorBuilder()
+               << grpc_status.error_message();
+      }
     }
   }
 

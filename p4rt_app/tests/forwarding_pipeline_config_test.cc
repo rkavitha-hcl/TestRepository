@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include "absl/status/status.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/proto_matchers.h"
@@ -19,12 +20,14 @@
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/entity_management.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
+#include "p4rt_app/tests/lib/p4runtime_request_helpers.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 
 namespace p4rt_app {
 namespace {
 
+using ::gutil::StatusIs;
 using ::p4::v1::GetForwardingPipelineConfigResponse;
 using ::p4::v1::SetForwardingPipelineConfigRequest;
 using ::p4::v1::SetForwardingPipelineConfigResponse;
@@ -106,6 +109,44 @@ TEST_F(ForwardingPipelineConfigTest, ModifyConfig) {
           SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT, p4_info),
       gutil::StatusIs(absl::StatusCode::kUnimplemented,
                       testing::HasSubstr("deleted: ")));
+}
+
+TEST_F(ForwardingPipelineConfigTest,
+       RejectWriteRequestsIfForwardingPipelineConfigFails) {
+  auto p4_info = sai::GetP4Info(sai::Instantiation::kMiddleblock);
+  auto ir_p4_info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
+
+  // Generate error from the OrchAgent layer when programming the PRE_INGRESS
+  // ACL table.
+  p4rt_service_.GetP4rtAppDbTable().SetResponseForKey(
+      "DEFINITION:ACL_ACL_PRE_INGRESS_TABLE", "SWSS_RC_INVALID_PARAM",
+      "my error message");
+  ASSERT_THAT(pdpi::SetForwardingPipelineConfig(
+                  p4rt_session_.get(),
+                  SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+                  sai::GetP4Info(sai::Instantiation::kMiddleblock)),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+
+  // Because we failed to program the forwarding pipeline config we should not
+  // be able to write to the table.
+  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 acl_pre_ingress_table_entry {
+                                   match {}
+                                   priority: 2000
+                                   action { set_vrf { vrf_id: "20" } }
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info));
+  EXPECT_THAT(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
+      StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
 }  // namespace
