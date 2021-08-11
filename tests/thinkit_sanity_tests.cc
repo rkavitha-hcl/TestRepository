@@ -330,7 +330,7 @@ void TestGnmiCheckSpecificInterfaceStateOperation(thinkit::Switch& sut,
 
 //  Returns last boot time of SUT.
 absl::StatusOr<uint64_t> GetGnmiSystemBootTime(
-    thinkit::Switch& sut, gnmi::gNMI::Stub* sut_gnmi_stub) {
+    thinkit::Switch& sut, gnmi::gNMI::StubInterface* sut_gnmi_stub) {
   ASSIGN_OR_RETURN(
       gnmi::GetRequest request,
       BuildGnmiGetRequest("system/state/boot-time", gnmi::GetRequest::STATE));
