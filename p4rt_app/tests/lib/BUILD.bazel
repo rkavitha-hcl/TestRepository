@@ -52,6 +52,7 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",
         "@sonic_swss_common//:libswsscommon",
+        "@sonic_swss_common//tests/fakes:fake_component_state_helper",
         "@sonic_swss_common//tests/fakes:fake_consumer_notifier",
         "@sonic_swss_common//tests/fakes:fake_db_connector",
         "@sonic_swss_common//tests/fakes:fake_producer_state_table",
