@@ -168,7 +168,7 @@ message L3AdmitTableEntry {
 //   dscp::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);
 //   ecn::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);
 //   ip_protocol::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);
-// ## Forbit using ether_type for IP packets (by convention, use is_ip*
+// ## Forbid using ether_type for IP packets (by convention, use is_ip*
 // instead).
 //   ether_type != 0x0800 && ether_type != 0x86dd;
 // ## Only allow arp_tpa for ARP packets
@@ -308,7 +308,7 @@ message AclEgressTableEntry {
     Ternary ether_type = 1;   // ternary match / Format::HEX_STRING / 16 bits
     Ternary ip_protocol = 2;  // ternary match / Format::HEX_STRING / 8 bits
     Ternary l4_dst_port = 3;  // ternary match / Format::HEX_STRING / 16 bits
-    Optional out_port = 4;    // optional match / Format::HEX_STRING / 9 bits
+    Optional out_port = 4;    // optional match / Format::STRING
   }
   Match match = 1;
   message Action {

@@ -27,7 +27,7 @@ control acl_egress(in headers_t headers,
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_IP_PROTOCOL);
       local_metadata.l4_dst_port : ternary @name("l4_dst_port") @id(3)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_L4_DST_PORT);
-      standard_metadata.egress_spec: optional @name("out_port") @id(4)
+      (port_id_t)standard_metadata.egress_port: optional @name("out_port") @id(4)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_OUT_PORT);
     }
     actions = {
