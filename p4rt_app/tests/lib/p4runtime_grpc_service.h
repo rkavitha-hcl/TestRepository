@@ -20,7 +20,6 @@
 #include "grpcpp/server_builder.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "p4rt_app/sonic/fake_packetio_interface.h"
-#include "swss/fakes/fake_component_state_helper.h"
 #include "swss/fakes/fake_sonic_db_table.h"
 #include "swss/fakes/fake_system_state_helper.h"
 
@@ -55,8 +54,7 @@ class P4RuntimeGrpcService {
   // Accessor for PacketIO interface.
   sonic::FakePacketIoInterface& GetFakePacketIoInterface();
 
-  // Accessors for application state managment.
-  swss::FakeComponentStateHelper& GetComponentStateHelper();
+  // Accessor for StateHelper interface.
   swss::FakeSystemStateHelper& GetSystemStateHelper();
 
  private:
@@ -73,16 +71,14 @@ class P4RuntimeGrpcService {
   // Faked StateDb tables.
   swss::FakeSonicDbTable fake_p4rt_state_table_;
 
-  // Faked PacketIO interface.
+  std::unique_ptr<P4RuntimeImpl> p4runtime_server_;
+
   sonic::FakePacketIoInterface* fake_packetio_interface_;  // No ownership.
 
-  // Faked state state managment.
-  swss::FakeComponentStateHelper fake_component_state_helper_;
+  // Faked system state helper.
   swss::FakeSystemStateHelper fake_system_state_helper_;
 
-  // gRPC server faking P4RT App for testing.
   std::unique_ptr<grpc::Server> server_;
-  std::unique_ptr<P4RuntimeImpl> p4runtime_server_;
 };
 
 }  // namespace test_lib
