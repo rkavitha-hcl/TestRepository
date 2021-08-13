@@ -23,6 +23,7 @@
 #include "gutil/status_matchers.h"
 #include "swss/consumerstatetable.h"
 #include "swss/dbconnector.h"
+#include "swss/fakes/fake_component_state_helper.h"
 #include "swss/fakes/fake_consumer_notifier.h"
 #include "swss/fakes/fake_db_connector.h"
 #include "swss/fakes/fake_producer_state_table.h"
@@ -94,6 +95,11 @@ P4RuntimeGrpcService::P4RuntimeGrpcService(
       absl::make_unique<sonic::FakePacketIoInterface>();
   fake_packetio_interface_ = fake_packetio_interface.get();
 
+  // Add the P4RT component helper into the system state helper so they can
+  // interact around critical state handling.
+  fake_system_state_helper_.AddComponent(/*name=*/"p4rt-con",
+                                         fake_component_state_helper_);
+
   // Create the P4RT server.
   p4runtime_server_ = absl::make_unique<P4RuntimeImpl>(
       std::move(fake_app_db_client), std::move(fake_state_db_client),
@@ -161,6 +167,11 @@ sonic::FakePacketIoInterface& P4RuntimeGrpcService::GetFakePacketIoInterface() {
 
 swss::FakeSystemStateHelper& P4RuntimeGrpcService::GetSystemStateHelper() {
   return fake_system_state_helper_;
+}
+
+swss::FakeComponentStateHelper&
+P4RuntimeGrpcService::GetComponentStateHelper() {
+  return fake_component_state_helper_;
 }
 
 }  // namespace test_lib

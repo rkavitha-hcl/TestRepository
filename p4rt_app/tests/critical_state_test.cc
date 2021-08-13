@@ -60,7 +60,8 @@ class CriticalStateTest : public testing::Test {
 };
 
 TEST_F(CriticalStateTest, PipelineConfgIsRejectedWhenCritical) {
-  p4rt_service_.GetSystemStateHelper().GoCritical("some reason");
+  p4rt_service_.GetComponentStateHelper().ReportComponentState(
+      swss::ComponentState::kInactive, "some reason");
   EXPECT_THAT(
       pdpi::SetForwardingPipelineConfig(
           p4rt_session_.get(),
@@ -93,7 +94,8 @@ TEST_F(CriticalStateTest, WriteRequestIsRejectedWhenCritical) {
       pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
 
   // Set the switch into critical state.
-  p4rt_service_.GetSystemStateHelper().GoCritical("some reason");
+  p4rt_service_.GetComponentStateHelper().ReportComponentState(
+      swss::ComponentState::kInactive, "some reason");
 
   // Try writing again. We should fail with an INTERNAL error.
   EXPECT_THAT(
@@ -125,7 +127,8 @@ TEST_F(CriticalStateTest, CanReadWhileCritical) {
       pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
 
   // Set the switch into critical state.
-  p4rt_service_.GetSystemStateHelper().GoCritical("some reason");
+  p4rt_service_.GetComponentStateHelper().ReportComponentState(
+      swss::ComponentState::kInactive, "some reason");
 
   // Read should still work and return the table entry.
   p4::v1::ReadRequest read_request;
