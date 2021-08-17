@@ -252,6 +252,7 @@ cc_test(
         "//gutil:status_matchers",
         "//p4_pdpi:ir",
         "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
         "@sonic_swss_common//tests/mocks:mock_consumer_notifier",
         "@sonic_swss_common//tests/mocks:mock_db_connector",

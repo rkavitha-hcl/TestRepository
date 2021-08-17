@@ -76,7 +76,7 @@ class P4RuntimeGrpcService {
   // Faked PacketIO interface.
   sonic::FakePacketIoInterface* fake_packetio_interface_;  // No ownership.
 
-  // Faked system state managment.
+  // Faked state state managment.
   swss::FakeComponentStateHelper fake_component_state_helper_;
   swss::FakeSystemStateHelper fake_system_state_helper_;
 

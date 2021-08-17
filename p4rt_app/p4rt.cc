@@ -135,6 +135,17 @@ int main(int argc, char** argv) {
   google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
+  // Get the P4RT component helper which can be used to put the switch into
+  // critical state.
+  swss::ComponentStateHelperInterface& component_state_singleton =
+      swss::StateHelperManager::ComponentSingleton(
+          swss::SystemComponent::kP4rt);
+
+  // Get the system state helper which will be used to verify the switch is
+  // healthy, and not in a critical state before handling P4 Runtime requests.
+  swss::SystemStateHelperInterface& system_state_singleton =
+      swss::StateHelperManager::SystemSingleton();
+
   // Open a database connection into the SONiC AppDb.
   auto sonic_app_db =
       absl::make_unique<swss::DBConnector>(APPL_DB, kRedisDbHost, kRedisDbPort,
@@ -185,11 +196,6 @@ int main(int argc, char** argv) {
     return -1;
   }
 
-  // Get the system state helper which will be used to verify the switch is
-  // healthy, and not in a critical state before handling P4 Runtime requests.
-  swss::SystemStateHelperInterface& system_state_singleton =
-      swss::StateHelperManager::SystemSingleton();
-
   // Create the P4RT server.
   p4rt_app::P4RuntimeImpl p4runtime_server(
       std::move(sonic_app_db), std::move(sonic_state_db),
@@ -198,7 +204,8 @@ int main(int argc, char** argv) {
       std::move(notification_channel_vrf), std::move(app_db_table_hash),
       std::move(notification_channel_hash), std::move(app_db_table_switch),
       std::move(notification_channel_switch), std::move(*packetio_impl_or),
-      system_state_singleton, FLAGS_use_genetlink, FLAGS_use_port_ids);
+      component_state_singleton, system_state_singleton, FLAGS_use_genetlink,
+      FLAGS_use_port_ids);
 
   // Start a P4 runtime server
   ServerBuilder builder;

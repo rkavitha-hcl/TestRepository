@@ -123,7 +123,6 @@ absl::StatusOr<std::string> CreateEntryForAppDbDelete(
   // Update VRF reference count.
   auto status = DecrementVrfReferenceCount(vrf_table, ir_table_entry,
                                            vrf_id_reference_count);
-  // TODO: Raise critical state error and remove return.
   if (!status.ok()) {
     return gutil::InternalErrorBuilder()
            << "Vrf reference count decrement in P4RT app failed, error: "

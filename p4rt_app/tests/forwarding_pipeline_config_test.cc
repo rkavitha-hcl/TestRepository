@@ -125,7 +125,7 @@ TEST_F(ForwardingPipelineConfigTest,
                   p4rt_session_.get(),
                   SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
                   sai::GetP4Info(sai::Instantiation::kMiddleblock)),
-              StatusIs(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInternal));
 
   // Because we failed to program the forwarding pipeline config we should not
   // be able to write to the table.
@@ -146,7 +146,7 @@ TEST_F(ForwardingPipelineConfigTest,
                            ir_p4_info));
   EXPECT_THAT(
       pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
-      StatusIs(absl::StatusCode::kFailedPrecondition));
+      StatusIs(absl::StatusCode::kInternal));
 }
 
 }  // namespace

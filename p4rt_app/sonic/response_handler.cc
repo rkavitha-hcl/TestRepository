@@ -90,13 +90,10 @@ absl::Status GetAppDbResponses(
     // the form of ("err_str", <error message>).
     const swss::FieldValueTuple& first_tuple = value_tuples[0];
     if (fvField(first_tuple) != "err_str") {
-      // TODO Raise critical error.
-      result.set_code(Code::INTERNAL);
-      result.set_message(
-          absl::StrCat("First field value in the response does not match, "
-                       "expected : err_str, actual : ",
-                       fvField(first_tuple)));
-      LOG(ERROR) << result.message();
+      return gutil::InternalErrorBuilder()
+             << "The response path expects the first field value to be "
+             << "'err_str', but the OrchAgent has responsed with '"
+             << fvField(first_tuple) << "'.";
     } else {
       result.set_code(SwssToP4RTErrorCode(status_str));
       result.set_message(fvValue(first_tuple));

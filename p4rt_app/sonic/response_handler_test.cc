@@ -15,6 +15,7 @@
 
 #include <memory>
 
+#include "absl/status/status.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -143,7 +144,7 @@ TEST(ResponseHandlerTest, GetAppDbResponsesBadErrorString) {
   swss::MockDBConnector mock_app_db_client;
   swss::MockDBConnector mock_state_db_client;
 
-  // Not 'err_str' in the pop call) returned in the response.
+  // Not 'err_str' in the pop call that is returned in the response.
   EXPECT_CALL(*mock_notifier, WaitForNotificationAndPop)
       .WillOnce(DoAll(SetArgReferee<0>(std::string(kSwssSuccess)),
                       SetArgReferee<1>(keys[0]),
@@ -151,15 +152,13 @@ TEST(ResponseHandlerTest, GetAppDbResponsesBadErrorString) {
                           {swss::FieldValueTuple("not_err_str", "Success")})),
                       Return(true)));
 
-  // Invoke the GetAndProcessResponse call.
+  // Because the GetAndProcessResponse returns an unexpected response string we
+  // returng an INTERNAL error.
   pdpi::IrWriteResponse ir_write_response;
-
-  EXPECT_OK(GetAndProcessResponseNotification(
-      keys, keys.size(), *mock_notifier, mock_app_db_client,
-      mock_state_db_client, ir_write_response));
-
-  // Expect the code value to be set as INTERNAL error.
-  EXPECT_EQ(ir_write_response.statuses(0).code(), Code::INTERNAL);
+  EXPECT_THAT(GetAndProcessResponseNotification(
+                  keys, keys.size(), *mock_notifier, mock_app_db_client,
+                  mock_state_db_client, ir_write_response),
+              StatusIs(absl::StatusCode::kInternal));
 }
 
 // TODO (b/173436594)

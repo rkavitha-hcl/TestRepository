@@ -108,8 +108,8 @@ P4RuntimeGrpcService::P4RuntimeGrpcService(
       std::move(fake_notify_vrf), std::move(fake_app_db_table_hash),
       std::move(fake_notify_hash), std::move(fake_app_db_table_switch),
       std::move(fake_notify_switch), std::move(fake_packetio_interface),
-      fake_system_state_helper_, options.use_genetlink,
-      options.translate_port_ids);
+      fake_component_state_helper_, fake_system_state_helper_,
+      options.use_genetlink, options.translate_port_ids);
 
   // Component tests will use an insecure connection for the service.
   std::string server_address = absl::StrCat("localhost:", GrpcPort());

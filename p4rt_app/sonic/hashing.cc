@@ -199,7 +199,6 @@ absl::StatusOr<std::vector<std::string>> ProgramHashFieldTable(
       // Add to valid set of hash field keys (strip the table name prefix).
       hash_field_keys.push_back(keys.at(i).substr(keys.at(i).find(':') + 1));
     } else {
-      // TODO: Raise critical error ?
       return gutil::InternalErrorBuilder()
              << "Got an error from Orchagent for hash field: " << keys.at(i)
              << "error: " << response.message();
@@ -248,7 +247,6 @@ absl::Status ProgramSwitchTable(
       ir_write_response));
   for (int i = 0; i < ir_write_response.statuses().size(); i++) {
     if (ir_write_response.statuses(i).code() != google::rpc::Code::OK) {
-      // TODO: Raise critical error ?
       return gutil::InternalErrorBuilder()
              << "Got an error from Orchagent for SWITCH_TABLE: " << keys.at(i)
              << "error: " << ir_write_response.statuses(i).message();

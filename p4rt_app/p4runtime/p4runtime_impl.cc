@@ -30,6 +30,7 @@
 #include "glog/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/message_differencer.h"
+#include "grpcpp/impl/codegen/status.h"
 #include "gutil/collections.h"
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
@@ -48,11 +49,21 @@
 #include "p4rt_app/utils/status_utility.h"
 #include "p4rt_app/utils/table_utility.h"
 #include "sai_p4/fixed/roles.h"
+#include "swss/component_state_helper_interface.h"
 
 namespace p4rt_app {
 namespace {
 
 using ::google::protobuf::util::MessageDifferencer;
+
+grpc::Status EnterCriticalState(
+    const std::string& message,
+    swss::ComponentStateHelperInterface& state_helper) {
+  LOG(ERROR) << "Entering critical state: " << message;
+  state_helper.ReportComponentState(swss::ComponentState::kError, message);
+  return grpc::Status(grpc::StatusCode::INTERNAL,
+                      absl::StrCat("[P4RT App going CRITICAL] ", message));
+}
 
 absl::Status SupportedTableEntryRequest(const p4::v1::TableEntry& table_entry) {
   if (table_entry.table_id() != 0 || !table_entry.match().empty() ||
@@ -300,6 +311,7 @@ P4RuntimeImpl::P4RuntimeImpl(
     std::unique_ptr<swss::ProducerStateTableInterface> app_db_table_switch,
     std::unique_ptr<swss::ConsumerNotifierInterface> app_db_notifier_switch,
     std::unique_ptr<sonic::PacketIoInterface> packetio_impl,
+    swss::ComponentStateHelperInterface& component_state,
     swss::SystemStateHelperInterface& system_state, bool use_genetlink,
     bool translate_port_ids)
     : app_db_client_(std::move(app_db_client)),
@@ -314,8 +326,12 @@ P4RuntimeImpl::P4RuntimeImpl(
       app_db_table_switch_(std::move(app_db_table_switch)),
       app_db_notifier_switch_(std::move(app_db_notifier_switch)),
       packetio_impl_(std::move(packetio_impl)),
+      component_state_(component_state),
       system_state_(system_state),
       translate_port_ids_(translate_port_ids) {
+  absl::optional<std::string> init_failure;
+
+  // Start the controller manager.
   controller_manager_ = absl::make_unique<SdnControllerManager>();
 
   // Spawn the receiver thread to receive In packets.
@@ -323,9 +339,18 @@ P4RuntimeImpl::P4RuntimeImpl(
   if (status_or.ok()) {
     receive_thread_ = std::move(*status_or);
   } else {
-    // TODO: Move to critical state.
-    LOG(FATAL) << "Failed to spawn Receive thread, error: "
-               << status_or.status();
+    init_failure = absl::StrCat("Failed to spawn Receive thread, error: ",
+                                status_or.status().ToString());
+  }
+
+  // If we have an initialization issue then immediatly go critical, otherwise
+  // report to global state that P4RT is up.
+  if (init_failure.has_value()) {
+    component_state_.ReportComponentState(swss::ComponentState::kError,
+                                          *init_failure);
+  } else {
+    component_state_.ReportComponentState(swss::ComponentState::kUp,
+                                          /*reason=*/"");
   }
 }
 
@@ -452,28 +477,29 @@ grpc::Status P4RuntimeImpl::Write(grpc::ServerContext* context,
         *app_db_table_vrf_, *app_db_notifier_vrf_, vrf_id_reference_count_,
         rpc_response);
     if (!app_db_write_status.ok()) {
-      // TODO: go into critical state.
-      auto write_error =
-          absl::StrCat("Encountered internal error during Write: ",
-                       app_db_write_status.ToString());
-      LOG(ERROR) << write_error;
-      return grpc::Status(grpc::StatusCode::INTERNAL, write_error);
+      return EnterCriticalState(
+          absl::StrCat("Unexpected error calling UpdateAppDb: ",
+                       app_db_write_status.ToString()),
+          component_state_);
     }
 
     auto grpc_status = pdpi::IrWriteRpcStatusToGrpcStatus(rpc_status);
     if (!grpc_status.ok()) {
       LOG(ERROR) << "PDPI failed to translate RPC status to gRPC status: "
                  << rpc_status.DebugString();
-      // TODO: raise critical state.
-      return grpc::Status(grpc::StatusCode::INTERNAL,
-                          grpc_status.status().ToString());
+      return EnterCriticalState(grpc_status.status().ToString(),
+                                component_state_);
     }
     return *grpc_status;
 #ifdef __EXCEPTIONS
   } catch (const std::exception& e) {
-    LOG(FATAL) << "Exception caught in " << __func__ << ", error:" << e.what();
+    return EnterCriticalState(
+        absl::StrCat("Exception caught in ", __func__, ", error:", e.what()),
+        component_state_);
   } catch (...) {
-    LOG(FATAL) << "Unknown exception caught in " << __func__;
+    return EnterCriticalState(
+        absl::StrCat("Unknown exception caught in ", __func__, "."),
+        component_state_);
   }
 #endif
 }
@@ -512,9 +538,13 @@ grpc::Status P4RuntimeImpl::Read(
     return grpc::Status::OK;
 #ifdef __EXCEPTIONS
   } catch (const std::exception& e) {
-    LOG(FATAL) << "Exception caught in " << __func__ << ", error:" << e.what();
+    return EnterCriticalState(
+        absl::StrCat("Exception caught in ", __func__, ", error:", e.what()),
+        component_state_);
   } catch (...) {
-    LOG(FATAL) << "Unknown exception caught in " << __func__;
+    return EnterCriticalState(
+        absl::StrCat("Unknown exception caught in ", __func__, "."),
+        component_state_);
   }
 #endif
 }
@@ -603,9 +633,13 @@ grpc::Status P4RuntimeImpl::StreamChannel(
     return grpc::Status::OK;
 #ifdef __EXCEPTIONS
   } catch (const std::exception& e) {
-    LOG(FATAL) << "Exception caught in " << __func__ << ", error:" << e.what();
+    return EnterCriticalState(
+        absl::StrCat("Exception caught in ", __func__, ", error:", e.what()),
+        component_state_);
   } catch (...) {
-    LOG(FATAL) << "Unknown exception caught in " << __func__;
+    return EnterCriticalState(
+        absl::StrCat("Unknown exception caught in ", __func__, "."),
+        component_state_);
   }
 #endif
 }
@@ -695,7 +729,9 @@ grpc::Status P4RuntimeImpl::SetForwardingPipelineConfig(
       if (!config_result.ok()) {
         LOG(ERROR) << "Failed to apply ForwardingPipelineConfig: "
                    << config_result;
-        return gutil::AbslStatusToGrpcStatus(config_result);
+        // TODO: cleanup P4RT table definitions instead of going
+        // critical.
+        return EnterCriticalState(config_result.ToString(), component_state_);
       }
       ir_p4info_ = std::move(new_ir_p4info);
     }
@@ -714,9 +750,13 @@ grpc::Status P4RuntimeImpl::SetForwardingPipelineConfig(
 
 #ifdef __EXCEPTIONS
   } catch (const std::exception& e) {
-    LOG(FATAL) << "Exception caught in " << __func__ << ", error:" << e.what();
+    return EnterCriticalState(
+        absl::StrCat("Exception caught in ", __func__, ", error:", e.what()),
+        component_state_);
   } catch (...) {
-    LOG(FATAL) << "Unknown exception caught in " << __func__;
+    return EnterCriticalState(
+        absl::StrCat("Unknown exception caught in ", __func__, "."),
+        component_state_);
   }
 #endif
 
@@ -745,9 +785,13 @@ grpc::Status P4RuntimeImpl::GetForwardingPipelineConfig(
     return grpc::Status(grpc::StatusCode::OK, "");
 #ifdef __EXCEPTIONS
   } catch (const std::exception& e) {
-    LOG(FATAL) << "Exception caught in " << __func__ << ", error:" << e.what();
+    return EnterCriticalState(
+        absl::StrCat("Exception caught in ", __func__, ", error:", e.what()),
+        component_state_);
   } catch (...) {
-    LOG(FATAL) << "Unknown exception caught in " << __func__;
+    return EnterCriticalState(
+        absl::StrCat("Unknown exception caught in ", __func__, "."),
+        component_state_);
   }
 #endif
 }
