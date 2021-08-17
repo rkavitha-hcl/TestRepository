@@ -18,7 +18,6 @@
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/pd.h"
-#include "sai_p4/instantiations/google/linkqual_pd.pb.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
 
 namespace p4rt_app {
@@ -27,14 +26,6 @@ namespace test_lib {
 absl::StatusOr<p4::v1::WriteRequest> PdWriteRequestToPi(
     absl::string_view pd_request, const pdpi::IrP4Info& ir_p4_info) {
   sai::WriteRequest pd_proto;
-  RETURN_IF_ERROR(gutil::ReadProtoFromString(pd_request, &pd_proto))
-      << "unable to translate PD proto string";
-  return pdpi::PdWriteRequestToPi(ir_p4_info, pd_proto);
-}
-
-absl::StatusOr<p4::v1::WriteRequest> PdLinkQualWriteRequestToPi(
-    absl::string_view pd_request, const pdpi::IrP4Info& ir_p4_info) {
-  linkqual::WriteRequest pd_proto;
   RETURN_IF_ERROR(gutil::ReadProtoFromString(pd_request, &pd_proto))
       << "unable to translate PD proto string";
   return pdpi::PdWriteRequestToPi(ir_p4_info, pd_proto);

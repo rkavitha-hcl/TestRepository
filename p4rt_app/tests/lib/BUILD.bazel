@@ -70,7 +70,6 @@ cc_library(
         "//gutil:proto",
         "//p4_pdpi:ir_cc_proto",
         "//p4_pdpi:pd",
-        "//sai_p4/instantiations/google:linkqual_pd_cc_proto",
         "//sai_p4/instantiations/google:sai_pd_cc_proto",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_google_absl//absl/status:statusor",

@@ -41,10 +41,6 @@
 #define ACL_PRE_INGRESS_TABLE_MINIMUM_GUARANTEED_SIZE 256
 #define ACL_EGRESS_TABLE_MINIMUM_GUARANTEED_SIZE 128
 
-// Maximum channelization for current use-cases is 96 ports, and each port may
-// have up to 2 linkqual flows associated with it.
-#define ACL_LINKQUAL_TABLE_MINIMUM_GUARANTEED_SIZE 192
-
 // 1 entry for LLDP, 1 entry for ND, and 6 entries for traceroute: TTL 0,1,2 for
 // IPv4 and IPv6
 #define ACL_WBB_INGRESS_TABLE_MINIMUM_GUARANTEED_SIZE 8

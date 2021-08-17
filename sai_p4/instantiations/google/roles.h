@@ -1,6 +1,7 @@
 #ifndef GOOGLE_SAI_ROLES_P4_
 #define GOOGLE_SAI_ROLES_P4_
 
-#define P4RUNTIME_ROLE_LINKQUAL_APP "linkqual_app"
+// We don't use instantion-specific roles at the moment.
+// See the same file under the "fixed" directory for additional roles.
 
 #endif  // GOOGLE_SAI_ROLES_P4_

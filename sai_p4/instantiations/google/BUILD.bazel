@@ -28,7 +28,6 @@ package(
 SHARED_DEPS = [
     "acl_common_actions.p4",
     "acl_ingress.p4",
-    "acl_linkqual.p4",
     "acl_pre_ingress.p4",
     "hashing.p4",
     "ids.h",
@@ -132,29 +131,6 @@ cc_test(
     ],
 )
 
-proto_library(
-    name = "linkqual_pd_proto",
-    srcs = ["linkqual_pd.proto"],
-    deps = [
-        "@com_github_p4lang_p4runtime//:p4runtime_proto",
-        "@com_google_googleapis//google/rpc:code_proto",
-        "@com_google_googleapis//google/rpc:status_proto",
-    ],
-)
-
-cc_proto_library(
-    name = "linkqual_pd_cc_proto",
-    deps = [":linkqual_pd_proto"],
-)
-
-build_test(
-    name = "linkqual_pd_proto_test",
-    targets = [
-        ":linkqual_pd_proto",
-        ":linkqual_pd_cc_proto",
-    ],
-)
-
 # Ensures that the checked in and generated unioned P4Infos match.
 # To update the checked in unioned P4Info:
 #   blaze run :union_p4info_up_to_date_test -- --update
@@ -183,16 +159,6 @@ p4_pd_proto(
     out = "generated/sai_pd.proto",
     package = "sai",
     roles = ["sdn_controller"],
-)
-
-# Linkqual uses only a single table which is present in middleblock.p4.
-p4_pd_proto(
-    name = "generated_linkqual_pd",
-    src = "middleblock.p4info.pb.txt",
-    # Do not access directly. Use checked in linkqual_pd.proto instead.
-    out = "generated/linkqual_pd.proto",
-    package = "linkqual",
-    roles = ["linkqual_app"],
 )
 
 # -- P4Info --------------------------------------------------------------------

@@ -27,9 +27,6 @@ namespace test_lib {
 absl::StatusOr<p4::v1::WriteRequest> PdWriteRequestToPi(
     absl::string_view pd_request, const pdpi::IrP4Info& ir_p4_info);
 
-absl::StatusOr<p4::v1::WriteRequest> PdLinkQualWriteRequestToPi(
-    absl::string_view pd_request, const pdpi::IrP4Info& ir_p4_info);
-
 }  // namespace test_lib
 }  // namespace p4rt_app
 

@@ -19,7 +19,6 @@
 #include "../../fixed/packet_rewrites.p4"
 #include "acl_ingress.p4"
 #include "acl_pre_ingress.p4"
-#include "acl_linkqual.p4"
 #include "hashing.p4"
 
 control ingress(inout headers_t headers,
@@ -30,7 +29,6 @@ control ingress(inout headers_t headers,
     l3_admit.apply(headers, local_metadata, standard_metadata);
     hashing.apply(headers, local_metadata, standard_metadata);
     routing.apply(headers, local_metadata, standard_metadata);
-    acl_linkqual.apply(headers, local_metadata, standard_metadata);
     acl_ingress.apply(headers, local_metadata, standard_metadata);
     ttl.apply(headers, local_metadata, standard_metadata);
     mirroring_clone.apply(headers, local_metadata, standard_metadata);

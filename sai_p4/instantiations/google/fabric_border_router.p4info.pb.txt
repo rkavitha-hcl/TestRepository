@@ -313,55 +313,6 @@ tables {
 }
 tables {
   preamble {
-    id: 33554690
-    name: "ingress.acl_linkqual.acl_linkqual_table"
-    alias: "acl_linkqual_table"
-    annotations: "@p4runtime_role(\"linkqual_app\")"
-    annotations: "@sai_acl(INGRESS)"
-  }
-  match_fields {
-    id: 1
-    name: "ether_type"
-    annotations: "@sai_field(SAI_ACL_TABLE_ATTR_FIELD_ETHER_TYPE)"
-    bitwidth: 16
-    match_type: TERNARY
-  }
-  match_fields {
-    id: 2
-    name: "dst_mac"
-    annotations: "@sai_field(SAI_ACL_TABLE_ATTR_FIELD_DST_MAC)"
-    annotations: "@format(MAC_ADDRESS)"
-    bitwidth: 48
-    match_type: TERNARY
-  }
-  match_fields {
-    id: 3
-    name: "in_port"
-    annotations: "@sai_field(SAI_ACL_TABLE_ATTR_FIELD_IN_PORT)"
-    match_type: OPTIONAL
-    type_name {
-      name: "port_id_t"
-    }
-  }
-  action_refs {
-    id: 16777477
-    annotations: "@proto_id(1)"
-  }
-  action_refs {
-    id: 16777478
-    annotations: "@proto_id(2)"
-  }
-  action_refs {
-    id: 21257015
-    annotations: "@defaultonly"
-    scope: DEFAULT_ONLY
-  }
-  const_default_action_id: 21257015
-  direct_resource_ids: 318767360
-  size: 192
-}
-tables {
-  preamble {
     id: 33554688
     name: "ingress.acl_ingress.acl_ingress_table"
     alias: "acl_ingress_table"
@@ -800,30 +751,6 @@ actions {
 }
 actions {
   preamble {
-    id: 16777477
-    name: "ingress.acl_linkqual.linkqual_drop"
-    alias: "linkqual_drop"
-    annotations: "@sai_action(SAI_PACKET_ACTION_DROP)"
-  }
-}
-actions {
-  preamble {
-    id: 16777478
-    name: "ingress.acl_linkqual.linkqual_set_port"
-    alias: "linkqual_set_port"
-    annotations: "@sai_action(SAI_PACKET_ACTION_FORWARD)"
-  }
-  params {
-    id: 1
-    name: "port"
-    annotations: "@sai_action_param(SAI_ACL_ENTRY_ATTR_ACTION_REDIRECT)"
-    type_name {
-      name: "port_id_t"
-    }
-  }
-}
-actions {
-  preamble {
     id: 16777473
     name: "ingress.acl_ingress.copy"
     alias: "copy"
@@ -960,17 +887,6 @@ direct_counters {
     unit: BOTH
   }
   direct_table_id: 33554689
-}
-direct_counters {
-  preamble {
-    id: 318767360
-    name: "ingress.acl_linkqual.linkqual_counter"
-    alias: "linkqual_counter"
-  }
-  spec {
-    unit: BOTH
-  }
-  direct_table_id: 33554690
 }
 direct_counters {
   preamble {
