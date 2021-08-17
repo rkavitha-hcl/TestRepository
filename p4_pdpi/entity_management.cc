@@ -19,6 +19,7 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_join.h"
 #include "absl/types/span.h"
 #include "google/protobuf/repeated_field.h"
 #include "gutil/status.h"
@@ -130,7 +131,19 @@ absl::Status ClearTableEntries(P4RuntimeSession* session,
   ASSIGN_OR_RETURN(auto table_entries, ReadPiTableEntries(session));
   // Early return if there is nothing to clear.
   if (table_entries.empty()) return absl::OkStatus();
-  return RemovePiTableEntries(session, info, table_entries);
+  RETURN_IF_ERROR(RemovePiTableEntries(session, info, table_entries));
+  // Verify that all entries were cleared successfuly.
+  ASSIGN_OR_RETURN(table_entries, ReadPiTableEntries(session));
+  if (!table_entries.empty()) {
+    return gutil::UnknownErrorBuilder()
+           << "cleared all table entries, yet " << table_entries.size()
+           << " entries remain:\n"
+           << absl::StrJoin(table_entries, "",
+                            [](std::string* out, auto& entry) {
+                              absl::StrAppend(out, entry.DebugString());
+                            });
+  }
+  return absl::OkStatus();
 }
 
 absl::Status RemovePiTableEntries(P4RuntimeSession* session,
