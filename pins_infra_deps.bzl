@@ -160,9 +160,9 @@ def pins_infra_deps():
     if not native.existing_rule("com_github_z3prover_z3"):
         http_archive(
             name = "com_github_z3prover_z3",
-            url = "https://github.com/Z3Prover/z3/archive/z3-4.8.7.tar.gz",
-            strip_prefix = "z3-z3-4.8.7",
-            sha256 = "8c1c49a1eccf5d8b952dadadba3552b0eac67482b8a29eaad62aa7343a0732c3",
+            url = "https://github.com/Z3Prover/z3/archive/z3-4.8.12.tar.gz",
+            strip_prefix = "z3-z3-4.8.12",
+            sha256 = "e3aaefde68b839299cbc988178529535e66048398f7d083b40c69fe0da55f8b7",
             build_file = "@//:bazel/BUILD.z3.bazel",
         )
     if not native.existing_rule("rules_foreign_cc"):
