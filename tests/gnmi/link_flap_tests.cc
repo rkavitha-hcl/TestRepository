@@ -39,7 +39,7 @@ using ::gutil::IsOkAndHolds;
 constexpr char kEnabledFalse[] = "{\"enabled\":false}";
 constexpr char kEnabledTrue[] = "{\"enabled\":true}";
 
-absl::Status SetAdminStatus(gnmi::gNMI::Stub* gnmi_stub,
+absl::Status SetAdminStatus(gnmi::gNMI::StubInterface* gnmi_stub,
                             absl::string_view if_name,
                             absl::string_view if_status) {
   std::string enable_status;

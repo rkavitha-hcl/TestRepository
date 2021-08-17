@@ -42,24 +42,24 @@ class Switch {
   virtual uint32_t DeviceId() = 0;
 
   // Creates and returns a stub to the P4Runtime service.
-  virtual absl::StatusOr<std::unique_ptr<p4::v1::P4Runtime::Stub>>
+  virtual absl::StatusOr<std::unique_ptr<p4::v1::P4Runtime::StubInterface>>
   CreateP4RuntimeStub() = 0;
 
   // Creates and returns a stub to the gNMI service.
-  virtual absl::StatusOr<std::unique_ptr<gnmi::gNMI::Stub>>
+  virtual absl::StatusOr<std::unique_ptr<gnmi::gNMI::StubInterface>>
   CreateGnmiStub() = 0;
 
   // Creates and returns a stub to the gNOI System service.
-  virtual absl::StatusOr<std::unique_ptr<gnoi::system::System::Stub>>
+  virtual absl::StatusOr<std::unique_ptr<gnoi::system::System::StubInterface>>
   CreateGnoiSystemStub() = 0;
 
   // Creates and returns a stub to the gNOI Diag service.
-  virtual absl::StatusOr<std::unique_ptr<gnoi::diag::Diag::Stub>>
+  virtual absl::StatusOr<std::unique_ptr<gnoi::diag::Diag::StubInterface>>
   CreateGnoiDiagStub() = 0;
 
   // Creates and returns a stub to the gNOI Certificate service.
   virtual absl::StatusOr<
-      std::unique_ptr<gnoi::certificate::CertificateManagement::Stub>>
+      std::unique_ptr<gnoi::certificate::CertificateManagement::StubInterface>>
   CreateGnoiCertificateStub() = 0;
 };
 
