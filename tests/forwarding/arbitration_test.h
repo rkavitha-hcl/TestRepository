@@ -83,7 +83,7 @@ class ArbitrationTestFixture : public thinkit::MirrorTestbedFixture {
   }
 
   // Returns a P4Runtime stub.
-  absl::StatusOr<std::unique_ptr<P4Runtime::Stub>> Stub() {
+  absl::StatusOr<std::unique_ptr<P4Runtime::StubInterface>> Stub() {
     return GetMirrorTestbed().Sut().CreateP4RuntimeStub();
   }
 
@@ -96,7 +96,8 @@ class ArbitrationTestFixture : public thinkit::MirrorTestbedFixture {
 
   // Attempts to become primary on a given stub.
   absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>> BecomePrimary(
-      std::unique_ptr<P4Runtime::Stub> stub, uint64_t lower_election_id) const {
+      std::unique_ptr<P4Runtime::StubInterface> stub,
+      uint64_t lower_election_id) const {
     return pdpi::P4RuntimeSession::Create(
         std::move(stub), device_id_,
         pdpi::P4RuntimeSessionOptionalArgs{

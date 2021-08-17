@@ -39,7 +39,7 @@ std::unique_ptr<P4Runtime::Stub> CreateP4RuntimeStub(
 // Creates a session with the switch, which lasts until the session object is
 // destructed.
 absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
-    std::unique_ptr<P4Runtime::Stub> stub, uint32_t device_id,
+    std::unique_ptr<P4Runtime::StubInterface> stub, uint32_t device_id,
     const P4RuntimeSessionOptionalArgs& metadata) {
   // Open streaming channel.
   // Using `new` to access a private constructor.
@@ -120,7 +120,7 @@ absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
 
 // Create the default session with the switch.
 std::unique_ptr<P4RuntimeSession> P4RuntimeSession::Default(
-    std::unique_ptr<P4Runtime::Stub> stub, uint32_t device_id,
+    std::unique_ptr<P4Runtime::StubInterface> stub, uint32_t device_id,
     const std::string& role) {
   // Using `new` to access a private constructor.
   return absl::WrapUnique(

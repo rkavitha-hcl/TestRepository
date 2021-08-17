@@ -103,7 +103,8 @@ WriteRequest GetWriteRequest(int num, absl::uint128 election_id,
 }
 
 absl::Status SendStreamMessageRequest(
-    P4Runtime::Stub* stub, const p4::v1::StreamMessageRequest& request) {
+    P4Runtime::StubInterface* stub,
+    const p4::v1::StreamMessageRequest& request) {
   grpc::ClientContext context;
   return stub->StreamChannel(&context)->Write(request)
              ? absl::OkStatus()
@@ -228,7 +229,7 @@ TEST_P(ArbitrationTestFixture, BackupCanRead) {
   read_everything.set_role(P4RUNTIME_ROLE_SDN_CONTROLLER);
   ::grpc::ClientContext context;
   ASSERT_OK_AND_ASSIGN(auto stub2, Stub());
-  std::unique_ptr<::grpc::ClientReader<ReadResponse>> response_stream =
+  std::unique_ptr<::grpc::ClientReaderInterface<ReadResponse>> response_stream =
       stub2->Read(&context, read_everything);
   ReadResponse response;
   EXPECT_TRUE(response_stream->Read(&response));

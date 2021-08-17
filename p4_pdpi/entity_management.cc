@@ -79,7 +79,7 @@ absl::StatusOr<ReadResponse> SetMetadataAndSendPiReadRequest(
   return response;
 }
 
-absl::Status SendPiWriteRequest(P4Runtime::Stub* stub,
+absl::Status SendPiWriteRequest(P4Runtime::StubInterface* stub,
                                 const p4::v1::WriteRequest& request) {
   grpc::ClientContext context;
   // Empty message; intentionally discarded.

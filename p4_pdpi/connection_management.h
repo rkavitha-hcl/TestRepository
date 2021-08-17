@@ -83,8 +83,8 @@ class P4RuntimeSession {
   // Creates a session with the switch, which lasts until the session object is
   // destructed.
   static absl::StatusOr<std::unique_ptr<P4RuntimeSession>> Create(
-      std::unique_ptr<p4::v1::P4Runtime::Stub> stub, uint32_t device_id,
-      const P4RuntimeSessionOptionalArgs& metadata = {});
+      std::unique_ptr<p4::v1::P4Runtime::StubInterface> stub,
+      uint32_t device_id, const P4RuntimeSessionOptionalArgs& metadata = {});
 
   // Creates a session with the switch, which lasts until the session object is
   // destructed.
@@ -103,7 +103,8 @@ class P4RuntimeSession {
   // and which cannot be terminated. This should only be used for testing.
   // The stream_channel and stream_channel_context will be the nullptr.
   static std::unique_ptr<P4RuntimeSession> Default(
-      std::unique_ptr<p4::v1::P4Runtime::Stub> stub, uint32_t device_id,
+      std::unique_ptr<p4::v1::P4Runtime::StubInterface> stub,
+      uint32_t device_id,
       const std::string& role = "P4RUNTIME_ROLE_SDN_CONTROLLER");
 
   // Disables copy semantics.
@@ -121,7 +122,7 @@ class P4RuntimeSession {
   // Returns the role of this session.
   std::string Role() const { return role_; }
   // Returns the P4Runtime stub.
-  p4::v1::P4Runtime::Stub& Stub() { return *stub_; }
+  p4::v1::P4Runtime::StubInterface& Stub() { return *stub_; }
   // Reads back stream message response.
   ABSL_MUST_USE_RESULT bool StreamChannelRead(
       p4::v1::StreamMessageResponse& response) {
@@ -140,7 +141,7 @@ class P4RuntimeSession {
 
  private:
   P4RuntimeSession(uint32_t device_id,
-                   std::unique_ptr<p4::v1::P4Runtime::Stub> stub,
+                   std::unique_ptr<p4::v1::P4Runtime::StubInterface> stub,
                    absl::uint128 election_id, const std::string& role)
       : device_id_(device_id),
         role_(role),
@@ -158,13 +159,13 @@ class P4RuntimeSession {
   // The role of this session.
   std::string role_;
   // The P4Runtime stub of the switch that this session belongs to.
-  std::unique_ptr<p4::v1::P4Runtime::Stub> stub_;
+  std::unique_ptr<p4::v1::P4Runtime::StubInterface> stub_;
 
   // This stream channel and context are used to perform arbitration,
   // but can now also be used for packet IO.
   std::unique_ptr<grpc::ClientContext> stream_channel_context_;
-  std::unique_ptr<grpc::ClientReaderWriter<p4::v1::StreamMessageRequest,
-                                           p4::v1::StreamMessageResponse>>
+  std::unique_ptr<grpc::ClientReaderWriterInterface<
+      p4::v1::StreamMessageRequest, p4::v1::StreamMessageResponse>>
       stream_channel_;
 };
 

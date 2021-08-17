@@ -43,7 +43,7 @@ absl::Status SetMetadataAndSendPiWriteRequest(
     P4RuntimeSession* session, p4::v1::WriteRequest& write_request);
 
 // Sends a PI (program independent) write request with given stub.
-absl::Status SendPiWriteRequest(p4::v1::P4Runtime::Stub* stub,
+absl::Status SendPiWriteRequest(p4::v1::P4Runtime::StubInterface* stub,
                                 const p4::v1::WriteRequest& request);
 
 // Sets the requests' metadata (i.e. device id, role and election id). And sends
