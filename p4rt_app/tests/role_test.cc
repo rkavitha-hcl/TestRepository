@@ -76,7 +76,6 @@ TEST_F(RoleTest, PrimaryConnectionsPerRole) {
 }
 
 TEST_F(RoleTest, PrimaryAndBackupConnectionsPerRole) {
-  std::vector<std::unique_ptr<pdpi::P4RuntimeSession>> primary_sessions;
   const std::string kRole1 = "role1";
   const std::string kRole2 = "role2";
 
