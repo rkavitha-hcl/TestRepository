@@ -60,7 +60,7 @@ headers {
     ethertype: "0x0842"
   }
 }
-reason_unsupported: "ethernet_header.ethertype 0x0842: unsupported"
+reason_not_fully_parsed: "ethernet_header.ethertype 0x0842: unsupported"
 reasons_invalid: "in EthernetHeader headers[0]: expected at least 46 bytes of Ethernet payload, but got only 0"
 
 PadPacketToMinimumSize(packet) = true
@@ -116,7 +116,7 @@ headers {
   }
 }
 payload: "\0224"
-reason_unsupported: "ipv4_header.protocol 0x05: unsupported"
+reason_not_fully_parsed: "ipv4_header.protocol 0x05: unsupported"
 reasons_invalid: "in EthernetHeader headers[0]: expected at least 46 bytes of Ethernet payload, but got only 22"
 reasons_invalid: "in Ipv4Header headers[1]: total_length: Must be 0x0016, but was 0x6fc6 instead."
 reasons_invalid: "in Ipv4Header headers[1]: checksum: Must be 0x78f5, but was 0x1234 instead."
@@ -175,7 +175,7 @@ headers {
   }
 }
 payload: "\000\021\"3DUfw\210\231\252\273\314\335\356\377\000\021\"3DUfw\210\231\252\273\314\335\356\377"
-reason_unsupported: "ipv4_header.protocol 0x05: unsupported"
+reason_not_fully_parsed: "ipv4_header.protocol 0x05: unsupported"
 
 ================================================================================
 Parsing test: IPv4 packet (checksum example)
@@ -286,7 +286,7 @@ headers {
   }
 }
 payload: "\000\021\"3DUfw\210\231\252\273\314\335\356\377\000\021\"3DUfw\210\231\252\273\314\335\356\377"
-reason_unsupported: "ipv4_header.protocol 0x05: unsupported"
+reason_not_fully_parsed: "ipv4_header.protocol 0x05: unsupported"
 
 ================================================================================
 Parsing test: IPv4 packet with options (too short)
@@ -337,7 +337,7 @@ headers {
     uninterpreted_options: "0x11"
   }
 }
-reason_unsupported: "ipv4_header.protocol 0x05: unsupported"
+reason_not_fully_parsed: "ipv4_header.protocol 0x05: unsupported"
 reasons_invalid: "in EthernetHeader headers[0]: expected at least 46 bytes of Ethernet payload, but got only 21"
 reasons_invalid: "in Ipv4Header headers[1]: uninterpreted_options: found 8 bits, but expected multiple of 32 bits"
 reasons_invalid: "in Ipv4Header headers[1]: ihl: Correct value undefined since uninterpreted_options is invalid."
@@ -391,7 +391,7 @@ headers {
   }
 }
 payload: "\022"
-reason_unsupported: "ipv6_header.next_header 0x90: unsupported"
+reason_not_fully_parsed: "ipv6_header.next_header 0x90: unsupported"
 reasons_invalid: "in EthernetHeader headers[0]: expected at least 46 bytes of Ethernet payload, but got only 41"
 reasons_invalid: "in Ipv6Header headers[1]: version: Must be 0x6, but was 0x4 instead."
 reasons_invalid: "in Ipv6Header headers[1]: payload_length: Must be 0x0001, but was 0x0000 instead."
@@ -442,7 +442,7 @@ headers {
   }
 }
 payload: "\000\021\"3DUfw\210\231\252\273\314\335\356\377\000\021\"3DUfw\210\231\252\273\314\335\356\377"
-reason_unsupported: "ipv6_header.next_header 0x90: unsupported"
+reason_not_fully_parsed: "ipv6_header.next_header 0x90: unsupported"
 
 ================================================================================
 Parsing test: UDP packet (valid)

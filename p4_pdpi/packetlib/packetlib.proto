@@ -26,7 +26,7 @@ message Packet {
   // supported. Describes a problem with the first set of bytes in `payload`.
   // Only used in the output of parsing functions, and is ignored during
   // serialization.
-  string reason_unsupported = 3;
+  string reason_not_fully_parsed = 3;
   // Explanation why the parsed set of headers is not valid (e.g., invalid
   // checksum). Only covers `headers`, not the `payload`.
   // Only used in the output of parsing functions, and is ignored during

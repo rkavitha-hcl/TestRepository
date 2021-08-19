@@ -432,13 +432,13 @@ Packet ParsePacket(absl::string_view input, Header::HeaderCase first_header) {
     }
     *packet.add_headers() = *header;
     if (absl::StatusOr<NextHeader> next = GetNextHeader(*header); next.ok()) {
-      absl::visit(
-          gutil::Overload{[&](Header::HeaderCase next) { next_header = next; },
-                          [&](UnsupportedNextHeader unsupported) {
-                            next_header = Header::HEADER_NOT_SET;
-                            packet.set_reason_unsupported(unsupported.reason);
-                          }},
-          *next);
+      absl::visit(gutil::Overload{
+                      [&](Header::HeaderCase next) { next_header = next; },
+                      [&](UnsupportedNextHeader unsupported) {
+                        next_header = Header::HEADER_NOT_SET;
+                        packet.set_reason_not_fully_parsed(unsupported.reason);
+                      }},
+                  *next);
     } else {
       LOG(DFATAL) << "SHOULD NEVER HAPPEN: " << next.status();
       next_header = Header::HEADER_NOT_SET;

@@ -102,7 +102,7 @@ void RunPacketParseTest(const std::string& name,
       std::cout << StatusToStableString(updated.status()) << "\n";
     }
     if ((padded.ok() && *padded) || (updated.ok() && *updated)) {
-      packet.clear_reason_unsupported();
+      packet.clear_reason_not_fully_parsed();
       packet.clear_reasons_invalid();
       std::cout << "ValidatePacket(packet) = "
                 << StatusToStableString(ValidatePacket(packet)) << "\n";
@@ -163,8 +163,8 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
 
   // Test if the packet can be parsed back.
   auto reparsed_packet = ParsePacket(*bytes);
-  // Check roundtrip property modulo `reason_unsupported` field.
-  reparsed_packet.clear_reason_unsupported();
+  // Check roundtrip property modulo `reason_not_fully_parsed` field.
+  reparsed_packet.clear_reason_not_fully_parsed();
   google::protobuf::util::MessageDifferencer differ;
   std::string diff;
   differ.ReportDifferencesToString(&diff);

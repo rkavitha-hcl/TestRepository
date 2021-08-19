@@ -105,7 +105,7 @@ std::string ShortPacketDescription(const Packet& packet) {
   if (!packet.reasons_invalid().empty()) {
     result << "; invalid";
   }
-  if (!packet.reason_unsupported().empty()) {
+  if (!packet.reason_not_fully_parsed().empty()) {
     result << "; unsupported";
   }
   return result.str();
