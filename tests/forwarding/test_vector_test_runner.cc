@@ -239,8 +239,8 @@ std::vector<TestCase> TestCases() {
     TestCase& test = tests.emplace_back();
     test = TestCase{
         .description =
-            "Packet gets forwarded with an unexpected\nmodification of a header"
-            " field.",
+            "Packet gets forwarded with an unexpected\nmodification of two "
+            "header fields.",
         .test_vector = ParseProtoOrDie<TestVector>(R"pb(
           input {
             type: DATAPLANE
@@ -295,13 +295,17 @@ std::vector<TestCase> TestCases() {
     acceptable_output = test.test_vector.input().packet();
     acceptable_output.set_port("12");
 
-    // The packet instead gets forwarded with a header field modification.
+    // The packet instead gets forwarded with two header field modifications.
     auto& actual_output = *test.actual_output.add_packets();
     actual_output = acceptable_output;
     actual_output.mutable_parsed()
         ->mutable_headers(1)
         ->mutable_ipv4_header()
         ->set_dscp("0x00");
+    actual_output.mutable_parsed()
+        ->mutable_headers(1)
+        ->mutable_ipv4_header()
+        ->set_checksum("0x0000");
   }
 
   return tests;

@@ -22,7 +22,9 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/str_replace.h"
 #include "absl/strings/string_view.h"
+#include "absl/strings/strip.h"
 #include "absl/strings/substitute.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
@@ -49,6 +51,22 @@ bool PacketLessThan(const Packet* a, const Packet* b) {
 
 bool PacketInLessThan(const PacketIn* a, const PacketIn* b) {
   return a->hex() < b->hex();
+}
+
+// Returns a copy of the given `string` with all newlines indented by
+// (an additional) `indentation` number of spaces. Empty lines are not indented.
+std::string Indent(int indentation, absl::string_view string) {
+  // Avoid indenting empty lines: remove here, then add back at the end.
+  bool stripped_trailing_newline = absl::ConsumeSuffix(&string, "\n");
+  std::string result = absl::StrReplaceAll(
+      string, {
+                  {
+                      "\n",
+                      absl::StrCat("\n", std::string(indentation, ' ')),
+                  },
+              });
+  if (stripped_trailing_newline) absl::StrAppend(&result, "\n");
+  return result;
 }
 
 bool CompareSwitchOutputs(
@@ -89,7 +107,7 @@ bool CompareSwitchOutputs(
     differ.ReportDifferencesToString(&diff);
     if (!differ.Compare(expected_packet.parsed(), actual_packet.parsed())) {
       *listener << "has packet " << i << " with mismatched header fields:\n  "
-                << diff;
+                << Indent(2, diff);
       return false;
     }
   }
@@ -105,13 +123,13 @@ bool CompareSwitchOutputs(
     if (!differ.Compare(expected_packet_in.parsed(),
                         actual_packet_in.parsed())) {
       *listener << "has packet in " << i
-                << " with mismatched header fields:\n  " << diff;
+                << " with mismatched header fields:\n  " << Indent(2, diff);
       return false;
     }
     if (!differ.Compare(expected_packet_in.metadata(),
                         actual_packet_in.metadata())) {
       *listener << "has packet in " << i
-                << " with different metadata fields:\n  " << diff;
+                << " with different metadata fields:\n  " << Indent(2, diff);
       return false;
     }
   }

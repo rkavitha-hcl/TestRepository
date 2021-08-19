@@ -396,12 +396,13 @@ packet_ins {
 
 ================================================================================
 CheckForTestVectorFailure Test: Packet gets forwarded with an unexpected
-modification of a header field.
+modification of two header fields.
 ================================================================================
 Expected: packet gets forwarded (1 copies)
   Actual: packet got forwarded (1 copies), but with unexpected modifications
 - acceptable output #1 has packet 0 with mismatched header fields:
   modified: headers[1].ipv4_header.dscp: "0x1c" -> "0x00"
+  modified: headers[1].ipv4_header.checksum: "0x1b62" -> "0x0000"
 
 Details dumped below.
 
@@ -468,7 +469,7 @@ packets {
         fragment_offset: "0x0000"
         ttl: "0x20"
         protocol: "0x11"
-        checksum: "0x1b62"
+        checksum: "0x0000"
         ipv4_source: "10.0.0.0"
         ipv4_destination: "10.206.105.32"
       }
