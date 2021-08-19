@@ -12,5 +12,9 @@ bazel query :all | grep '_up_to_date_test$' | while read target; do
   bazel run $target -- --update
 done
 
+bazel run\
+  //platforms/networking/gpins/testing/blackbox/p4/test_infra_integration_tests:p4_config_diff_test\
+  -- --test_update_golden_files
+
 # Check P4 program.
 bazel test :sai_p4info_test

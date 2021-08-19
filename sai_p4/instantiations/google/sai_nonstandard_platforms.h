@@ -12,6 +12,14 @@ enum class NonstandardPlatform {
   kP4Symbolic,
 };
 
+// Returns a vector of all nonstandard platforms.
+inline std::vector<NonstandardPlatform> AllNonstandardPlatforms() {
+  return {
+      NonstandardPlatform::kBmv2,
+      NonstandardPlatform::kP4Symbolic,
+  };
+}
+
 // Returns the name of the given platform.
 std::string PlatformName(NonstandardPlatform platform);
 
