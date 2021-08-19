@@ -11,7 +11,43 @@ Expected: packet gets forwarded (1 copies)
 
 Details dumped below.
 
-== EXPECTATION =================================================================
+== INPUT =======================================================================
+type: DATAPLANE
+packet {
+  port: "1"
+  parsed {
+    headers {
+      ethernet_header {
+        ethernet_destination: "02:08:02:08:10:40"
+        ethernet_source: "40:04:10:04:04:20"
+        ethertype: "0x86dd"
+      }
+    }
+    headers {
+      ipv6_header {
+        version: "0x6"
+        dscp: "0x00"
+        ecn: "0x0"
+        flow_label: "0x00000"
+        payload_length: "0x00ee"
+        next_header: "0x3a"
+        hop_limit: "0x80"
+        ipv6_source: "fe80::"
+        ipv6_destination: "2002:a05:6860:4f00::"
+      }
+    }
+    headers {
+      icmp_header {
+        type: "0x00"
+        code: "0x00"
+        checksum: "0x1461"
+        rest_of_header: "0x00000000"
+      }
+    }
+    payload: "test packet"
+  }
+}
+== EXPECTED OUTPUT =============================================================
 -- Acceptable output: Alternative #1 --
 packets {
   port: "8"
@@ -152,8 +188,20 @@ packets {
     payload: "test packet"
   }
 }
+
+
+================================================================================
+CheckForTestVectorFailure Test: Submit-to-ingress packet is expected to be
+forwarded and mirrored and punted, but doesn't get punted.
+================================================================================
+Expected: packet gets forwarded (2 copies) and punted (1 copies)
+  Actual: packet got forwarded (2 copies)
+- acceptable output #1 has mismatched number of packet ins (actual: 0 expected: 1)
+
+Details dumped below.
+
 == INPUT =======================================================================
-type: DATAPLANE
+type: SUBMIT_TO_INGRESS
 packet {
   port: "1"
   parsed {
@@ -188,19 +236,7 @@ packet {
     payload: "test packet"
   }
 }
-
-
-================================================================================
-CheckForTestVectorFailure Test: Submit-to-ingress packet is expected to be
-forwarded and mirrored and punted, but doesn't get punted.
-================================================================================
-Expected: packet gets forwarded (2 copies) and punted (1 copies)
-  Actual: packet got forwarded (2 copies)
-- acceptable output #1 has mismatched number of packet ins (actual: 0 expected: 1)
-
-Details dumped below.
-
-== ACTUAL ======================================================================
+== ACTUAL OUTPUT ===============================================================
 packets {
   port: "1"
   parsed {
@@ -261,7 +297,7 @@ packets {
     payload: "test packet"
   }
 }
-== EXPECTATION =================================================================
+== EXPECTED OUTPUT =============================================================
 -- Acceptable output: Alternative #1 --
 packets {
   port: "1"
@@ -356,42 +392,6 @@ packet_ins {
     payload: "test packet"
   }
 }
-== INPUT =======================================================================
-type: SUBMIT_TO_INGRESS
-packet {
-  port: "1"
-  parsed {
-    headers {
-      ethernet_header {
-        ethernet_destination: "02:08:02:08:10:40"
-        ethernet_source: "40:04:10:04:04:20"
-        ethertype: "0x86dd"
-      }
-    }
-    headers {
-      ipv6_header {
-        version: "0x6"
-        dscp: "0x00"
-        ecn: "0x0"
-        flow_label: "0x00000"
-        payload_length: "0x00ee"
-        next_header: "0x3a"
-        hop_limit: "0x80"
-        ipv6_source: "fe80::"
-        ipv6_destination: "2002:a05:6860:4f00::"
-      }
-    }
-    headers {
-      icmp_header {
-        type: "0x00"
-        code: "0x00"
-        checksum: "0x1461"
-        rest_of_header: "0x00000000"
-      }
-    }
-    payload: "test packet"
-  }
-}
 
 
 ================================================================================
@@ -405,49 +405,10 @@ Expected: packet gets forwarded (1 copies)
 
 Details dumped below.
 
-== ACTUAL ======================================================================
-packets {
-  port: "12"
-  parsed {
-    headers {
-      ethernet_header {
-        ethernet_destination: "02:03:04:05:06:07"
-        ethernet_source: "00:01:02:03:04:05"
-        ethertype: "0x0800"
-      }
-    }
-    headers {
-      ipv4_header {
-        version: "0x4"
-        ihl: "0x5"
-        dscp: "0x00"
-        ecn: "0x0"
-        total_length: "0x012e"
-        identification: "0x0000"
-        flags: "0x0"
-        fragment_offset: "0x0000"
-        ttl: "0x20"
-        protocol: "0x11"
-        checksum: "0x1b62"
-        ipv4_source: "10.0.0.0"
-        ipv4_destination: "10.206.105.32"
-      }
-    }
-    headers {
-      udp_header {
-        source_port: "0x0000"
-        destination_port: "0x0000"
-        length: "0x011a"
-        checksum: "0xad82"
-      }
-    }
-    payload: "test packet"
-  }
-}
-== EXPECTATION =================================================================
--- Acceptable output: Alternative #1 --
-packets {
-  port: "12"
+== INPUT =======================================================================
+type: DATAPLANE
+packet {
+  port: "1"
   parsed {
     headers {
       ethernet_header {
@@ -484,10 +445,49 @@ packets {
     payload: "test packet"
   }
 }
-== INPUT =======================================================================
-type: DATAPLANE
-packet {
-  port: "1"
+== ACTUAL OUTPUT ===============================================================
+packets {
+  port: "12"
+  parsed {
+    headers {
+      ethernet_header {
+        ethernet_destination: "02:03:04:05:06:07"
+        ethernet_source: "00:01:02:03:04:05"
+        ethertype: "0x0800"
+      }
+    }
+    headers {
+      ipv4_header {
+        version: "0x4"
+        ihl: "0x5"
+        dscp: "0x00"
+        ecn: "0x0"
+        total_length: "0x012e"
+        identification: "0x0000"
+        flags: "0x0"
+        fragment_offset: "0x0000"
+        ttl: "0x20"
+        protocol: "0x11"
+        checksum: "0x1b62"
+        ipv4_source: "10.0.0.0"
+        ipv4_destination: "10.206.105.32"
+      }
+    }
+    headers {
+      udp_header {
+        source_port: "0x0000"
+        destination_port: "0x0000"
+        length: "0x011a"
+        checksum: "0xad82"
+      }
+    }
+    payload: "test packet"
+  }
+}
+== EXPECTED OUTPUT =============================================================
+-- Acceptable output: Alternative #1 --
+packets {
+  port: "12"
   parsed {
     headers {
       ethernet_header {

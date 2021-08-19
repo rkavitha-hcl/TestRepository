@@ -231,15 +231,15 @@ bool IsCharacterizedAsDrop(
          IsCharacterizedAsDrop(*characterizations.cbegin());
 }
 
-static constexpr absl::string_view kActualBanner =
-    "== ACTUAL "
-    "======================================================================";
-static constexpr absl::string_view kExpectationBanner =
-    "== EXPECTATION "
-    "=================================================================";
 static constexpr absl::string_view kInputBanner =
     "== INPUT "
     "=======================================================================";
+static constexpr absl::string_view kActualBanner =
+    "== ACTUAL OUTPUT "
+    "===============================================================";
+static constexpr absl::string_view kExpectationBanner =
+    "== EXPECTED OUTPUT "
+    "=============================================================";
 
 }  // namespace
 
@@ -283,6 +283,10 @@ absl::optional<std::string> CheckForTestVectorFailure(
       "Expected: $0\n  Actual: $1\n$2\nDetails dumped below.\n\n", expectation,
       actual, *diff);
 
+  // Dump input.
+  absl::StrAppend(&failure, kInputBanner, "\n",
+                  test_vector.input().DebugString());
+
   // Dump actual output, if any.
   if (!IsCharacterizedAsDrop(actual_characterization)) {
     absl::StrAppend(&failure, kActualBanner, "\n", actual_output.DebugString());
@@ -297,10 +301,6 @@ absl::optional<std::string> CheckForTestVectorFailure(
           test_vector.acceptable_outputs(i).DebugString());
     }
   }
-
-  // Dump input.
-  absl::StrAppend(&failure, kInputBanner, "\n",
-                  test_vector.input().DebugString());
 
   return failure;
 }
