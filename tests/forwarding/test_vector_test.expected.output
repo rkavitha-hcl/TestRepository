@@ -2,8 +2,8 @@
 CheckForTestVectorFailure Test: Packet is expected to be forwarded (out of one
 of several acceptable ports), but gets dropped.
 ================================================================================
-Expected: packet gets forwarded (1 copies)
-  Actual: packet got dropped
+Expected: DATAPLANE packet gets forwarded (1 copies)
+  Actual: DATAPLANE packet got dropped
 - acceptable output #1 has mismatched number of packets (actual: 0 expected: 1)
 - acceptable output #2 has mismatched number of packets (actual: 0 expected: 1)
 - acceptable output #3 has mismatched number of packets (actual: 0 expected: 1)
@@ -194,8 +194,8 @@ packets {
 CheckForTestVectorFailure Test: Submit-to-ingress packet is expected to be
 forwarded and mirrored and punted, but doesn't get punted.
 ================================================================================
-Expected: packet gets forwarded (2 copies) and punted (1 copies)
-  Actual: packet got forwarded (2 copies)
+Expected: SUBMIT_TO_INGRESS packet gets forwarded (2 copies) and punted (1 copies)
+  Actual: SUBMIT_TO_INGRESS packet got forwarded (2 copies)
 - acceptable output #1 has mismatched number of packet ins (actual: 0 expected: 1)
 
 Details dumped below.
@@ -398,8 +398,8 @@ packet_ins {
 CheckForTestVectorFailure Test: Packet gets forwarded with an unexpected
 modification of two header fields.
 ================================================================================
-Expected: packet gets forwarded (1 copies)
-  Actual: packet got forwarded (1 copies), but with unexpected modifications
+Expected: DATAPLANE packet gets forwarded (1 copies)
+  Actual: DATAPLANE packet got forwarded (1 copies), but with unexpected modifications
 - acceptable output #1 has packet 0 with mismatched header fields:
   modified: headers[1].ipv4_header.dscp: "0x1c" -> "0x00"
   modified: headers[1].ipv4_header.checksum: "0x1b62" -> "0x0000"

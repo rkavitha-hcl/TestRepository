@@ -208,6 +208,7 @@ std::string DescribeSwitchOutput(const SwitchOutputCharacterization& output) {
 // Returns a human-readable description of the expectation encoded by the given
 // `acceptable_output_characterizations`, for use in error messages.
 std::string DescribeExpectation(
+    const SwitchInput& input,
     const absl::flat_hash_set<SwitchOutputCharacterization>&
         acceptable_output_characterizations) {
   // This should never happen, but it is convenient for this function to be pure
@@ -220,17 +221,20 @@ std::string DescribeExpectation(
   // `acceptable_output_characterizations.size() == 1` and doesn't try to be
   // clever otherwise.
   return absl::StrJoin(acceptable_output_characterizations, ", or ",
-                       [](std::string* output, auto& acceptable_output) {
+                       [&](std::string* output, auto& acceptable_output) {
                          absl::StrAppend(
-                             output, "packet gets ",
+                             output, SwitchInput::Type_Name(input.type()),
+                             " packet gets ",
                              DescribeSwitchOutput(acceptable_output));
                        });
 }
 
 // Returns a human-readable description of the given `actual_output`, for use in
 // error messages.
-std::string DescribeActual(const SwitchOutputCharacterization& actual_output) {
-  return absl::StrCat("packet got ", DescribeSwitchOutput(actual_output));
+std::string DescribeActual(const SwitchInput& input,
+                           const SwitchOutputCharacterization& actual_output) {
+  return absl::StrCat(SwitchInput::Type_Name(input.type()), " packet got ",
+                      DescribeSwitchOutput(actual_output));
 }
 
 // Returns whether the packet with the given `characterization` got dropped.
@@ -272,17 +276,19 @@ absl::optional<std::string> CheckForTestVectorFailure(
   // To make the diff more digestible, we first give an abstract
   // characterization of the expected and actual outputs.
   absl::flat_hash_set<SwitchOutputCharacterization>
-      acceptable_characterizations;
+      acceptable_output_characterizations;
   for (auto& acceptable_output : test_vector.acceptable_outputs()) {
-    acceptable_characterizations.insert(
+    acceptable_output_characterizations.insert(
         CharacterizeSwitchOutput(acceptable_output));
   }
-  const SwitchOutputCharacterization actual_characterization =
+  const SwitchOutputCharacterization actual_output_characterization =
       CharacterizeSwitchOutput(actual_output);
-  const bool actual_characterization_matches_expected_one =
-      acceptable_characterizations.contains(actual_characterization);
+  const bool actual_matches_expected =
+      acceptable_output_characterizations.contains(
+          actual_output_characterization);
 
-  std::string expectation = DescribeExpectation(acceptable_characterizations);
+  std::string expectation = DescribeExpectation(
+      test_vector.input(), acceptable_output_characterizations);
   if (!ignored_fields.empty()) {
     absl::StrAppend(
         &expectation, "\n          (ignoring the field(s) ",
@@ -293,8 +299,9 @@ absl::optional<std::string> CheckForTestVectorFailure(
                       }),
         ")");
   }
-  std::string actual = DescribeActual(actual_characterization);
-  if (actual_characterization_matches_expected_one) {
+  std::string actual =
+      DescribeActual(test_vector.input(), actual_output_characterization);
+  if (actual_matches_expected) {
     absl::StrAppend(&actual, ", but with unexpected modifications");
   }
   std::string failure = absl::Substitute(
@@ -306,12 +313,12 @@ absl::optional<std::string> CheckForTestVectorFailure(
                   test_vector.input().DebugString());
 
   // Dump actual output, if any.
-  if (!IsCharacterizedAsDrop(actual_characterization)) {
+  if (!IsCharacterizedAsDrop(actual_output_characterization)) {
     absl::StrAppend(&failure, kActualBanner, "\n", actual_output.DebugString());
   }
 
   // Dump expected output, if any.
-  if (!IsCharacterizedAsDrop(acceptable_characterizations)) {
+  if (!IsCharacterizedAsDrop(acceptable_output_characterizations)) {
     absl::StrAppend(&failure, kExpectationBanner, "\n");
     for (int i = 0; i < test_vector.acceptable_outputs_size(); ++i) {
       absl::StrAppendFormat(
