@@ -19,17 +19,27 @@
 #include <vector>
 
 #include "p4_pdpi/connection_management.h"
-#include "sai_p4/instantiations/google/sai_p4info.h"
 #include "tests/forwarding/group_programming_util.h"
 #include "tests/forwarding/packet_test_util.h"
 #include "thinkit/mirror_testbed_fixture.h"
 
 namespace gpins {
 
-// WatchPortTestFixture that holds member functions needed for testing watch
-// port action.
-// TODO: To be implemented.
-class WatchPortTestFixture : public thinkit::MirrorTestbedFixture {};
+// WatchPortTestFixture for testing watch port action.
+class WatchPortTestFixture : public thinkit::MirrorTestbedFixture {
+ protected:
+  void SetUp() override;
+
+  void TearDown() override;
+
+  TestData test_data_;
+  std::unique_ptr<pdpi::P4RuntimeSession> sut_p4_session_;
+  std::unique_ptr<pdpi::P4RuntimeSession> control_p4_session_;
+  // Stores the receive thread that is created in SetUp() and joined in
+  // TearDown(). Accesses control_p4_session_->StreamChannelRead to read
+  // packets, which must not be used by other threads.
+  std::thread receive_packet_thread_;
+};
 
 }  // namespace gpins
 

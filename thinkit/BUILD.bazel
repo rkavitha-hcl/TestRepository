@@ -98,6 +98,8 @@ cc_library(
     hdrs = ["mirror_testbed_fixture.h"],
     deps = [
         ":mirror_testbed",
+        "//p4_pdpi:ir_cc_proto",
+        "//sai_p4/instantiations/google:sai_p4info_cc",
         "@com_google_absl//absl/memory",
         "@com_google_googletest//:gtest",
     ],

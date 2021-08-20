@@ -39,7 +39,7 @@ struct Member {
 // members.nexthop is an output here with the updated nexthop object that was
 // created.
 absl::Status ProgramNextHops(thinkit::TestEnvironment& test_environment,
-                             pdpi::P4RuntimeSession* const p4_session,
+                             pdpi::P4RuntimeSession& p4_session,
                              const pdpi::IrP4Info& ir_p4info,
                              std::vector<gpins::Member>& members);
 
@@ -47,7 +47,7 @@ absl::Status ProgramNextHops(thinkit::TestEnvironment& test_environment,
 // set of nexthops and weights. It is expected that the dependant nexthops are
 // already created for an insert/modify operation.
 absl::Status ProgramGroupWithMembers(thinkit::TestEnvironment& test_environment,
-                                     pdpi::P4RuntimeSession* const p4_session,
+                                     pdpi::P4RuntimeSession& p4_session,
                                      const pdpi::IrP4Info& ir_p4info,
                                      absl::string_view group_id,
                                      absl::Span<const Member> members,
@@ -55,14 +55,14 @@ absl::Status ProgramGroupWithMembers(thinkit::TestEnvironment& test_environment,
 
 // Deletes the group with the given group_id. It is expected that the caller
 // takes care of cleaning up the dependant nexthops.
-absl::Status DeleteGroup(pdpi::P4RuntimeSession* const p4_session,
+absl::Status DeleteGroup(pdpi::P4RuntimeSession& p4_session,
                          const pdpi::IrP4Info& ir_p4info,
                          absl::string_view group_id);
 
 // Verifies the actual members received from P4 read response matches the
 // expected members.
 absl::Status VerifyGroupMembersFromP4Read(
-    pdpi::P4RuntimeSession* const p4_session, const pdpi::IrP4Info& ir_p4info,
+    pdpi::P4RuntimeSession& p4_session, const pdpi::IrP4Info& ir_p4info,
     absl::string_view group_id, absl::Span<const Member> expected_members);
 
 // Verifies the actual members inferred from receive traffic matches the
@@ -86,6 +86,15 @@ int RescaleWeightForTomahawk3(int weight);
 // Halves member weights >= 2 and works only for sum of initial member weights
 // <= 256.
 void RescaleMemberWeights(std::vector<Member>& members);
+
+// Returns a human-readable description of the actual vs expected
+// distribution of packets on the group member ports.
+// expect_single_port specifies whether all packets are expected on a single
+// output port(since no hashing applies) or multiple ports(with hashing).
+std::string DescribeDistribution(
+    int expected_total_test_packets, absl::Span<const gpins::Member> members,
+    const absl::flat_hash_map<int, int>& num_packets_per_port,
+    bool expect_single_port);
 
 }  // namespace gpins
 

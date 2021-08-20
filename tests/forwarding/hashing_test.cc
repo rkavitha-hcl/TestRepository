@@ -50,6 +50,7 @@
 #include "tests/forwarding/group_programming_util.h"
 #include "tests/forwarding/packet_test_util.h"
 #include "tests/forwarding/util.h"
+#include "thinkit/mirror_testbed_fixture.h"
 
 // Test for the hashing behavior of the switch.  See go/p4-hashing for a
 // description of the design.
@@ -149,14 +150,14 @@ constexpr absl::string_view kDstMacClassifier = R"pb(
 constexpr int kNumExtraPackets = 10;
 
 // Returns the number of packets to send.
-int GetNumPackets(bool should_be_hashed) {
+int GetNumberOfPackets(bool should_be_hashed) {
   // Current max packets is set for a max sum of weights 15, error rate of 10%
   // and pvalue of 0.001.
   if (should_be_hashed) return 7586;
   return 10;
 }
-int GetNumPackets(TestConfiguration config) {
-  return GetNumPackets(PacketsShouldBeHashed(config));
+int GetNumberOfPackets(TestConfiguration config) {
+  return GetNumberOfPackets(PacketsShouldBeHashed(config));
 }
 
 absl::Status SetUpSut(pdpi::P4RuntimeSession* const p4_session,
@@ -201,21 +202,16 @@ absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession* const p4_session,
 }
 
 // Returns the set of entities required for the hashing test.
-absl::Status ProgramHashingEntities(pdpi::P4RuntimeSession* const session,
+absl::Status ProgramHashingEntities(thinkit::TestEnvironment& test_environment,
+                                    pdpi::P4RuntimeSession& session,
                                     const pdpi::IrP4Info& ir_p4info,
                                     std::vector<gpins::Member>& members) {
   RETURN_IF_ERROR(
-      gpins::ProgramNextHops(thinkit::MirrorTestbedFixture::GetParam()
-                                 .mirror_testbed->GetMirrorTestbed()
-                                 .Environment(),
-                             session, ir_p4info, members));
+      gpins::ProgramNextHops(test_environment, session, ir_p4info, members));
 
-  RETURN_IF_ERROR(
-      gpins::ProgramGroupWithMembers(thinkit::MirrorTestbedFixture::GetParam()
-                                         .mirror_testbed->GetMirrorTestbed()
-                                         .Environment(),
-                                     session, ir_p4info, "group-1", members,
-                                     p4::v1::Update::INSERT))
+  RETURN_IF_ERROR(gpins::ProgramGroupWithMembers(test_environment, session,
+                                                 ir_p4info, "group-1", members,
+                                                 p4::v1::Update::INSERT))
           .SetPrepend()
       << "Failed to program WCMP group: ";
 
@@ -231,7 +227,7 @@ absl::Status ProgramHashingEntities(pdpi::P4RuntimeSession* const session,
   // Add flows to allow destination mac variations.
   auto l3_dst_mac_classifier =
       gutil::ParseProtoOrDie<sai::TableEntry>(kDstMacClassifier);
-  for (int i = 0; i < GetNumPackets(/*should_be_hashed=*/false); i++) {
+  for (int i = 0; i < GetNumberOfPackets(/*should_be_hashed=*/false); i++) {
     netaddr::MacAddress netaddr_mac(GetIthDstMac(i));
 
     l3_dst_mac_classifier.mutable_l3_admit_table_entry()
@@ -275,37 +271,7 @@ absl::Status ProgramHashingEntities(pdpi::P4RuntimeSession* const session,
                        << ipv6_fallback.DebugString() << " error: ");
   pi_entries.push_back(pi_entry);
 
-  return pdpi::InstallPiTableEntries(session, ir_p4info, pi_entries);
-}
-
-// Returns a human-readable description of the observed vs expected
-// distribution.
-std::string DescribeDistribution(
-    absl::Span<const gpins::Member> members,
-    const absl::flat_hash_map<int, int>& num_packets_per_port,
-    bool expect_one_port) {
-  double total_weight = 0;
-  for (const auto& member : members) {
-    total_weight += member.weight;
-  }
-  std::string explanation = "";
-  for (const auto& member : members) {
-    double actual_count = num_packets_per_port.contains(member.port)
-                              ? num_packets_per_port.at(member.port)
-                              : 0;
-    if (expect_one_port) {
-      explanation += absl::StrCat("\nport ", member.port,
-                                  ": actual_count = ", actual_count);
-    } else {
-      double expected_count =
-          GetNumPackets(true) * member.weight / total_weight;
-      explanation +=
-          absl::StrCat("\nport ", member.port, " with weight ", member.weight,
-                       ": expected_count = ", expected_count,
-                       ", actual_count = ", actual_count);
-    }
-  }
-  return explanation;
+  return pdpi::InstallPiTableEntries(&session, ir_p4info, pi_entries);
 }
 
 // Generate all possible test configurations, send packets for every config, and
@@ -321,9 +287,9 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
   // testbed.Environment().SetTestCaseID("fdaa1b1e-67a3-497f-aa62-fd62d711c415");
   testbed.Environment().SetTestCaseID("789dad22-96d1-4550-8acb-d42c1f69ca21");
 
-  ASSERT_TRUE(GetParam().port_ids.has_value())
+  ASSERT_TRUE(GetPortIds().has_value())
       << "Controller port ids (required) not provided.";
-  std::vector<int> orion_port_ids = GetParam().port_ids.value();
+  std::vector<int> orion_port_ids = GetPortIds().value();
   ASSERT_GE(orion_port_ids.size(), kNumWcmpMembersForTest);
 
   // The port on which we input all dataplane test packets.
@@ -419,7 +385,8 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
       members.at(i).weight = weights.at(i);
     }
 
-    ASSERT_OK(ProgramHashingEntities(sut_p4_session.get(), ir_p4info, members));
+    ASSERT_OK(ProgramHashingEntities(testbed.Environment(), *sut_p4_session,
+                                     ir_p4info, members));
 
     // TODO: Rescale the member weights to <=128 for now to match
     // Hardware behaviour, remove when hardware supports > 128 weights.
@@ -462,8 +429,8 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
               // Send packets to the switch.
               std::string packet_log = "";
 
-              for (int idx = 0; idx < GetNumPackets(config) + kNumExtraPackets;
-                   idx++) {
+              for (int idx = 0;
+                   idx < GetNumberOfPackets(config) + kNumExtraPackets; idx++) {
                 // Rate limit to 500 packets per second.
                 auto now = absl::Now();
                 auto earliest_send_time =
@@ -531,7 +498,7 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
       for (const auto& config : configs) {
         const auto& key = TestConfigurationToPayload(config);
         const TestInputOutput& test = test_data.input_output_per_packet[key];
-        auto n_packets = GetNumPackets(config);
+        auto n_packets = GetNumberOfPackets(config);
         EXPECT_GE(test.output.size(), n_packets)
             << "Not enough packets received for " << DescribeTestConfig(config);
 
@@ -552,7 +519,8 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
         LOG(INFO) << "Results for " << DescribeTestConfig(config) << ":";
         LOG(INFO) << "- received " << test.output.size() << " packets";
         LOG(INFO) << "- observed distribution was:"
-                  << DescribeDistribution(members, num_packets_per_port,
+                  << DescribeDistribution(GetNumberOfPackets(config), members,
+                                          num_packets_per_port,
                                           !PacketsShouldBeHashed(config));
 
         if (PacketsShouldBeHashed(config)) {
@@ -590,7 +558,8 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
                    "instead "
                    "have strong evidence that switch produces the wrong "
                    "distribution:"
-                << DescribeDistribution(members, num_packets_per_port,
+                << DescribeDistribution(GetNumberOfPackets(config), members,
+                                        num_packets_per_port,
                                         /*expect_one_port=*/false);
           }
         } else {
@@ -603,7 +572,8 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
               << "to not influence the hash, and thus all packets should be "
                  "forwarded on a single port.  Instead, the following was "
                  "observed: "
-              << DescribeDistribution(members, num_packets_per_port,
+              << DescribeDistribution(GetNumberOfPackets(config), members,
+                                      num_packets_per_port,
                                       /*expect_one_port=*/true);
         }
       }

@@ -19,6 +19,8 @@
 
 #include "absl/memory/memory.h"
 #include "gtest/gtest.h"
+#include "p4_pdpi/ir.pb.h"
+#include "sai_p4/instantiations/google/sai_p4info.h"
 #include "thinkit/mirror_testbed.h"
 
 namespace thinkit {
@@ -88,6 +90,18 @@ class MirrorTestbedFixture : public testing::TestWithParam<TestParams> {
   }
 
   std::string GetGnmiConfig() { return GetParam().gnmi_config; }
+
+  // Get the list of optional port ids.
+  absl::optional<std::vector<int>> GetPortIds() { return GetParam().port_ids; }
+
+  // TODO: Parameterize over the different instantiations like
+  // MiddleBlock, FBR400.
+  const p4::config::v1::P4Info& GetP4Info() {
+    return sai::GetP4Info(sai::Instantiation::kMiddleblock);
+  }
+  const pdpi::IrP4Info& GetIrP4Info() {
+    return sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
+  }
 
  private:
   // Takes ownership of the MirrorTestbedInterface parameter.

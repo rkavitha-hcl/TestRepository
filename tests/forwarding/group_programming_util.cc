@@ -33,7 +33,7 @@
 namespace gpins {
 
 absl::Status ProgramNextHops(thinkit::TestEnvironment& test_environment,
-                             pdpi::P4RuntimeSession* const p4_session,
+                             pdpi::P4RuntimeSession& p4_session,
                              const pdpi::IrP4Info& ir_p4info,
                              std::vector<gpins::Member>& members) {
   int index = 0;
@@ -101,7 +101,7 @@ absl::Status ProgramNextHops(thinkit::TestEnvironment& test_environment,
 
   // Program the switch.
   RETURN_IF_ERROR(
-      (pdpi::InstallPiTableEntries(p4_session, ir_p4info, pi_entries)));
+      (pdpi::InstallPiTableEntries(&p4_session, ir_p4info, pi_entries)));
 
   // Write the PI & PD entries to artifacts.
   for (const auto& pi : pi_entries) {
@@ -122,7 +122,7 @@ absl::Status ProgramNextHops(thinkit::TestEnvironment& test_environment,
 }
 
 absl::Status ProgramGroupWithMembers(thinkit::TestEnvironment& test_environment,
-                                     pdpi::P4RuntimeSession* const p4_session,
+                                     pdpi::P4RuntimeSession& p4_session,
                                      const pdpi::IrP4Info& ir_p4info,
                                      absl::string_view group_id,
                                      absl::Span<const Member> members,
@@ -166,7 +166,7 @@ absl::Status ProgramGroupWithMembers(thinkit::TestEnvironment& test_environment,
   update->set_type(type);
   *update->mutable_entity()->mutable_table_entry() = pi_entry;
   RETURN_IF_ERROR(
-      pdpi::SetMetadataAndSendPiWriteRequest(p4_session, write_request));
+      pdpi::SetMetadataAndSendPiWriteRequest(&p4_session, write_request));
 
   // Append the PI & PD entries.
   RETURN_IF_ERROR(test_environment.AppendToTestArtifact(
@@ -176,7 +176,7 @@ absl::Status ProgramGroupWithMembers(thinkit::TestEnvironment& test_environment,
   return absl::OkStatus();
 }
 
-absl::Status DeleteGroup(pdpi::P4RuntimeSession* const p4_session,
+absl::Status DeleteGroup(pdpi::P4RuntimeSession& p4_session,
                          const pdpi::IrP4Info& ir_p4info,
                          absl::string_view group_id) {
   ASSIGN_OR_RETURN(
@@ -194,19 +194,19 @@ absl::Status DeleteGroup(pdpi::P4RuntimeSession* const p4_session,
               )pb",
               group_id))));
 
-  return pdpi::SetMetadataAndSendPiWriteRequest(p4_session, write_request);
+  return pdpi::SetMetadataAndSendPiWriteRequest(&p4_session, write_request);
 }
 
 // Verifies  the actual members received from P4 read response matches the
 // expected members.
 absl::Status VerifyGroupMembersFromP4Read(
-    pdpi::P4RuntimeSession* const p4_session, const pdpi::IrP4Info& ir_p4info,
+    pdpi::P4RuntimeSession& p4_session, const pdpi::IrP4Info& ir_p4info,
     absl::string_view group_id, absl::Span<const Member> expected_members) {
   p4::v1::ReadRequest read_request;
   read_request.add_entities()->mutable_table_entry();
   ASSIGN_OR_RETURN(
       p4::v1::ReadResponse read_response,
-      pdpi::SetMetadataAndSendPiReadRequest(p4_session, read_request));
+      pdpi::SetMetadataAndSendPiReadRequest(&p4_session, read_request));
 
   // Filter out WCMP group entries separately from the whole read response.
   absl::flat_hash_map<std::string, p4::v1::TableEntry>
@@ -236,7 +236,7 @@ absl::Status VerifyGroupMembersFromP4Read(
         gutil::ParseProtoOrDie<sai::WcmpGroupTableEntry::WcmpAction>(
             absl::Substitute(R"pb(
                                action { set_nexthop_id { nexthop_id: "$0" } }
-                               weight: 0
+                               weight: 1
                                watch_port: ""
                              )pb",
                              member.nexthop));
@@ -312,6 +312,33 @@ void RescaleMemberWeights(std::vector<Member>& members) {
               << " from weight: " << old_weight
               << " to new weight: " << member.weight;
   }
+}
+
+std::string DescribeDistribution(
+    int expected_total_test_packets, absl::Span<const gpins::Member> members,
+    const absl::flat_hash_map<int, int>& num_packets_per_port,
+    bool expect_single_port) {
+  double total_weight = 0;
+  for (const auto& member : members) {
+    total_weight += member.weight;
+  }
+  std::string explanation = "";
+  for (const auto& member : members) {
+    double actual_packets = num_packets_per_port.contains(member.port)
+                                ? num_packets_per_port.at(member.port)
+                                : 0;
+    if (expect_single_port) {
+      absl::StrAppend(&explanation, "\nport ", member.port,
+                      ": actual_count = ", actual_packets);
+    } else {
+      double expected_packets =
+          expected_total_test_packets * member.weight / total_weight;
+      absl::StrAppend(&explanation, "\nport ", member.port, " with weight ",
+                      member.weight, ": expected_count = ", expected_packets,
+                      ", actual_count = ", actual_packets);
+    }
+  }
+  return explanation;
 }
 
 }  // namespace gpins
