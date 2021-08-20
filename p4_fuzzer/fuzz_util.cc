@@ -222,12 +222,10 @@ Update::Type FuzzUpdateType(absl::BitGen* gen, const SwitchState& state) {
     if (absl::Bernoulli(*gen, 0.7)) {
       return Update::INSERT;
     } else {
-      // TODO: MODIFY updates with empty WCMP groups sometimes
-      // cause Orchagent to timeout.
       // Equally split the rest between modify and delete.
-      // if (absl::Bernoulli(*gen, 0.5)) {
-      //   return Update::MODIFY;
-      // }
+      if (absl::Bernoulli(*gen, 0.5)) {
+        return Update::MODIFY;
+      }
       return Update::DELETE;
     }
   }
