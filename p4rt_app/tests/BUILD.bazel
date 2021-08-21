@@ -228,27 +228,3 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
-
-cc_binary(
-    name = "p4rt_route_measurement_test",
-    testonly = True,
-    srcs = ["p4rt_route_measurement_test.cc"],
-    deps = [
-        "//gutil:io",
-        "//gutil:proto",
-        "//gutil:proto_matchers",
-        "//gutil:status_matchers",
-        "//p4_pdpi:connection_management",
-        "//p4_pdpi:entity_management",
-        "//p4_pdpi/netaddr:ipv4_address",
-        "//sai_p4/instantiations/google:sai_p4info_cc",
-        "@com_github_gflags_gflags//:gflags",
-        "@com_github_google_glog//:glog",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
-        "@com_google_absl//absl/numeric:int128",
-        "@com_google_absl//absl/strings",
-        "@com_google_googletest//:gtest_main",
-        "@com_google_protobuf//:protobuf",
-    ],
-)
