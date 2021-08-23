@@ -38,6 +38,8 @@
 #define SELECT_ECMP_HASH_ALGORITHM_ACTION_ID 0x010000A        // 16777226
 #define COMPUTE_ECMP_HASH_IPV4_ACTION_ID 0x0100000B           // 16777227
 #define COMPUTE_ECMP_HASH_IPV6_ACTION_ID 0x0100000C           // 16777228
+#define COMPUTE_LAG_HASH_IPV4_ACTION_ID 0x0100000D            // 16777229
+#define COMPUTE_LAG_HASH_IPV6_ACTION_ID 0x0100000E            // 16777230
 
 // --- Action Profiles and Selectors (8 most significant bits = 0x11) ----------
 // This value should ideally be 0x11000001, but we currently have this value for

@@ -657,6 +657,41 @@ actions {
 }
 actions {
   preamble {
+    id: 19711398
+    name: "ingress.lag_hashing_config.select_lag_hash_algorithm"
+    alias: "select_lag_hash_algorithm"
+    annotations: "@sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"
+    annotations: "@sai_hash_seed(0)"
+    annotations: "@sai_hash_offset(0)"
+  }
+}
+actions {
+  preamble {
+    id: 16777229
+    name: "ingress.lag_hashing_config.compute_lag_hash_ipv4"
+    alias: "compute_lag_hash_ipv4"
+    annotations: "@sai_lag_hash(SAI_SWITCH_ATTR_LAG_HASH_IPV4)"
+    annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_SRC_IPV4)"
+    annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_DST_IPV4)"
+    annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_L4_SRC_PORT)"
+    annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_L4_DST_PORT)"
+  }
+}
+actions {
+  preamble {
+    id: 16777230
+    name: "ingress.lag_hashing_config.compute_lag_hash_ipv6"
+    alias: "compute_lag_hash_ipv6"
+    annotations: "@sai_lag_hash(SAI_SWITCH_ATTR_LAG_HASH_IPV6)"
+    annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_SRC_IPV6)"
+    annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_DST_IPV6)"
+    annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_L4_SRC_PORT)"
+    annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_L4_DST_PORT)"
+    annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_IPV6_FLOW_LABEL)"
+  }
+}
+actions {
+  preamble {
     id: 16777217
     name: "ingress.routing.set_dst_mac"
     alias: "set_dst_mac"
