@@ -21,6 +21,7 @@
 #include "absl/flags/parse.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "authz_policy/authz_policy_processor.h"
 #include "gflags/gflags.h"
 #include "glog/logging.h"
@@ -64,10 +65,13 @@ DEFINE_string(authorization_policy_file_name, "authorization_policy.proto.txt",
               "File name of the authorization policy file.");
 DEFINE_bool(use_genetlink, false,
             "Enable Generic Netlink model for Packet Receive");
-
 DEFINE_bool(use_port_ids, false,
             "Controller will use Port ID values configured over gNMI instead "
             "of the SONiC interface names.");
+DEFINE_int32(p4rt_grpc_port, 9559, "gRPC port for the P4Runtime Server");
+DEFINE_string(
+    p4rt_unit_socket, "/sock/p4rt.sock",
+    "Unix socket file for internal insecure connections. Disabled if empty.");
 
 absl::StatusOr<std::shared_ptr<ServerCredentials>> BuildServerCredentials() {
   constexpr int kCertRefreshIntervalSec = 5;
@@ -129,8 +133,6 @@ absl::StatusOr<std::shared_ptr<ServerCredentials>> BuildServerCredentials() {
 int main(int argc, char** argv) {
   constexpr char kRedisDbHost[] = "localhost";
   constexpr int kRedisDbPort = 6379;
-  constexpr char kServerAddress[] = "[::]:9559";
-  constexpr char kInternalServerAddress[] = "unix:/sock/p4rt.sock";
 
   google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
@@ -215,13 +217,17 @@ int main(int argc, char** argv) {
                << server_cred.status();
     return -1;
   }
-  builder.AddListeningPort(kServerAddress, *server_cred);
-  builder.AddListeningPort(kInternalServerAddress,
-                           grpc::InsecureServerCredentials());
+
+  std::string server_addr = absl::StrCat("[::]:", FLAGS_p4rt_grpc_port);
+  builder.AddListeningPort(server_addr, *server_cred);
+  if (!FLAGS_p4rt_unit_socket.empty()) {
+    builder.AddListeningPort(absl::StrCat("unix:", FLAGS_p4rt_unit_socket),
+                             grpc::InsecureServerCredentials());
+  }
   builder.RegisterService(&p4runtime_server);
 
   std::unique_ptr<Server> server(builder.BuildAndStart());
-  LOG(INFO) << "Server listening on " << kServerAddress << ".";
+  LOG(INFO) << "Server listening on " << server_addr << ".";
   server->Wait();
 
   return 0;
