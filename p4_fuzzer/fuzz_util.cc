@@ -816,13 +816,6 @@ absl::StatusOr<p4::v1::ActionProfileActionSet> FuzzActionProfileActionSet(
       absl::IntervalClosedClosed, *gen, 0,
       std::min(unallocated_weight, kActionProfileActionSetMaxCardinality));
 
-  // TODO: Repeated nexthop members should be supported. Remove
-  // this workaround once the bug on the switch has been fixed.
-  // Action sets in GPINS cannot have repeated nexthop members. We hard-code
-  // this restriction here in the fuzzer.
-  absl::flat_hash_set<std::string> used_nexthops;
-  bool is_wcmp_table =
-      ir_table_info.preamble().id() == ROUTING_WCMP_GROUP_TABLE_ID;
   for (int i = 0; i < number_of_actions; i++) {
     // Since each action must have at least weight 1, we need to take the number
     // of remaining actions into account to determine the acceptable max weight.
@@ -832,16 +825,6 @@ absl::StatusOr<p4::v1::ActionProfileActionSet> FuzzActionProfileActionSet(
     ASSIGN_OR_RETURN(auto action,
                      FuzzActionProfileAction(gen, config, switch_state,
                                              ir_table_info, max_weight));
-
-    bool is_set_nexthop_action =
-        action.action().action_id() == ROUTING_SET_NEXTHOP_ID_ACTION_ID;
-    // If this nexthop has already been used, skip. This will generate fewer
-    // actions, but that's fine.
-    if (is_wcmp_table && is_set_nexthop_action &&
-        action.action().params_size() == 1 &&
-        used_nexthops.insert(action.action().params()[0].value()).second) {
-      continue;
-    }
     *action_set.add_action_profile_actions() = action;
     unallocated_weight -= action.weight();
   }
