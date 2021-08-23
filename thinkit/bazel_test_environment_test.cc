@@ -16,6 +16,7 @@
 #include <cstdlib>
 #include <memory>
 #include <string>
+#include <vector>
 
 // Switching benchmark dependency to third_party seems to not output any
 // benchmarking information when run.
@@ -33,7 +34,7 @@ namespace thinkit {
 namespace {
 
 using ::gutil::IsOk;
-using ::testing::StrEq;
+using ::testing::UnorderedElementsAre;
 
 // -- Tests --------------------------------------------------------------------
 
@@ -80,18 +81,19 @@ TEST(BazelTestEnvironmentTest,
 
 // Test that SetTestCaseID correctly calls its input function.
 TEST(BazelTestEnvironmentTest, SetTestCaseIdCallsMemberFunction) {
-  std::string stored_test_case_id;
+  std::vector<std::string> stored_test_case_ids;
   std::string test_id = "1";
 
   std::unique_ptr<TestEnvironment> environment =
       absl::make_unique<BazelTestEnvironment>(
           /*mask_known_failures=*/true,
-          /*set_test_case_id=*/[&](absl::string_view test_case_id) {
-            stored_test_case_id = test_case_id;
+          /*set_test_case_ids=*/[&](const std::vector<std::string>&
+                                        test_case_ids) {
+            stored_test_case_ids = test_case_ids;
           });
 
   environment->SetTestCaseID(test_id);
-  EXPECT_THAT(test_id, StrEq(stored_test_case_id));
+  EXPECT_THAT(stored_test_case_ids, UnorderedElementsAre(test_id));
 }
 
 // SetTestCaseID should not crash even if the environment is constructed without
