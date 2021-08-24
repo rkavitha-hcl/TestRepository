@@ -355,7 +355,8 @@ absl::StatusOr<uint64_t> GetGnmiSystemBootTime(
   return boot_time;
 }
 
-void TestGnoiSystemColdReboot(thinkit::Switch& sut) {
+void TestGnoiSystemColdReboot(thinkit::Switch& sut,
+                              absl::Span<const std::string> interfaces) {
   ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
   ASSERT_OK_AND_ASSIGN(uint64_t first_boot_time,
                        GetGnmiSystemBootTime(sut, sut_gnmi_stub.get()));
@@ -389,7 +390,7 @@ void TestGnoiSystemColdReboot(thinkit::Switch& sut) {
   // Wait for system to become reachable over gNOI.
   start_time = absl::Now();
   while (absl::Now() < (start_time + kColdRebootWaitForUpTime)) {
-    if (SwitchReady(sut) == absl::OkStatus()) {
+    if (SwitchReady(sut, interfaces) == absl::OkStatus()) {
       system_down = false;
       break;
     }

@@ -54,7 +54,8 @@ void TestGnmiInterfaceConfigSetMtu(thinkit::Switch& sut,
 void TestGnmiConfigBlobSet(thinkit::Switch& sut);
 
 // Tests gNOI Cold Reboot on SUT.
-void TestGnoiSystemColdReboot(thinkit::Switch& sut);
+void TestGnoiSystemColdReboot(thinkit::Switch& sut,
+                              absl::Span<const std::string> interfaces = {});
 }  // namespace pins_test
 
 #endif  // GOOGLE_TESTS_THINKIT_SANITY_TESTS_H_
