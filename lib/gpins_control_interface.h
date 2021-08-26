@@ -47,6 +47,15 @@ class GpinsControlInterface : public thinkit::ControlInterface {
       pdpi::IrP4Info ir_p4info,
       absl::flat_hash_map<std::string, std::string> interface_name_to_port_id);
 
+  GpinsControlInterface(GpinsControlInterface&&) = default;
+
+  ~GpinsControlInterface() override {
+    if (control_p4_session_ != nullptr) {
+      LOG(INFO) << "Cancel control switch p4session.";
+      control_p4_session_->TryCancel();
+    }
+  }
+
   absl::StatusOr<std::unique_ptr<thinkit::PacketGenerationFinalizer>>
   CollectPackets(thinkit::PacketCallback callback) override;
 

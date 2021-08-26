@@ -44,13 +44,19 @@ class PacketListener : public thinkit::PacketGenerationFinalizer {
                      interface_port_id_to_name,
                  thinkit::PacketCallback callback);
 
-  ~PacketListener() {
-    session_->TryCancel();  // Needed so fiber stops looping.
+  ~PacketListener() ABSL_LOCKS_EXCLUDED(mutex_) {
+    {
+      absl::MutexLock lock(&mutex_);
+      time_to_exit_ = true;
+    }
+    LOG(INFO) << "receive packet thread join.";
     receive_packet_thread_.join();
   }
 
  private:
-  std::unique_ptr<pdpi::P4RuntimeSession> session_;
+  pdpi::P4RuntimeSession* session_;
+  bool time_to_exit_ ABSL_GUARDED_BY(mutex_);
+  absl::Mutex mutex_;
   std::thread receive_packet_thread_;
 };
 

@@ -25,15 +25,18 @@
 #include "diag/diag.grpc.pb.h"
 #include "glog/logging.h"
 #include "gutil/status.h"
+#include "gutil/testing.h"
 #include "lib/gnmi/gnmi_helper.h"
 #include "lib/p4rt/packet_listener.h"
 #include "lib/validator/validator_lib.h"
+#include "p4_pdpi/connection_management.h"
 #include "p4_pdpi/packetlib/packetlib.h"
 #include "p4_pdpi/packetlib/packetlib.pb.h"
 #include "p4_pdpi/pd.h"
 #include "proto/gnmi/gnmi.pb.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
+#include "sai_p4/instantiations/google/sai_pd.pb.h"
 #include "single_include/nlohmann/json.hpp"
 #include "tests/forwarding/util.h"
 #include "thinkit/control_interface.h"
@@ -108,7 +111,20 @@ GpinsControlInterface::CreateGpinsControlInterface(
   ASSIGN_OR_RETURN(auto gnmi_stub, sut->CreateGnmiStub());
   ASSIGN_OR_RETURN(auto interface_name_to_port_id,
                    GetAllInterfaceNameToPortId(*gnmi_stub));
-
+  ASSIGN_OR_RETURN(
+      p4::v1::TableEntry punt_all_pi_entry,
+      pdpi::PdTableEntryToPi(
+          sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
+          gutil::ParseProtoOrDie<sai::TableEntry>(
+              R"pb(
+                acl_ingress_table_entry {
+                  match {}                              # Wildcard match.
+                  action { trap { qos_queue: "0x1" } }  # Action: punt.
+                  priority: 1                           # Highest priority.
+                }
+              )pb")));
+  RETURN_IF_ERROR(
+      pdpi::InstallPiTableEntry(control_p4_session.get(), punt_all_pi_entry));
   return GpinsControlInterface(std::move(sut), std::move(control_p4_session),
                                std::move(ir_p4info),
                                std::move(interface_name_to_port_id));
@@ -117,7 +133,7 @@ GpinsControlInterface::CreateGpinsControlInterface(
 absl::StatusOr<std::unique_ptr<thinkit::PacketGenerationFinalizer>>
 GpinsControlInterface::CollectPackets(thinkit::PacketCallback callback) {
   return absl::make_unique<PacketListener>(
-      control_p4_session_.get(), &ir_p4info_, &interface_name_to_port_id_,
+      control_p4_session_.get(), &ir_p4info_, &interface_port_id_to_name_,
       callback);
 }
 
