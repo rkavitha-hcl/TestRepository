@@ -35,16 +35,16 @@ Code SwssToP4RTErrorCode(const std::string& status_str) {
   std::map<swss::StatusCode, Code> status_map = {
       {swss::StatusCode::SWSS_RC_SUCCESS, Code::OK},
       {swss::StatusCode::SWSS_RC_INVALID_PARAM, Code::INVALID_ARGUMENT},
-      {swss::StatusCode::SWSS_RC_DEADLINE_EXCEEDED, Code::INTERNAL},
-      {swss::StatusCode::SWSS_RC_UNAVAIL, Code::INTERNAL},
-      {swss::StatusCode::SWSS_RC_NOT_FOUND, Code::INTERNAL},
+      {swss::StatusCode::SWSS_RC_DEADLINE_EXCEEDED, Code::DEADLINE_EXCEEDED},
+      {swss::StatusCode::SWSS_RC_UNAVAIL, Code::UNAVAILABLE},
+      {swss::StatusCode::SWSS_RC_NOT_FOUND, Code::NOT_FOUND},
       {swss::StatusCode::SWSS_RC_NO_MEMORY, Code::INTERNAL},
-      {swss::StatusCode::SWSS_RC_EXISTS, Code::INTERNAL},
-      {swss::StatusCode::SWSS_RC_PERMISSION_DENIED, Code::INTERNAL},
+      {swss::StatusCode::SWSS_RC_EXISTS, Code::ALREADY_EXISTS},
+      {swss::StatusCode::SWSS_RC_PERMISSION_DENIED, Code::PERMISSION_DENIED},
       {swss::StatusCode::SWSS_RC_FULL, Code::RESOURCE_EXHAUSTED},
       {swss::StatusCode::SWSS_RC_IN_USE, Code::INVALID_ARGUMENT},
       {swss::StatusCode::SWSS_RC_INTERNAL, Code::INTERNAL},
-      {swss::StatusCode::SWSS_RC_UNKNOWN, Code::INTERNAL},
+      {swss::StatusCode::SWSS_RC_UNKNOWN, Code::UNKNOWN},
       {swss::StatusCode::SWSS_RC_UNIMPLEMENTED, Code::UNIMPLEMENTED}};
   auto it = status_map.find(status_code);
   // TODO (kishanps) raise critical error for all INTERNAL errors.
