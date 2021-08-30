@@ -18,7 +18,37 @@
 
 namespace p4_fuzzer {
 
-class FuzzTest : public thinkit::MirrorTestbedFixture {};
+// Used for testing a specific milestone, ignoring MaskKnownFailures(), rather
+// than everything, respecting MaskKnownFailures().
+enum class Milestone {
+  // Tests that the switch adheres to the minimum guarantees on resources
+  // currently defined in
+  // google3/third_party/pins_infra/sai_p4/instantiations/google/minimum_guaranteed_sizes.p4.
+  kResourceLimits,
+};
+
+struct FuzzerTestFixtureParams {
+  thinkit::MirrorTestbedInterface* mirror_testbed;
+  std::string gnmi_config;
+  absl::optional<Milestone> milestone;
+  absl::optional<std::string> test_case_id;
+};
+
+class FuzzerTestFixture
+    : public testing::TestWithParam<FuzzerTestFixtureParams> {
+ protected:
+  void SetUp() override {
+    GetParam().mirror_testbed->SetUp();
+    if (auto& id = GetParam().test_case_id; id.has_value()) {
+      GetParam().mirror_testbed->GetMirrorTestbed().Environment().SetTestCaseID(
+          *id);
+    }
+  }
+
+  void TearDown() override { GetParam().mirror_testbed->TearDown(); }
+
+  ~FuzzerTestFixture() override { delete GetParam().mirror_testbed; }
+};
 
 }  // namespace p4_fuzzer
 

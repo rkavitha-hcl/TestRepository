@@ -22,6 +22,7 @@
 #include "absl/random/seed_sequences.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -48,12 +49,30 @@ ABSL_FLAG(int, fuzzer_iterations, 1000,
           "Number of updates the fuzzer should generate.");
 
 namespace p4_fuzzer {
+namespace {
+
+bool IsMaskedResource(absl::string_view table_name) {
+  // TODO: acl_pre_ingress_table has a resource limit
+  // problem.
+  // TODO: router_interface_table, ipv4_table and
+  // ipv6_table all have resource limit problems.
+  // TODO: wcmp_group_table has a resource limit problem.
+  return table_name == "acl_pre_ingress_table" ||
+         table_name == "router_interface_table" || table_name == "ipv4_table" ||
+         table_name == "ipv6_table" || table_name == "wcmp_group_table";
+}
+
+}  // namespace
 
 using ::p4::v1::WriteRequest;
 
-TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
-  thinkit::Switch& sut = GetMirrorTestbed().Sut();
-  thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
+TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
+  // Gets the mirror testbed from the test parameters given to
+  // FuzzerTestFixture.
+  thinkit::MirrorTestbed& mirror_testbed =
+      GetParam().mirror_testbed->GetMirrorTestbed();
+  thinkit::Switch& sut = mirror_testbed.Sut();
+  thinkit::TestEnvironment& environment = mirror_testbed.Environment();
 
   pdpi::IrP4Info info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   FuzzerConfig config = {
@@ -66,10 +85,9 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
   bool mask_known_failures = environment.MaskKnownFailures();
 
   // Push the gnmi configuration.
-  ASSERT_OK(
-      pins_test::PushGnmiConfig(GetMirrorTestbed().Sut(), GetGnmiConfig()));
-  ASSERT_OK(pins_test::PushGnmiConfig(GetMirrorTestbed().ControlSwitch(),
-                                      GetGnmiConfig()));
+  ASSERT_OK(pins_test::PushGnmiConfig(sut, GetParam().gnmi_config));
+  ASSERT_OK(pins_test::PushGnmiConfig(mirror_testbed.ControlSwitch(),
+                                      GetParam().gnmi_config));
 
   // Initialize connection.
   ASSERT_OK_AND_ASSIGN(auto stub, sut.CreateP4RuntimeStub());
@@ -157,12 +175,9 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
           // TODO: router_interface_table, ipv4_table and
           // ipv6_table all have resource limit problems.
           // TODO: wcmp_group_table has a resource limit problem.
-          if (!(mask_known_failures &&
-                (table.preamble().alias() == "acl_pre_ingress_table" ||
-                 table.preamble().alias() == "router_interface_table" ||
-                 table.preamble().alias() == "ipv4_table" ||
-                 table.preamble().alias() == "ipv6_table" ||
-                 table.preamble().alias() == "wcmp_group_table"))) {
+          if (GetParam().milestone == Milestone::kResourceLimits ||
+              !mask_known_failures ||
+              IsMaskedResource(table.preamble().alias())) {
             // Check that table was full before this status.
             ASSERT_TRUE(state.IsTableFull(table_id)) << absl::Substitute(
                 "Switch reported RESOURCE_EXHAUSTED for table named '$0'. The "
