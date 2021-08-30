@@ -170,11 +170,8 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
           ASSERT_OK_AND_ASSIGN(
               const pdpi::IrTableDefinition& table,
               gutil::FindOrStatus(info.tables_by_id(), table_id));
-          // TODO: acl_pre_ingress_table has a resource limit
-          // problem.
-          // TODO: router_interface_table, ipv4_table and
-          // ipv6_table all have resource limit problems.
-          // TODO: wcmp_group_table has a resource limit problem.
+          // Mask known failures unless we are specifically testing the resource
+          // limits milestone.
           if (GetParam().milestone == Milestone::kResourceLimits ||
               !mask_known_failures ||
               IsMaskedResource(table.preamble().alias())) {
