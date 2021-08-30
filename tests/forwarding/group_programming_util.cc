@@ -35,7 +35,7 @@ namespace gpins {
 absl::Status ProgramNextHops(thinkit::TestEnvironment& test_environment,
                              pdpi::P4RuntimeSession& p4_session,
                              const pdpi::IrP4Info& ir_p4info,
-                             std::vector<gpins::Member>& members) {
+                             std::vector<gpins::GroupMember>& members) {
   int index = 0;
   std::vector<std::string> nexthops;
   std::vector<p4::v1::TableEntry> pi_entries;
@@ -125,7 +125,7 @@ absl::Status ProgramGroupWithMembers(thinkit::TestEnvironment& test_environment,
                                      pdpi::P4RuntimeSession& p4_session,
                                      const pdpi::IrP4Info& ir_p4info,
                                      absl::string_view group_id,
-                                     absl::Span<const Member> members,
+                                     absl::Span<const GroupMember> members,
                                      const p4::v1::Update_Type& type) {
   auto group_update = gutil::ParseProtoOrDie<sai::TableEntry>(absl::Substitute(
       R"pb(
@@ -201,7 +201,8 @@ absl::Status DeleteGroup(pdpi::P4RuntimeSession& p4_session,
 // expected members.
 absl::Status VerifyGroupMembersFromP4Read(
     pdpi::P4RuntimeSession& p4_session, const pdpi::IrP4Info& ir_p4info,
-    absl::string_view group_id, absl::Span<const Member> expected_members) {
+    absl::string_view group_id,
+    absl::Span<const GroupMember> expected_members) {
   p4::v1::ReadRequest read_request;
   read_request.add_entities()->mutable_table_entry();
   ASSIGN_OR_RETURN(
@@ -304,8 +305,8 @@ int RescaleWeightForTomahawk3(int weight) {
   return (weight - 1) / 2;
 }
 
-void RescaleMemberWeights(std::vector<Member>& members) {
-  for (Member& member : members) {
+void RescaleMemberWeights(std::vector<GroupMember>& members) {
+  for (GroupMember& member : members) {
     int old_weight = member.weight;
     member.weight = RescaleWeightForTomahawk3(old_weight);
     LOG(INFO) << "Rescaling member id: " << member.port
@@ -315,7 +316,8 @@ void RescaleMemberWeights(std::vector<Member>& members) {
 }
 
 std::string DescribeDistribution(
-    int expected_total_test_packets, absl::Span<const gpins::Member> members,
+    int expected_total_test_packets,
+    absl::Span<const gpins::GroupMember> members,
     const absl::flat_hash_map<int, int>& num_packets_per_port,
     bool expect_single_port) {
   double total_weight = 0;

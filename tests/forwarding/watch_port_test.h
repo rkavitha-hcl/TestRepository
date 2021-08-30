@@ -35,6 +35,7 @@ class WatchPortTestFixture : public thinkit::MirrorTestbedFixture {
   TestData test_data_;
   std::unique_ptr<pdpi::P4RuntimeSession> sut_p4_session_;
   std::unique_ptr<pdpi::P4RuntimeSession> control_p4_session_;
+  std::unique_ptr<gnmi::gNMI::StubInterface> sut_gnmi_stub_;
   // Stores the receive thread that is created in SetUp() and joined in
   // TearDown(). Accesses control_p4_session_->StreamChannelRead to read
   // packets, which must not be used by other threads.

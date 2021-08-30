@@ -205,7 +205,7 @@ absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession* const p4_session,
 absl::Status ProgramHashingEntities(thinkit::TestEnvironment& test_environment,
                                     pdpi::P4RuntimeSession& session,
                                     const pdpi::IrP4Info& ir_p4info,
-                                    std::vector<gpins::Member>& members) {
+                                    std::vector<gpins::GroupMember>& members) {
   RETURN_IF_ERROR(
       gpins::ProgramNextHops(test_environment, session, ir_p4info, members));
 
@@ -361,9 +361,9 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
 
   // Iterate over 3 sets of random weights for 3 ports.
   for (int iter = 0; iter < 3; iter++) {
-    std::vector<Member> members(kNumWcmpMembersForTest);
+    std::vector<GroupMember> members(kNumWcmpMembersForTest);
     for (int i = 0; i < kNumWcmpMembersForTest; i++) {
-      members[i] = gpins::Member{.weight = 0, .port = orion_port_ids[i]};
+      members[i] = gpins::GroupMember{.weight = 0, .port = orion_port_ids[i]};
     }
 
     std::vector<int> weights(kNumWcmpMembersForTest);

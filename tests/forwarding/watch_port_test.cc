@@ -23,6 +23,8 @@
 
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
+#include "absl/random/random.h"
+#include "absl/random/uniform_int_distribution.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/escaping.h"
@@ -33,6 +35,7 @@
 #include "absl/time/time.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "gutil/collections.h"
 #include "gutil/proto_matchers.h"
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
@@ -45,6 +48,7 @@
 #include "p4_pdpi/string_encodings/decimal_string.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
+#include "tests/forwarding/group_programming_util.h"
 #include "tests/forwarding/packet_test_util.h"
 #include "tests/forwarding/util.h"
 #include "thinkit/mirror_testbed_fixture.h"
@@ -53,6 +57,12 @@
 namespace gpins {
 
 namespace {
+// Admin down/up state used for interfaces.
+enum class AdminState {
+  kDown,
+  kUp,
+};
+
 // Group id used in this test.
 constexpr absl::string_view kGroupId = "group-1";
 
@@ -63,10 +73,14 @@ constexpr absl::string_view kVrfId = "vrf-1";
 constexpr absl::Duration kDurationToWaitForPackets = absl::Seconds(5);
 
 // Number of members used in the test.
-constexpr int kNumWcmpMembersForTest = 3;
+constexpr int kNumWcmpMembersForTest = 5;
 
 // Number of packets used in the test.
 constexpr int kNumTestPackets = 5000;
+
+// Default input port index of the group members vector, on which packets
+// arrive.
+constexpr int kDefaultInputPortIndex = 0;
 
 // Helper function to program V4, V6 default route entries.
 absl::Status ProgramDefaultRoutes(pdpi::P4RuntimeSession& p4_session,
@@ -161,12 +175,12 @@ absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession& p4_session,
 
 // Create members by filling in the controller port ids and random weights for
 // each member that add upto 30(random).
-absl::StatusOr<std::vector<Member>> CreateMembers(
+absl::StatusOr<std::vector<GroupMember>> CreateGroupMembers(
     absl::Span<const int> controller_port_ids) {
-  std::vector<Member> members;
+  std::vector<GroupMember> members;
   for (int i = 0; i < kNumWcmpMembersForTest; i++) {
     members.push_back(
-        gpins::Member{.weight = 0, .port = controller_port_ids[i]});
+        gpins::GroupMember{.weight = 0, .port = controller_port_ids[i]});
   }
 
   ASSIGN_OR_RETURN(std::vector<int> weights,
@@ -178,10 +192,31 @@ absl::StatusOr<std::vector<Member>> CreateMembers(
   return members;
 }
 
+// Create a set of expected port ids from the member ports.
+absl::flat_hash_set<int> CreateExpectedMemberPorts(
+    absl::Span<const GroupMember> members) {
+  absl::flat_hash_set<int> expected_member_ports;
+  for (const auto& member : members) {
+    expected_member_ports.insert(member.port);
+  }
+  return expected_member_ports;
+}
+
+// Return a map of number of packets received per port.
+absl::StatusOr<absl::flat_hash_map<int, int>> CountNumPacketsPerPort(
+    absl::Span<const gpins::Packet> output_packets) {
+  absl::flat_hash_map<int, int> num_packets_per_port;
+  for (const auto& output : output_packets) {
+    ASSIGN_OR_RETURN(int out_port, pdpi::DecimalStringToInt(output.port()));
+    num_packets_per_port[out_port]++;
+  }
+  return num_packets_per_port;
+}
+
 // Send N packets from the control switch to sut at a rate of 500 packets/sec.
 absl::Status SendNPacketsToSut(int num_packets,
                                const TestConfiguration& test_config,
-                               absl::Span<const Member> members,
+                               absl::Span<const GroupMember> members,
                                absl::Span<const int> port_ids,
                                const pdpi::IrP4Info& ir_p4info,
                                pdpi::P4RuntimeSession& p4_session,
@@ -194,7 +229,7 @@ absl::Status SendNPacketsToSut(int num_packets,
 
     // Vary the port on which to send the packet if the hash field selected is
     // input port.
-    int port = port_ids[0];
+    int port = port_ids[kDefaultInputPortIndex];
     if (test_config.field == PacketField::kInputPort) {
       port = port_ids[i % members.size()];
     }
@@ -227,7 +262,7 @@ absl::Status SendNPacketsToSut(int num_packets,
 
 void PrettyPrintDistribution(
     const TestConfiguration& config, const TestInputOutput& test,
-    const TestData& test_data, absl::Span<const Member> members,
+    const TestData& test_data, absl::Span<const GroupMember> members,
     const absl::flat_hash_map<int, int>& num_packets_per_port) {
   LOG(INFO) << "Results for " << DescribeTestConfig(config) << ":";
   LOG(INFO) << "- received " << test.output.size() << " packets";
@@ -241,6 +276,49 @@ void PrettyPrintDistribution(
             << test_data.total_packets_received;
   LOG(INFO) << "Number of received packets (invalid): "
             << test_data.total_invalid_packets_received;
+}
+
+// Creates the port_names_per_port_id map from GNMI config.
+absl::StatusOr<absl::flat_hash_map<const std::string, std::string>>
+GetPortNamePerPortId(gnmi::gNMI::StubInterface& gnmi_stub) {
+  absl::flat_hash_map<const std::string, std::string> port_name_per_port_id;
+  ASSIGN_OR_RETURN(auto port_id_per_port_name,
+                   pins_test::GetAllInterfaceNameToPortId(gnmi_stub));
+  for (const auto& [name, port_id] : port_id_per_port_name) {
+    port_name_per_port_id[port_id] = name;
+  }
+  return port_name_per_port_id;
+}
+
+// Sets the admin state of the interface to UP/DOWN using GNMI config path.
+// Queries the  state path to verify if the desired state is achieved or not.
+absl::Status SetInterfaceAdminState(gnmi::gNMI::StubInterface& gnmi_stub,
+                                    absl::string_view if_name,
+                                    AdminState admin_state) {
+  const std::string if_status =
+      admin_state == AdminState::kDown ? "DOWN" : "UP";
+  const std::string config_value =
+      admin_state == AdminState::kDown ? "false" : "true";
+  const std::string if_admin_config_path =
+      absl::StrCat("interfaces/interface[name=", if_name, "]/config/enabled");
+  LOG(INFO) << "Setting interface " << if_name << " to admin " << if_status;
+  RETURN_IF_ERROR(SetGnmiConfigPath(
+      &gnmi_stub, if_admin_config_path, pins_test::GnmiSetType::kUpdate,
+      absl::Substitute("{\"enabled\":$0}", config_value)));
+  // Wait for the admin state to take effect.
+  absl::SleepFor(absl::Seconds(1));
+  // Verifies /interfaces/interface[name=<port>]/state/admin-status = UP/DOWN.
+  const std::string if_state_path =
+      absl::StrCat("interfaces/interface[name=", if_name, "]/state");
+  ASSIGN_OR_RETURN(const std::string state_path_response,
+                   pins_test::GetGnmiStatePathInfo(
+                       &gnmi_stub, if_state_path,
+                       /*resp_parse_str=*/"openconfig-interfaces:state"));
+  if (!absl::StrContains(state_path_response, if_status)) {
+    return absl::UnknownError(absl::StrCat("Unable to set interface ", if_name,
+                                           " to admin ", if_status));
+  }
+  return absl::OkStatus();
 }
 
 }  // namespace
@@ -268,6 +346,9 @@ void WatchPortTestFixture::SetUp() {
   ASSERT_OK(SetUpSut(*sut_p4_session_, GetP4Info(), GetIrP4Info(), kVrfId));
   ASSERT_OK(
       SetUpControlSwitch(*control_p4_session_, GetP4Info(), GetIrP4Info()));
+
+  // Create GNMI stub for admin operations.
+  ASSERT_OK_AND_ASSIGN(sut_gnmi_stub_, testbed.Sut().CreateGnmiStub());
 
   // Start the receiver thread for control switch to listen for packets from
   // SUT, this thread is terminated in the TearDown.
@@ -316,6 +397,14 @@ void WatchPortTestFixture::TearDown() {
   if (receive_packet_thread_.joinable()) {
     receive_packet_thread_.join();
   }
+  if (sut_gnmi_stub_) {
+    ASSERT_OK_AND_ASSIGN(const auto port_name_per_port_id,
+                         GetPortNamePerPortId(*sut_gnmi_stub_));
+    // Restore the admin state to UP.
+    for (const auto& [port_id, name] : port_name_per_port_id) {
+      EXPECT_OK(SetInterfaceAdminState(*sut_gnmi_stub_, name, AdminState::kUp));
+    }
+  }
   thinkit::MirrorTestbedFixture::TearDown();
 }
 
@@ -326,12 +415,14 @@ namespace {
 // the sent traffic.
 TEST_P(WatchPortTestFixture, VerifyBasicWcmpPacketDistribution) {
   thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
+
   // Validate that we have enough ports for the test.
   ASSERT_TRUE(GetPortIds().has_value())
       << "Controller port ids (required) but not provided.";
   ASSERT_GE((*GetPortIds()).size(), kNumWcmpMembersForTest);
-  ASSERT_OK_AND_ASSIGN(std::vector<Member> members,
-                       CreateMembers(*GetPortIds()));
+
+  ASSERT_OK_AND_ASSIGN(std::vector<GroupMember> members,
+                       CreateGroupMembers(*GetPortIds()));
 
   // Programs the required router interfaces, nexthops for wcmp group.
   ASSERT_OK(gpins::ProgramNextHops(environment, *sut_p4_session_, GetIrP4Info(),
@@ -361,10 +452,10 @@ TEST_P(WatchPortTestFixture, VerifyBasicWcmpPacketDistribution) {
   ASSERT_TRUE(IsValidTestConfiguration(test_config));
 
   // Create test data entry.
-  std::string test_data_key = TestConfigurationToPayload(test_config);
+  std::string test_config_key = TestConfigurationToPayload(test_config);
   {
     absl::MutexLock lock(&test_data_.mutex);
-    test_data_.input_output_per_packet[test_data_key] = TestInputOutput{
+    test_data_.input_output_per_packet[test_config_key] = TestInputOutput{
         .config = test_config,
     };
   }
@@ -382,23 +473,17 @@ TEST_P(WatchPortTestFixture, VerifyBasicWcmpPacketDistribution) {
   {
     absl::MutexLock lock(&test_data_.mutex);
     const TestInputOutput& test =
-        test_data_.input_output_per_packet[test_data_key];
+        test_data_.input_output_per_packet[test_config_key];
     EXPECT_EQ(test.output.size(), test_data_.total_packets_sent)
         << "Mismatch in expected: " << test_data_.total_packets_sent
         << " and actual: " << test.output.size() << "packets received for "
         << DescribeTestConfig(test_config);
 
-    // Count number of packets received per port
-    absl::flat_hash_map<int, int> num_packets_per_port;
-    for (const auto& output : test.output) {
-      ASSERT_OK_AND_ASSIGN(int out_port,
-                           pdpi::DecimalStringToInt(output.port()));
-      num_packets_per_port[out_port] += 1;
-    }
-    absl::flat_hash_set<int> expected_member_ports;
-    for (const auto& member : members) {
-      expected_member_ports.insert(member.port);
-    }
+    ASSERT_OK_AND_ASSIGN(auto num_packets_per_port,
+                         CountNumPacketsPerPort(test.output));
+    absl::flat_hash_set<int> expected_member_ports =
+        CreateExpectedMemberPorts(members);
+
     ASSERT_OK(VerifyGroupMembersFromP4Read(*sut_p4_session_, GetIrP4Info(),
                                            kGroupId, members));
     ASSERT_OK(VerifyGroupMembersFromReceiveTraffic(num_packets_per_port,
@@ -408,9 +493,113 @@ TEST_P(WatchPortTestFixture, VerifyBasicWcmpPacketDistribution) {
   }
 }
 
-// TODO: Bring down/up APG member and verify traffic is distributed only to the
-// up ports.
-TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction){};
+// Bring down/up ActionProfileGroup member and verify traffic is distributed
+// only to the up ports.
+TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
+  thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
+
+  // Validate that we have enough ports for the test.
+  ASSERT_TRUE(GetPortIds().has_value())
+      << "Controller port ids (required) but not provided.";
+  ASSERT_GE((*GetPortIds()).size(), kNumWcmpMembersForTest);
+
+  ASSERT_OK_AND_ASSIGN(std::vector<GroupMember> members,
+                       CreateGroupMembers(GetPortIds().value()));
+
+  // Programs the required router interfaces, nexthops for wcmp group.
+  ASSERT_OK(gpins::ProgramNextHops(environment, *sut_p4_session_, GetIrP4Info(),
+                                   members));
+  ASSERT_OK(gpins::ProgramGroupWithMembers(environment, *sut_p4_session_,
+                                           GetIrP4Info(), kGroupId, members,
+                                           p4::v1::Update::INSERT));
+  // Program default routing for all packets on SUT.
+  ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, GetIrP4Info(), kVrfId));
+
+  // TODO: Revisit for newer chipsets.
+  // Rescale the member weights to what would have been programmed by the
+  // hardware.
+  RescaleMemberWeights(members);
+
+  // Generate test configuration, pick any field used by hashing to vary for
+  // every packet so that it gets sent to all the members.
+  TestConfiguration test_config = {
+      .field = PacketField::kIpDst,
+      .ipv4 = true,
+      .encapped = false,
+      .inner_ipv4 = false,
+      .decap = false,
+  };
+  ASSERT_TRUE(IsValidTestConfiguration(test_config));
+
+  // Create test data entry.
+  std::string test_config_key = TestConfigurationToPayload(test_config);
+  {
+    absl::MutexLock lock(&test_data_.mutex);
+    test_data_.input_output_per_packet[test_config_key] = TestInputOutput{
+        .config = test_config,
+    };
+  }
+
+  absl::flat_hash_set<int> expected_member_ports =
+      CreateExpectedMemberPorts(members);
+
+  // Select one random member of the group to toggle, but not the input port on
+  // which traffic is being received, so skip the default input port index.
+  absl::BitGen gen;
+  const int random_member_index =
+      absl::Uniform<int>(absl::IntervalClosedOpen, gen,
+                         kDefaultInputPortIndex + 1, kNumWcmpMembersForTest);
+  const int selected_port_id = members[random_member_index].port;
+  ASSERT_OK_AND_ASSIGN(const auto port_name_per_port_id,
+                       GetPortNamePerPortId(*sut_gnmi_stub_));
+  for (auto operation : {AdminState::kDown, AdminState::kUp}) {
+    ASSERT_OK_AND_ASSIGN(const auto& port_name,
+                         gutil::FindOrStatus(port_name_per_port_id,
+                                             absl::StrCat(selected_port_id)));
+    ASSERT_OK(SetInterfaceAdminState(*sut_gnmi_stub_, port_name, operation));
+
+    // Clear the counters before the test.
+    test_data_.ClearReceivedPackets();
+
+    // Send 5000 packets and check for packet distribution.
+    ASSERT_OK(SendNPacketsToSut(kNumTestPackets, test_config, members,
+                                GetPortIds().value(), GetIrP4Info(),
+                                *control_p4_session_, environment));
+    test_data_.total_packets_sent = kNumTestPackets;
+
+    // Wait for packets from the SUT to arrive.
+    absl::SleepFor(kDurationToWaitForPackets);
+
+    // For the test configuration, check the output distribution.
+    {
+      absl::MutexLock lock(&test_data_.mutex);
+      TestInputOutput& test =
+          test_data_.input_output_per_packet[test_config_key];
+      EXPECT_EQ(test.output.size(), test_data_.total_packets_sent)
+          << "Mismatch in expected: " << test_data_.total_packets_sent
+          << " and actual: " << test.output.size() << "packets received for "
+          << DescribeTestConfig(test_config);
+
+      ASSERT_OK_AND_ASSIGN(auto num_packets_per_port,
+                           CountNumPacketsPerPort(test.output));
+
+      // Add/remove the selected member from expected_member_ports for admin
+      // up/down case.
+      if (operation == AdminState::kDown) {
+        expected_member_ports.erase(selected_port_id);
+      } else {
+        expected_member_ports.insert(selected_port_id);
+      }
+
+      ASSERT_OK(VerifyGroupMembersFromP4Read(*sut_p4_session_, GetIrP4Info(),
+                                             kGroupId, members));
+      ASSERT_OK(VerifyGroupMembersFromReceiveTraffic(num_packets_per_port,
+                                                     expected_member_ports));
+      PrettyPrintDistribution(test_config, test, test_data_, members,
+                              num_packets_per_port);
+    }
+  }
+}
 
 // TODO: Bring down APG member (when in critical state) and verify traffic is
 // distributed only to the up ports.

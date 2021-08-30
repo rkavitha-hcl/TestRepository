@@ -28,7 +28,7 @@ namespace gpins {
 
 // Structure that holds the member details like port, weight and the
 // nexthop object key (output) that was created.
-struct Member {
+struct GroupMember {
   int weight = 1;
   int port = 0;
   std::string nexthop;
@@ -41,7 +41,7 @@ struct Member {
 absl::Status ProgramNextHops(thinkit::TestEnvironment& test_environment,
                              pdpi::P4RuntimeSession& p4_session,
                              const pdpi::IrP4Info& ir_p4info,
-                             std::vector<gpins::Member>& members);
+                             std::vector<gpins::GroupMember>& members);
 
 // Programs (insert/modify) a nexthop group on the switch with the given
 // set of nexthops and weights. It is expected that the dependant nexthops are
@@ -50,7 +50,7 @@ absl::Status ProgramGroupWithMembers(thinkit::TestEnvironment& test_environment,
                                      pdpi::P4RuntimeSession& p4_session,
                                      const pdpi::IrP4Info& ir_p4info,
                                      absl::string_view group_id,
-                                     absl::Span<const Member> members,
+                                     absl::Span<const GroupMember> members,
                                      const p4::v1::Update_Type& type);
 
 // Deletes the group with the given group_id. It is expected that the caller
@@ -63,7 +63,7 @@ absl::Status DeleteGroup(pdpi::P4RuntimeSession& p4_session,
 // expected members.
 absl::Status VerifyGroupMembersFromP4Read(
     pdpi::P4RuntimeSession& p4_session, const pdpi::IrP4Info& ir_p4info,
-    absl::string_view group_id, absl::Span<const Member> expected_members);
+    absl::string_view group_id, absl::Span<const GroupMember> expected_members);
 
 // Verifies the actual members inferred from receive traffic matches the
 // expected members.
@@ -85,14 +85,15 @@ int RescaleWeightForTomahawk3(int weight);
 // hardware behaviour, remove when hardware supports > 128 weights.
 // Halves member weights >= 2 and works only for sum of initial member weights
 // <= 256.
-void RescaleMemberWeights(std::vector<Member>& members);
+void RescaleMemberWeights(std::vector<GroupMember>& members);
 
 // Returns a human-readable description of the actual vs expected
 // distribution of packets on the group member ports.
 // expect_single_port specifies whether all packets are expected on a single
 // output port(since no hashing applies) or multiple ports(with hashing).
 std::string DescribeDistribution(
-    int expected_total_test_packets, absl::Span<const gpins::Member> members,
+    int expected_total_test_packets,
+    absl::Span<const gpins::GroupMember> members,
     const absl::flat_hash_map<int, int>& num_packets_per_port,
     bool expect_single_port);
 
