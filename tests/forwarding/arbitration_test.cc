@@ -195,7 +195,7 @@ TEST_P(ArbitrationTestFixture, LongEvolution) {
 }
 
 TEST_P(ArbitrationTestFixture, BackupCannotWrite) {
-  TestEnvironment().SetTestCaseID("4c714d8-73c6-48b1-ada6-8ac2e5267714");
+  TestEnvironment().SetTestCaseID("64c714d8-73c6-48b1-ada6-8ac2e5267714");
 
   ASSERT_OK_AND_ASSIGN(auto connection, BecomePrimary(2));
   ASSERT_OK_AND_ASSIGN(auto stub, Stub());
