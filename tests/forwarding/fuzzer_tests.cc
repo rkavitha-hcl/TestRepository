@@ -143,13 +143,9 @@ TEST_P(FuzzTest, P4rtWriteAndCheckNoInternalErrors) {
             response.rpc_response().statuses(i);
         const p4::v1::Update& update = request.updates(i);
 
-        // TODO: enable this once the switch stops returning INTERNAL
-        // errors.
-        if (!mask_known_failures) {
-          EXPECT_NE(status.code(), google::rpc::Code::INTERNAL)
-              << "Fuzzing should never cause an INTERNAL error, but got: "
-              << status.DebugString();
-        }
+        EXPECT_NE(status.code(), google::rpc::Code::INTERNAL)
+            << "Fuzzing should never cause an INTERNAL error, but got: "
+            << status.DebugString();
         // Check resource exhaustion.
         if (status.code() == google::rpc::Code::RESOURCE_EXHAUSTED) {
           int table_id = update.entity().table_entry().table_id();
