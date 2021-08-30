@@ -27,7 +27,19 @@
 #define L3_ADMIT_TABLE_MINIMUM_GUARANTEED_SIZE 512
 
 // The maximum number of wcmp groups.
-#define WCMP_GROUP_TABLE_MINIMUM_GUARANTEED_SIZE 4096
+# copybara:strip_begin(comment only applies internally)
+// Tomahawk3 supports 4096 entries, but 128 of them are reserved for DLB, so we
+// only allow 3968.
+//
+// Taken from:
+// http://google3/platforms/networking/sandblaze/stack/hal/target/config/tomahawk3_ecmp_profiles.txt
+
+// If the switch is unable to support 512 max weight per group for so many
+// groups, this could likely be decreased since this link seems to suggest that
+// nothing needs more than 1024 groups:
+// https://docs.google.com/spreadsheets/d/1Po1E-TXa8Naj4ug0uptZbwuOVK_oWVRrwZjQEgukJNk/edit#gid=1887042389
+# copybara:strip_end
+#define WCMP_GROUP_TABLE_MINIMUM_GUARANTEED_SIZE 3968
 
 // The maximum sum of weights across all wcmp groups.
 #define WCMP_GROUP_SELECTOR_MAX_SUM_OF_WEIGHTS_ACROSS_ALL_GROUPS 65536
