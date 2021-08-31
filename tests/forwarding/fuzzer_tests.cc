@@ -54,8 +54,11 @@ namespace {
 bool IsMaskedResource(absl::string_view table_name) {
   // TODO: acl_pre_ingress_table has a resource limit
   // problem.
-  // TODO: router_interface_table, ipv4_table and
-  // ipv6_table all have resource limit problems.
+  // TODO: router_interface_table has resource limit
+  // problems.
+  // TODO: ipv4_table and ipv6_table have resource problems
+  // stemming from the fuzzer creating too many VRFs. See also
+  // b/181968931.
   // TODO: wcmp_group_table has a resource limit problem.
   return table_name == "acl_pre_ingress_table" ||
          table_name == "router_interface_table" || table_name == "ipv4_table" ||
