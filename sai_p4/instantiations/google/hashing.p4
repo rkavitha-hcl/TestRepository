@@ -26,7 +26,7 @@ control hashing(in headers_t headers,
   @sai_hash_seed(ECMP_HASH_SEED)
   @sai_hash_offset(ECMP_HASH_OFFSET)
   @id(SELECT_ECMP_HASH_ALGORITHM_ACTION_ID)
-  action select_emcp_hash_algorithm() {
+  action select_ecmp_hash_algorithm() {
     // TODO:
     // this action should set a local `hash_algorithm` variable to the hash
     // algorithm, e.g. `HashAlgorithm.crc32`, which would then be used by
@@ -83,7 +83,7 @@ control hashing(in headers_t headers,
   }
 
   apply {
-    select_emcp_hash_algorithm();
+    select_ecmp_hash_algorithm();
     if (headers.ipv4.isValid()) {
       compute_ecmp_hash_ipv4();
     } else if (headers.ipv6.isValid()) {
