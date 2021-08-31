@@ -176,8 +176,8 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
           // Mask known failures unless we are specifically testing the resource
           // limits milestone.
           if (GetParam().milestone == Milestone::kResourceLimits ||
-              !mask_known_failures ||
-              IsMaskedResource(table.preamble().alias())) {
+              !(mask_known_failures &&
+                IsMaskedResource(table.preamble().alias()))) {
             // Check that table was full before this status.
             ASSERT_TRUE(state.IsTableFull(table_id)) << absl::Substitute(
                 "Switch reported RESOURCE_EXHAUSTED for table named '$0'. The "
