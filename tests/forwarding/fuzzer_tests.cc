@@ -77,7 +77,8 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
   thinkit::Switch& sut = mirror_testbed.Sut();
   thinkit::TestEnvironment& environment = mirror_testbed.Environment();
 
-  pdpi::IrP4Info info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
+  ASSERT_OK_AND_ASSIGN(pdpi::IrP4Info info,
+                       pdpi::CreateIrP4Info(GetParam().p4info));
   FuzzerConfig config = {
       .info = info,
       .ports = {"1"},
@@ -100,7 +101,7 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
       session.get(),
       p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-      sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+      GetParam().p4info));
 
   // Clear switch state.
   ASSERT_OK(pdpi::ClearTableEntries(session.get(), info));

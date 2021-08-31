@@ -14,6 +14,7 @@
 #ifndef GOOGLE_P4_FUZZER_FUZZER_TESTS_H_
 #define GOOGLE_P4_FUZZER_FUZZER_TESTS_H_
 
+#include "p4/config/v1/p4info.pb.h"
 #include "thinkit/mirror_testbed_fixture.h"
 
 namespace p4_fuzzer {
@@ -30,6 +31,10 @@ enum class Milestone {
 struct FuzzerTestFixtureParams {
   thinkit::MirrorTestbedInterface* mirror_testbed;
   std::string gnmi_config;
+  p4::config::v1::P4Info p4info;
+  // Determines which type of issues the fuzzer detects. If left out, the fuzzer
+  // will test everything, respecting MaskKnownFailures(). See declaration of
+  // Milestone for more details.
   absl::optional<Milestone> milestone;
   absl::optional<std::string> test_case_id;
 };
