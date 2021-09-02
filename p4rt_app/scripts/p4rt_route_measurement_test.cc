@@ -32,7 +32,6 @@
 #include "p4_pdpi/netaddr/ipv4_address.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 
-DEFINE_bool(push_config, true, "Push P4 Info config file");
 DEFINE_int32(batch_size, 1000, "Number of entries in each batch");
 DEFINE_int32(number_batches, 10, "Number of batches");
 DEFINE_int64(election_id, -1, "Election id to be used");
@@ -196,13 +195,18 @@ class P4rtRouteTest : public Test {
             std::move(stub),
             /*device_id=*/183807201,
             pdpi::P4RuntimeSessionOptionalArgs{.election_id = election_id}));
-    // Push P4 Info Config file if specified.
-    if (FLAGS_push_config) {
+    ASSERT_OK_AND_ASSIGN(p4::v1::GetForwardingPipelineConfigResponse response,
+                         pdpi::GetForwardingPipelineConfig(
+                             p4rt_session_.get(),
+                             p4::v1::GetForwardingPipelineConfigRequest::ALL));
+    // Push P4 Info Config, only if not present.
+    if (!response.has_config()) {
       ASSERT_OK(pdpi::SetForwardingPipelineConfig(
           p4rt_session_.get(),
           p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
           sai::GetP4Info(sai::Instantiation::kMiddleblock)));
     }
+
     // Clear the current table entries, if any.
     ASSERT_OK(pdpi::ClearTableEntries(p4rt_session_.get(), IrP4Info()));
     // Create the dependancy objects for ROUTE_ENTRY.
