@@ -108,6 +108,21 @@ void SendStartBertRequestSuccessfully(
   grpc::ClientContext context;
   LOG(INFO) << "StartBERT request: " << request.ShortDebugString();
   ASSERT_OK(gnoi_diag_stub.StartBERT(&context, request, &response));
+
+  // Verify response.
+  ASSERT_THAT(response.per_port_responses(),
+              SizeIs(request.per_port_requests_size()));
+  EXPECT_EQ(response.bert_operation_id(), request.bert_operation_id());
+
+  for (int idx = 0; idx < response.per_port_responses_size(); ++idx) {
+    auto per_port_response = response.per_port_responses(idx);
+    SCOPED_TRACE(absl::StrCat("Verifying StartBERT port response: ",
+                              per_port_response.ShortDebugString()));
+    EXPECT_EQ(per_port_response.status(), gnoi::diag::BERT_STATUS_OK);
+    EXPECT_TRUE(
+        MessageDifferencer::Equals(per_port_response.interface(),
+                                   request.per_port_requests(idx).interface()));
+  }
 }
 
 absl::StatusOr<std::string> GetInterfaceNameFromOcInterfacePath(
@@ -1080,6 +1095,21 @@ TEST_P(BertTest, StopBertSucceeds) {
     LOG(INFO) << "Sending StopBERT request on SUT: "
               << stop_request.ShortDebugString();
     EXPECT_OK(sut_gnoi_diag_stub->StopBERT(&context, stop_request, &response));
+
+    // Verify response.
+    ASSERT_THAT(response.per_port_responses(),
+                SizeIs(stop_request.per_port_requests_size()));
+    EXPECT_EQ(response.bert_operation_id(), stop_request.bert_operation_id());
+
+    for (int idx = 0; idx < response.per_port_responses_size(); ++idx) {
+      auto per_port_response = response.per_port_responses(idx);
+      SCOPED_TRACE(absl::StrCat("Verifying StopBERT port response: ",
+                                per_port_response.ShortDebugString()));
+      EXPECT_EQ(per_port_response.status(), gnoi::diag::BERT_STATUS_OK);
+      EXPECT_TRUE(MessageDifferencer::Equals(
+          per_port_response.interface(),
+          stop_request.per_port_requests(idx).interface()));
+    }
   }
 
   // Wait for BERT to finish on test interfaces.
