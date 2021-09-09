@@ -11,9 +11,10 @@ parser packet_parser(packet_in packet, out headers_t headers,
   state start {
     // Initialize local metadata fields.
     // TODO: Currently, all packets are admitted to L3 pipeline.
-    local_metadata.admit_to_l3 = true;
     // local_metadata.admit_to_l3 = false;
-    local_metadata.vrf_id = 0;
+    local_metadata.admit_to_l3 = true;
+
+    local_metadata.vrf_id = kDefaultVrf;
     local_metadata.packet_rewrites.src_mac = 0;
     local_metadata.packet_rewrites.dst_mac = 0;
     local_metadata.l4_src_port = 0;

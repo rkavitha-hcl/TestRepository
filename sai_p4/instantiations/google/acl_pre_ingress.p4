@@ -20,7 +20,9 @@ control acl_pre_ingress(in headers_t headers,
   @id(ACL_PRE_INGRESS_SET_VRF_ACTION_ID)
   @sai_action(SAI_PACKET_ACTION_FORWARD)
   action set_vrf(@sai_action_param(SAI_ACL_ENTRY_ATTR_ACTION_SET_VRF)
-                 @id(1) vrf_id_t vrf_id) {
+                 @refers_to(vrf_table, vrf_id)
+                 @id(1)
+                 vrf_id_t vrf_id) {
     local_metadata.vrf_id = vrf_id;
     acl_pre_ingress_counter.count();
   }
@@ -76,7 +78,9 @@ control acl_pre_ingress(in headers_t headers,
       dscp = headers.ipv6.dscp;
     }
 
-    acl_pre_ingress_table.apply();
+    if (acl_pre_ingress_table.apply().miss) {
+      local_metadata.vrf_id = kDefaultVrf;
+    }
   }
 }  // control acl_pre_ingress
 

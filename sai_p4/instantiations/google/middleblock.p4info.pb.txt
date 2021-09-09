@@ -239,6 +239,29 @@ tables {
 }
 tables {
   preamble {
+    id: 33554506
+    name: "ingress.routing.vrf_table"
+    alias: "vrf_table"
+    annotations: "@entry_restriction(\"\n    // The VRF ID 0 (or \'\' in P4Runtime) encodes the default VRF, which cannot\n    // be read or written via this table, but is always present implicitly.\n    // TODO: This constraint should read `vrf_id != \'\'` (since\n    // constraints are a control plane (P4Runtime) concept), but\n    // p4-constraints does not currently support strings.\n    vrf_id != 0;\n  \")"
+    annotations: "@p4runtime_role(\"sdn_controller\")"
+  }
+  match_fields {
+    id: 1
+    name: "vrf_id"
+    match_type: EXACT
+    type_name {
+      name: "vrf_id_t"
+    }
+  }
+  action_refs {
+    id: 24742814
+    annotations: "@proto_id(1)"
+  }
+  const_default_action_id: 24742814
+  size: 32
+}
+tables {
+  preamble {
     id: 33554500
     name: "ingress.routing.ipv4_table"
     alias: "ipv4_table"
@@ -247,6 +270,7 @@ tables {
   match_fields {
     id: 1
     name: "vrf_id"
+    annotations: "@refers_to(vrf_table , vrf_id)"
     match_type: EXACT
     type_name {
       name: "vrf_id_t"
@@ -284,6 +308,7 @@ tables {
   match_fields {
     id: 1
     name: "vrf_id"
+    annotations: "@refers_to(vrf_table , vrf_id)"
     match_type: EXACT
     type_name {
       name: "vrf_id_t"
@@ -549,6 +574,7 @@ actions {
     id: 1
     name: "vrf_id"
     annotations: "@sai_action_param(SAI_ACL_ENTRY_ATTR_ACTION_SET_VRF)"
+    annotations: "@refers_to(vrf_table , vrf_id)"
     type_name {
       name: "vrf_id_t"
     }
@@ -666,6 +692,13 @@ actions {
     type_name {
       name: "nexthop_id_t"
     }
+  }
+}
+actions {
+  preamble {
+    id: 24742814
+    name: "ingress.routing.no_action"
+    alias: "no_action"
   }
 }
 actions {

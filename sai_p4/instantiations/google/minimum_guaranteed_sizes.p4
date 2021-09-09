@@ -11,6 +11,14 @@
 
 #define MIRROR_SESSION_TABLE_MINIMUM_GUARANTEED_SIZE 2
 
+// We choose a small number of guranteed VRF table entries here because VRFs
+// consume default route enties in the IPv4 and IPv6 tables, and this isn't
+// currently modelled in P4. We could support more VRFs in principle, but
+// restrict ourselves to a small number so VRFs won't interfere with our
+// gurantees for the IPv4 and IPv6 tables too much.
+// TODO: Find a better way to model such interdepencies.
+#define ROUTING_VRF_TABLE_MINIMUM_GUARANTEED_SIZE 32
+
 # copybara:strip_begin(comment only applies internally)
 // The IPv4 and IPv6 minimums appear to hold in practice, but Broadcom's
 // Algorithmic LPM implementation is subtle, and we do not understand it well
