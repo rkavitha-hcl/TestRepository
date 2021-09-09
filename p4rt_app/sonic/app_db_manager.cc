@@ -229,7 +229,7 @@ absl::Status AppendCounterData(
   // Update packet count only if data is present.
   if (auto packets_iter = counter_data.find("packets");
       packets_iter != counter_data.end()) {
-    int packets = 0;
+    uint64_t packets = 0;
     if (absl::SimpleAtoi(packets_iter->second, &packets)) {
       table_entry.mutable_counter_data()->set_packet_count(packets);
     } else {
@@ -242,7 +242,7 @@ absl::Status AppendCounterData(
   // Update byte count only if data is present.
   if (auto bytes_iter = counter_data.find("bytes");
       bytes_iter != counter_data.end()) {
-    int bytes = 0;
+    uint64_t bytes = 0;
     if (absl::SimpleAtoi(bytes_iter->second, &bytes)) {
       table_entry.mutable_counter_data()->set_byte_count(bytes);
     } else {

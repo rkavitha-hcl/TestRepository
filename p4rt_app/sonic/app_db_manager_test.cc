@@ -336,11 +336,18 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryWithCounterData) {
   EXPECT_CALL(mock_app_db_client, hgetall(Eq(app_db_entry.GetKey())))
       .WillOnce(Return(app_db_entry.GetValueMap()));
 
+  // We want to support 64-bit integers for both the number of packets, as well
+  // as the number of bytes.
+  //
+  // Using decimal numbers:
+  //    1152921504606846975 = 0x0FFF_FFFF_FFFF_FFFF
+  //    1076078835964837887 = 0x0EEE_FFFF_FFFF_FFFF
   swss::MockDBConnector mock_counters_db_client;
   EXPECT_CALL(mock_counters_db_client,
               hgetall(Eq(absl::StrCat("COUNTERS:", app_db_entry.GetKey()))))
       .WillOnce(Return(std::unordered_map<std::string, std::string>{
-          {"packets", "1"}, {"bytes", "64"}}));
+          {"packets", "1076078835964837887"},
+          {"bytes", "1152921504606846975"}}));
 
   auto table_entry_status = ReadAppDbP4TableEntry(
       sai::GetIrP4Info(sai::Instantiation::kMiddleblock), mock_app_db_client,
@@ -366,7 +373,10 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryWithCounterData) {
                     value { mac: "00:02:03:04:05:06" }
                   }
                 }
-                counter_data { byte_count: 64 packet_count: 1 })pb"));
+                counter_data {
+                  byte_count: 1152921504606846975
+                  packet_count: 1076078835964837887
+                })pb"));
 }
 
 TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryIgnoresInvalidCounterData) {
