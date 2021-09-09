@@ -233,9 +233,9 @@ absl::Status AppendCounterData(
     if (absl::SimpleAtoi(packets_iter->second, &packets)) {
       table_entry.mutable_counter_data()->set_packet_count(packets);
     } else {
-      LOG(ERROR)
-          << "Unexpected packets value found in CountersDB for table entry: "
-          << table_entry.ShortDebugString();
+      LOG(ERROR) << "Unexpected packets value '" << packets_iter->second
+                 << "' in CountersDB for table entry: "
+                 << table_entry.ShortDebugString();
     }
   }
 
@@ -246,9 +246,9 @@ absl::Status AppendCounterData(
     if (absl::SimpleAtoi(bytes_iter->second, &bytes)) {
       table_entry.mutable_counter_data()->set_byte_count(bytes);
     } else {
-      LOG(ERROR)
-          << "Unexpected bytes value found in CountersDB for table entry: "
-          << table_entry.ShortDebugString();
+      LOG(ERROR) << "Unexpected bytes value '" << bytes_iter->second
+                 << "' in CountersDB for table entry: "
+                 << table_entry.ShortDebugString();
     }
   }
   return absl::OkStatus();
