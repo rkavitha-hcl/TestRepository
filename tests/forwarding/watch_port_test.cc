@@ -82,40 +82,82 @@ constexpr int kNumTestPackets = 5000;
 // arrive.
 constexpr int kDefaultInputPortIndex = 0;
 
-// Helper function to program V4, V6 default route entries.
-absl::Status ProgramDefaultRoutes(pdpi::P4RuntimeSession& p4_session,
-                                  const pdpi::IrP4Info& ir_p4info,
-                                  absl::string_view default_vrf) {
-  std::vector<p4::v1::TableEntry> pi_entries;
-  // Add minimal set of flows to allow forwarding.
-  auto ipv4_fallback = gutil::ParseProtoOrDie<sai::TableEntry>(absl::Substitute(
-      R"pb(
-        ipv4_table_entry {
-          match { vrf_id: "$0" }
-          action { set_wcmp_group_id { wcmp_group_id: "$1" } }
-        })pb",
-      default_vrf, kGroupId));
-  auto ipv6_fallback = gutil::ParseProtoOrDie<sai::TableEntry>(
-      absl::Substitute(R"pb(
-                         ipv6_table_entry {
-                           match { vrf_id: "$0" }
-                           action { set_wcmp_group_id { wcmp_group_id: "$1" } }
-                         })pb",
-                       default_vrf, kGroupId));
+// Helper function that sets up the  input port for packet recieve.
+// Creates the router interface for the input port. Without this input packets
+// get dropped (b/190736007).
+absl::Status SetupInputPortForPacketReceive(pdpi::P4RuntimeSession& p4_session,
+                                            const pdpi::IrP4Info& ir_p4info,
+                                            int input_port) {
+  ASSIGN_OR_RETURN(
+      p4::v1::WriteRequest write_request,
+      pdpi::PdWriteRequestToPi(
+          ir_p4info, gutil::ParseProtoOrDie<sai::WriteRequest>(absl::Substitute(
+                         R"pb(
+                           updates {
+                             type: INSERT
+                             table_entry {
+                               router_interface_table_entry {
+                                 match { router_interface_id: "$0" }
+                                 action {
+                                   set_port_and_src_mac {
+                                     port: "$1"
+                                     src_mac: "00:02:03:04:05:06"
+                                   }
+                                 }
+                               }
+                             }
+                           }
+                         )pb",
+                         input_port, input_port))));
 
-  for (const auto& pd_entry : {ipv4_fallback, ipv6_fallback}) {
-    ASSIGN_OR_RETURN(p4::v1::TableEntry pi_entry,
-                     pdpi::PdTableEntryToPi(ir_p4info, pd_entry),
-                     _.SetPrepend()
-                         << "Failed in PD table conversion to PI, entry: "
-                         << pd_entry.DebugString() << " error: ");
-    pi_entries.push_back(pi_entry);
-  }
-
-  return pdpi::InstallPiTableEntries(&p4_session, ir_p4info, pi_entries);
+  return pdpi::SetMetadataAndSendPiWriteRequest(&p4_session, write_request);
 }
 
-// Push P4Info and install a default vrf for all packets on the SUT.
+// Helper function that creates/deletes V4, V6 default route entries.
+absl::Status ProgramDefaultRoutes(pdpi::P4RuntimeSession& p4_session,
+                                  const pdpi::IrP4Info& ir_p4info,
+                                  absl::string_view default_vrf,
+                                  const p4::v1::Update_Type& type) {
+  if (!p4::v1::Update_Type_IsValid(type) ||
+      type == p4::v1::Update_Type_UNSPECIFIED) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Type: ", type, " not supported."));
+  }
+  std::string type_str = p4::v1::Update_Type_Name(type);
+  // Add minimal set of flows to allow forwarding.
+  auto ipv4_fallback = gutil::ParseProtoOrDie<sai::Update>(absl::Substitute(
+      R"pb(
+        type: $0
+        table_entry {
+          ipv4_table_entry {
+            match { vrf_id: "$1" }
+            action { set_wcmp_group_id { wcmp_group_id: "$2" } }
+          }
+        })pb",
+      type_str, default_vrf, kGroupId));
+  auto ipv6_fallback = gutil::ParseProtoOrDie<sai::Update>(absl::Substitute(
+      R"pb(
+        type: $0
+        table_entry {
+          ipv6_table_entry {
+            match { vrf_id: "$1" }
+            action { set_wcmp_group_id { wcmp_group_id: "$2" } }
+          }
+        })pb",
+      type_str, default_vrf, kGroupId));
+
+  p4::v1::WriteRequest write_request;
+  for (const auto& pd_entry : {ipv4_fallback, ipv6_fallback}) {
+    ASSIGN_OR_RETURN(
+        p4::v1::Update pi_entry, pdpi::PdUpdateToPi(ir_p4info, pd_entry),
+        _.SetPrepend() << "Failed in PD table conversion to PI, entry: "
+                       << pd_entry.DebugString() << " error: ");
+    *write_request.add_updates() = pi_entry;
+  }
+  return pdpi::SetMetadataAndSendPiWriteRequest(&p4_session, write_request);
+}
+
+// Pushes P4Info and installs a default vrf for all packets on the SUT.
 absl::Status SetUpSut(pdpi::P4RuntimeSession& p4_session,
                       const p4::config::v1::P4Info& p4info,
                       const pdpi::IrP4Info& ir_p4info,
@@ -145,7 +187,7 @@ absl::Status SetUpSut(pdpi::P4RuntimeSession& p4_session,
   return pdpi::InstallPiTableEntry(&p4_session, pi_entry);
 }
 
-// Push P4Info and punt all packets on the control switch.
+// Pushes P4Info and punts all packets on the control switch.
 absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession& p4_session,
                                 const p4::config::v1::P4Info& p4info,
                                 const pdpi::IrP4Info& ir_p4info) {
@@ -173,18 +215,30 @@ absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession& p4_session,
   return pdpi::InstallPiTableEntry(&p4_session, punt_all_pi_entry);
 }
 
-// Create members by filling in the controller port ids and random weights for
-// each member that add upto 30(random).
+// Creates members by filling in the controller port ids and random weights for
+// each member that add upto 30(random). Skips the default input port on which
+// traffic is received, since that is excluded from the traffic forwarding
+// members in the group.
 absl::StatusOr<std::vector<GroupMember>> CreateGroupMembers(
-    absl::Span<const int> controller_port_ids) {
+    int group_size, absl::Span<const int> controller_port_ids) {
+  if (group_size + /*input_port=*/1 > controller_port_ids.size()) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "Not enough members: ", controller_port_ids.size(),
+        " to reserve an input port and create the group with size: ",
+        group_size));
+  }
   std::vector<GroupMember> members;
-  for (int i = 0; i < kNumWcmpMembersForTest; i++) {
-    members.push_back(
-        gpins::GroupMember{.weight = 0, .port = controller_port_ids[i]});
+  for (int i = 0; i < controller_port_ids.size() && members.size() < group_size;
+       i++) {
+    // Add port ids except for the default input port id.
+    if (i != kDefaultInputPortIndex) {
+      members.push_back(
+          gpins::GroupMember{.weight = 0, .port = controller_port_ids[i]});
+    }
   }
 
   ASSIGN_OR_RETURN(std::vector<int> weights,
-                   GenerateNRandomWeights(kNumWcmpMembersForTest,
+                   GenerateNRandomWeights(group_size,
                                           /*total_weight=*/30));
   for (int i = 0; i < members.size(); i++) {
     members[i].weight = weights[i];
@@ -192,7 +246,7 @@ absl::StatusOr<std::vector<GroupMember>> CreateGroupMembers(
   return members;
 }
 
-// Create a set of expected port ids from the member ports.
+// Creates a set of expected port ids from the member ports.
 absl::flat_hash_set<int> CreateExpectedMemberPorts(
     absl::Span<const GroupMember> members) {
   absl::flat_hash_set<int> expected_member_ports;
@@ -202,7 +256,7 @@ absl::flat_hash_set<int> CreateExpectedMemberPorts(
   return expected_member_ports;
 }
 
-// Return a map of number of packets received per port.
+// Returns a map of number of packets received per port.
 absl::StatusOr<absl::flat_hash_map<int, int>> CountNumPacketsPerPort(
     absl::Span<const gpins::Packet> output_packets) {
   absl::flat_hash_map<int, int> num_packets_per_port;
@@ -213,7 +267,7 @@ absl::StatusOr<absl::flat_hash_map<int, int>> CountNumPacketsPerPort(
   return num_packets_per_port;
 }
 
-// Send N packets from the control switch to sut at a rate of 500 packets/sec.
+// Sends N packets from the control switch to sut at a rate of 500 packets/sec.
 absl::Status SendNPacketsToSut(int num_packets,
                                const TestConfiguration& test_config,
                                absl::Span<const GroupMember> members,
@@ -419,10 +473,18 @@ TEST_P(WatchPortTestFixture, VerifyBasicWcmpPacketDistribution) {
   // Validate that we have enough ports for the test.
   ASSERT_TRUE(GetPortIds().has_value())
       << "Controller port ids (required) but not provided.";
-  ASSERT_GE((*GetPortIds()).size(), kNumWcmpMembersForTest);
+  const std::vector<int> controller_port_ids = *GetPortIds();
+  ASSERT_GE(controller_port_ids.size(),
+            kNumWcmpMembersForTest + /*input_port=*/1)
+      << "Not enough ports provided for the test.";
 
-  ASSERT_OK_AND_ASSIGN(std::vector<GroupMember> members,
-                       CreateGroupMembers(*GetPortIds()));
+  ASSERT_OK_AND_ASSIGN(
+      std::vector<GroupMember> members,
+      CreateGroupMembers(kNumWcmpMembersForTest, controller_port_ids));
+
+  const int input_port = controller_port_ids[kDefaultInputPortIndex];
+  ASSERT_OK(SetupInputPortForPacketReceive(*sut_p4_session_, GetIrP4Info(),
+                                           input_port));
 
   // Programs the required router interfaces, nexthops for wcmp group.
   ASSERT_OK(gpins::ProgramNextHops(environment, *sut_p4_session_, GetIrP4Info(),
@@ -433,7 +495,8 @@ TEST_P(WatchPortTestFixture, VerifyBasicWcmpPacketDistribution) {
       << "Failed to program WCMP group: ";
 
   // Program default routing for all packets on SUT.
-  ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, GetIrP4Info(), kVrfId));
+  ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, GetIrP4Info(), kVrfId,
+                                 p4::v1::Update::INSERT));
 
   // TODO: Revisit for newer chipsets.
   // Rescale the member weights (temp workaround) to what would have been
@@ -462,7 +525,7 @@ TEST_P(WatchPortTestFixture, VerifyBasicWcmpPacketDistribution) {
 
   // Send 5000 packets and check for packet distribution.
   ASSERT_OK(SendNPacketsToSut(kNumTestPackets, test_config, members,
-                              GetPortIds().value(), GetIrP4Info(),
+                              controller_port_ids, GetIrP4Info(),
                               *control_p4_session_, environment));
   test_data_.total_packets_sent = kNumTestPackets;
 
@@ -501,10 +564,18 @@ TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
   // Validate that we have enough ports for the test.
   ASSERT_TRUE(GetPortIds().has_value())
       << "Controller port ids (required) but not provided.";
-  ASSERT_GE((*GetPortIds()).size(), kNumWcmpMembersForTest);
+  const std::vector<int> controller_port_ids = *GetPortIds();
+  ASSERT_GE(controller_port_ids.size(),
+            kNumWcmpMembersForTest + /*input_port=*/1)
+      << "Not enough ports provided for the test.";
 
-  ASSERT_OK_AND_ASSIGN(std::vector<GroupMember> members,
-                       CreateGroupMembers(GetPortIds().value()));
+  ASSERT_OK_AND_ASSIGN(
+      std::vector<GroupMember> members,
+      CreateGroupMembers(kNumWcmpMembersForTest, controller_port_ids));
+
+  const int input_port = controller_port_ids[kDefaultInputPortIndex];
+  ASSERT_OK(SetupInputPortForPacketReceive(*sut_p4_session_, GetIrP4Info(),
+                                           input_port));
 
   // Programs the required router interfaces, nexthops for wcmp group.
   ASSERT_OK(gpins::ProgramNextHops(environment, *sut_p4_session_, GetIrP4Info(),
@@ -513,7 +584,8 @@ TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
                                            GetIrP4Info(), kGroupId, members,
                                            p4::v1::Update::INSERT));
   // Program default routing for all packets on SUT.
-  ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, GetIrP4Info(), kVrfId));
+  ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, GetIrP4Info(), kVrfId,
+                                 p4::v1::Update::INSERT));
 
   // TODO: Revisit for newer chipsets.
   // Rescale the member weights to what would have been programmed by the
@@ -543,12 +615,10 @@ TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
   absl::flat_hash_set<int> expected_member_ports =
       CreateExpectedMemberPorts(members);
 
-  // Select one random member of the group to toggle, but not the input port on
-  // which traffic is being received, so skip the default input port index.
+  // Select one random member of the group to toggle.
   absl::BitGen gen;
-  const int random_member_index =
-      absl::Uniform<int>(absl::IntervalClosedOpen, gen,
-                         kDefaultInputPortIndex + 1, kNumWcmpMembersForTest);
+  const int random_member_index = absl::Uniform<int>(
+      absl::IntervalClosedOpen, gen, 0, kNumWcmpMembersForTest);
   const int selected_port_id = members[random_member_index].port;
   ASSERT_OK_AND_ASSIGN(const auto port_name_per_port_id,
                        GetPortNamePerPortId(*sut_gnmi_stub_));
@@ -558,12 +628,16 @@ TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
                                              absl::StrCat(selected_port_id)));
     ASSERT_OK(SetInterfaceAdminState(*sut_gnmi_stub_, port_name, operation));
 
+    // TODO: Adding watch port up action causes unexpected traffic
+    // loss. Remove after the bug in OrchAgent is fixed.
+    absl::SleepFor(absl::Seconds(5));
+
     // Clear the counters before the test.
     test_data_.ClearReceivedPackets();
 
     // Send 5000 packets and check for packet distribution.
     ASSERT_OK(SendNPacketsToSut(kNumTestPackets, test_config, members,
-                                GetPortIds().value(), GetIrP4Info(),
+                                controller_port_ids, GetIrP4Info(),
                                 *control_p4_session_, environment));
     test_data_.total_packets_sent = kNumTestPackets;
 
@@ -605,12 +679,247 @@ TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
 // distributed only to the up ports.
 TEST_P(WatchPortTestFixture, VerifyWatchPortActionInCriticalState){};
 
-// TODO: Bring up/down the only APG member and verify traffic is distributed or
-// dropped.
-TEST_P(WatchPortTestFixture, VerifyWatchPortActionForSingleMember){};
+// Bring up/down the only ActionProfileGroup member and verify traffic is
+// forwarded/dropped.
+TEST_P(WatchPortTestFixture, VerifyWatchPortActionForSingleMember) {
+  thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
+  // Validate that we have enough ports for the test.
+  ASSERT_TRUE(GetPortIds().has_value())
+      << "Controller port ids (required) but not provided.";
+  const std::vector<int> controller_port_ids = *GetPortIds();
+  ASSERT_GE(controller_port_ids.size(), 1 + /*input_port=*/1)
+      << "Not enough ports provided for the test.";
 
-// TODO: Modify APG member and verify traffic is distributed accordingly.
-TEST_P(WatchPortTestFixture, VerifyWatchPortActionForMemberModify){};
+  // Create the group members.
+  ASSERT_OK_AND_ASSIGN(
+      std::vector<GroupMember> members,
+      CreateGroupMembers(/*group_size=*/1, controller_port_ids));
+
+  const int input_port = controller_port_ids[kDefaultInputPortIndex];
+  ASSERT_OK(SetupInputPortForPacketReceive(*sut_p4_session_, GetIrP4Info(),
+                                           input_port));
+
+  // Programs the required router interfaces, nexthops for wcmp group.
+  ASSERT_OK(gpins::ProgramNextHops(environment, *sut_p4_session_, GetIrP4Info(),
+                                   members));
+  ASSERT_OK(gpins::ProgramGroupWithMembers(environment, *sut_p4_session_,
+                                           GetIrP4Info(), kGroupId, members,
+                                           p4::v1::Update::INSERT));
+  // Program default routing for all packets on SUT.
+  ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, GetIrP4Info(), kVrfId,
+                                 p4::v1::Update::INSERT));
+
+  // TODO: Revisit for newer chipsets.
+  // Rescale the member weights to what would have been programmed by the
+  // hardware.
+  RescaleMemberWeights(members);
+
+  // Generate test configuration, pick any field used by hashing to vary for
+  // every packet so that it gets sent to all the members.
+  TestConfiguration test_config = {
+      .field = PacketField::kL4SrcPort,
+      .ipv4 = true,
+      .encapped = false,
+      .inner_ipv4 = false,
+      .decap = false,
+  };
+  ASSERT_TRUE(IsValidTestConfiguration(test_config));
+
+  // Create test data entry.
+  std::string test_config_key = TestConfigurationToPayload(test_config);
+  {
+    absl::MutexLock lock(&test_data_.mutex);
+    test_data_.input_output_per_packet[test_config_key] = TestInputOutput{
+        .config = test_config,
+    };
+  }
+
+  absl::flat_hash_set<int> expected_member_ports =
+      CreateExpectedMemberPorts(members);
+
+  // Pickup the only member (index 0) in the group and toggle down/up and verify
+  // traffic distribution.
+  ASSERT_THAT(members, testing::SizeIs(1))
+      << "Unexpected member size for single member group";
+  const int single_member_port_id = members[0].port;
+  ASSERT_OK_AND_ASSIGN(const auto port_name_per_port_id,
+                       GetPortNamePerPortId(*sut_gnmi_stub_));
+  for (auto operation : {AdminState::kDown, AdminState::kUp}) {
+    ASSERT_OK_AND_ASSIGN(
+        const auto& port_name,
+        gutil::FindOrStatus(port_name_per_port_id,
+                            absl::StrCat(single_member_port_id)));
+    ASSERT_OK(SetInterfaceAdminState(*sut_gnmi_stub_, port_name, operation));
+
+    // Clear the counters before the test.
+    test_data_.ClearReceivedPackets();
+
+    // TODO: Adding watch port up action causes unexpected traffic
+    // loss. Remove after the bug in OrchAgent is fixed.
+    absl::SleepFor(absl::Seconds(5));
+
+    // Send 5000 packets and check for packet distribution.
+    ASSERT_OK(SendNPacketsToSut(kNumTestPackets, test_config, members,
+                                controller_port_ids, GetIrP4Info(),
+                                *control_p4_session_, environment));
+    test_data_.total_packets_sent = kNumTestPackets;
+
+    // Wait for packets from the SUT to arrive.
+    absl::SleepFor(kDurationToWaitForPackets);
+
+    // For the test configuration, check the output distribution.
+    {
+      absl::MutexLock lock(&test_data_.mutex);
+      TestInputOutput& test =
+          test_data_.input_output_per_packet[test_config_key];
+      if (operation == AdminState::kDown) {
+        // Expect all packets to be lost for single member group watch port down
+        // action.
+        EXPECT_EQ(test.output.size(), 0)
+            << "Expected all packets to be lost for single member group watch "
+               "port down action, but received "
+            << test.output.size() << " actual packets";
+      } else {
+        expected_member_ports.insert(single_member_port_id);
+        EXPECT_EQ(test.output.size(), test_data_.total_packets_sent)
+            << "Mismatch in expected: " << test_data_.total_packets_sent
+            << " and actual: " << test.output.size() << " packets received for "
+            << DescribeTestConfig(test_config);
+      }
+      ASSERT_OK_AND_ASSIGN(auto num_packets_per_port,
+                           CountNumPacketsPerPort(test.output));
+
+      ASSERT_OK(VerifyGroupMembersFromP4Read(*sut_p4_session_, GetIrP4Info(),
+                                             kGroupId, members));
+      ASSERT_OK(VerifyGroupMembersFromReceiveTraffic(num_packets_per_port,
+                                                     expected_member_ports));
+      PrettyPrintDistribution(test_config, test, test_data_, members,
+                              num_packets_per_port);
+    }
+  }
+};
+
+// Modify ActionProfileGroup member and verify traffic is distributed
+// accordingly.
+TEST_P(WatchPortTestFixture, VerifyWatchPortActionForMemberModify) {
+  thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
+
+  // Validate that we have enough ports for the test.
+  ASSERT_TRUE(GetPortIds().has_value())
+      << "Controller port ids (required) but not provided.";
+  const std::vector<int> controller_port_ids = *GetPortIds();
+  ASSERT_GE(controller_port_ids.size(),
+            kNumWcmpMembersForTest + /*input_port=*/1)
+      << "Not enough ports provided for the test.";
+
+  ASSERT_OK_AND_ASSIGN(
+      std::vector<GroupMember> members,
+      CreateGroupMembers(kNumWcmpMembersForTest, controller_port_ids));
+
+  const int input_port = controller_port_ids[kDefaultInputPortIndex];
+  ASSERT_OK(SetupInputPortForPacketReceive(*sut_p4_session_, GetIrP4Info(),
+                                           input_port));
+
+  // Programs the required router interfaces, nexthops for wcmp group.
+  ASSERT_OK(gpins::ProgramNextHops(environment, *sut_p4_session_, GetIrP4Info(),
+                                   members));
+  ASSERT_OK(gpins::ProgramGroupWithMembers(environment, *sut_p4_session_,
+                                           GetIrP4Info(), kGroupId, members,
+                                           p4::v1::Update::INSERT));
+  // Program default routing for all packets on SUT.
+  ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, GetIrP4Info(), kVrfId,
+                                 p4::v1::Update::INSERT));
+
+  // TODO: Revisit for newer chipsets.
+  // Rescale the member weights to what would have been programmed by the
+  // hardware.
+  RescaleMemberWeights(members);
+
+  // Generate test configuration, pick any field used by hashing to vary for
+  // every packet so that it gets sent to all the members.
+  TestConfiguration test_config = {
+      .field = PacketField::kIpDst,
+      .ipv4 = true,
+      .encapped = false,
+      .inner_ipv4 = false,
+      .decap = false,
+  };
+  ASSERT_TRUE(IsValidTestConfiguration(test_config));
+
+  // Create test data entry.
+  std::string test_config_key = TestConfigurationToPayload(test_config);
+  {
+    absl::MutexLock lock(&test_data_.mutex);
+    test_data_.input_output_per_packet[test_config_key] = TestInputOutput{
+        .config = test_config,
+    };
+  }
+
+  // Select one random member of the group to be brought down.
+  absl::BitGen gen;
+  const int random_member_index = absl::Uniform<int>(
+      absl::IntervalClosedOpen, gen, 0, kNumWcmpMembersForTest);
+  const int selected_port_id = members[random_member_index].port;
+  ASSERT_OK_AND_ASSIGN(const auto port_name_per_port_id,
+                       GetPortNamePerPortId(*sut_gnmi_stub_));
+  ASSERT_OK_AND_ASSIGN(const auto& selected_port_name,
+                       gutil::FindOrStatus(port_name_per_port_id,
+                                           absl::StrCat(selected_port_id)));
+  ASSERT_OK(SetInterfaceAdminState(*sut_gnmi_stub_, selected_port_name,
+                                   AdminState::kDown));
+
+  // Send Modify request to remove the down member from the group.
+  members.erase(members.begin() + random_member_index);
+  ASSERT_OK(gpins::ProgramGroupWithMembers(environment, *sut_p4_session_,
+                                           GetIrP4Info(), kGroupId, members,
+                                           p4::v1::Update::MODIFY));
+  // Bring the down member watch port up.
+  ASSERT_OK(SetInterfaceAdminState(*sut_gnmi_stub_, selected_port_name,
+                                   AdminState::kUp));
+
+  // TODO: Adding watch port up action causes unexpected traffic
+  // loss. Remove after the bug in OrchAgent is fixed.
+  absl::SleepFor(absl::Seconds(5));
+
+  // Send 5000 packets and check for packet distribution.
+  ASSERT_OK(SendNPacketsToSut(kNumTestPackets, test_config, members,
+                              controller_port_ids, GetIrP4Info(),
+                              *control_p4_session_, environment));
+  test_data_.total_packets_sent = kNumTestPackets;
+
+  // Wait for packets from the SUT to arrive.
+  absl::SleepFor(kDurationToWaitForPackets);
+
+  // For the test configuration, check the output distribution.
+  {
+    absl::MutexLock lock(&test_data_.mutex);
+    TestInputOutput& test = test_data_.input_output_per_packet[test_config_key];
+    EXPECT_EQ(test.output.size(), test_data_.total_packets_sent)
+        << "Mismatch in expected: " << test_data_.total_packets_sent
+        << " and actual: " << test.output.size() << "packets received for "
+        << DescribeTestConfig(test_config);
+
+    ASSERT_OK_AND_ASSIGN(auto num_packets_per_port,
+                         CountNumPacketsPerPort(test.output));
+
+    absl::flat_hash_set<int> expected_member_ports =
+        CreateExpectedMemberPorts(members);
+
+    ASSERT_OK(VerifyGroupMembersFromP4Read(*sut_p4_session_, GetIrP4Info(),
+                                           kGroupId, members));
+    ASSERT_OK(VerifyGroupMembersFromReceiveTraffic(num_packets_per_port,
+                                                   expected_member_ports));
+    PrettyPrintDistribution(test_config, test, test_data_, members,
+                            num_packets_per_port);
+  }
+
+  // Delete default routes to prepare for delete group.
+  ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, GetIrP4Info(), kVrfId,
+                                 p4::v1::Update::DELETE));
+
+  // Delete group and verify no errors.
+  ASSERT_OK(DeleteGroup(*sut_p4_session_, GetIrP4Info(), kGroupId));
+};
 
 // TODO: Add APG member whose watch port is down and verify traffic distribution
 // when port is down/up.
