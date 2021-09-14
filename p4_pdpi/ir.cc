@@ -1154,6 +1154,9 @@ StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info &p4_info) {
              << ", has_oneshot = " << has_oneshot << "";
     }
     ir_table_definition.set_uses_oneshot(has_oneshot);
+    if (is_wcmp) {
+      ir_table_definition.set_action_profile_id(table.implementation_id());
+    }
 
     p4::config::v1::ActionRef default_action_ref;
     for (const auto &action_ref : table.action_refs()) {
@@ -1297,6 +1300,53 @@ StatusOr<IrP4Info> CreateIrP4Info(const p4::config::v1::P4Info &p4_info) {
       return gutil::InvalidArgumentErrorBuilder()
              << "Invalid @refers_to annotation: Only exact and optional "
                 "match fields can be used.";
+    }
+  }
+
+  // Validate that tables which designate an action profile implementation are
+  // designated as valid tables in that action profile.
+  for (const auto &[table_id, table] : info.tables_by_id()) {
+    if (table.implementation_id_case() == IrTableDefinition::kActionProfileId) {
+      ASSIGN_OR_RETURN(const auto &ir_action_profile,
+                       gutil::FindOrStatus(info.action_profiles_by_id(),
+                                           table.action_profile_id()),
+                       _ << "Implementation id '" << table.action_profile_id()
+                         << "' referenced in table '"
+                         << table.preamble().alias()
+                         << "' is not an action profile.");
+      const auto &profile = ir_action_profile.action_profile();
+      if (!absl::c_linear_search(profile.table_ids(), table_id)) {
+        return gutil::InvalidArgumentErrorBuilder()
+               << "The action profile '" << profile.preamble().alias()
+               << "' given as implementation id '" << table.action_profile_id()
+               << "' by table '" << table.preamble().alias() << "' (id = '"
+               << table_id << "') does not contain '" << table_id
+               << "' in its table_ids: "
+               << absl::StrJoin(profile.table_ids(), ",");
+      }
+    }
+  }
+
+  // Validate that action profiles which designate table_ids are implemented by
+  // those tables.
+  for (const auto &[action_profile_id, ir_action_profile] :
+       info.action_profiles_by_id()) {
+    const auto &profile = ir_action_profile.action_profile();
+    for (uint32_t table_id : profile.table_ids()) {
+      ASSIGN_OR_RETURN(
+          const auto &table, gutil::FindOrStatus(info.tables_by_id(), table_id),
+          _ << "Table id '" << table_id << "' referenced in action profile '"
+            << profile.preamble().alias() << "' is not a table.");
+      if (!(table.implementation_id_case() ==
+            IrTableDefinition::kActionProfileId) ||
+          table.action_profile_id() != action_profile_id) {
+        return gutil::InvalidArgumentErrorBuilder()
+               << "The table '" << table.preamble().alias()
+               << "' given as table id '" << table_id << "' by action profile '"
+               << profile.preamble().alias() << "' (id = '" << action_profile_id
+               << "') implements id '" << table.action_profile_id() << "' != '"
+               << action_profile_id << "'.";
+      }
     }
   }
 

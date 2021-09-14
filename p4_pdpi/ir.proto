@@ -91,6 +91,13 @@ message IrTableDefinition {
   // Required. Does this table use one-shot action selector programming? Implies
   // that this is a WCMP table. Only oneshot WCMP tables are supported.
   bool uses_oneshot = 7;
+  // Optional. P4 id of the "implementation" for this table (i.e. action profile
+  // id, since this is the only currently supported implementation); if this
+  // value does not exist, the table is a regular (direct) match table,
+  // otherwise, this is a WCMP table.
+  oneof implementation_id {
+    uint32 action_profile_id = 13;
+  }
   // Required. Does this table require priority?
   bool requires_priority = 8;
   // Optional. Meter configuration.
@@ -101,6 +108,7 @@ message IrTableDefinition {
   IrActionDefinition const_default_action = 11;
   // Optional. P4Runtime role of this table.
   string role = 12;
+  // Next: 14
 }
 
 // Describes a reference to an action (from a table).

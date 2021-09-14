@@ -1671,6 +1671,7 @@ tables_by_id {
     }
     size: 1024
     uses_oneshot: true
+    action_profile_id: 290772822
   }
 }
 tables_by_id {
@@ -1993,6 +1994,7 @@ tables_by_id {
     }
     size: 1024
     uses_oneshot: true
+    action_profile_id: 290772822
   }
 }
 tables_by_id {
@@ -4004,6 +4006,7 @@ tables_by_name {
     }
     size: 1024
     uses_oneshot: true
+    action_profile_id: 290772822
   }
 }
 tables_by_name {
@@ -4113,6 +4116,7 @@ tables_by_name {
     }
     size: 1024
     uses_oneshot: true
+    action_profile_id: 290772822
   }
 }
 actions_by_id {
