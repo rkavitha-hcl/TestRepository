@@ -14,13 +14,18 @@
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
 
 #include <memory>
+#include <string>
+#include <utility>
 
 #include "absl/memory/memory.h"
 #include "absl/strings/str_cat.h"
 #include "glog/logging.h"
-#include "google/protobuf/text_format.h"
 #include "grpcpp/security/server_credentials.h"
+#include "grpcpp/server.h"
+#include "grpcpp/server_builder.h"
 #include "gutil/status_matchers.h"
+#include "p4rt_app/p4runtime/p4runtime_impl.h"
+#include "p4rt_app/sonic/fake_packetio_interface.h"
 #include "swss/consumerstatetable.h"
 #include "swss/dbconnector.h"
 #include "swss/fakes/fake_component_state_helper.h"

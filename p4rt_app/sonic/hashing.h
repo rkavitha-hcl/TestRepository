@@ -14,9 +14,12 @@
 #ifndef GOOGLE_P4RT_APP_SONIC_HASHING_H_
 #define GOOGLE_P4RT_APP_SONIC_HASHING_H_
 
+#include <string>
 #include <vector>
 
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "p4_pdpi/ir.h"
 #include "swss/consumernotifierinterface.h"
 #include "swss/dbconnectorinterface.h"

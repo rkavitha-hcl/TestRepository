@@ -13,6 +13,9 @@
 // limitations under the License.
 #include "p4rt_app/tests/lib//app_db_entry_builder.h"
 
+#include <string>
+#include <vector>
+
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 

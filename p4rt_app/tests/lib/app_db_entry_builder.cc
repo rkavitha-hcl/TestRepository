@@ -13,6 +13,8 @@
 // limitations under the License.
 #include "p4rt_app/tests/lib//app_db_entry_builder.h"
 
+#include <iterator>
+#include <optional>
 #include <string>
 #include <unordered_map>
 #include <vector>

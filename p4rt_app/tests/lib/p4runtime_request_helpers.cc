@@ -14,7 +14,9 @@
 #include "p4rt_app/tests/lib/p4runtime_request_helpers.h"
 
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "gutil/proto.h"
+#include "gutil/status.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/pd.h"
