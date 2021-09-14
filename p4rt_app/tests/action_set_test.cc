@@ -18,6 +18,7 @@
 #include "p4_pdpi/connection_management.h"
 #include "p4_pdpi/entity_management.h"
 #include "p4rt_app/tests/lib/app_db_entry_builder.h"
+#include "p4rt_app/tests/lib/p4runtime_component_test_fixture.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 
@@ -26,30 +27,18 @@ namespace {
 
 using ::gutil::EqualsProto;
 
-class ActionSetTest : public testing::Test {
+// Testing end-to-end features unique to P4 action sets (e.g. ECMP & WCMP).
+class ActionSetTest : public test_lib::P4RuntimeComponentTestFixture {
  protected:
-  void SetUp() override {
-    std::string address = absl::StrCat("localhost:", p4rt_service_.GrpcPort());
-    LOG(INFO) << "Opening P4RT connection to " << address << ".";
-    auto stub =
-        pdpi::CreateP4RuntimeStub(address, grpc::InsecureChannelCredentials());
-    ASSERT_OK_AND_ASSIGN(
-        p4rt_session_, pdpi::P4RuntimeSession::Create(std::move(stub),
-                                                      /*device_id=*/183807201));
-    // Configure ethernet ports before the P4Info push.
-    p4rt_service_.GetPortAppDbTable().InsertTableEntry("Ethernet0",
-                                                       {{"id", "1"}});
-
-    // Push a P4Info file to enable the reading, and writing of entries.
-    ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-        p4rt_session_.get(),
-        p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-        sai::GetP4Info(sai::Instantiation::kMiddleblock)));
-  }
-
-  test_lib::P4RuntimeGrpcService p4rt_service_ =
-      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
-  std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
+  ActionSetTest()
+      : test_lib::P4RuntimeComponentTestFixture(
+            sai::Instantiation::kMiddleblock,
+            /*gnmi_ports=*/{
+                test_lib::FakeGnmiPortConfig{
+                    .port_id = "1",
+                    .port_name = "Ethernet0",
+                },
+            }) {}
 };
 
 TEST_F(ActionSetTest, WcmpInsertReadAndRemove) {
