@@ -57,7 +57,7 @@ using ::nlohmann::json;
 using ::testing::HasSubstr;
 
 constexpr int kEpochMarginalError = 2;
-constexpr absl::Duration kColdRebootWaitForDownTime = absl::Seconds(30);
+constexpr absl::Duration kColdRebootWaitForDownTime = absl::Seconds(60);
 // TODO: Reduce reboot up time.
 constexpr absl::Duration kColdRebootWaitForUpTime = absl::Minutes(6);
 constexpr absl::Duration kWaitForApplicationsReady = absl::Minutes(1);
