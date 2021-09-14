@@ -32,7 +32,6 @@ using ::gutil::EqualsProto;
 using ::gutil::IsOkAndHolds;
 using ::gutil::StatusIs;
 using ::testing::HasSubstr;
-using ::testing::UnorderedElementsAre;
 using ::testing::UnorderedElementsAreArray;
 
 // Ensure we can program each of the L3 flows.
@@ -42,10 +41,6 @@ class FixedL3TableTest : public test_lib::P4RuntimeComponentTestFixture {
       : test_lib::P4RuntimeComponentTestFixture(
             sai::Instantiation::kMiddleblock,
             /*gnmi_ports=*/{
-                test_lib::FakeGnmiPortConfig{
-                    .port_id = "1",
-                    .port_name = "Ethernet0",
-                },
                 test_lib::FakeGnmiPortConfig{
                     .port_id = "2",
                     .port_name = "Ethernet4",
@@ -257,190 +252,6 @@ TEST_F(FixedL3TableTest, SupportIpv6TableFlow) {
       IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
 }
 
-TEST_F(FixedL3TableTest, TableEntryInsertReadAndRemove) {
-  // P4 write request.
-  ASSERT_OK_AND_ASSIGN(
-      p4::v1::WriteRequest write_request,
-      test_lib::PdWriteRequestToPi(
-          R"pb(
-            updates {
-              type: INSERT
-              table_entry {
-                ipv6_table_entry {
-                  match {
-                    vrf_id: "80"
-                    ipv6_dst { value: "2002:a17:506:c114::" prefix_length: 64 }
-                  }
-                  action { set_nexthop_id { nexthop_id: "20" } }
-                }
-              }
-            }
-          )pb",
-          ir_p4_info_));
-
-  // Expected P4RT AppDb entry.
-  auto expected_entry = test_lib::AppDbEntryBuilder{}
-                            .SetTableName("FIXED_IPV6_TABLE")
-                            .AddMatchField("ipv6_dst", "2002:a17:506:c114::/64")
-                            .AddMatchField("vrf_id", "p4rt-80")
-                            .SetAction("set_nexthop_id")
-                            .AddActionParam("nexthop_id", "20");
-
-  // The insert write request should not fail, and once complete the entry
-  // should exist in the P4RT AppDb table.
-  ASSERT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
-                                                   write_request));
-  EXPECT_THAT(
-      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
-      IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
-
-  // Reading back the entry should result in the same table_entry.
-  p4::v1::ReadRequest read_request;
-  read_request.add_entities()->mutable_table_entry();
-  ASSERT_OK_AND_ASSIGN(
-      p4::v1::ReadResponse read_response,
-      pdpi::SetMetadataAndSendPiReadRequest(p4rt_session_.get(), read_request));
-  ASSERT_EQ(read_response.entities_size(), 1);  // Only one write.
-  EXPECT_THAT(read_response.entities(0),
-              EqualsProto(write_request.updates(0).entity()));
-
-  // Modify the P4 write request to delete the entry. We should be able to
-  // delete the entry with only the match key.
-  write_request.mutable_updates(0)->set_type(p4::v1::Update::DELETE);
-  write_request.mutable_updates(0)
-      ->mutable_entity()
-      ->mutable_table_entry()
-      ->mutable_action()
-      ->Clear();
-
-  // The delete write request should not fail, and once complete the entry
-  // should no longer exist in the P4RT AppDb table.
-  ASSERT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
-                                                   write_request));
-  EXPECT_THAT(
-      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
-      StatusIs(absl::StatusCode::kNotFound));
-
-  // Reading back the entry should result in nothing being returned.
-  ASSERT_OK_AND_ASSIGN(read_response, pdpi::SetMetadataAndSendPiReadRequest(
-                                          p4rt_session_.get(), read_request));
-  EXPECT_EQ(read_response.entities_size(), 0);
-}
-
-TEST_F(FixedL3TableTest, TableEntryModify) {
-  // P4 write request.
-  ASSERT_OK_AND_ASSIGN(
-      p4::v1::WriteRequest write_request,
-      test_lib::PdWriteRequestToPi(
-          R"pb(
-            updates {
-              type: INSERT
-              table_entry {
-                ipv6_table_entry {
-                  match {
-                    vrf_id: "80"
-                    ipv6_dst { value: "2002:a17:506:c114::" prefix_length: 64 }
-                  }
-                  action { set_nexthop_id { nexthop_id: "20" } }
-                }
-              }
-            }
-          )pb",
-          ir_p4_info_));
-
-  // Expected P4RT AppDb entry.
-  auto expected_entry = test_lib::AppDbEntryBuilder{}
-                            .SetTableName("FIXED_IPV6_TABLE")
-                            .AddMatchField("ipv6_dst", "2002:a17:506:c114::/64")
-                            .AddMatchField("vrf_id", "p4rt-80");
-
-  // The insert write request should not fail, and once complete the entry
-  // should exist in the P4RT AppDb table.
-  ASSERT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
-                                                   write_request));
-  ASSERT_THAT(
-      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
-      IsOkAndHolds(
-          UnorderedElementsAre(std::make_pair("action", "set_nexthop_id"),
-                               std::make_pair("param/nexthop_id", "20"))));
-
-  // Update the request with a new action.
-  write_request.mutable_updates(0)->set_type(p4::v1::Update::MODIFY);
-  ASSERT_OK(gutil::ReadProtoFromString(
-      R"pb(action {
-             action_id: 16777220
-             params { param_id: 1 value: "30" }
-           })pb",
-      write_request.mutable_updates(0)
-          ->mutable_entity()
-          ->mutable_table_entry()
-          ->mutable_action()));
-  ASSERT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
-                                                   write_request));
-  EXPECT_THAT(
-      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
-      IsOkAndHolds(
-          UnorderedElementsAre(std::make_pair("action", "set_wcmp_group_id"),
-                               std::make_pair("param/wcmp_group_id", "30"))));
-}
-
-TEST_F(FixedL3TableTest, DuplicateTableEntryInsertFails) {
-  // P4 write request.
-  ASSERT_OK_AND_ASSIGN(
-      p4::v1::WriteRequest write_request,
-      test_lib::PdWriteRequestToPi(
-          R"pb(
-            updates {
-              type: INSERT
-              table_entry {
-                ipv6_table_entry {
-                  match {
-                    vrf_id: "80"
-                    ipv6_dst { value: "2002:a17:506:c114::" prefix_length: 64 }
-                  }
-                  action { set_nexthop_id { nexthop_id: "20" } }
-                }
-              }
-            }
-          )pb",
-          ir_p4_info_));
-
-  // The first insert is expected to pass since the entry does not exist.
-  EXPECT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
-                                                   write_request));
-
-  // The second insert is expected to fail since the entry already exists.
-  EXPECT_THAT(
-      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
-                                             write_request),
-      StatusIs(absl::StatusCode::kUnknown, HasSubstr("ALREADY_EXISTS")));
-}
-
-TEST_F(FixedL3TableTest, TableEntryModifyFailsIfEntryDoesNotExist) {
-  // P4 write request.
-  ASSERT_OK_AND_ASSIGN(
-      p4::v1::WriteRequest write_request,
-      test_lib::PdWriteRequestToPi(
-          R"pb(
-            updates {
-              type: MODIFY
-              table_entry {
-                ipv6_table_entry {
-                  match {
-                    vrf_id: "80"
-                    ipv6_dst { value: "2002:a17:506:c114::" prefix_length: 64 }
-                  }
-                  action { set_nexthop_id { nexthop_id: "20" } }
-                }
-              }
-            }
-          )pb",
-          ir_p4_info_));
-  EXPECT_THAT(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
-                                                     write_request),
-              StatusIs(absl::StatusCode::kUnknown, HasSubstr("NOT_FOUND")));
-}
-
 TEST_F(FixedL3TableTest, InvalidPortIdFails) {
   // P4 write request with an unassigned port value (i.e. 999).
   ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
@@ -466,53 +277,6 @@ TEST_F(FixedL3TableTest, InvalidPortIdFails) {
   EXPECT_THAT(
       pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
       StatusIs(absl::StatusCode::kUnknown, HasSubstr("#1: INVALID_ARGUMENT")));
-}
-
-// TODO: remove special handling when ONF no longer relies on it.
-TEST_F(FixedL3TableTest, SupportDefaultVrf) {
-  // P4 write request.
-  ASSERT_OK_AND_ASSIGN(
-      p4::v1::WriteRequest request,
-      test_lib::PdWriteRequestToPi(
-          R"pb(
-            updates {
-              type: INSERT
-              table_entry {
-                ipv6_table_entry {
-                  match {
-                    vrf_id: "vrf-0"
-                    ipv6_dst { value: "2002:a17:506:c114::" prefix_length: 64 }
-                  }
-                  action { set_nexthop_id { nexthop_id: "20" } }
-                }
-              }
-            }
-          )pb",
-          ir_p4_info_));
-
-  // Expected P4RT AppDb entry.
-  auto expected_entry = test_lib::AppDbEntryBuilder{}
-                            .SetTableName("FIXED_IPV6_TABLE")
-                            .AddMatchField("ipv6_dst", "2002:a17:506:c114::/64")
-                            .AddMatchField("vrf_id", "")
-                            .SetAction("set_nexthop_id")
-                            .AddActionParam("nexthop_id", "20");
-
-  EXPECT_OK(
-      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
-  EXPECT_THAT(
-      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
-      IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
-
-  // Sanity check that the default vrf is translated back correctly.
-  p4::v1::ReadRequest read_request;
-  read_request.add_entities()->mutable_table_entry();
-  ASSERT_OK_AND_ASSIGN(
-      p4::v1::ReadResponse read_response,
-      pdpi::SetMetadataAndSendPiReadRequest(p4rt_session_.get(), read_request));
-  ASSERT_EQ(read_response.entities_size(), 1);  // Only one write.
-  EXPECT_THAT(read_response.entities(0),
-              EqualsProto(request.updates(0).entity()));
 }
 
 TEST_F(FixedL3TableTest, IncorrectlyFormatedRequestFailsConstraintCheck) {

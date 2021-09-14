@@ -197,6 +197,7 @@ cc_test(
     tags = ["exclusive"],
     deps = [
         "//gutil:proto",
+        "//gutil:proto_matchers",
         "//gutil:status_matchers",
         "//p4_pdpi:connection_management",
         "//p4_pdpi:entity_management",
@@ -234,5 +235,26 @@ cc_test(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/types:optional",
         "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
+    name = "vrf_table_test",
+    srcs = ["vrf_table_test.cc"],
+    tags = ["exclusive"],
+    deps = [
+        "//gutil:proto_matchers",
+        "//gutil:status_matchers",
+        "//p4_pdpi:entity_management",
+        "//p4rt_app/tests/lib:app_db_entry_builder",
+        "//p4rt_app/tests/lib:p4runtime_component_test_fixture",
+        "//p4rt_app/tests/lib:p4runtime_grpc_service",
+        "//p4rt_app/tests/lib:p4runtime_request_helpers",
+        "//sai_p4/instantiations/google:instantiations",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_googletest//:gtest_main",
+        "@sonic_swss_common//tests/fakes:fake_sonic_db_table",
     ],
 )

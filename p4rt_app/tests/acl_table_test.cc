@@ -32,10 +32,8 @@ namespace p4rt_app {
 namespace {
 
 using ::gutil::EqualsProto;
-using ::gutil::IsOkAndHolds;
 using ::gutil::StatusIs;
 using ::testing::HasSubstr;
-using ::testing::UnorderedElementsAreArray;
 
 // Testing end-to-end functionality unique to ACL entries (e.g. reading back
 // port counters, or programming meters, etc.).
@@ -46,134 +44,6 @@ class AclTableTest : public test_lib::P4RuntimeComponentTestFixture {
             sai::Instantiation::kMiddleblock,
             /*gnmi_ports=*/{}) {}
 };
-
-TEST_F(AclTableTest, SetVrfFlowCreatesVrfTableEntry) {
-  // Send the P4 write request to set a VRF ID.
-  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
-                       test_lib::PdWriteRequestToPi(
-                           R"pb(
-                             updates {
-                               type: INSERT
-                               table_entry {
-                                 acl_pre_ingress_table_entry {
-                                   match {}
-                                   priority: 2000
-                                   action { set_vrf { vrf_id: "20" } }
-                                 }
-                               }
-                             }
-                           )pb",
-                           ir_p4_info_));
-  EXPECT_OK(
-      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
-
-  // Verify the correct ACL entry is added the the P4RT table.
-  auto expected_entry = test_lib::AppDbEntryBuilder{}
-                            .SetTableName("ACL_ACL_PRE_INGRESS_TABLE")
-                            .SetPriority(2000)
-                            .SetAction("set_vrf")
-                            .AddActionParam("vrf_id", "p4rt-20");
-  EXPECT_THAT(
-      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
-      IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
-
-  // Verify the VRF ID exists.
-  EXPECT_OK(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"));
-}
-
-TEST_F(AclTableTest, VrfTableEntriesPersistsWhileInUse) {
-  // Add two ACL flows with different priorities, but use the same VRF ID.
-  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest insert_request,
-                       test_lib::PdWriteRequestToPi(
-                           R"pb(
-                             updates {
-                               type: INSERT
-                               table_entry {
-                                 acl_pre_ingress_table_entry {
-                                   match {}
-                                   priority: 2000
-                                   action { set_vrf { vrf_id: "20" } }
-                                 }
-                               }
-                             }
-                             updates {
-                               type: INSERT
-                               table_entry {
-                                 acl_pre_ingress_table_entry {
-                                   match {}
-                                   priority: 2001
-                                   action { set_vrf { vrf_id: "20" } }
-                                 }
-                               }
-                             }
-                           )pb",
-                           ir_p4_info_));
-
-  // Insert both flows and verify the VRF ID exists.
-  EXPECT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
-                                                   insert_request));
-  EXPECT_OK(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"))
-      << "VRF ID was never created.";
-
-  // Delete one request, but because the other still uses the VRF ID it should
-  // not be removed.
-  p4::v1::WriteRequest delete_request;
-  *delete_request.add_updates() = insert_request.updates(0);
-  delete_request.mutable_updates(0)->set_type(p4::v1::Update::DELETE);
-  EXPECT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
-                                                   delete_request));
-  EXPECT_OK(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"))
-      << "VRF ID is still in use and should still exist.";
-
-  // Finally, delete the other request, and verify the VRF ID is also removed.
-  delete_request.Clear();
-  *delete_request.add_updates() = insert_request.updates(1);
-  delete_request.mutable_updates(0)->set_type(p4::v1::Update::DELETE);
-  EXPECT_OK(pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
-                                                   delete_request));
-  EXPECT_THAT(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"),
-              StatusIs(absl::StatusCode::kNotFound));
-}
-
-TEST_F(AclTableTest, VrfTableEntryDeleteWithWrongValues) {
-  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
-                       test_lib::PdWriteRequestToPi(
-                           R"pb(
-                             updates {
-                               type: INSERT
-                               table_entry {
-                                 acl_pre_ingress_table_entry {
-                                   match {}
-                                   priority: 2000
-                                   action { set_vrf { vrf_id: "20" } }
-                                 }
-                               }
-                             }
-                           )pb",
-                           ir_p4_info_));
-
-  EXPECT_OK(
-      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
-  EXPECT_OK(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"))
-      << "VRF ID was never created.";
-
-  // Delete request using an incorrect action param (vrf 25 instead of 20).
-  request.mutable_updates(0)->set_type(p4::v1::Update::DELETE);
-  *request.mutable_updates(0)
-       ->mutable_entity()
-       ->mutable_table_entry()
-       ->mutable_action()
-       ->mutable_action()
-       ->mutable_params(0)
-       ->mutable_value() = "25";
-  EXPECT_OK(
-      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
-
-  // Expect the correct AppDb entry and its corresponding action param to be
-  // cleared since delete only looks at the AppDB key.
-  EXPECT_THAT(p4rt_service_.GetVrfAppDbTable().ReadTableEntry("p4rt-20"),
-              StatusIs(absl::StatusCode::kNotFound));
-}
 
 TEST_F(AclTableTest, ReadCounters) {
   ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
