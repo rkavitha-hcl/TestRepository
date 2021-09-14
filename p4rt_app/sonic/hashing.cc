@@ -16,19 +16,124 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_join.h"
 #include "glog/logging.h"
 #include "gutil/collections.h"
 #include "gutil/status.h"
+#include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/utils/annotation_parser.h"
 #include "p4rt_app/sonic/response_handler.h"
 #include "swss/json.h"
 #include "swss/json.hpp"
+#include "swss/rediscommand.h"
 
 namespace p4rt_app {
 namespace sonic {
 namespace {
 
-using ::gutil::InvalidArgumentErrorBuilder;
+// Hashing configurations will be marked with a 'sai_hash_algorithm' annotation.
+bool ActionHasHashingConfig(const pdpi::IrActionDefinition& action_def) {
+  return pdpi::GetAllAnnotationsAsArgList("sai_hash_algorithm",
+                                          action_def.preamble().annotations())
+      .ok();
+}
+
+// Hashing configurations can apply to multiple parts of the dataplane, and
+// depending on the path we need to use different AppDb values.
+enum class HashConfigType { kECMP, kLag };
+
+absl::StatusOr<HashConfigType> GetHashConfigType(
+    absl::string_view action_name) {
+  if (action_name == "select_ecmp_hash_algorithm") return HashConfigType::kECMP;
+  if (action_name == "select_lag_hash_algorithm") return HashConfigType::kLag;
+
+  if (action_name == "compute_ecmp_hash_ipv6") return HashConfigType::kECMP;
+  if (action_name == "compute_lag_hash_ipv6") return HashConfigType::kLag;
+
+  if (action_name == "compute_ecmp_hash_ipv4") return HashConfigType::kECMP;
+  if (action_name == "compute_lag_hash_ipv4") return HashConfigType::kLag;
+
+  return gutil::InvalidArgumentErrorBuilder()
+         << "Unsupported hash configuration '" << action_name << "'.";
+}
+
+// Map of supported SAI hashing algorithms.
+const absl::flat_hash_map<std::string, std::string>&
+GetAvailableHashAlgorithms() {
+  static const auto* const kHashAlgorithms =
+      new absl::flat_hash_map<std::string, std::string>{
+          {"SAI_HASH_ALGORITHM_CRC_32LO", "crc_32lo"},
+      };
+  return *kHashAlgorithms;
+}
+
+absl::StatusOr<swss::FieldValueTuple> GetHashAlgorithm(
+    HashConfigType hash_config, const std::string& algoritm) {
+  auto iter = GetAvailableHashAlgorithms().find(algoritm);
+  if (iter == GetAvailableHashAlgorithms().end()) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "[P4RT App] Unsupported hash algorithm '" << algoritm << "'.";
+  }
+
+  std::string entry_name;
+  switch (hash_config) {
+    case HashConfigType::kECMP:
+      entry_name = "ecmp_hash_algorithm";
+      break;
+    case HashConfigType::kLag:
+      entry_name = "lag_hash_algorithm";
+      break;
+  }
+  return swss::FieldValueTuple{entry_name, iter->second};
+}
+
+swss::FieldValueTuple GetHashSeed(HashConfigType hash_config,
+                                  const std::string& seed) {
+  std::string entry_name;
+  switch (hash_config) {
+    case HashConfigType::kECMP:
+      entry_name = "ecmp_hash_seed";
+      break;
+    case HashConfigType::kLag:
+      entry_name = "lag_hash_seed";
+      break;
+  }
+  return swss::FieldValueTuple{entry_name, seed};
+}
+
+swss::FieldValueTuple GetHashOffset(HashConfigType hash_config,
+                                    const std::string& offset) {
+  std::string entry_name;
+  switch (hash_config) {
+    case HashConfigType::kECMP:
+      entry_name = "ecmp_hash_offset";
+      break;
+    case HashConfigType::kLag:
+      entry_name = "lag_hash_offset";
+      break;
+  }
+  return swss::FieldValueTuple{entry_name, offset};
+}
+
+std::string GetIpv4Hash(HashConfigType hash_type) {
+  switch (hash_type) {
+    case HashConfigType::kECMP:
+      return "ecmp_hash_ipv4";
+    case HashConfigType::kLag:
+      return "lag_hash_ipv4";
+  }
+  return "";
+}
+
+std::string GetIpv6Hash(HashConfigType hash_type) {
+  switch (hash_type) {
+    case HashConfigType::kECMP:
+      return "ecmp_hash_ipv6";
+    case HashConfigType::kLag:
+      return "lag_hash_ipv6";
+  }
+  return "";
+}
 
 // Generate the JSON format for HASH_TABLE entries with sai_ecmp_hash and
 // sai_native_hash_field annotations.
@@ -59,7 +164,7 @@ absl::StatusOr<nlohmann::json> GenerateJsonHashFieldEntries(
 
   for (const auto& fields : parse_results) {
     if (fields.size() != 1) {
-      return InvalidArgumentErrorBuilder()
+      return gutil::InvalidArgumentErrorBuilder()
              << "Unexpected number of native hash field specified: "
              << "expected 1, actual " << fields.size();
     }
@@ -87,23 +192,23 @@ bool IsIpv6HashKey(absl::string_view key) {
 absl::StatusOr<std::vector<EcmpHashEntry>> GenerateAppDbHashFieldEntries(
     const pdpi::IrP4Info& ir_p4info) {
   std::vector<EcmpHashEntry> hash_entries;
-  for (const auto& actions : ir_p4info.actions_by_name()) {
+  for (const auto& [action_name, action_def] : ir_p4info.actions_by_name()) {
     auto parse_results = pdpi::GetAllAnnotationsAsArgList(
-        "sai_native_hash_field", actions.second.preamble().annotations());
+        "sai_native_hash_field", action_def.preamble().annotations());
     if (!parse_results.ok()) continue;
     auto json = GenerateJsonHashFieldEntries(*parse_results);
     if (!json.ok()) {
-      return InvalidArgumentErrorBuilder()
+      return gutil::InvalidArgumentErrorBuilder()
              << "Unable to generate hash field action annotation entries "
              << json.status();
     } else {
       hash_entries.push_back(EcmpHashEntry(
-          {actions.first, std::vector<swss::FieldValueTuple>(
-                              {{"hash_field_list", (*json).dump()}})}));
+          {action_name, std::vector<swss::FieldValueTuple>(
+                            {{"hash_field_list", (*json).dump()}})}));
     }
   }
   if (hash_entries.empty()) {
-    return InvalidArgumentErrorBuilder()
+    return gutil::InvalidArgumentErrorBuilder()
            << "Missing hash field entries in P4Info file.";
   }
   return hash_entries;
@@ -111,61 +216,67 @@ absl::StatusOr<std::vector<EcmpHashEntry>> GenerateAppDbHashFieldEntries(
 
 absl::StatusOr<std::vector<swss::FieldValueTuple>>
 GenerateAppDbHashValueEntries(const pdpi::IrP4Info& ir_p4info) {
-  static constexpr char kEcmpHashAlg[] = "ecmp_hash_algorithm";
-  static constexpr char kEcmpHashSeed[] = "ecmp_hash_seed";
-  static constexpr char kEcmpHashOffset[] = "ecmp_hash_offset";
-  const absl::flat_hash_map<std::string, std::string> hash_alg_map = {
-      {"SAI_HASH_ALGORITHM_CRC_32LO", "crc_32lo"},
-  };
-
   absl::flat_hash_set<std::string> hash_values_set;
   std::vector<swss::FieldValueTuple> hash_value_entries;
-  for (const auto& actions : ir_p4info.actions_by_name()) {
-    auto parse_results = pdpi::GetAllAnnotationsAsArgList(
-        "sai_hash_algorithm", actions.second.preamble().annotations());
-    if (!parse_results.ok()) continue;
+
+  // Go through all the actions from the IrP4Info and if they specify a hashing
+  // configuration generate AppDb entries.
+  for (const auto& [action_name, action_def] : ir_p4info.actions_by_name()) {
+    if (!ActionHasHashingConfig(action_def)) continue;
+
+    // We only support certain types of hashing configs so make sure the action
+    // matches expectations.
+    ASSIGN_OR_RETURN(HashConfigType hash_type, GetHashConfigType(action_name));
+
     // Expect to get all hashing value related annotations like algorithm,
     // offset, seed etc.
-    const auto hash_components =
-        pdpi::GetAllAnnotations(actions.second.preamble().annotations());
-    if (hash_components.empty()) {
-      return InvalidArgumentErrorBuilder()
-             << "No entries for hash algorithm, offset, seed";
-    }
-    for (const auto& hash_value : hash_components) {
-      if (hash_value.label == "sai_hash_algorithm") {
-        ASSIGN_OR_RETURN(auto alg_type,
-                         gutil::FindOrStatus(hash_alg_map, hash_value.body),
-                         _ << "Unable to find hash algorithm string for "
-                           << hash_value.body);
-        RETURN_IF_ERROR(gutil::InsertIfUnique(
-            hash_values_set, std::string(kEcmpHashAlg),
-            absl::StrCat("Duplicate hash algorithm type specified.")));
-        hash_value_entries.push_back(
-            swss::FieldValueTuple({kEcmpHashAlg, alg_type}));
-      } else if (hash_value.label == "sai_hash_seed") {
-        RETURN_IF_ERROR(gutil::InsertIfUnique(
-            hash_values_set, std::string(kEcmpHashSeed),
-            absl::StrCat("Duplicate hash algorithm seed specified.")));
-        hash_value_entries.push_back(
-            swss::FieldValueTuple({kEcmpHashSeed, hash_value.body}));
-      } else if (hash_value.label == "sai_hash_offset") {
-        RETURN_IF_ERROR(gutil::InsertIfUnique(
-            hash_values_set, std::string(kEcmpHashOffset),
-            absl::StrCat("Duplicate hash algorithm offset specified.")));
-        hash_value_entries.push_back(
-            swss::FieldValueTuple({kEcmpHashOffset, hash_value.body}));
+    bool has_algorithm = false;
+    bool has_offset = false;
+    bool has_seed = false;
+
+    for (const auto& annotation :
+         pdpi::GetAllAnnotations(action_def.preamble().annotations())) {
+      swss::FieldValueTuple fv;
+      if (annotation.label == "sai_hash_algorithm") {
+        ASSIGN_OR_RETURN(fv, GetHashAlgorithm(hash_type, annotation.body),
+                         _.SetAppend()
+                             << " Found in action '" << action_name << "'.");
+        has_algorithm = true;
+      } else if (annotation.label == "sai_hash_seed") {
+        fv = GetHashSeed(hash_type, annotation.body);
+        has_seed = true;
+      } else if (annotation.label == "sai_hash_offset") {
+        fv = GetHashOffset(hash_type, annotation.body);
+        has_offset = true;
       } else {
-        return InvalidArgumentErrorBuilder()
-               << "Not a valid hash value label: " << hash_value.label;
+        return gutil::InvalidArgumentErrorBuilder()
+               << "Unexpected hash configuration '" << annotation.label
+               << "' in action '" << action_name << "'.";
       }
+      // Do not allow duplicate configurations.
+      auto [_, success] = hash_values_set.insert(fv.first);
+      if (!success) {
+        return gutil::InvalidArgumentErrorBuilder()
+               << "Duplicate hash configurations are not allowed for '"
+               << fv.first << "'.";
+      }
+      hash_value_entries.push_back(fv);
+    }
+
+    std::vector<std::string> missing;
+    if (!has_algorithm) missing.push_back("algorithm");
+    if (!has_offset) missing.push_back("offset");
+    if (!has_seed) missing.push_back("seed");
+    if (!missing.empty()) {
+      return gutil::InvalidArgumentErrorBuilder()
+             << "Hash configuration for '" << action_name
+             << "' is missing: " << absl::StrJoin(missing, ", ");
     }
   }
   if (hash_value_entries.empty()) {
-    return InvalidArgumentErrorBuilder()
-           << "Missing hash value entries in P4Info file.";
+    return gutil::InvalidArgumentErrorBuilder()
+           << "Could not find action with hashing algorithm in the P4Info.";
   }
-
   return hash_value_entries;
 }
 
@@ -223,14 +334,19 @@ absl::Status ProgramSwitchTable(
 
   // Add the ecmp hash fields for Ipv4 & Ipv6.
   for (const auto& hash_field_key : hash_fields) {
+    // We only support certain types of hashing configs so make sure the field
+    // matches expectations.
+    ASSIGN_OR_RETURN(HashConfigType hash_type,
+                     GetHashConfigType(hash_field_key));
+
     if (IsIpv4HashKey(hash_field_key)) {
       switch_table_attrs.push_back(
-          swss::FieldValueTuple({"ecmp_hash_ipv4", hash_field_key}));
+          swss::FieldValueTuple({GetIpv4Hash(hash_type), hash_field_key}));
     } else if (IsIpv6HashKey(hash_field_key)) {
       switch_table_attrs.push_back(
-          swss::FieldValueTuple({"ecmp_hash_ipv6", hash_field_key}));
+          swss::FieldValueTuple({GetIpv6Hash(hash_type), hash_field_key}));
     } else {
-      return InvalidArgumentErrorBuilder()
+      return gutil::InvalidArgumentErrorBuilder()
              << "Invalid hash field key: " << hash_field_key;
     }
   }

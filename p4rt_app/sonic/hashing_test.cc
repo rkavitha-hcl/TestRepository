@@ -14,17 +14,26 @@
 
 #include "p4rt_app/sonic/hashing.h"
 
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
+#include "absl/strings/substitute.h"
 #include "gmock/gmock.h"
 #include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"
 #include "gutil/status_matchers.h"
-#include "sai_p4/instantiations/google/sai_p4info.h"
+#include "gutil/testing.h"
+#include "p4/config/v1/p4info.pb.h"
+#include "p4_pdpi/ir.pb.h"
 
 namespace p4rt_app {
 namespace sonic {
 namespace {
 
+using ::gutil::IsOkAndHolds;
 using ::gutil::StatusIs;
+using ::testing::HasSubstr;
 using ::testing::Pointwise;
 using ::testing::Test;
 using ::testing::UnorderedPointwise;
@@ -52,24 +61,197 @@ MATCHER_P(HashValuesAreEqual, check_field_value, "") {
   }
 }
 
-TEST(HashingTest, GenerateAppDbHashFieldEntriesOk) {
-  pdpi::IrP4Info ir_p4_info =
-      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
+p4::config::v1::Action GetHashAlgorithmAction(const std::string& alias) {
+  p4::config::v1::Action action =
+      gutil::ParseProtoOrDie<p4::config::v1::Action>(absl::Substitute(
+          R"pb(
+            preamble {
+              id: 1
+              name: "$0"
+              alias: "$1"
+              annotations: "@sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"
+              annotations: "@sai_hash_seed(0)"
+              annotations: "@sai_hash_offset(0)"
+            }
+          )pb",
+          absl::StrCat("ingress.hashing_config.", alias), alias));
+  return action;
+}
+
+p4::config::v1::Action GetHashIpv4Action(const std::string& alias) {
+  p4::config::v1::Action action = gutil::ParseProtoOrDie<
+      p4::config::v1::Action>(absl::Substitute(
+      R"pb(
+        preamble {
+          id: 4
+          name: "$0"
+          alias: "$1"
+          annotations: "@sai_lag_hash(SAI_SWITCH_ATTR_LAG_HASH_IPV4)"
+          annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_SRC_IPV4)"
+          annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_DST_IPV4)"
+          annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_L4_SRC_PORT)"
+          annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_L4_DST_PORT)"
+        }
+      )pb",
+      absl::StrCat("ingress.hashing_config.", alias), alias));
+  return action;
+}
+
+p4::config::v1::Action GetHashIpv6Action(const std::string& alias) {
+  p4::config::v1::Action action = gutil::ParseProtoOrDie<
+      p4::config::v1::Action>(absl::Substitute(
+      R"pb(
+        preamble {
+          id: 6
+          name: "$0"
+          alias: "$1"
+          annotations: "@sai_lag_hash(SAI_SWITCH_ATTR_LAG_HASH_IPV6)"
+          annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_SRC_IPV6)"
+          annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_DST_IPV6)"
+          annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_L4_SRC_PORT)"
+          annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_L4_DST_PORT)"
+          annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_IPV6_FLOW_LABEL)"
+        }
+      )pb",
+      absl::StrCat("ingress.hashing_config.", alias), alias));
+  return action;
+}
+
+absl::StatusOr<pdpi::IrP4Info> GetSampleHashConfig(const std::string& name) {
+  p4::config::v1::P4Info p4_info;
+
+  *p4_info.add_actions() =
+      GetHashAlgorithmAction(absl::StrCat("select_", name, "_hash_algorithm"));
+  *p4_info.add_actions() =
+      GetHashIpv4Action(absl::StrCat("compute_", name, "_hash_ipv4"));
+  *p4_info.add_actions() =
+      GetHashIpv6Action(absl::StrCat("compute_", name, "_hash_ipv6"));
+
+  return pdpi::CreateIrP4Info(p4_info);
+}
+
+TEST(HashingTest, SupportEcmpHashConfig) {
+  ASSERT_OK_AND_ASSIGN(pdpi::IrP4Info ir_p4_info, GetSampleHashConfig("ecmp"));
+
   std::vector<EcmpHashEntry> expected_hash_fields = {
       {"compute_ecmp_hash_ipv6",
        {{"hash_field_list",
-         "[\"src_ip\",\"dst_ip\",\"l4_src_port\",\"l4_dst_port\",\"ipv6_flow_"
-         "label\"]"}}},
+         R"(["src_ip","dst_ip","l4_src_port","l4_dst_port","ipv6_flow_label"])"}}},
       {"compute_ecmp_hash_ipv4",
        {{"hash_field_list",
-         "[\"src_ip\",\"dst_ip\",\"l4_src_port\",\"l4_dst_port\"]"}}}};
-  ASSERT_OK_AND_ASSIGN(auto actual_hash_fields,
-                       GenerateAppDbHashFieldEntries(ir_p4_info));
-  EXPECT_THAT(actual_hash_fields,
-              UnorderedPointwise(HashFieldsAreEqual(), expected_hash_fields));
+         R"(["src_ip","dst_ip","l4_src_port","l4_dst_port"])"}}}};
+
+  EXPECT_THAT(GenerateAppDbHashFieldEntries(ir_p4_info),
+              IsOkAndHolds(UnorderedPointwise(HashFieldsAreEqual(),
+                                              expected_hash_fields)));
 }
 
-TEST(HashingTest, GenerateAppDbHashFieldEntriesNoSaiHashFields) {
+TEST(HashingTest, SupportLagHashConfig) {
+  ASSERT_OK_AND_ASSIGN(pdpi::IrP4Info ir_p4_info, GetSampleHashConfig("lag"));
+
+  std::vector<EcmpHashEntry> expected_hash_fields = {
+      {"compute_lag_hash_ipv6",
+       {{"hash_field_list",
+         R"(["src_ip","dst_ip","l4_src_port","l4_dst_port","ipv6_flow_label"])"}}},
+      {"compute_lag_hash_ipv4",
+       {{"hash_field_list",
+         R"(["src_ip","dst_ip","l4_src_port","l4_dst_port"])"}}}};
+
+  EXPECT_THAT(GenerateAppDbHashFieldEntries(ir_p4_info),
+              IsOkAndHolds(UnorderedPointwise(HashFieldsAreEqual(),
+                                              expected_hash_fields)));
+}
+
+TEST(HashingTest, GenerateAppDbHashValueEntries) {
+  pdpi::IrP4Info ir_p4_info;
+  EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
+      R"pb(actions_by_name {
+             key: "select_ecmp_hash_algorithm"
+             value {
+               preamble {
+                 id: 17825802
+                 name: "ingress.hashing.select_ecmp_hash_algorithm"
+                 alias: "select_ecmp_hash_algorithm"
+                 annotations: "@sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"
+                 annotations: "@sai_hash_seed(1)"
+                 annotations: "@sai_hash_offset(2)"
+               }
+             }
+           })pb",
+      &ir_p4_info));
+  EXPECT_THAT(
+      GenerateAppDbHashValueEntries(ir_p4_info),
+      IsOkAndHolds(UnorderedPointwise(HashValuesAreEqual(true),
+                                      std::vector<swss::FieldValueTuple>{
+                                          {"ecmp_hash_algorithm", "crc_32lo"},
+                                          {"ecmp_hash_seed", "1"},
+                                          {"ecmp_hash_offset", "2"},
+                                      })));
+}
+
+TEST(HashingTest, CannotGenerateAppDbEntryWithMissingHashAlgorithm) {
+  pdpi::IrP4Info ir_p4_info;
+  EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
+      R"pb(actions_by_name {
+             key: "select_ecmp_hash_algorithm"
+             value {
+               preamble {
+                 id: 17825802
+                 name: "ingress.hashing.select_ecmp_hash_algorithm"
+                 alias: "select_ecmp_hash_algorithm"
+                 annotations: "@sai_hash_seed(1)"
+                 annotations: "@sai_hash_offset(2)"
+               }
+             }
+           })pb",
+      &ir_p4_info));
+  EXPECT_THAT(
+      GenerateAppDbHashValueEntries(ir_p4_info),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("algorithm")));
+}
+
+TEST(HashingTest, CannotGenerateAppDbEntryWithMissingSeed) {
+  pdpi::IrP4Info ir_p4_info;
+  EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
+      R"pb(actions_by_name {
+             key: "select_ecmp_hash_algorithm"
+             value {
+               preamble {
+                 id: 17825802
+                 name: "ingress.hashing.select_ecmp_hash_algorithm"
+                 alias: "select_ecmp_hash_algorithm"
+                 annotations: "@sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"
+                 annotations: "@sai_hash_offset(2)"
+               }
+             }
+           })pb",
+      &ir_p4_info));
+  EXPECT_THAT(GenerateAppDbHashValueEntries(ir_p4_info),
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("seed")));
+}
+
+TEST(HashingTest, CannotGenerateAppDbEntryWithMissingOffset) {
+  pdpi::IrP4Info ir_p4_info;
+  EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
+      R"pb(actions_by_name {
+             key: "select_ecmp_hash_algorithm"
+             value {
+               preamble {
+                 id: 17825802
+                 name: "ingress.hashing.select_ecmp_hash_algorithm"
+                 alias: "select_ecmp_hash_algorithm"
+                 annotations: "@sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"
+                 annotations: "@sai_hash_seed(1)"
+               }
+             }
+           })pb",
+      &ir_p4_info));
+  EXPECT_THAT(
+      GenerateAppDbHashValueEntries(ir_p4_info),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("offset")));
+}
+
+TEST(HashingTest, CannotGenerateAppDbEntryWithNoSaiHashFields) {
   pdpi::IrP4Info ir_p4_info;
   EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
       R"pb(actions_by_name {
@@ -88,7 +270,7 @@ TEST(HashingTest, GenerateAppDbHashFieldEntriesNoSaiHashFields) {
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
-TEST(HashingTest, GenerateAppDbHashFieldEntriesExcessFields) {
+TEST(HashingTest, HashFieldAnnotationsMustHaveOneValue) {
   pdpi::IrP4Info ir_p4_info;
   EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
       R"pb(actions_by_name {
@@ -109,11 +291,10 @@ TEST(HashingTest, GenerateAppDbHashFieldEntriesExcessFields) {
   EXPECT_THAT(
       GenerateAppDbHashFieldEntries(ir_p4_info),
       StatusIs(absl::StatusCode::kInvalidArgument,
-               testing::HasSubstr(
-                   "Unexpected number of native hash field specified")));
+               HasSubstr("Unexpected number of native hash field specified")));
 }
 
-TEST(HashingTest, GenerateAppDbHashFieldEntriesWrongIdentifier) {
+TEST(HashingTest, CannotGenerateAppDbEntryWithUnknownHashField) {
   pdpi::IrP4Info ir_p4_info;
   EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
       R"pb(actions_by_name {
@@ -134,145 +315,86 @@ TEST(HashingTest, GenerateAppDbHashFieldEntriesWrongIdentifier) {
       &ir_p4_info));
   EXPECT_THAT(GenerateAppDbHashFieldEntries(ir_p4_info),
               StatusIs(absl::StatusCode::kInvalidArgument,
-                       testing::HasSubstr("Unable to find hash field string")));
+                       HasSubstr("Unable to find hash field string")));
 }
 
-TEST(HashingTest, GenerateAppDbHashValueEntriesOk) {
-  const pdpi::IrP4Info ir_p4_info =
-      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
-  std::vector<swss::FieldValueTuple> expected_hash_value = {
-      {"ecmp_hash_algorithm", ""},
-      {"ecmp_hash_seed", ""},
-      {"ecmp_hash_offset", ""}};
-  ASSERT_OK_AND_ASSIGN(auto actual_hash_value,
-                       GenerateAppDbHashValueEntries(ir_p4_info));
-  EXPECT_THAT(actual_hash_value, UnorderedPointwise(HashValuesAreEqual(false),
-                                                    expected_hash_value));
-}
-
-TEST(HashingTest, GenerateAppDbHashValueEntriesWithFieldsOk) {
+TEST(HashingTest, CannotGenerateAppDbEntryWithUnsupportedHashAlgorithm) {
   pdpi::IrP4Info ir_p4_info;
   EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
       R"pb(actions_by_name {
-             key: "select_emcp_hash_algorithm"
+             key: "select_ecmp_hash_algorithm"
              value {
                preamble {
                  id: 17825802
-                 name: "ingress.hashing.select_emcp_hash_algorithm"
-                 alias: "select_emcp_hash_algorithm"
-                 annotations: "@sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"
-                 annotations: "@sai_hash_seed(1)"
-                 annotations: "@sai_hash_offset(2)"
-               }
-             }
-           })pb",
-      &ir_p4_info));
-  std::vector<swss::FieldValueTuple> expected_hash_value = {
-      {"ecmp_hash_algorithm", "crc_32lo"},
-      {"ecmp_hash_seed", "1"},
-      {"ecmp_hash_offset", "2"}};
-  ASSERT_OK_AND_ASSIGN(auto actual_hash_value,
-                       GenerateAppDbHashValueEntries(ir_p4_info));
-  EXPECT_THAT(actual_hash_value, UnorderedPointwise(HashValuesAreEqual(true),
-                                                    expected_hash_value));
-}
-
-TEST(HashingTest, GenerateAppDbHashValueEntriesUnsupportedAlg) {
-  pdpi::IrP4Info ir_p4_info;
-  EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
-      R"pb(actions_by_name {
-             key: "select_emcp_hash_algorithm"
-             value {
-               preamble {
-                 id: 17825802
-                 name: "ingress.hashing.select_emcp_hash_algorithm"
-                 alias: "select_emcp_hash_algorithm"
+                 name: "ingress.hashing.select_ecmp_hash_algorithm"
+                 alias: "select_ecmp_hash_algorithm"
                  annotations: "@sai_hash_algorithm(UNSUPPORTED)"
-               }
-             }
-           })pb",
-      &ir_p4_info));
-  EXPECT_THAT(GenerateAppDbHashValueEntries(ir_p4_info),
-              StatusIs(absl::StatusCode::kNotFound,
-                       testing::HasSubstr("Unable to find hash algorithm")));
-}
-
-TEST(HashingTest, GenerateAppDbHashValueEntriesDuplicateAlg) {
-  pdpi::IrP4Info ir_p4_info;
-  EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
-      R"pb(actions_by_name {
-             key: "select_emcp_hash_algorithm"
-             value {
-               preamble {
-                 id: 17825802
-                 name: "ingress.hashing.select_emcp_hash_algorithm"
-                 alias: "select_emcp_hash_algorithm"
-                 annotations: "@sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"
-                 annotations: "@sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"
-                 annotations: "@sai_hash_offset(2)"
-               }
-             }
-           })pb",
-      &ir_p4_info));
-  EXPECT_THAT(GenerateAppDbHashValueEntries(ir_p4_info),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       testing::HasSubstr("Duplicate hash algorithm type")));
-}
-
-TEST(HashingTest, GenerateAppDbHashValueEntriesNoAlgorithm) {
-  pdpi::IrP4Info ir_p4_info;
-  EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
-      R"pb(actions_by_name {
-             key: "select_emcp_hash_algorithm"
-             value {
-               preamble {
-                 id: 17825802
-                 name: "ingress.hashing.select_emcp_hash_algorithm"
-                 alias: "select_emcp_hash_algorithm"
                  annotations: "@sai_hash_seed(1)"
                  annotations: "@sai_hash_offset(2)"
                }
              }
-
            })pb",
       &ir_p4_info));
   EXPECT_THAT(GenerateAppDbHashValueEntries(ir_p4_info),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
-TEST(HashingTest, GenerateAppDbHashValueEntriesDuplicateSeed) {
+TEST(HashingTest, CannotGenerateAppDbEntryWthDuplicateHashAlgorithm) {
   pdpi::IrP4Info ir_p4_info;
   EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
       R"pb(actions_by_name {
-             key: "select_emcp_hash_algorithm"
+             key: "select_ecmp_hash_algorithm"
              value {
                preamble {
                  id: 17825802
-                 name: "ingress.hashing.select_emcp_hash_algorithm"
-                 alias: "select_emcp_hash_algorithm"
+                 name: "ingress.hashing.select_ecmp_hash_algorithm"
+                 alias: "select_ecmp_hash_algorithm"
                  annotations: "@sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"
-                 annotations: "@sai_hash_seed(0)"
+                 annotations: "@sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"
                  annotations: "@sai_hash_seed(1)"
+                 annotations: "@sai_hash_offset(2)"
                }
              }
            })pb",
       &ir_p4_info));
   EXPECT_THAT(GenerateAppDbHashValueEntries(ir_p4_info),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       testing::HasSubstr("Duplicate hash algorithm seed")));
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
-TEST(HashingTest, GenerateAppDbHashValueEntriesDuplicateOffset) {
+TEST(HashingTest, CannotGenerateAppDbEntryWithDuplicateSeed) {
   pdpi::IrP4Info ir_p4_info;
   EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
       R"pb(actions_by_name {
-             key: "select_emcp_hash_algorithm"
+             key: "select_ecmp_hash_algorithm"
              value {
                preamble {
                  id: 17825802
-                 name: "ingress.hashing.select_emcp_hash_algorithm"
-                 alias: "select_emcp_hash_algorithm"
+                 name: "ingress.hashing.select_ecmp_hash_algorithm"
+                 alias: "select_ecmp_hash_algorithm"
                  annotations: "@sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"
+                 annotations: "@sai_hash_seed(0)"
+                 annotations: "@sai_hash_seed(1)"
+                 annotations: "@sai_hash_offset(2)"
+               }
+             }
+           })pb",
+      &ir_p4_info));
+  EXPECT_THAT(GenerateAppDbHashValueEntries(ir_p4_info),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(HashingTest, CannotGenerateAppDbEntryWithDuplicateOffset) {
+  pdpi::IrP4Info ir_p4_info;
+  EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
+      R"pb(actions_by_name {
+             key: "select_ecmp_hash_algorithm"
+             value {
+               preamble {
+                 id: 17825802
+                 name: "ingress.hashing.select_ecmp_hash_algorithm"
+                 alias: "select_ecmp_hash_algorithm"
+                 annotations: "@sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"
+                 annotations: "@sai_hash_seed(1)"
                  annotations: "@sai_hash_offset(0)"
                  annotations: "@sai_hash_offset(1)"
                }
@@ -280,8 +402,30 @@ TEST(HashingTest, GenerateAppDbHashValueEntriesDuplicateOffset) {
            })pb",
       &ir_p4_info));
   EXPECT_THAT(GenerateAppDbHashValueEntries(ir_p4_info),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(HashingTest, CannoutUseUnexpectedAnnotations) {
+  pdpi::IrP4Info ir_p4_info;
+  EXPECT_TRUE(google::protobuf::TextFormat::ParseFromString(
+      R"pb(actions_by_name {
+             key: "select_ecmp_hash_algorithm"
+             value {
+               preamble {
+                 id: 17825802
+                 name: "ingress.hashing.select_ecmp_hash_algorithm"
+                 alias: "select_ecmp_hash_algorithm"
+                 annotations: "@sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"
+                 annotations: "@sai_hash_seed(1)"
+                 annotations: "@sai_hash_offset(0)"
+                 annotations: "@unexpected(1)"
+               }
+             }
+           })pb",
+      &ir_p4_info));
+  EXPECT_THAT(GenerateAppDbHashValueEntries(ir_p4_info),
               StatusIs(absl::StatusCode::kInvalidArgument,
-                       testing::HasSubstr("Duplicate hash algorithm offset")));
+                       HasSubstr("Unexpected hash configuration")));
 }
 
 }  // namespace
