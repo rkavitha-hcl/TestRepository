@@ -28,9 +28,6 @@
 
 namespace p4_fuzzer {
 
-using ::absl::StrAppend;
-using ::absl::StrCat;
-using ::absl::StrFormat;
 using ::gutil::FindOrDie;
 using ::p4::v1::TableEntry;
 using ::p4::v1::Update;
@@ -169,16 +166,19 @@ absl::Status SwitchState::ApplyUpdate(const Update& update) {
 std::string SwitchState::SwitchStateSummary() const {
   if (tables_.empty()) return std::string("EmptyState()");
   std::string res = "";
-  int total = 0;
+  int total_size = 0;
   for (const auto& [table_id, table] : tables_) {
-    total += table.size();
+    int max_size = FindOrDie(ir_p4info_.tables_by_id(), table_id).size();
+    int current_size = table.size();
+    total_size += current_size;
 
-    StrAppend(&res, "\n  ", absl::StrFormat("% 10d", table.size()), " ",
-              GetTableName(ir_p4info_, table_id));
+    absl::StrAppendFormat(&res, "\n % 12d% 12d    %s", current_size, max_size,
+                          GetTableName(ir_p4info_, table_id));
   }
-
-  return StrCat("State(", "\n  ", StrFormat("% 10d", total),
-                " total number of flows", res, "\n", ")");
+  return absl::StrFormat(
+      "State(\n % 12s% 12s    table_name\n % 12d% 12s    total number of "
+      "flows%s\n)",
+      "current_size", "max size", total_size, "N/A", res);
 }
 
 std::vector<std::string> SwitchState::GetIdsForMatchField(
