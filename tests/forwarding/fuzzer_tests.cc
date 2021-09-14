@@ -24,6 +24,7 @@
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/time/time.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/collections.h"
@@ -51,6 +52,12 @@ ABSL_FLAG(int, fuzzer_iterations, 1000,
 namespace p4_fuzzer {
 namespace {
 
+// Buffer time to wind down testing after the test iterations are complete.
+constexpr absl::Duration kEndOfTestBuffer = absl::Minutes(5);
+
+// Total time alotted for the test to run.
+constexpr absl::Duration kTestTimeout = absl::Hours(1);
+
 bool IsMaskedResource(absl::string_view table_name) {
   // TODO: acl_pre_ingress_table has a resource limit
   // problem.
@@ -60,10 +67,26 @@ bool IsMaskedResource(absl::string_view table_name) {
   // stemming from the fuzzer creating too many VRFs. See also
   // b/181968931.
   // TODO: wcmp_group_table has a resource limit problem.
+  // TODO: vrf_table is not supported yet.
   return table_name == "acl_pre_ingress_table" ||
          table_name == "router_interface_table" || table_name == "ipv4_table" ||
-         table_name == "ipv6_table" || table_name == "wcmp_group_table";
+         table_name == "ipv6_table" || table_name == "wcmp_group_table" ||
+         table_name == "vrf_table";
 }
+
+class TestEnvironment : public testing::Environment {
+ public:
+  void SetUp() { deadline_ = absl::Now() + kTestTimeout - kEndOfTestBuffer; }
+  bool PastDeadline() { return absl::Now() >= deadline_; }
+
+ private:
+  absl::Time deadline_;
+};
+
+testing::Environment* const env =
+    testing::AddGlobalTestEnvironment(new TestEnvironment);
+
+TestEnvironment& Environment() { return *dynamic_cast<TestEnvironment*>(env); }
 
 }  // namespace
 
@@ -116,8 +139,13 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
   int max_batch_size = 0;
   std::set<std::string> error_messages;
   SwitchState state(info);
-  int num_iterations = absl::GetFlag(FLAGS_fuzzer_iterations);
+  const int num_iterations = absl::GetFlag(FLAGS_fuzzer_iterations);
   for (int i = 0; i < num_iterations; i++) {
+    if (Environment().PastDeadline()) {
+      ADD_FAILURE() << "Fuzzer test ran out of time after " << i << " out of "
+                    << num_iterations << " iterations.";
+      break;
+    }
     if (i % 100 == 0) LOG(INFO) << "Starting iteration " << (i + 1);
 
     // Generated fuzzed request.
