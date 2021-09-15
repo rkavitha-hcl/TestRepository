@@ -13,12 +13,17 @@
 // limitations under the License.
 #include "p4_fuzzer/switch_state.h"
 
+#include <cstdint>
+
+#include "absl/strings/str_cat.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "gutil/collections.h"
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "p4_fuzzer/test_utils.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/pd.h"
@@ -35,6 +40,7 @@ using ::p4::v1::TableEntry;
 using ::p4::v1::Update;
 using ::pdpi::CreateIrP4Info;
 using ::pdpi::IrP4Info;
+using ::testing::StrEq;
 
 TEST(SwitchStateTest, TableEmptyTrivial) {
   IrP4Info info;
@@ -165,6 +171,111 @@ TEST(SwitchStateTest, GetIdsForMatchField) {
   ASSERT_OK(state.ApplyUpdate(MakePiUpdate(info, Update::DELETE, entry1)));
   ASSERT_THAT(state.GetIdsForMatchField(field),
               testing::UnorderedElementsAre("other-id"));
+}
+
+TEST(SwitchStateTest, CheckStateSummaryNoMax) {
+  IrP4Info info = pdpi::GetTestIrP4Info();
+  SwitchState state(info);
+
+  // Construct an entry for each table.
+  for (uint32_t id : state.AllTableIds()) {
+    Update update;
+    update.set_type(Update::INSERT);
+
+    TableEntry* entry = update.mutable_entity()->mutable_table_entry();
+    entry->set_table_id(id);
+    ASSERT_OK(state.ApplyUpdate(update));
+  }
+
+  ASSERT_THAT(
+      state.SwitchStateSummary(),
+      testing::StrEq("State(\n"
+                     " current size    max size    table_name\n"
+                     "           12         N/A    total number of flows\n"
+                     "            1        1024    id_test_table\n"
+                     "            1        1024    exact_table\n"
+                     "            1        1024    ternary_table\n"
+                     "            1        1024    lpm1_table\n"
+                     "            1        1024    lpm2_table\n"
+                     "            1        1024    wcmp_table\n"
+                     "            0        1024    wcmp_table.total_weight\n"
+                     "            0         N/A    wcmp_table.total_actions\n"
+                     "            0           0    wcmp_table.max_weight\n"
+                     "            1        1024    count_and_meter_table\n"
+                     "            1        1024    wcmp2_table\n"
+                     "            0        1024    wcmp2_table.total_weight\n"
+                     "            0         N/A    wcmp2_table.total_actions\n"
+                     "            0           0    wcmp2_table.max_weight\n"
+                     "            1        1024    optional_table\n"
+                     "            1        1024    referred_table\n"
+                     "            1        1024    referring_table\n"
+                     "            1        1024    referring2_table\n"
+                     " * marks tables where max size > current size.\n"
+                     ")"));
+}
+
+TEST(SwitchStateTest, CheckStateSummaryWithMax) {
+  IrP4Info info = pdpi::GetTestIrP4Info();
+  SwitchState state(info);
+
+  // Relevant constants.
+  uint32_t wcmp_table_id = 33554438;
+  uint32_t wcmp_table_size =
+      gutil::FindOrDie(info.tables_by_id(), wcmp_table_id).size();
+  int32_t per_action_weight = 10;  // > 0
+
+  // Construct updates to add, exceeding the max for a WCMP Table.
+  for (int i = 0; i < wcmp_table_size + 1; i++) {
+    Update update;
+    update.set_type(Update::INSERT);
+
+    TableEntry* entry = update.mutable_entity()->mutable_table_entry();
+    entry->set_table_id(wcmp_table_id);
+
+    // Create an action with an action weight that makes total_weight and
+    // max_weight exceed their bounds.
+    p4::v1::ActionProfileAction* action =
+        entry->mutable_action()
+            ->mutable_action_profile_action_set()
+            ->mutable_action_profile_actions()
+            ->Add();
+    action->set_weight(per_action_weight);
+
+    // Required to make each entry different.
+    p4::v1::FieldMatch* match = entry->mutable_match()->Add();
+    match->set_field_id(1);
+    p4::v1::FieldMatch_LPM* lpm = match->mutable_lpm();
+    lpm->set_prefix_len(1);
+    lpm->set_value(absl::StrCat(i));
+
+    ASSERT_OK(state.ApplyUpdate(update));
+  }
+
+  ASSERT_THAT(
+      state.SwitchStateSummary(),
+      testing::StrEq("State(\n"
+                     " current size    max size    table_name\n"
+                     "         1025         N/A    total number of flows\n"
+                     "            0        1024    id_test_table\n"
+                     "            0        1024    exact_table\n"
+                     "            0        1024    ternary_table\n"
+                     "            0        1024    lpm1_table\n"
+                     "            0        1024    lpm2_table\n"
+                     "         1025        1024    wcmp_table*\n"
+                     "        10250        1024    wcmp_table.total_weight*\n"
+                     "         1025         N/A    wcmp_table.total_actions\n"
+                     "           10           0    wcmp_table.max_weight*\n"
+                     "            0        1024    count_and_meter_table\n"
+                     "            0        1024    wcmp2_table\n"
+                     "            0        1024    wcmp2_table.total_weight\n"
+                     "            0         N/A    wcmp2_table.total_actions\n"
+                     "            0           0    wcmp2_table.max_weight\n"
+                     "            0        1024    optional_table\n"
+                     "            0        1024    referred_table\n"
+                     "            0        1024    referring_table\n"
+                     "            0        1024    referring2_table\n"
+                     " * marks tables where max size > current size.\n"
+                     ")"));
 }
 
 }  // namespace
