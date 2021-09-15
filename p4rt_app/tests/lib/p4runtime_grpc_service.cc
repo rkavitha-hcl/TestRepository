@@ -51,6 +51,7 @@ P4RuntimeGrpcService::P4RuntimeGrpcService(
 
   // Connect SONiC AppDB tables with their equivelant AppStateDB tables.
   fake_p4rt_table_ = swss::FakeSonicDbTable(&fake_p4rt_state_table_);
+  fake_vrf_table_ = swss::FakeSonicDbTable(&fake_vrf_state_table_);
 
   // Create AppDb interfaces used by the P4RT App.
   auto fake_app_db_client = absl::make_unique<swss::FakeDBConnector>();
@@ -89,6 +90,7 @@ P4RuntimeGrpcService::P4RuntimeGrpcService(
   auto fake_state_db_client = absl::make_unique<swss::FakeDBConnector>();
   fake_state_db_client->AddSonicDbTable(kP4rtTableName,
                                         &fake_p4rt_state_table_);
+  fake_state_db_client->AddSonicDbTable(kVrfTableName, &fake_vrf_state_table_);
 
   // Create CounterDb interfaces used by the P4RT App.
   auto fake_counter_db_client = absl::make_unique<swss::FakeDBConnector>();
@@ -160,10 +162,6 @@ swss::FakeSonicDbTable& P4RuntimeGrpcService::GetSwitchAppDbTable() {
 
 swss::FakeSonicDbTable& P4RuntimeGrpcService::GetP4rtCountersDbTable() {
   return fake_p4rt_counters_table_;
-}
-
-swss::FakeSonicDbTable& P4RuntimeGrpcService::GetP4rtStateDbTable() {
-  return fake_p4rt_state_table_;
 }
 
 sonic::FakePacketIoInterface& P4RuntimeGrpcService::GetFakePacketIoInterface() {

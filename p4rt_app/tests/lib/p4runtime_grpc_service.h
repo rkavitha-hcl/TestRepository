@@ -49,9 +49,6 @@ class P4RuntimeGrpcService {
   // Accessors for CounterDb tables.
   swss::FakeSonicDbTable& GetP4rtCountersDbTable();
 
-  // Accessors for StateDb tables.
-  swss::FakeSonicDbTable& GetP4rtStateDbTable();
-
   // Accessor for PacketIO interface.
   sonic::FakePacketIoInterface& GetFakePacketIoInterface();
 
@@ -72,6 +69,7 @@ class P4RuntimeGrpcService {
 
   // Faked StateDb tables.
   swss::FakeSonicDbTable fake_p4rt_state_table_;
+  swss::FakeSonicDbTable fake_vrf_state_table_;
 
   // Faked PacketIO interface.
   sonic::FakePacketIoInterface* fake_packetio_interface_;  // No ownership.
