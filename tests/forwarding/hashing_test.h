@@ -15,12 +15,29 @@
 #ifndef GOOGLE_TESTS_FORWARDING_HASHING_TEST_H_
 #define GOOGLE_TESTS_FORWARDING_HASHING_TEST_H_
 
+#include "gtest/gtest.h"
 #include "thinkit/mirror_testbed_fixture.h"
 
 namespace gpins {
 
-class HashingTestFixture : public thinkit::MirrorTestbedFixture {};
+// Holds the common params needed for hashing test.
+struct HashingTestParams {
+  thinkit::MirrorTestbedInterface* mirror_testbed;
+  std::string gnmi_config;
+  // TODO: Remove port ids from here and derive from gNMI config.
+  std::vector<int> port_ids;
+  // Tweak function for rescaling member weights (if applicable) so that the
+  // weight used by the tests for statistical calculation matches the hardware
+  // (workaround applied) weight.
+  absl::optional<std::function<int(int)>> tweak_member_weight;
+};
 
+// Test fixture for testing the hashing functionality by verifying the packet
+// distribution and the fields used for hashing.
+class HashingTestFixture : public testing::TestWithParam<HashingTestParams> {
+  void SetUp() override { GetParam().mirror_testbed->SetUp(); }
+  void TearDown() override { GetParam().mirror_testbed->TearDown(); }
+};
 }  // namespace gpins
 
 #endif  // GOOGLE_TESTS_FORWARDING_HASHING_TEST_H_

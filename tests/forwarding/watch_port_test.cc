@@ -498,11 +498,6 @@ TEST_P(WatchPortTestFixture, VerifyBasicWcmpPacketDistribution) {
   ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, GetIrP4Info(), kVrfId,
                                  p4::v1::Update::INSERT));
 
-  // TODO: Revisit for newer chipsets.
-  // Rescale the member weights (temp workaround) to what would have been
-  // programmed by the hardware.
-  RescaleMemberWeights(members);
-
   // Generate test configuration, pick any field (IP_SRC) used by hashing to
   // vary for every packet so that it gets sent to all the members.
   TestConfiguration test_config = {
@@ -586,11 +581,6 @@ TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
   // Program default routing for all packets on SUT.
   ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, GetIrP4Info(), kVrfId,
                                  p4::v1::Update::INSERT));
-
-  // TODO: Revisit for newer chipsets.
-  // Rescale the member weights to what would have been programmed by the
-  // hardware.
-  RescaleMemberWeights(members);
 
   // Generate test configuration, pick any field used by hashing to vary for
   // every packet so that it gets sent to all the members.
@@ -709,11 +699,6 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForSingleMember) {
   ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, GetIrP4Info(), kVrfId,
                                  p4::v1::Update::INSERT));
 
-  // TODO: Revisit for newer chipsets.
-  // Rescale the member weights to what would have been programmed by the
-  // hardware.
-  RescaleMemberWeights(members);
-
   // Generate test configuration, pick any field used by hashing to vary for
   // every packet so that it gets sent to all the members.
   TestConfiguration test_config = {
@@ -829,11 +814,6 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForMemberModify) {
   // Program default routing for all packets on SUT.
   ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, GetIrP4Info(), kVrfId,
                                  p4::v1::Update::INSERT));
-
-  // TODO: Revisit for newer chipsets.
-  // Rescale the member weights to what would have been programmed by the
-  // hardware.
-  RescaleMemberWeights(members);
 
   // Generate test configuration, pick any field used by hashing to vary for
   // every packet so that it gets sent to all the members.

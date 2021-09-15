@@ -286,9 +286,7 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
       {"789dad22-96d1-4550-8acb-d42c1f69ca21",
        "fdaa1b1e-67a3-497f-aa62-fd62d711c415"});
 
-  ASSERT_TRUE(GetPortIds().has_value())
-      << "Controller port ids (required) not provided.";
-  std::vector<int> orion_port_ids = GetPortIds().value();
+  absl::Span<const int> orion_port_ids = GetParam().port_ids;
   ASSERT_GE(orion_port_ids.size(), kNumWcmpMembersForTest);
 
   // The port on which we input all dataplane test packets.
@@ -381,22 +379,22 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
                                                          /*total_weight=*/30));
     }
     for (int i = 0; i < members.size(); i++) {
-      members.at(i).weight = weights.at(i);
+      members[i].weight = weights[i];
     }
 
     ASSERT_OK(ProgramHashingEntities(testbed.Environment(), *sut_p4_session,
                                      ir_p4info, members));
 
-    // TODO: Rescale the member weights to <=128 for now to match
-    // Hardware behaviour, remove when hardware supports > 128 weights.
-    for (int i = 0; i < members.size(); i++) {
-      members.at(i).weight =
-          gpins::RescaleWeightForTomahawk3(members.at(i).weight);
-      LOG(INFO) << "Rescaling member id: " << members.at(i).port
-                << " from weight: " << weights.at(i)
-                << " to new weight: " << members.at(i).weight;
+    // Apply the member weights tweak if applicable.
+    if (GetParam().tweak_member_weight.has_value()) {
+      for (int i = 0; i < members.size(); i++) {
+        members[i].weight =
+            (*GetParam().tweak_member_weight)(members[i].weight);
+        LOG(INFO) << "Rescaling member id: " << members[i].port
+                  << " from weight: " << weights[i]
+                  << " to new weight: " << members[i].weight;
+      }
     }
-
     // Generate test configuration and send packets.
     std::vector<TestConfiguration> configs;
     absl::Time start = absl::Now();
