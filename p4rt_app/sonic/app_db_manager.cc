@@ -345,8 +345,16 @@ absl::Status UpdateAppDb(
   int expected_notifications = 0;
 
   for (const auto& entry : updates.entries) {
-    absl::StatusOr<std::string> key;
+    // If we cannot determine the table type then something went wrong with the
+    // IR translation, and we should not continue with this request.
+    if (entry.appdb_table == AppDbTableType::UNKNOWN) {
+      return gutil::InternalErrorBuilder()
+             << "Could not determine AppDb table type for entry: "
+             << entry.entry.DebugString();
+    }
 
+    // Otherwise we default to updating the P4RT table.
+    absl::StatusOr<std::string> key;
     switch (entry.update_type) {
       case p4::v1::Update::INSERT:
         key = CreateEntryForAppDbInsert(

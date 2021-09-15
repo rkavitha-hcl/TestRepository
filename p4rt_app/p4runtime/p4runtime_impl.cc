@@ -99,6 +99,16 @@ absl::Status AllowRoleAccessToTable(const std::string& role_name,
   return absl::OkStatus();
 }
 
+sonic::AppDbTableType GetAppDbTableType(
+    const pdpi::IrTableEntry& ir_table_entry) {
+  if (ir_table_entry.table_name() == "vrf_table") {
+    return sonic::AppDbTableType::VRF_TABLE;
+  }
+
+  // By default we assume and AppDb P4RT entry.
+  return sonic::AppDbTableType::P4RT;
+}
+
 // Read P4Runtime table entries out of the AppDb, and append them to the read
 // response.
 absl::Status AppendTableEntryReads(
@@ -288,10 +298,12 @@ sonic::AppDbUpdates PiTableEntryUpdatesToIr(
     }
 
     int rpc_index = response->statuses_size() - 1;
-    ir_updates.entries.push_back(
-        sonic::AppDbEntry{.rpc_index = rpc_index,
-                          .entry = *ir_table_entry,
-                          .update_type = update.type()});
+    ir_updates.entries.push_back(sonic::AppDbEntry{
+        .rpc_index = rpc_index,
+        .entry = *ir_table_entry,
+        .update_type = update.type(),
+        .appdb_table = GetAppDbTableType(*ir_table_entry),
+    });
   }
   return ir_updates;
 }

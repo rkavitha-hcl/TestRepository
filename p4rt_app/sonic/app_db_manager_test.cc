@@ -103,9 +103,12 @@ TEST_F(AppDbManagerTest, InsertTableEntry) {
                                     })pb",
                                   &table_entry));
   AppDbUpdates updates;
-  updates.entries.push_back(AppDbEntry{.rpc_index = 0,
-                                       .entry = table_entry,
-                                       .update_type = p4::v1::Update::INSERT});
+  updates.entries.push_back(AppDbEntry{
+      .rpc_index = 0,
+      .entry = table_entry,
+      .update_type = p4::v1::Update::INSERT,
+      .appdb_table = AppDbTableType::P4RT,
+  });
   updates.total_rpc_updates = 1;
 
   // Expected RedisDB entry.
@@ -137,6 +140,48 @@ TEST_F(AppDbManagerTest, InsertTableEntry) {
   EXPECT_EQ(response.statuses(0).code(), google::rpc::OK);
 }
 
+TEST_F(AppDbManagerTest, InsertWithUnknownAppDbTableTypeFails) {
+  pdpi::IrTableEntry table_entry;
+  ASSERT_TRUE(
+      TextFormat::ParseFromString(R"pb(
+                                    table_name: "router_interface_table"
+                                    priority: 123
+                                    matches {
+                                      name: "router_interface_id"
+                                      exact { hex_str: "16" }
+                                    }
+                                    action {
+                                      name: "set_port_and_src_mac"
+                                      params {
+                                        name: "port"
+                                        value { str: "Ethernet28/5" }
+                                      }
+                                      params {
+                                        name: "src_mac"
+                                        value { mac: "00:02:03:04:05:06" }
+                                      }
+                                    })pb",
+                                  &table_entry));
+
+  // The appdb_table value is set to unknown.
+  AppDbUpdates updates;
+  updates.entries.push_back(AppDbEntry{
+      .rpc_index = 0,
+      .entry = table_entry,
+      .update_type = p4::v1::Update::INSERT,
+      .appdb_table = AppDbTableType::UNKNOWN,
+  });
+  updates.total_rpc_updates = 1;
+
+  pdpi::IrWriteResponse response;
+  EXPECT_THAT(
+      UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
+                  mock_p4rt_table_, mock_p4rt_notification_,
+                  mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
+                  mock_vrf_notification_, vrf_id_reference_count_, &response),
+      StatusIs(absl::StatusCode::kInternal));
+}
+
 TEST_F(AppDbManagerTest, InsertDuplicateTableEntryFails) {
   pdpi::IrTableEntry table_entry;
   ASSERT_TRUE(
@@ -160,9 +205,12 @@ TEST_F(AppDbManagerTest, InsertDuplicateTableEntryFails) {
                                     })pb",
                                   &table_entry));
   AppDbUpdates updates;
-  updates.entries.push_back(AppDbEntry{.rpc_index = 0,
-                                       .entry = table_entry,
-                                       .update_type = p4::v1::Update::INSERT});
+  updates.entries.push_back(AppDbEntry{
+      .rpc_index = 0,
+      .entry = table_entry,
+      .update_type = p4::v1::Update::INSERT,
+      .appdb_table = AppDbTableType::P4RT,
+  });
   updates.total_rpc_updates = 1;
 
   // RedisDB returns that the entry already exists.
@@ -206,9 +254,12 @@ TEST_F(AppDbManagerTest, ModifyNonExistentTableEntryFails) {
                                     })pb",
                                   &table_entry));
   AppDbUpdates updates;
-  updates.entries.push_back(AppDbEntry{.rpc_index = 0,
-                                       .entry = table_entry,
-                                       .update_type = p4::v1::Update::MODIFY});
+  updates.entries.push_back(AppDbEntry{
+      .rpc_index = 0,
+      .entry = table_entry,
+      .update_type = p4::v1::Update::MODIFY,
+      .appdb_table = AppDbTableType::P4RT,
+  });
   updates.total_rpc_updates = 1;
 
   // RedisDB returns that the entry does not exists.
@@ -252,9 +303,12 @@ TEST_F(AppDbManagerTest, DeleteNonExistentTableEntryFails) {
                                     })pb",
                                   &table_entry));
   AppDbUpdates updates;
-  updates.entries.push_back(AppDbEntry{.rpc_index = 0,
-                                       .entry = table_entry,
-                                       .update_type = p4::v1::Update::DELETE});
+  updates.entries.push_back(AppDbEntry{
+      .rpc_index = 0,
+      .entry = table_entry,
+      .update_type = p4::v1::Update::DELETE,
+      .appdb_table = AppDbTableType::P4RT,
+  });
   updates.total_rpc_updates = 1;
 
   // RedisDB returns that the entry does not exists.
@@ -576,9 +630,12 @@ TEST_F(AppDbManagerTest, DeleteAppDbEntryFails) {
                                           )pb",
                                           &table_entry));
   AppDbUpdates updates;
-  updates.entries.push_back(AppDbEntry{.rpc_index = 0,
-                                       .entry = table_entry,
-                                       .update_type = p4::v1::Update::DELETE});
+  updates.entries.push_back(AppDbEntry{
+      .rpc_index = 0,
+      .entry = table_entry,
+      .update_type = p4::v1::Update::DELETE,
+      .appdb_table = AppDbTableType::P4RT,
+  });
   updates.total_rpc_updates = 1;
 
   EXPECT_CALL(mock_app_db_client_, exists).WillOnce(Return(true));

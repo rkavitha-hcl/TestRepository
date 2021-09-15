@@ -33,12 +33,22 @@
 namespace p4rt_app {
 namespace sonic {
 
+// The P4RT App will usually target the AppDb P4RT table for which it is the
+// only entry owner. However, in certain cases we can target other shared
+// RedisDb tables.
+enum class AppDbTableType {
+  UNKNOWN,
+  P4RT,
+  VRF_TABLE,
+};
+
 // AppDb entries can be handled in any order by P4RT, but for error reporting
 // purposes we need to keep track of the RPC update index.
 struct AppDbEntry {
   int rpc_index;
   pdpi::IrTableEntry entry;
   p4::v1::Update::Type update_type;
+  AppDbTableType appdb_table = AppDbTableType::UNKNOWN;
 };
 
 // List of all updates that should be made to the AppDb.
