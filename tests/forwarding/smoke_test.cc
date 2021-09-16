@@ -71,7 +71,7 @@ TEST_P(SmokeTestFixture, ModifyWorks) {
       pdpi::SetMetadataAndSendPiWriteRequest(SutP4RuntimeSession(), pi_modify));
 
   // This used to fail with a read error, see b/185508142.
-  ASSERT_OK(pdpi::ClearTableEntries(SutP4RuntimeSession(), IrP4Info()));
+  ASSERT_OK(pdpi::ClearTableEntries(SutP4RuntimeSession()));
 }
 
 TEST_P(SmokeTestFixture, InstallDefaultRouteForEmptyStringVrfShouldSucceed) {

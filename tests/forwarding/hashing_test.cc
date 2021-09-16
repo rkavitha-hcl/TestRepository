@@ -161,8 +161,7 @@ int GetNumberOfPackets(TestConfiguration config) {
 }
 
 absl::Status SetUpSut(pdpi::P4RuntimeSession* const p4_session,
-                      const p4::config::v1::P4Info& p4info,
-                      const pdpi::IrP4Info& ir_p4info) {
+                      const p4::config::v1::P4Info& p4info) {
   RETURN_IF_ERROR(
       pdpi::SetForwardingPipelineConfig(
           p4_session,
@@ -170,13 +169,12 @@ absl::Status SetUpSut(pdpi::P4RuntimeSession* const p4_session,
           p4info))
           .SetPrepend()
       << "Failed to push P4Info for Sut: ";
-  RETURN_IF_ERROR(pdpi::ClearTableEntries(p4_session, ir_p4info));
+  RETURN_IF_ERROR(pdpi::ClearTableEntries(p4_session));
   return absl::OkStatus();
 }
 
 absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession* const p4_session,
-                                const p4::config::v1::P4Info& p4info,
-                                const pdpi::IrP4Info& ir_p4info) {
+                                const p4::config::v1::P4Info& p4info) {
   RETURN_IF_ERROR(
       pdpi::SetForwardingPipelineConfig(
           p4_session,
@@ -184,7 +182,7 @@ absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession* const p4_session,
           p4info))
           .SetPrepend()
       << "Failed to push P4Info for Control switch: ";
-  RETURN_IF_ERROR(pdpi::ClearTableEntries(p4_session, ir_p4info));
+  RETURN_IF_ERROR(pdpi::ClearTableEntries(p4_session));
   // Trap all packets on control switch.
   ASSIGN_OR_RETURN(
       p4::v1::TableEntry punt_all_pi_entry,
@@ -312,8 +310,8 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
                                                     p4info.DebugString()));
   ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
                        pdpi::CreateIrP4Info(p4info));
-  ASSERT_OK(SetUpSut(sut_p4_session.get(), p4info, ir_p4info));
-  ASSERT_OK(SetUpControlSwitch(control_p4_session.get(), p4info, ir_p4info));
+  ASSERT_OK(SetUpSut(sut_p4_session.get(), p4info));
+  ASSERT_OK(SetUpControlSwitch(control_p4_session.get(), p4info));
 
   // Listen for packets from the SUT on the ControlSwitch.
   TestData test_data;
@@ -481,7 +479,7 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
     // Clear table entries.
     {
       auto start = absl::Now();
-      EXPECT_OK(pdpi::ClearTableEntries(sut_p4_session.get(), ir_p4info));
+      EXPECT_OK(pdpi::ClearTableEntries(sut_p4_session.get()));
       LOG(INFO) << "Cleared table entries on SUT in " << (absl::Now() - start);
     }
 

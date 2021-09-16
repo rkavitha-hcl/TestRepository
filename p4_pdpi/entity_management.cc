@@ -126,13 +126,24 @@ absl::StatusOr<std::vector<TableEntry>> ReadPiTableEntries(
   return table_entries;
 }
 
-absl::Status ClearTableEntries(P4RuntimeSession* session,
-                               const IrP4Info& info) {
+absl::Status ClearTableEntries(P4RuntimeSession* session) {
   ASSIGN_OR_RETURN(auto table_entries, ReadPiTableEntries(session));
+
   // Early return if there is nothing to clear.
   if (table_entries.empty()) return absl::OkStatus();
+
+  // Get P4Info from Switch. It is needed to sequence the delete requests.
+  ASSIGN_OR_RETURN(
+      p4::v1::GetForwardingPipelineConfigResponse response,
+      GetForwardingPipelineConfig(
+          session,
+          p4::v1::GetForwardingPipelineConfigRequest::P4INFO_AND_COOKIE));
+
+  // Convert into IrP4Info.
+  ASSIGN_OR_RETURN(IrP4Info info, CreateIrP4Info(response.config().p4info()));
   RETURN_IF_ERROR(RemovePiTableEntries(session, info, table_entries));
-  // Verify that all entries were cleared successfuly.
+
+  // Verify that all entries were cleared successfully.
   ASSIGN_OR_RETURN(table_entries, ReadPiTableEntries(session));
   if (!table_entries.empty()) {
     return gutil::UnknownErrorBuilder()

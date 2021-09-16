@@ -70,8 +70,7 @@ class ArbitrationTestFixture : public thinkit::MirrorTestbedFixture {
         sai::GetP4Info(sai::Instantiation::kMiddleblock)));
     // Clear entries here in case the previous test did not (e.g. because it
     // crashed).
-    RETURN_IF_ERROR(pdpi::ClearTableEntries(
-        p4rt_session, sai::GetIrP4Info(sai::Instantiation::kMiddleblock)));
+    RETURN_IF_ERROR(pdpi::ClearTableEntries(p4rt_session));
     // Check that switch is in a clean state.
     ASSIGN_OR_RETURN(auto entries, pdpi::ReadPiTableEntries(p4rt_session));
     if (!entries.empty()) {

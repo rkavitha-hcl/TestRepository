@@ -236,7 +236,7 @@ TEST_P(ArbitrationTestFixture, BackupCanRead) {
   // The switch should always return some const entries.
   ASSERT_FALSE(response.entities().empty());
   // Clear all table entries to leave the switch in a clean state.
-  ASSERT_OK(pdpi::ClearTableEntries(connection.get(), IrP4Info()));
+  ASSERT_OK(pdpi::ClearTableEntries(connection.get()));
 }
 
 TEST_P(ArbitrationTestFixture, GetNotifiedOfActualPrimary) {
@@ -315,14 +315,14 @@ TEST_P(ArbitrationTestFixture, OldPrimaryCannotWriteAfterNewPrimaryCameUp) {
 
   ASSERT_OK(pdpi::SendPiWriteRequest(
       &c1->Stub(), GetWriteRequest(0, ElectionIdFromLower(id1), DeviceId())));
-  ASSERT_OK(pdpi::ClearTableEntries(c1.get(), IrP4Info()));
+  ASSERT_OK(pdpi::ClearTableEntries(c1.get()));
 
   // Connects controller C2 with id=2 > 1 to become primary.
   ASSERT_OK_AND_ASSIGN(auto c2, BecomePrimary(id2));
   // Checks new primary C2 can write.
   ASSERT_OK(pdpi::SendPiWriteRequest(
       &c2->Stub(), GetWriteRequest(1, ElectionIdFromLower(id2), DeviceId())));
-  ASSERT_OK(pdpi::ClearTableEntries(c2.get(), IrP4Info()));
+  ASSERT_OK(pdpi::ClearTableEntries(c2.get()));
 
   // Checks C1 cannot write after new primary C2 came up.
   ASSERT_FALSE(
@@ -346,7 +346,7 @@ TEST_P(ArbitrationTestFixture, PrimaryDowngradesItself) {
       &controller->Stub(),
       GetWriteRequest(0, ElectionIdFromLower(id2), DeviceId())));
 
-  ASSERT_OK(pdpi::ClearTableEntries(controller.get(), IrP4Info()));
+  ASSERT_OK(pdpi::ClearTableEntries(controller.get()));
 
   // C2 sends primary arbitration request with id=1 to downgrade itself.
   p4::v1::StreamMessageRequest request;

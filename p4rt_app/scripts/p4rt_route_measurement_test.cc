@@ -208,7 +208,7 @@ class P4rtRouteTest : public Test {
     }
 
     // Clear the current table entries, if any.
-    ASSERT_OK(pdpi::ClearTableEntries(p4rt_session_.get(), IrP4Info()));
+    ASSERT_OK(pdpi::ClearTableEntries(p4rt_session_.get()));
     // Create the dependancy objects for ROUTE_ENTRY.
     // Create Router Intf object.
     ASSERT_OK(ProgramRequest(router_interface, p4::v1::Update::INSERT));
@@ -221,7 +221,7 @@ class P4rtRouteTest : public Test {
   void TearDown() override {
     if (p4rt_session_ == nullptr) return;
     // Remove table entries that were created.
-    ASSERT_OK(pdpi::ClearTableEntries(p4rt_session_.get(), IrP4Info()));
+    ASSERT_OK(pdpi::ClearTableEntries(p4rt_session_.get()));
   }
 
   absl::Status SendBatchRequest(absl::string_view iptable_entry,

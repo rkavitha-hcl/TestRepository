@@ -169,7 +169,7 @@ absl::Status SetUpSut(pdpi::P4RuntimeSession& p4_session,
           p4info))
           .SetPrepend()
       << "Failed to push P4Info for Sut: ";
-  RETURN_IF_ERROR(pdpi::ClearTableEntries(&p4_session, ir_p4info));
+  RETURN_IF_ERROR(pdpi::ClearTableEntries(&p4_session));
 
   // Set default VRF for all packets.
   ASSIGN_OR_RETURN(
@@ -198,7 +198,7 @@ absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession& p4_session,
           p4info))
           .SetPrepend()
       << "Failed to push P4Info for Control switch: ";
-  RETURN_IF_ERROR(pdpi::ClearTableEntries(&p4_session, ir_p4info));
+  RETURN_IF_ERROR(pdpi::ClearTableEntries(&p4_session));
   // Trap all packets on control switch.
   ASSIGN_OR_RETURN(
       p4::v1::TableEntry punt_all_pi_entry,
@@ -439,13 +439,12 @@ void WatchPortTestFixture::SetUp() {
 void WatchPortTestFixture::TearDown() {
   // Clear table entries.
   if (sut_p4_session_ != nullptr) {
-    EXPECT_OK(pdpi::ClearTableEntries(sut_p4_session_.get(), GetIrP4Info()));
+    EXPECT_OK(pdpi::ClearTableEntries(sut_p4_session_.get()));
     sut_p4_session_->TryCancel();
   }
   // Stop RPC sessions.
   if (control_p4_session_ != nullptr) {
-    EXPECT_OK(
-        pdpi::ClearTableEntries(control_p4_session_.get(), GetIrP4Info()));
+    EXPECT_OK(pdpi::ClearTableEntries(control_p4_session_.get()));
     control_p4_session_->TryCancel();
   }
   if (receive_packet_thread_.joinable()) {

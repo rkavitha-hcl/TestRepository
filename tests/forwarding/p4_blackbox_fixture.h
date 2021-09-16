@@ -53,7 +53,7 @@ class P4BlackboxFixture : public thinkit::MirrorTestbedFixture {
 
     // Clear entries here in case the previous test did not (e.g. because it
     // crashed).
-    ASSERT_OK(pdpi::ClearTableEntries(sut_p4rt_session_.get(), ir_p4info_));
+    ASSERT_OK(pdpi::ClearTableEntries(sut_p4rt_session_.get()));
     // Check that switch is in a clean state.
     ASSERT_OK_AND_ASSIGN(auto read_back_entries,
                          pdpi::ReadPiTableEntries(sut_p4rt_session_.get()));
@@ -63,7 +63,7 @@ class P4BlackboxFixture : public thinkit::MirrorTestbedFixture {
   void TearDown() override {
     if (SutP4RuntimeSession() != nullptr) {
       // Clear all table entries to leave the switch in a clean state.
-      EXPECT_OK(pdpi::ClearTableEntries(SutP4RuntimeSession(), ir_p4info_));
+      EXPECT_OK(pdpi::ClearTableEntries(SutP4RuntimeSession()));
     }
 
     MirrorTestbedFixture::TearDown();

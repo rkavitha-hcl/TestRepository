@@ -127,7 +127,7 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
       GetParam().p4info));
 
   // Clear switch state.
-  ASSERT_OK(pdpi::ClearTableEntries(session.get(), info));
+  ASSERT_OK(pdpi::ClearTableEntries(session.get()));
 
   absl::BitGen gen;
 

@@ -61,8 +61,8 @@ absl::Status RemovePiTableEntries(
     P4RuntimeSession* session, const IrP4Info& info,
     absl::Span<const p4::v1::TableEntry> pi_entries);
 
-// Clears the table entries
-absl::Status ClearTableEntries(P4RuntimeSession* session, const IrP4Info& info);
+// Clears the table entries.
+absl::Status ClearTableEntries(P4RuntimeSession* session);
 
 // Installs the given PI (program independent) table entry on the switch.
 absl::Status InstallPiTableEntry(P4RuntimeSession* session,

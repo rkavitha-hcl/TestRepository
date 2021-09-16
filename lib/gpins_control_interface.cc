@@ -105,9 +105,7 @@ GpinsControlInterface::CreateGpinsControlInterface(
           sai::GetP4Info(sai::Instantiation::kMiddleblock)))
           .SetPrepend()
       << "Failed to push P4Info: ";
-  RETURN_IF_ERROR(pdpi::ClearTableEntries(
-      control_p4_session.get(),
-      sai::GetIrP4Info(sai::Instantiation::kMiddleblock)));
+  RETURN_IF_ERROR(pdpi::ClearTableEntries(control_p4_session.get()));
   ASSIGN_OR_RETURN(auto gnmi_stub, sut->CreateGnmiStub());
   ASSIGN_OR_RETURN(auto interface_name_to_port_id,
                    GetAllInterfaceNameToPortId(*gnmi_stub));
