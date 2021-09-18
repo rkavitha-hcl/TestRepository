@@ -217,6 +217,18 @@ message Referring2TableEntry {
   bytes controller_metadata = 8;
 }
 
+message NoActionTableEntry {
+  message Match {
+    string ipv6 = 1; // exact match / Format::IPV6
+    string ipv4 = 2; // exact match / Format::IPV4
+  }
+  Match match = 1;
+  message Action {
+  }
+  Action action = 2;
+  bytes controller_metadata = 8;
+}
+
 
 // -- Actions ------------------------------------------------------------------
 
@@ -271,6 +283,7 @@ message TableEntry {
     ReferredTableEntry referred_table_entry = 10;
     ReferringTableEntry referring_table_entry = 11;
     Referring2TableEntry referring2_table_entry = 12;
+    NoActionTableEntry no_action_table_entry = 13;
   }
 }
 

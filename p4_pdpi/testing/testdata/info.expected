@@ -619,6 +619,33 @@ tables {
   const_default_action_id: 21257015
   size: 1024
 }
+tables {
+  preamble {
+    id: 33554445
+    name: "ingress.no_action_table"
+    alias: "no_action_table"
+  }
+  match_fields {
+    id: 2
+    name: "ipv4"
+    annotations: "@format(IPV4_ADDRESS)"
+    bitwidth: 32
+    match_type: EXACT
+  }
+  match_fields {
+    id: 1
+    name: "ipv6"
+    annotations: "@format(IPV6_ADDRESS)"
+    bitwidth: 128
+    match_type: EXACT
+  }
+  action_refs {
+    id: 21257015
+    annotations: "@defaultonly"
+    scope: DEFAULT_ONLY
+  }
+  size: 1024
+}
 actions {
   preamble {
     id: 16777217
@@ -2470,6 +2497,84 @@ tables_by_id {
     }
   }
 }
+tables_by_id {
+  key: 33554445
+  value {
+    preamble {
+      id: 33554445
+      name: "ingress.no_action_table"
+      alias: "no_action_table"
+    }
+    match_fields_by_id {
+      key: 1
+      value {
+        match_field {
+          id: 1
+          name: "ipv6"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 128
+          match_type: EXACT
+        }
+        format: IPV6
+      }
+    }
+    match_fields_by_id {
+      key: 2
+      value {
+        match_field {
+          id: 2
+          name: "ipv4"
+          annotations: "@format(IPV4_ADDRESS)"
+          bitwidth: 32
+          match_type: EXACT
+        }
+        format: IPV4
+      }
+    }
+    match_fields_by_name {
+      key: "ipv4"
+      value {
+        match_field {
+          id: 2
+          name: "ipv4"
+          annotations: "@format(IPV4_ADDRESS)"
+          bitwidth: 32
+          match_type: EXACT
+        }
+        format: IPV4
+      }
+    }
+    match_fields_by_name {
+      key: "ipv6"
+      value {
+        match_field {
+          id: 1
+          name: "ipv6"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 128
+          match_type: EXACT
+        }
+        format: IPV6
+      }
+    }
+    default_only_actions {
+      ref {
+        id: 21257015
+        annotations: "@defaultonly"
+        scope: DEFAULT_ONLY
+      }
+      action {
+        preamble {
+          id: 21257015
+          name: "NoAction"
+          alias: "NoAction"
+          annotations: "@noWarn(\"unused\")"
+        }
+      }
+    }
+    size: 1024
+  }
+}
 tables_by_name {
   key: "count_and_meter_table"
   value {
@@ -3103,6 +3208,84 @@ tables_by_name {
         annotations: "@noWarn(\"unused\")"
       }
     }
+  }
+}
+tables_by_name {
+  key: "no_action_table"
+  value {
+    preamble {
+      id: 33554445
+      name: "ingress.no_action_table"
+      alias: "no_action_table"
+    }
+    match_fields_by_id {
+      key: 1
+      value {
+        match_field {
+          id: 1
+          name: "ipv6"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 128
+          match_type: EXACT
+        }
+        format: IPV6
+      }
+    }
+    match_fields_by_id {
+      key: 2
+      value {
+        match_field {
+          id: 2
+          name: "ipv4"
+          annotations: "@format(IPV4_ADDRESS)"
+          bitwidth: 32
+          match_type: EXACT
+        }
+        format: IPV4
+      }
+    }
+    match_fields_by_name {
+      key: "ipv4"
+      value {
+        match_field {
+          id: 2
+          name: "ipv4"
+          annotations: "@format(IPV4_ADDRESS)"
+          bitwidth: 32
+          match_type: EXACT
+        }
+        format: IPV4
+      }
+    }
+    match_fields_by_name {
+      key: "ipv6"
+      value {
+        match_field {
+          id: 1
+          name: "ipv6"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 128
+          match_type: EXACT
+        }
+        format: IPV6
+      }
+    }
+    default_only_actions {
+      ref {
+        id: 21257015
+        annotations: "@defaultonly"
+        scope: DEFAULT_ONLY
+      }
+      action {
+        preamble {
+          id: 21257015
+          name: "NoAction"
+          alias: "NoAction"
+          annotations: "@noWarn(\"unused\")"
+        }
+      }
+    }
+    size: 1024
   }
 }
 tables_by_name {

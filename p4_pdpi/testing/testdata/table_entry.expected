@@ -824,6 +824,31 @@ counter_data {
 INVALID_ARGUMENT: Table entry for 'wcmp_table' is invalid: Table does not have a counter, but table entry contained counter data.
 
 =========================================================================
+action in a table with no actions defined
+=========================================================================
+
+--- PI (Input):
+table_id: 33554445
+match {
+  field_id: 1
+  exact {
+    value: "\377\""
+  }
+}
+match {
+  field_id: 2
+  exact {
+    value: "\020$2R"
+  }
+}
+action {
+  action_profile_member_id: 12
+}
+
+--- PI is invalid/unsupported:
+INVALID_ARGUMENT: Table entry for 'no_action_table' is invalid: Action found for table which has no actions defined.
+
+=========================================================================
 empty IR
 =========================================================================
 
@@ -1698,6 +1723,37 @@ counter_data {
 INVALID_ARGUMENT: Table entry for 'wcmp_table' is invalid: Table does not have a counter, but table entry contained counter data.
 
 =========================================================================
+action in a table with no actions defined
+=========================================================================
+
+--- IR (Input):
+table_name: "no_action_table"
+matches {
+  name: "ipv6"
+  exact {
+    ipv6: "::ff22"
+  }
+}
+matches {
+  name: "ipv4"
+  exact {
+    ipv4: "10.24.32.52"
+  }
+}
+action {
+  name: "do_thing_1"
+  params {
+    name: "arg2"
+    value {
+      hex_str: "0x01234567"
+    }
+  }
+}
+
+--- IR (converting to PI) is invalid/unsupported:
+INVALID_ARGUMENT: Table entry for 'no_action_table' is invalid: Action found for table which has no actions defined.
+
+=========================================================================
 empty PD
 =========================================================================
 
@@ -1713,8 +1769,12 @@ missing matches
 id_test_table_entry {
 }
 
---- PD is invalid/unsupported:
-INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action is required.
+--- PD is invalid/unsupported (detected when translating IR to PI):
+Table entry for 'id_test_table' is invalid for the following reasons:
+  - Match field 'ipv6' is invalid: invalid IPv6 address: ''
+  - Match field 'ipv4' is invalid: Invalid IPv4 address: ''
+  - Missing matches: 'ipv4', 'ipv6'. Expected 2 mandatory match conditions, but found 0 instead.
+  - Action is required.
 =========================================================================
 missing action
 =========================================================================
@@ -1727,8 +1787,8 @@ id_test_table_entry {
   }
 }
 
---- PD is invalid/unsupported:
-INVALID_ARGUMENT: Table entry for 'id_test_table' is invalid: Action is required.
+--- PD is invalid/unsupported (detected when translating IR to PI):
+Table entry for 'id_test_table' is invalid: Action is required.
 =========================================================================
 exact match missing
 =========================================================================
@@ -3918,6 +3978,49 @@ action {
       }
       weight: 2
     }
+  }
+}
+
+
+=========================================================================
+valid no action table
+=========================================================================
+
+--- PD (Input):
+no_action_table_entry {
+  match {
+    ipv6: "::ff22"
+    ipv4: "16.36.50.82"
+  }
+}
+
+--- IR:
+table_name: "no_action_table"
+matches {
+  name: "ipv6"
+  exact {
+    ipv6: "::ff22"
+  }
+}
+matches {
+  name: "ipv4"
+  exact {
+    ipv4: "16.36.50.82"
+  }
+}
+
+--- PI:
+table_id: 33554445
+match {
+  field_id: 1
+  exact {
+    value: "\377\""
+  }
+}
+match {
+  field_id: 2
+  exact {
+    value: "\020$2R"
   }
 }
 

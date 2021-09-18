@@ -528,6 +528,42 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                         }
                         counter_data { byte_count: 4213 }
                       )pb"));
+  RunPiTableEntryTest(info, "action in a table with no actions defined",
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
+                        table_id: 33554445
+                        match {
+                          field_id: 1
+                          exact { value: "\xff\x22" }
+                        }
+                        match {
+                          field_id: 2
+                          exact { value: "\x10\x24\x32\x52" }
+                        }
+                        action { action_profile_member_id: 12 }
+                      )pb"));
+}
+
+static void RunIrNoActionTableTests(const pdpi::IrP4Info& info) {
+  // This function is defined separately and called from RunIrTests
+  // since LINT complains if a function exceeds 500 lines.
+  RunIrTableEntryTest(info, "action in a table with no actions defined",
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
+                        table_name: "no_action_table"
+                        matches {
+                          name: "ipv6"
+                          exact { ipv6: "::ff22" }
+                        }
+                        matches {
+                          name: "ipv4"
+                          exact { ipv4: "10.24.32.52" }
+                        }
+                        action {
+                          name: "do_thing_1"
+                          params {
+                            name: "arg2"
+                            value { hex_str: "0x01234567" }
+                          }
+                        })pb"));
 }
 
 static void RunIrTests(const pdpi::IrP4Info info) {
@@ -1051,6 +1087,7 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                         }
                         counter_data { byte_count: 4213 }
                       )pb"));
+  RunIrNoActionTableTests(info);
 }
 
 static void RunPdTests(const pdpi::IrP4Info info) {
@@ -1536,6 +1573,13 @@ static void RunPdTests(const pdpi::IrP4Info info) {
         }
       )pb"),
       INPUT_IS_VALID);
+
+  RunPdTableEntryTest(info, "valid no action table",
+                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
+                        no_action_table_entry {
+                          match { ipv6: "::ff22" ipv4: "16.36.50.82" }
+                        })pb"),
+                      INPUT_IS_VALID);
 }
 
 static void RunPdTestsOnlyKey(const pdpi::IrP4Info info) {

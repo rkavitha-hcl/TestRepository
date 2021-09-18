@@ -1432,53 +1432,61 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
   if (!key_only) {
     ir.set_controller_metadata(pi.metadata());
     // Validate and translate the action.
-    if (!pi.has_action()) {
-      invalid_reasons.push_back(
-          absl::StrCat(kNewBullet, "Action is required."));
+    if (table->entry_actions().empty()) {
+      if (pi.has_action()) {
+        invalid_reasons.push_back(absl::StrCat(
+            kNewBullet,
+            "Action found for table which has no actions defined."));
+      }
     } else {
-      switch (pi.action().type_case()) {
-        case p4::v1::TableAction::kAction: {
-          if (table->uses_oneshot()) {
+      if (!pi.has_action()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet, "Action is required."));
+      } else {
+        switch (pi.action().type_case()) {
+          case p4::v1::TableAction::kAction: {
+            if (table->uses_oneshot()) {
+              invalid_reasons.push_back(absl::StrCat(
+                  kNewBullet,
+                  "Table requires an action set since it uses oneshot. Got "
+                  "action instead."));
+              break;
+            }
+            const absl::StatusOr<IrActionInvocation> &ir_action = PiActionToIr(
+                info, pi.action().action(), table->entry_actions());
+            if (!ir_action.ok()) {
+              invalid_reasons.push_back(
+                  absl::StrCat(kNewBullet, ir_action.status().message()));
+              break;
+            }
+            *ir.mutable_action() = *ir_action;
+            break;
+          }
+          case p4::v1::TableAction::kActionProfileActionSet: {
+            if (!table->uses_oneshot()) {
+              invalid_reasons.push_back(
+                  absl::StrCat(kNewBullet,
+                               "Table requires an action since it does not use "
+                               "oneshot. Got action set instead."));
+              break;
+            }
+            const absl::StatusOr<IrActionSet> &ir_action_set =
+                PiActionSetToIr(info, pi.action().action_profile_action_set(),
+                                table->entry_actions());
+            if (!ir_action_set.ok()) {
+              invalid_reasons.push_back(
+                  absl::StrCat(kNewBullet, ir_action_set.status().message()));
+              break;
+            }
+            *ir.mutable_action_set() = *ir_action_set;
+            break;
+          }
+          default: {
             invalid_reasons.push_back(absl::StrCat(
                 kNewBullet,
-                "Table requires an action set since it uses oneshot. Got "
-                "action instead."));
+                "Unsupported action type: ", pi.action().type_case()));
             break;
           }
-          const absl::StatusOr<IrActionInvocation> &ir_action =
-              PiActionToIr(info, pi.action().action(), table->entry_actions());
-          if (!ir_action.ok()) {
-            invalid_reasons.push_back(
-                absl::StrCat(kNewBullet, ir_action.status().message()));
-            break;
-          }
-          *ir.mutable_action() = *ir_action;
-          break;
-        }
-        case p4::v1::TableAction::kActionProfileActionSet: {
-          if (!table->uses_oneshot()) {
-            invalid_reasons.push_back(
-                absl::StrCat(kNewBullet,
-                             "Table requires an action since it does not use "
-                             "oneshot. Got action set instead."));
-            break;
-          }
-          const absl::StatusOr<IrActionSet> &ir_action_set =
-              PiActionSetToIr(info, pi.action().action_profile_action_set(),
-                              table->entry_actions());
-          if (!ir_action_set.ok()) {
-            invalid_reasons.push_back(
-                absl::StrCat(kNewBullet, ir_action_set.status().message()));
-            break;
-          }
-          *ir.mutable_action_set() = *ir_action_set;
-          break;
-        }
-        default: {
-          invalid_reasons.push_back(absl::StrCat(
-              kNewBullet,
-              "Unsupported action type: ", pi.action().type_case()));
-          break;
         }
       }
     }
@@ -1830,6 +1838,12 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
                            "onseshot. Got action instead."));
           break;
         }
+        if (table->entry_actions().empty()) {
+          invalid_reasons.push_back(absl::StrCat(
+              kNewBullet,
+              "Action found for table which has no actions defined."));
+          break;
+        }
         const absl::StatusOr<p4::v1::Action> &pi_action =
             IrActionInvocationToPi(info, ir.action(), table->entry_actions());
         if (!pi_action.ok()) {
@@ -1848,6 +1862,11 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
                            "use onseshot. Got action set instead."));
           break;
         }
+        if (table->entry_actions().empty()) {
+          invalid_reasons.push_back(absl::StrCat(
+              kNewBullet,
+              "Action set found for table which has no actions defined."));
+        }
         const absl::StatusOr<p4::v1::ActionProfileActionSet> &pi_action_set =
             IrActionSetToPi(info, ir.action_set(), table->entry_actions());
         if (!pi_action_set.ok()) {
@@ -1860,8 +1879,10 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
         break;
       }
       default: {
-        invalid_reasons.push_back(
-            absl::StrCat(kNewBullet, "Action is required."));
+        if (!table->entry_actions().empty()) {
+          invalid_reasons.push_back(
+              absl::StrCat(kNewBullet, "Action is required."));
+        }
       }
     }
 

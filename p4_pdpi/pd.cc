@@ -45,7 +45,6 @@ namespace pdpi {
 
 using ::google::protobuf::FieldDescriptor;
 using ::gutil::InvalidArgumentErrorBuilder;
-using ::gutil::UnimplementedErrorBuilder;
 using ::p4::config::v1::MatchField;
 
 namespace {
@@ -823,7 +822,7 @@ absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
         invalid_reasons.push_back(
             absl::StrCat(kNewBullet, action_set_status.message()));
       }
-    } else {
+    } else if (ir.has_action()) {
       const absl::StatusOr<google::protobuf::Message *> &pd_action =
           GetMutableMessage(pd_table, "action");
       if (!pd_action.ok()) {
@@ -1488,9 +1487,6 @@ static absl::StatusOr<IrActionInvocation> PdActionInvocationToIr(
     const google::protobuf::Message &pd_action_invocation) {
   const std::vector<std::string> all_fields =
       GetAllFieldNames(pd_action_invocation);
-  if (all_fields.empty()) {
-    return absl::InvalidArgumentError("Action is required.");
-  }
   if (all_fields.size() > 1) {
     return absl::InvalidArgumentError(GenerateFormattedError(
         "Action", absl::StrCat(kNewBullet, "Expected exactly one action.")));
@@ -1577,10 +1573,7 @@ static absl::StatusOr<IrActionSetInvocation> PdActionSetToIr(
   }
   {
     const auto &pd_action = GetMessageField(pd_action_set, "action");
-    if (!pd_action.ok()) {
-      invalid_reasons.push_back(
-          absl::StrCat(kNewBullet, pd_action.status().message()));
-    } else {
+    if (pd_action.ok() && !GetAllFieldNames(**pd_action).empty()) {
       const absl::StatusOr<IrActionInvocation> &ir_action =
           PdActionInvocationToIr(ir_p4info, **pd_action);
       if (!ir_action.ok()) {
@@ -1681,10 +1674,8 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
       }
     } else {
       const auto &status_or_pd_action = GetMessageField(*pd_table, "action");
-      if (!status_or_pd_action.ok()) {
-        invalid_reasons.push_back(
-            absl::StrCat(kNewBullet, status_or_pd_action.status().message()));
-      } else {
+      if (status_or_pd_action.ok() &&
+          !GetAllFieldNames(**status_or_pd_action).empty()) {
         const absl::StatusOr<IrActionInvocation> &ir_action =
             PdActionInvocationToIr(ir_p4info, **status_or_pd_action);
         if (!ir_action.ok()) {

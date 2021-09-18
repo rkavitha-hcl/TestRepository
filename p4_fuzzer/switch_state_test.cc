@@ -191,7 +191,7 @@ TEST(SwitchStateTest, CheckStateSummaryNoMax) {
       state.SwitchStateSummary(),
       testing::StrEq("State(\n"
                      " current size    max size    table_name\n"
-                     "           12         N/A    total number of flows\n"
+                     "           13         N/A    total number of flows\n"
                      "            1        1024    id_test_table\n"
                      "            1        1024    exact_table\n"
                      "            1        1024    ternary_table\n"
@@ -210,6 +210,7 @@ TEST(SwitchStateTest, CheckStateSummaryNoMax) {
                      "            1        1024    referred_table\n"
                      "            1        1024    referring_table\n"
                      "            1        1024    referring2_table\n"
+                     "            1        1024    no_action_table\n"
                      " * marks tables where max size > current size.\n"
                      ")"));
 }
@@ -274,6 +275,7 @@ TEST(SwitchStateTest, CheckStateSummaryWithMax) {
                      "            0        1024    referred_table\n"
                      "            0        1024    referring_table\n"
                      "            0        1024    referring2_table\n"
+                     "            0        1024    no_action_table\n"
                      " * marks tables where max size > current size.\n"
                      ")"));
 }

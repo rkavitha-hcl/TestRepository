@@ -262,6 +262,17 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
       const default_action = NoAction();
   }
 
+  // Table with no actions
+  @id(13)
+  table no_action_table {
+    key = {
+      meta.ipv4 : exact @id(2) @format(IPV4_ADDRESS) @name("ipv4");
+      meta.ipv6 : exact @id(1) @format(IPV6_ADDRESS) @name("ipv6");
+    }
+    actions = {
+    }
+  }
+
   apply {
     id_test_table.apply();
     exact_table.apply();
@@ -275,6 +286,7 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
     referred_table.apply();
     referring_table.apply();
     referring2_table.apply();
+    no_action_table.apply();
   }
 }
 

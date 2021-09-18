@@ -82,7 +82,8 @@ message IrTableDefinition {
   map<uint32, IrMatchFieldDefinition> match_fields_by_id = 2;
   // Required. Maps match field names to match fields.
   map<string, IrMatchFieldDefinition> match_fields_by_name = 3;
-  // Required. The set of actions for this table usable by table entries.
+  // Optional. The set of actions for this table usable by table entries, if
+  // any.
   repeated IrActionReference entry_actions = 4;
   // Optional. These actions are only available for the default action.
   repeated IrActionReference default_only_actions = 5;
