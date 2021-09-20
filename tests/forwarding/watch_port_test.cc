@@ -468,7 +468,7 @@ namespace {
 // the sent traffic.
 TEST_P(WatchPortTestFixture, VerifyBasicWcmpPacketDistribution) {
   thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
-
+  environment.SetTestCaseID("9a4c3dac-44bd-489e-9237-d396b66c85f5");
   // Validate that we have enough ports for the test.
   ASSERT_TRUE(GetPortIds().has_value())
       << "Controller port ids (required) but not provided.";
@@ -554,6 +554,7 @@ TEST_P(WatchPortTestFixture, VerifyBasicWcmpPacketDistribution) {
 // only to the up ports.
 TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
   thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
+  environment.SetTestCaseID("992725de-2051-49bb-928f-7b089643a9bd");
 
   // Validate that we have enough ports for the test.
   ASSERT_TRUE(GetPortIds().has_value())
@@ -672,6 +673,8 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionInCriticalState){};
 // forwarded/dropped.
 TEST_P(WatchPortTestFixture, VerifyWatchPortActionForSingleMember) {
   thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
+  environment.SetTestCaseID("60da7a07-1217-4d63-9716-1219d62065ff");
+
   // Validate that we have enough ports for the test.
   ASSERT_TRUE(GetPortIds().has_value())
       << "Controller port ids (required) but not provided.";
@@ -787,6 +790,7 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForSingleMember) {
 // accordingly.
 TEST_P(WatchPortTestFixture, VerifyWatchPortActionForMemberModify) {
   thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
+  environment.SetTestCaseID("e93160fb-be64-495b-bb4d-f06a92c51e76");
 
   // Validate that we have enough ports for the test.
   ASSERT_TRUE(GetPortIds().has_value())
