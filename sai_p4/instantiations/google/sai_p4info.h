@@ -12,9 +12,16 @@ namespace sai {
 
 // Returns a reference to a static P4info message for the SAI P4 program for the
 // given instantiation. The reference is guaranteed to remain valid at all
-// times. If a invalid Instantiation is provided, the method does a LOG(DFATAL)
+// times. If an invalid Instantiation is provided, the method does a LOG(DFATAL)
 // and returns an empty P4Info.
 const p4::config::v1::P4Info& GetP4Info(Instantiation instantiation);
+
+// Similar to GetP4Info, but replaces any @sai_hash_seed() annotation with value
+// 0 to the provided seed.
+// Non-zero seed values are not modified since it is assumed that they have an
+// intentionally-defined value in the original P4 file.
+p4::config::v1::P4Info GetP4InfoWithHashSeed(Instantiation instantiation,
+                                             uint32_t seed);
 
 // Returns a reference to a static IrP4info message for the SAI P4 program.
 // The reference is guaranteed to remain valid at all times.  If a invalid

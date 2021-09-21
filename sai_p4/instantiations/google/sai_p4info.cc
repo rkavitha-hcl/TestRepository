@@ -1,6 +1,5 @@
 #include "sai_p4/instantiations/google/sai_p4info.h"
 
-#include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "glog/logging.h"
@@ -14,12 +13,14 @@
 #include "sai_p4/instantiations/google/middleblock_p4info_embed.h"
 #include "sai_p4/instantiations/google/unioned_p4info_embed.h"
 #include "sai_p4/instantiations/google/wbb_p4info_embed.h"
+#include "sai_p4/tools/p4info_tools.h"
+
 namespace sai {
 
 using ::google::protobuf::TextFormat;
 using ::gutil::FileToc;
-using p4::config::v1::P4Info;
-using pdpi::IrP4Info;
+using ::p4::config::v1::P4Info;
+using ::pdpi::IrP4Info;
 
 namespace {
 
@@ -62,6 +63,12 @@ const P4Info& GetP4Info(Instantiation instantiation) {
 
   static const P4Info* const kEmptyP4Info = new P4Info();
   return *kEmptyP4Info;
+}
+
+P4Info GetP4InfoWithHashSeed(Instantiation instantiation, uint32_t seed) {
+  P4Info p4info = GetP4Info(instantiation);
+  SetSaiHashSeed(p4info, seed);
+  return p4info;
 }
 
 const IrP4Info& GetIrP4Info(Instantiation instantiation) {
