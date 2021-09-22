@@ -17,41 +17,51 @@
 
 #include <vector>
 
+#include "absl/container/btree_map.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "glog/logging.h"
+#include "google/rpc/code.pb.h"
 #include "gutil/collections.h"
 #include "gutil/status.h"
+#include "p4_pdpi/ir.pb.h"
+#include "swss/rediscommand.h"
 #include "swss/status_code_util.h"
+#include "swss/table.h"
 
 namespace p4rt_app {
 namespace sonic {
 namespace {
 
-using ::google::rpc::Code;
-
-// Converts swss return codes to P4RT GoogleRpcCode.
-Code SwssToP4RTErrorCode(const std::string& status_str) {
-  const swss::StatusCode status_code = swss::strToStatusCode(status_str);
-  std::map<swss::StatusCode, Code> status_map = {
-      {swss::StatusCode::SWSS_RC_SUCCESS, Code::OK},
-      {swss::StatusCode::SWSS_RC_INVALID_PARAM, Code::INVALID_ARGUMENT},
-      {swss::StatusCode::SWSS_RC_DEADLINE_EXCEEDED, Code::DEADLINE_EXCEEDED},
-      {swss::StatusCode::SWSS_RC_UNAVAIL, Code::UNAVAILABLE},
-      {swss::StatusCode::SWSS_RC_NOT_FOUND, Code::NOT_FOUND},
-      {swss::StatusCode::SWSS_RC_NO_MEMORY, Code::INTERNAL},
-      {swss::StatusCode::SWSS_RC_EXISTS, Code::ALREADY_EXISTS},
-      {swss::StatusCode::SWSS_RC_PERMISSION_DENIED, Code::PERMISSION_DENIED},
-      {swss::StatusCode::SWSS_RC_FULL, Code::RESOURCE_EXHAUSTED},
-      {swss::StatusCode::SWSS_RC_IN_USE, Code::INVALID_ARGUMENT},
-      {swss::StatusCode::SWSS_RC_INTERNAL, Code::INTERNAL},
-      {swss::StatusCode::SWSS_RC_UNKNOWN, Code::UNKNOWN},
-      {swss::StatusCode::SWSS_RC_UNIMPLEMENTED, Code::UNIMPLEMENTED}};
-  auto it = status_map.find(status_code);
-  // TODO (kishanps) raise critical error for all INTERNAL errors.
-  if (it != status_map.end()) {
-    return it->second;
-  } else {
-    return Code::UNKNOWN;
+// Converts a SWSS error code into a Google RPC code.
+google::rpc::Code SwssToP4RTErrorCode(const std::string& status_str) {
+  switch (swss::strToStatusCode(status_str)) {
+    case swss::StatusCode::SWSS_RC_SUCCESS:
+      return google::rpc::Code::OK;
+    case swss::StatusCode::SWSS_RC_UNKNOWN:
+      return google::rpc::Code::UNKNOWN;
+    case swss::StatusCode::SWSS_RC_IN_USE:
+    case swss::StatusCode::SWSS_RC_INVALID_PARAM:
+      return google::rpc::Code::INVALID_ARGUMENT;
+    case swss::StatusCode::SWSS_RC_DEADLINE_EXCEEDED:
+      return google::rpc::Code::DEADLINE_EXCEEDED;
+    case swss::StatusCode::SWSS_RC_NOT_FOUND:
+      return google::rpc::Code::NOT_FOUND;
+    case swss::StatusCode::SWSS_RC_EXISTS:
+      return google::rpc::Code::ALREADY_EXISTS;
+    case swss::StatusCode::SWSS_RC_PERMISSION_DENIED:
+      return google::rpc::Code::PERMISSION_DENIED;
+    case swss::StatusCode::SWSS_RC_FULL:
+      return google::rpc::Code::RESOURCE_EXHAUSTED;
+    case swss::StatusCode::SWSS_RC_UNIMPLEMENTED:
+      return google::rpc::Code::UNIMPLEMENTED;
+    case swss::StatusCode::SWSS_RC_INTERNAL:
+    case swss::StatusCode::SWSS_RC_NO_MEMORY:
+      return google::rpc::Code::INTERNAL;
+    case swss::StatusCode::SWSS_RC_UNAVAIL:
+      return google::rpc::Code::UNAVAILABLE;
   }
 }
 
@@ -61,10 +71,11 @@ Code SwssToP4RTErrorCode(const std::string& status_str) {
 // p4rt does not match the order in which the entries are pulled out from
 // APP_DB. Hence, we expect to see the expected responses but not in the same
 // order.
-absl::Status GetAppDbResponses(
-    int expected_response_count,
-    swss::ConsumerNotifierInterface& notification_interface,
-    absl::flat_hash_map<std::string, pdpi::IrUpdateStatus>& responses_map) {
+absl::StatusOr<absl::btree_map<std::string, pdpi::IrUpdateStatus>>
+GetAppDbResponses(int expected_response_count,
+                  swss::ConsumerNotifierInterface& notification_interface) {
+  absl::btree_map<std::string, pdpi::IrUpdateStatus> key_to_status_map;
+
   // Loop through and get the expected notification responses from Orchagent,
   // max timeout 10 minutes. OrchAgent sends the status code as string in the
   // op, key as data and the actual table entries as value_tuples.
@@ -76,8 +87,8 @@ absl::Status GetAppDbResponses(
     if (!notification_interface.WaitForNotificationAndPop(
             status_str, actual_key, value_tuples, /*timeout_ms=*/10 * 60000)) {
       return gutil::InternalErrorBuilder()
-             << "Timeout or other errors on waiting for Appl DB response from "
-                "OrchAgent";
+             << "[OrchAgent] P4RT App timed out or failed waiting on a AppDB "
+                "response from the OrchAgent.";
     }
     if (value_tuples.empty()) {
       return gutil::InternalErrorBuilder()
@@ -91,21 +102,23 @@ absl::Status GetAppDbResponses(
     const swss::FieldValueTuple& first_tuple = value_tuples[0];
     if (fvField(first_tuple) != "err_str") {
       return gutil::InternalErrorBuilder()
-             << "The response path expects the first field value to be "
-             << "'err_str', but the OrchAgent has responsed with '"
-             << fvField(first_tuple) << "'.";
+             << "[OrchAgent] responded with '" << fvField(first_tuple)
+             << "' as its first value, but P4RT App was expecting 'err_str'.";
     } else {
       result.set_code(SwssToP4RTErrorCode(status_str));
       result.set_message(fvValue(first_tuple));
     }
 
-    // Insert into the responses map.
-    RETURN_IF_ERROR(gutil::InsertIfUnique(
-        responses_map, actual_key, result,
-        absl::StrCat("Found several keys with the same name: ", actual_key,
-                     ", batch count: ", expected_response_count)));
+    // Insert into the responses map, but do not allow duplicates.
+    if (bool success = key_to_status_map.insert({actual_key, result}).second;
+        !success) {
+      return gutil::InternalErrorBuilder()
+             << "[P4RT App] The response path received a duplicate key from "
+                "the AppDb: "
+             << actual_key;
+    }
   }
-  return absl::OkStatus();
+  return key_to_status_map;
 }
 
 // Restore APPL_DB to the last successful state.
@@ -145,87 +158,98 @@ absl::Status RestoreApplDb(const std::string& key,
 }  // namespace
 
 absl::Status GetAndProcessResponseNotification(
-    absl::Span<const std::string> keys, int expected_response_count,
+    const std::string& table_name,
     swss::ConsumerNotifierInterface& notification_interface,
     swss::DBConnectorInterface& app_db_client,
     swss::DBConnectorInterface& state_db_client,
-    pdpi::IrWriteResponse& ir_write_response) {
-  // Accumulate all critical state error messages.
-  std::stringstream critical_errors;
-  const auto number_update_statuses =
-      static_cast<uint32_t>(ir_write_response.statuses_size());
-  if (number_update_statuses > keys.size()) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "Number of response statuses: " << number_update_statuses
-           << " cannot be greater than the number of keys: " << keys.size();
-  }
+    absl::btree_map<std::string, pdpi::IrUpdateStatus*>& key_to_status_map) {
+  ASSIGN_OR_RETURN(
+      auto response_status_map,
+      GetAppDbResponses(key_to_status_map.size(), notification_interface));
 
-  absl::flat_hash_map<std::string, pdpi::IrUpdateStatus> responses_map;
-  // Get the expected number of responses from the notification channel.
-  auto status = GetAppDbResponses(expected_response_count,
-                                  notification_interface, responses_map);
-  if (!status.ok()) {
-    critical_errors << status.ToString() << "\n";
-  }
+  // We have a map of all the keys we expect to have a response for, and a map
+  // of all the keys returned by the OrchAgent. If anything doesn't match up
+  // then we have a problem, and should raise an internal error because of it.
+  auto expected_iter = key_to_status_map.begin();
+  auto response_iter = response_status_map.begin();
+  std::vector<std::string> error_messages;
+  while (expected_iter != key_to_status_map.end() &&
+         response_iter != response_status_map.end()) {
+    const auto& expected_key = expected_iter->first;
+    auto* expected_status = expected_iter->second;
+    const auto& response_key = response_iter->first;
+    const auto& response_status = response_iter->second;
 
-  // Add as many empty IrUpdateStatus entries as in keys vector if caller didnt
-  // allocate.
-  for (uint32_t i = 0; i < keys.size() - number_update_statuses; i++) {
-    ir_write_response.add_statuses();
-  }
-
-  int index = 0;
-  // Iterate and update the statuses protobuf for every response.
-  for (auto& update_status : *ir_write_response.mutable_statuses()) {
-    // Look only for responses that were written into APP_DB.
-    if (!keys[index].empty()) {
-      // Remove the table name from expected_key before checking in the
-      // responses map.
-      const std::string key =
-          std::string(keys[index].substr(keys[index].find(":") + 1));
-      // Lookup into the reponses map to get the response value.
-      auto* response = gutil::FindOrNull(responses_map, key);
-      if (response == nullptr) {
-        // Failed to get response for the key, update internal error in the
-        // status to be sent to controller.
-        std::string error_str =
-            absl::StrCat("Failed to get response from OrchAgent for key ",
-                         keys[index], " error: timeout or other errors");
-        update_status.set_code(Code::INTERNAL);
-        update_status.set_message(error_str);
-      } else {
-        // Got a response but the result can be OK or NOTOK.
-        // if OK, nothing further to do.
-        // else the previous values of the table entry has to be restored.
-        // std::pair<Code, std::string> result = response_or.value();
-        update_status.set_code(response->code());
-        if (update_status.code() != Code::OK) {
-          update_status.set_message(response->message());
-          LOG(ERROR) << "Got an unexpected response for key " << key
-                     << " error : " << update_status.code()
-                     << " error details : " << update_status.message();
-
-          // If error, restore the APPL_DB by querying the values for the same
-          // key in APPL_STATE_DB, as that would hold the last programmed
-          // value in the hardware.
-          auto restore_status =
-              RestoreApplDb(keys[index], app_db_client, state_db_client);
-          if (!restore_status.ok()) {
-            critical_errors << "Restore Appl Db for key " << key
-                            << " failed, error : " << restore_status.message()
-                            << "\n";
-          }
-        }
+    if (expected_key < response_key) {
+      // Missing an expected response.
+      error_messages.push_back(
+          absl::StrCat("Missing response for: ", expected_key));
+      ++expected_iter;
+    } else if (expected_key > response_key) {
+      // Got an extra response.
+      error_messages.push_back(
+          absl::StrCat("Extra response for: ", response_key));
+      ++response_iter;
+    } else {
+      // If we're waiting for a response then we should have a place to put the
+      // status.
+      if (expected_status == nullptr) {
+        LOG(ERROR) << "Cannot populate response for: " << expected_key;
+        return gutil::InternalErrorBuilder()
+               << "Response path is missing status object for key: "
+               << expected_key;
       }
+
+      // We got the expected response. However, if the OrchAgent failed to
+      // handle it correctly then we need to cleanup state in the AppDb.
+      if (response_iter->second.code() != google::rpc::Code::OK) {
+        *expected_status = response_iter->second;
+        LOG(WARNING) << "OrchAgent could not handle AppDb entry '"
+                     << response_key
+                     << "'. Failed with: " << response_status.DebugString();
+        RETURN_IF_ERROR(
+            RestoreApplDb(absl::StrCat(table_name, ":", response_key),
+                          app_db_client, state_db_client));
+      }
+      ++expected_iter;
+      ++response_iter;
     }
-    index++;
   }
 
-  if (critical_errors.str().empty()) {
-    return absl::OkStatus();
-  } else {
-    return gutil::InternalErrorBuilder().LogError() << critical_errors.str();
+  // There should be no unvisited keys in either the expected or response maps.
+  while (expected_iter != key_to_status_map.end()) {
+    error_messages.push_back(
+        absl::StrCat("Missing response for: ", expected_iter->first));
+    ++expected_iter;
   }
+  while (response_iter != response_status_map.end()) {
+    error_messages.push_back(
+        absl::StrCat("Extra response for: ", response_iter->first));
+    ++response_iter;
+  }
+
+  if (!error_messages.empty()) {
+    return gutil::InternalErrorBuilder()
+           << "Got unexpected responses:\n  "
+           << absl::StrJoin(error_messages, "\n  ");
+  }
+  return absl::OkStatus();
+}
+
+absl::StatusOr<pdpi::IrUpdateStatus> GetAndProcessResponseNotification(
+    const std::string& table_name,
+    swss::ConsumerNotifierInterface& notification_interface,
+    swss::DBConnectorInterface& app_db_client,
+    swss::DBConnectorInterface& state_db_client, const std::string& key) {
+  pdpi::IrUpdateStatus local_status;
+  absl::btree_map<std::string, pdpi::IrUpdateStatus*> key_to_status_map;
+  key_to_status_map[key] = &local_status;
+
+  RETURN_IF_ERROR(GetAndProcessResponseNotification(
+      table_name, notification_interface, app_db_client, state_db_client,
+      key_to_status_map));
+
+  return local_status;
 }
 
 }  // namespace sonic

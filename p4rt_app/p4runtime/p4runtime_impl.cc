@@ -30,6 +30,7 @@
 #include "glog/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/message_differencer.h"
+#include "google/rpc/code.pb.h"
 #include "grpcpp/impl/codegen/status.h"
 #include "gutil/collections.h"
 #include "gutil/status.h"
@@ -826,23 +827,17 @@ absl::Status P4RuntimeImpl::ApplyForwardingPipelineConfig(
           _ << "Failed to add ACL table definition [" << table_name
             << "] to AppDb.");
 
-      // Prefix P4RT: to the key and form the keys vector.
-      pdpi::IrWriteRpcStatus ir_write_status;
-      std::vector<std::string> keys;
-      keys.push_back(
-          absl::StrCat(app_db_table_p4rt_->get_table_name(), ":", acl_key));
-      RETURN_IF_ERROR(sonic::GetAndProcessResponseNotification(
-          keys, /*expected_response_count=*/1, *app_db_notifier_p4rt_,
-          *app_db_client_, *state_db_client_,
-          *ir_write_status.mutable_rpc_response()));
+      // Wait for OA to confirm it can realize the table updates.
+      ASSIGN_OR_RETURN(
+          pdpi::IrUpdateStatus status,
+          sonic::GetAndProcessResponseNotification(
+              app_db_table_p4rt_->get_table_name(), *app_db_notifier_p4rt_,
+              *app_db_client_, *state_db_client_, acl_key));
 
       // Any issue with the forwarding config should be sent back to the
       // controller as an INVALID_ARGUMENT.
-      ASSIGN_OR_RETURN(grpc::Status grpc_status,
-                       pdpi::IrWriteRpcStatusToGrpcStatus(ir_write_status));
-      if (!grpc_status.ok()) {
-        return gutil::InvalidArgumentErrorBuilder()
-               << grpc_status.error_message();
+      if (status.code() != google::rpc::OK) {
+        return gutil::InvalidArgumentErrorBuilder() << status.message();
       }
     }
   }

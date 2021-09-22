@@ -16,6 +16,9 @@
 #ifndef GOOGLE_P4RT_APP_SONIC_RESPONSE_HANDLER_H_
 #define GOOGLE_P4RT_APP_SONIC_RESPONSE_HANDLER_H_
 
+#include "absl/container/btree_map.h"
+#include "absl/status/status.h"
+#include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/utils/ir.h"
 #include "swss/consumernotifierinterface.h"
 #include "swss/dbconnectorinterface.h"
@@ -23,26 +26,29 @@
 namespace p4rt_app {
 namespace sonic {
 
-// Get and process response from the notification channel,
-// if on error, restore the APPL_DB to the last good state.
-// Uses, the key of the inserted entry to match the response
-// and restore if needed.
-// Input: keys - vector of keys that were used in the write request.
-//        expected_response_count - number of expected responses from OrchAgent,
-//        this can be less than the keys vector size because some write request
-//        entries failed to be written to the APP_DB itself for some reason.
-//        notification_interface - Notification channel on which the response is
-//        expected.
-//        app_db_client - redis handle to APP_DB.
-//        state_db_client - redis handlet to APPL_STATE_DB.
-// Output: ir_write_response - repeated protobuf of IrUpdateStatus, new
-//         protobuf entries will be added if not allocated by the caller.
+// Given a mapping of keys to IR statuses this function will wait for an
+// OrchAgent response for every key, and update that key's status in the
+// mapping. If this function sees a response for every key it will return OK,
+// but if the OrchAgent fails to respond to every key, or responds with an
+// unexpected key value then this function will return a failure.
+//
+// NOTE: On failue the key_to_status_map should not be trusted.
 absl::Status GetAndProcessResponseNotification(
-    absl::Span<const std::string> keys, int expected_response_count,
+    const std::string& table_name,
     swss::ConsumerNotifierInterface& notification_interface,
     swss::DBConnectorInterface& app_db_client,
     swss::DBConnectorInterface& state_db_client,
-    pdpi::IrWriteResponse& ir_write_response);
+    absl::btree_map<std::string, pdpi::IrUpdateStatus*>& key_to_status_map);
+
+// Given a single key this function will wait for a response from the OrchAgent.
+// If there is no response or that response doesn't match the given key this
+// function will return an absl::Status failure. Otherwise, it will return the
+// OrchAgent's status.
+absl::StatusOr<pdpi::IrUpdateStatus> GetAndProcessResponseNotification(
+    const std::string& table_name,
+    swss::ConsumerNotifierInterface& notification_interface,
+    swss::DBConnectorInterface& app_db_client,
+    swss::DBConnectorInterface& state_db_client, const std::string& key);
 
 }  // namespace sonic
 }  // namespace p4rt_app

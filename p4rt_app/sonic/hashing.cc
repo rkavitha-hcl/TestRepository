@@ -13,11 +13,13 @@
 // limitations under the License.
 #include "p4rt_app/sonic/hashing.h"
 
+#include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_join.h"
 #include "glog/logging.h"
+#include "google/rpc/code.pb.h"
 #include "gutil/collections.h"
 #include "gutil/status.h"
 #include "p4_pdpi/ir.pb.h"
@@ -289,32 +291,32 @@ absl::StatusOr<std::vector<std::string>> ProgramHashFieldTable(
   // Get the key, value pairs of Hash field APP_DB entries.
   ASSIGN_OR_RETURN(const auto entries,
                    sonic::GenerateAppDbHashFieldEntries(ir_p4info));
-  std::vector<std::string> keys;
+
   // Write to APP_DB.
+  pdpi::IrWriteResponse update_status;
+  absl::btree_map<std::string, pdpi::IrUpdateStatus*> status_by_key;
   for (const auto& entry : entries) {
     app_db_table_hash.set(entry.hash_key, entry.hash_value);
-    keys.push_back(
-        absl::StrCat(app_db_table_hash.get_table_name(), ":", entry.hash_key));
+    status_by_key[entry.hash_key] = update_status.add_statuses();
   }
 
+  // Wait for the OrchAgent's repsonse.
   pdpi::IrWriteResponse ir_write_response;
   RETURN_IF_ERROR(sonic::GetAndProcessResponseNotification(
-      keys, keys.size(), app_db_notifier_hash, app_db_client, state_db_client,
-      ir_write_response));
+      app_db_table_hash.get_table_name(), app_db_notifier_hash, app_db_client,
+      state_db_client, status_by_key));
+
   // Pickup the hash field keys that were written(and ack'ed) successfully by
   // OrchAgent.
   std::vector<std::string> hash_field_keys;
-  int i = 0;
-  for (const auto& response : ir_write_response.statuses()) {
-    if (response.code() == google::rpc::Code::OK) {
-      // Add to valid set of hash field keys (strip the table name prefix).
-      hash_field_keys.push_back(keys.at(i).substr(keys.at(i).find(':') + 1));
+  for (const auto& [key, status] : status_by_key) {
+    if (status->code() == google::rpc::Code::OK) {
+      hash_field_keys.push_back(key);
     } else {
       return gutil::InternalErrorBuilder()
-             << "Got an error from Orchagent for hash field: " << keys.at(i)
-             << "error: " << response.message();
+             << "Could not write '" << app_db_table_hash.get_table_name() << ":"
+             << key << "' into the AppDb: " << status->message();
     }
-    i++;
   }
   return hash_field_keys;
 }
@@ -325,7 +327,7 @@ absl::Status ProgramSwitchTable(
     swss::ConsumerNotifierInterface& app_db_notifier_switch,
     swss::DBConnectorInterface& app_db_client,
     swss::DBConnectorInterface& state_db_client) {
-  static constexpr absl::string_view kSwitchTableEntryKey = "switch";
+  const std::string kSwitchTableEntryKey = "switch";
   std::vector<swss::FieldValueTuple> switch_table_attrs;
   // Get all the hash value related attributes like algorithm type, offset and
   // seed value etc.
@@ -352,22 +354,22 @@ absl::Status ProgramSwitchTable(
   }
 
   // Write to switch table and process response.
-  std::vector<std::string> keys;
-  app_db_table_switch.set(/*key=*/std::string(kSwitchTableEntryKey),
-                          switch_table_attrs);
-  keys.push_back(absl::StrCat(app_db_table_switch.get_table_name(), ":",
-                              kSwitchTableEntryKey));
-  pdpi::IrWriteResponse ir_write_response;
-  RETURN_IF_ERROR(sonic::GetAndProcessResponseNotification(
-      keys, keys.size(), app_db_notifier_switch, app_db_client, state_db_client,
-      ir_write_response));
-  for (int i = 0; i < ir_write_response.statuses().size(); i++) {
-    if (ir_write_response.statuses(i).code() != google::rpc::Code::OK) {
-      return gutil::InternalErrorBuilder()
-             << "Got an error from Orchagent for SWITCH_TABLE: " << keys.at(i)
-             << "error: " << ir_write_response.statuses(i).message();
-    }
+  app_db_table_switch.set(kSwitchTableEntryKey, switch_table_attrs);
+
+  ASSIGN_OR_RETURN(
+      pdpi::IrUpdateStatus status,
+      sonic::GetAndProcessResponseNotification(
+          app_db_table_switch.get_table_name(), app_db_notifier_switch,
+          app_db_client, state_db_client, kSwitchTableEntryKey));
+
+  // Failing to program the switch table should never happen so we return an
+  // internal error.
+  if (status.code() != google::rpc::OK) {
+    return gutil::InternalErrorBuilder()
+           << "Could not write 'SWITCH_TABLE:" << kSwitchTableEntryKey
+           << "' into the AppDb: " << status.message();
   }
+
   return absl::OkStatus();
 }
 

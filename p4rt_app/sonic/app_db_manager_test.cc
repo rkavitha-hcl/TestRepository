@@ -131,6 +131,7 @@ TEST_F(AppDbManagerTest, InsertTableEntry) {
                       Return(true)));
 
   pdpi::IrWriteResponse response;
+  response.add_statuses();
   EXPECT_OK(
       UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                   mock_p4rt_table_, mock_p4rt_notification_,

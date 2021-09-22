@@ -14,10 +14,15 @@
 
 #include "p4rt_app/sonic/vrf_entry_translation.h"
 
+#include <string>
+
+#include "absl/container/btree_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_join.h"
 #include "glog/logging.h"
+#include "google/rpc/code.pb.h"
 #include "gutil/status.h"
+#include "p4_pdpi/ir.pb.h"
 #include "p4rt_app/sonic/response_handler.h"
 
 namespace p4rt_app {
@@ -90,21 +95,16 @@ absl::Status DoInsert(swss::ProducerStateTableInterface& vrf_table,
   // Verify VRF is successfully programmed through the response path.
   // Because new VRF's are rare this will be a blocking call that waits for a
   // notification from OrchAgent.
-  pdpi::IrWriteResponse ir_write_response;
-  RETURN_IF_ERROR(GetAndProcessResponseNotification(
-      std::vector<std::string>(
-          {absl::StrCat(vrf_table.get_table_name(), ":", *vrf_id)}),
-      /*expected_response_count=*/1, vrf_notification, app_db_client,
-      state_db_client, ir_write_response));
+  ASSIGN_OR_RETURN(pdpi::IrUpdateStatus status,
+                   GetAndProcessResponseNotification(
+                       vrf_table.get_table_name(), vrf_notification,
+                       app_db_client, state_db_client, *vrf_id));
+
   // Verify that the set operation succeeded.
-  absl::Status status(
-      static_cast<absl::StatusCode>(ir_write_response.statuses(0).code()),
-      ir_write_response.statuses(0).message());
-  if (status.ok()) {
+  if (status.code() == google::rpc::OK) {
     reference_count.insert(std::make_pair(*vrf_id, 1));
   }
-
-  return status;
+  return gutil::ToAbslStatus(status);
 }
 
 absl::Status DoDecrement(
@@ -138,7 +138,8 @@ absl::Status PruneVrfReferences(
     swss::DBConnectorInterface& app_db_client,
     swss::DBConnectorInterface& state_db_client,
     absl::flat_hash_map<std::string, int>& reference_count) {
-  std::vector<std::string> keys;
+  pdpi::IrWriteResponse update_status;
+  absl::btree_map<std::string, pdpi::IrUpdateStatus*> status_by_key;
   for (const auto& [vrf_id, count] : reference_count) {
     // If another table entry still uses this VRF ID then nothing to do.
     if (count > 0) {
@@ -148,34 +149,28 @@ absl::Status PruneVrfReferences(
     // Otherwise we can delete the VRF ID from the SONiC VRF table.
     LOG(INFO) << "Unused VRF " << vrf_id << " being deleted from APP_DB";
     vrf_table.del(vrf_id);
-    keys.push_back(absl::StrCat(vrf_table.get_table_name(), ":", vrf_id));
+    status_by_key[vrf_id] = update_status.add_statuses();
   }
 
   // If no VRF was identified for deletion, nothing to do.
-  if (keys.empty()) {
+  if (status_by_key.empty()) {
     return absl::OkStatus();
   }
 
   // Wait and process response from OrchAgent for VRF entry deletion.
-  pdpi::IrWriteRpcStatus rpc_status;
-  pdpi::IrWriteResponse* rpc_response = rpc_status.mutable_rpc_response();
   RETURN_IF_ERROR(GetAndProcessResponseNotification(
-                      keys, keys.size(), vrf_notification, app_db_client,
-                      state_db_client, *rpc_response))
-          .SetPrepend()
-      << "Orchagent could not handle the VRF deletion: ";
+      vrf_table.get_table_name(), vrf_notification, app_db_client,
+      state_db_client, status_by_key));
 
   // Verify that the delete operations succeeded.
   std::vector<std::string> vrf_errors;
-  int i = 0;
-  for (const auto& resp_status : rpc_response->statuses()) {
-    if (resp_status.code() != google::rpc::Code::OK) {
-      vrf_errors.push_back(resp_status.message());
+  for (const auto& [key, status] : status_by_key) {
+    if (status->code() != google::rpc::Code::OK) {
+      vrf_errors.push_back(status->message());
     } else {
       // Remove the VRF_TABLE prefix in the key.
-      reference_count.erase(keys[i].substr(keys[i].find(':') + 1));
+      reference_count.erase(key);
     }
-    i++;
   }
 
   if (!vrf_errors.empty()) {

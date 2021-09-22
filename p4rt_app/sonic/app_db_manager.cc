@@ -18,6 +18,7 @@
 #include <unordered_map>
 #include <utility>
 
+#include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -335,14 +336,13 @@ absl::Status UpdateAppDb(
   absl::flat_hash_set<std::string> duplicate_keys =
       FindDuplicateKeys(updates, p4_info);
 
-  // P4Runtime error reporting requires the response ordering to match the
-  // request ordering.
-  std::vector<std::string> p4rt_keys(updates.total_rpc_updates);
+  // We break the requests up by type (i.e. INSERT/MODIFY/DELETE), but P4Runtime
+  // error reporting requires the response ordering to match the request
+  // ordering. So we keep a mapping of the statuses.
   std::vector<swss::KeyOpFieldsValuesTuple> p4rt_inserts;
   std::vector<swss::KeyOpFieldsValuesTuple> p4rt_modifies;
   std::vector<std::string> p4rt_deletes;
-
-  int expected_notifications = 0;
+  absl::btree_map<std::string, pdpi::IrUpdateStatus*> app_db_status;
 
   for (const auto& entry : updates.entries) {
     // If we cannot determine the table type then something went wrong with the
@@ -385,18 +385,14 @@ absl::Status UpdateAppDb(
       continue;
     }
 
-    p4rt_keys.at(entry.rpc_index) =
-        absl::StrCat(p4rt_table.get_table_name(), ":", *key);
-    ++expected_notifications;
+    app_db_status[*key] = response->mutable_statuses(entry.rpc_index);
   }
 
   WriteBatchToAppDb(p4rt_inserts, p4rt_modifies, p4rt_deletes, app_db_client,
                     p4rt_table);
   RETURN_IF_ERROR(GetAndProcessResponseNotification(
-                      p4rt_keys, expected_notifications, p4rt_notification,
-                      app_db_client, state_db_client, *response))
-          .SetPrepend()
-      << "The orchagent could not handle all entries. ";
+      p4rt_table.get_table_name(), p4rt_notification, app_db_client,
+      state_db_client, app_db_status));
 
   // Delete the VRF ID if it is no longer needed.
   // This is done at the end of the current batch to avoid race issues between
