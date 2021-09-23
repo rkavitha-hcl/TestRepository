@@ -33,6 +33,17 @@ absl::Status ReadProtoFromFile(absl::string_view filename,
 absl::Status ReadProtoFromString(absl::string_view proto_string,
                                  google::protobuf::Message *message);
 
+// Read the contents of the given string into a protobuf and returns it.
+template <class T>
+absl::StatusOr<T> ParseTextProto(absl::string_view proto_string) {
+  T message;
+  if (auto status = ReadProtoFromString(proto_string, &message); status.ok()) {
+    return message;
+  } else {
+    return status;
+  }
+}
+
 // Get the name of the oneof enum that is set.
 // Eg:
 // message IrValue {

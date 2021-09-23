@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 package(
     default_visibility = ["//visibility:public"],
     licenses = ["notice"],
@@ -157,4 +158,25 @@ cc_test(
         ":collections",
         "@com_google_googletest//:gtest_main",
     ],
+)
+
+cc_test(
+    name = "proto_test",
+    srcs = ["proto_test.cc"],
+    deps = [
+        ":proto",
+        ":proto_test_cc_proto",
+        ":status_matchers",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+proto_library(
+    name = "proto_test_proto",
+    srcs = ["proto_test.proto"],
+)
+
+cc_proto_library(
+    name = "proto_test_cc_proto",
+    deps = [":proto_test_proto"],
 )
