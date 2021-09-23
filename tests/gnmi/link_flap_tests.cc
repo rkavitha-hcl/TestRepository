@@ -35,6 +35,7 @@ namespace pins_test {
 namespace {
 
 using ::gutil::IsOkAndHolds;
+using ::testing::Contains;
 
 constexpr char kEnabledFalse[] = "{\"enabled\":false}";
 constexpr char kEnabledTrue[] = "{\"enabled\":true}";
@@ -76,6 +77,7 @@ absl::Status SetAdminStatus(gnmi::gNMI::StubInterface* gnmi_stub,
 }  // namespace
 
 TEST_P(ExampleTestFixture, LinkFlapTest) {
+  LOG(INFO) << "Get testbed requirements.";
   thinkit::TestRequirements requirements =
       gutil::ParseProtoOrDie<thinkit::TestRequirements>(
           R"pb(interface_requirements {
@@ -84,6 +86,8 @@ TEST_P(ExampleTestFixture, LinkFlapTest) {
                })pb");
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<thinkit::GenericTestbed> generic_testbed,
                        GetTestbedWithRequirements(requirements));
+
+  LOG(INFO) << "Get sut interface info.";
   absl::flat_hash_map<std::string, thinkit::InterfaceInfo> interface_info =
       generic_testbed->GetSutInterfaceInfo();
   std::string sut_interface;
@@ -103,12 +107,16 @@ TEST_P(ExampleTestFixture, LinkFlapTest) {
   // Sets admin-status Down through gNMI.
   LOG(INFO) << "Set sut " << sut_interface << " admin link state down.";
   EXPECT_OK(SetAdminStatus(gnmi_stub.get(), sut_interface, "DOWN"));
+  LOG(INFO) << "Validatate " << peer_interface << " state: DOWN.";
   EXPECT_THAT(generic_testbed->Interface().GetUpLinks({peer_interface}),
               IsOkAndHolds(testing::IsEmpty()));
+
   // Sets admin-status Up through gNMI.
+  LOG(INFO) << "Set sut " << sut_interface << " admin link state up.";
   EXPECT_OK(SetAdminStatus(gnmi_stub.get(), sut_interface, "UP"));
+  LOG(INFO) << "Validatate " << peer_interface << " state: UP.";
   EXPECT_THAT(generic_testbed->Interface().GetUpLinks({peer_interface}),
-              IsOkAndHolds(testing::Contains(sut_interface)));
+              IsOkAndHolds(Contains(peer_interface)));
 
   // Flaps control switch port and checks that SUT’s gNMI reflects that.
   LOG(INFO) << "Set control switch " << peer_interface
@@ -117,11 +125,15 @@ TEST_P(ExampleTestFixture, LinkFlapTest) {
       {peer_interface}, thinkit::LinkState::kDown));
   absl::SleepFor(absl::Seconds(15));
   // Checks oper-status through gNMI.
+  LOG(INFO) << "Validatate " << sut_interface << " state: DOWN.";
   EXPECT_THAT(GetInterfaceOperStatusOverGnmi(*gnmi_stub, sut_interface),
               IsOkAndHolds(OperStatus::kDown));
+  LOG(INFO) << "Set control switch " << peer_interface
+            << " admin link state up.";
   EXPECT_OK(generic_testbed->Interface().SetAdminLinkState(
       {peer_interface}, thinkit::LinkState::kUp));
   absl::SleepFor(absl::Seconds(15));
+  LOG(INFO) << "Validatate " << sut_interface << " state: UP.";
   EXPECT_THAT(GetInterfaceOperStatusOverGnmi(*gnmi_stub, sut_interface),
               IsOkAndHolds(OperStatus::kUp));
 }
