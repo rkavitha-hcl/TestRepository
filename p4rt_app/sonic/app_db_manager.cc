@@ -29,6 +29,7 @@
 #include "boost/bimap.hpp"
 #include "glog/logging.h"
 #include "gutil/collections.h"
+#include "gutil/status.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4rt_app/sonic/app_db_to_pdpi_ir_translator.h"
 #include "p4rt_app/sonic/response_handler.h"
@@ -351,6 +352,14 @@ absl::Status UpdateAppDb(
       return gutil::InternalErrorBuilder()
              << "Could not determine AppDb table type for entry: "
              << entry.entry.DebugString();
+    }
+
+    // Update non AppDb:P4RT entries (e.g. VRF_TABLE).
+    if (entry.appdb_table == AppDbTableType::VRF_TABLE) {
+      RETURN_IF_ERROR(UpdateAppDbVrfTable(
+          entry.update_type, entry.rpc_index, entry.entry, vrf_table,
+          vrf_notification, app_db_client, state_db_client, *response));
+      continue;
     }
 
     // Otherwise we default to updating the P4RT table.

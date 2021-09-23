@@ -44,9 +44,11 @@
 #include "p4rt_app/p4runtime/ir_translation.h"
 #include "p4rt_app/p4runtime/p4info_verification.h"
 #include "p4rt_app/sonic/app_db_acl_def_table_manager.h"
+#include "p4rt_app/sonic/app_db_manager.h"
 #include "p4rt_app/sonic/hashing.h"
 #include "p4rt_app/sonic/packetio_port.h"
 #include "p4rt_app/sonic/response_handler.h"
+#include "p4rt_app/sonic/vrf_entry_translation.h"
 #include "p4rt_app/utils/status_utility.h"
 #include "p4rt_app/utils/table_utility.h"
 #include "sai_p4/fixed/roles.h"
@@ -146,6 +148,20 @@ absl::Status AppendTableEntryReads(
             .port_map = port_translation_map},
         ir_table_entry));
 
+    auto translate_status = pdpi::IrTableEntryToPi(p4_info, ir_table_entry);
+    if (!translate_status.ok()) {
+      LOG(ERROR) << "PDPI could not translate IR table entry to PI: "
+                 << ir_table_entry.DebugString();
+      return gutil::StatusBuilder(translate_status.status().code())
+             << "[P4RT/PDPI] " << translate_status.status().message();
+    }
+    *response.add_entities()->mutable_table_entry() = *translate_status;
+  }
+
+  // Get all VRF_TABLE entries from the AppDb.
+  ASSIGN_OR_RETURN(std::vector<pdpi::IrTableEntry> vrf_entries,
+                   sonic::GetAllAppDbVrfTableEntries(app_db_client));
+  for (const auto& ir_table_entry : vrf_entries) {
     auto translate_status = pdpi::IrTableEntryToPi(p4_info, ir_table_entry);
     if (!translate_status.ok()) {
       LOG(ERROR) << "PDPI could not translate IR table entry to PI: "

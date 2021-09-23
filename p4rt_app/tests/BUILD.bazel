@@ -318,6 +318,8 @@ cc_test(
         "//gutil:proto_matchers",
         "//gutil:status_matchers",
         "//p4_pdpi:entity_management",
+        "//p4_pdpi:ir",
+        "//p4_pdpi:ir_cc_proto",
         "//p4rt_app/tests/lib:app_db_entry_builder",
         "//p4rt_app/tests/lib:p4runtime_component_test_fixture",
         "//p4rt_app/tests/lib:p4runtime_grpc_service",

@@ -14,9 +14,15 @@
 #include "p4rt_app/sonic/vrf_entry_translation.h"
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
+#include "gmock/gmock.h"
 #include "google/protobuf/text_format.h"
+#include "google/rpc/code.pb.h"
 #include "gtest/gtest.h"
+#include "gutil/proto_matchers.h"
 #include "gutil/status_matchers.h"
+#include "p4/v1/p4runtime.pb.h"
+#include "p4_pdpi/ir.pb.h"
 #include "swss/mocks/mock_consumer_notifier.h"
 #include "swss/mocks/mock_db_connector.h"
 #include "swss/mocks/mock_producer_state_table.h"
@@ -26,6 +32,8 @@ namespace sonic {
 namespace {
 
 using ::google::protobuf::TextFormat;
+using ::gutil::EqualsProto;
+using ::gutil::IsOkAndHolds;
 using ::gutil::StatusIs;
 using ::testing::_;
 using ::testing::DoAll;
@@ -33,6 +41,7 @@ using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::testing::Return;
 using ::testing::SetArgReferee;
+using ::testing::UnorderedElementsAre;
 
 class VrfEntryTranslationTest : public ::testing::Test {
  protected:
@@ -435,6 +444,143 @@ TEST_F(VrfEntryTranslationTest, ModifyChangesVrfIdFailsResp) {
                                vrf_id_reference_count_));
   // Original vrf-2 reference count should still be 1.
   EXPECT_EQ(vrf_id_reference_count_["vrf-2"], 1);
+}
+
+// TODO: merge all tests under one fixture.
+using DirectVrfEntryTranslationTest = VrfEntryTranslationTest;
+
+TEST_F(DirectVrfEntryTranslationTest, InsertVrfEntry) {
+  pdpi::IrTableEntry table_entry;
+  ASSERT_TRUE(TextFormat::ParseFromString(R"pb(matches {
+                                                 name: "vrf_id"
+                                                 exact { str: "vrf-1" }
+                                               })pb",
+                                          &table_entry));
+
+  EXPECT_CALL(mock_vrf_table_, set(Eq("vrf-1"), _, _, _)).Times(1);
+  EXPECT_CALL(mock_vrf_notifier_, WaitForNotificationAndPop)
+      .WillOnce(DoAll(SetArgReferee<0>("SWSS_RC_SUCCESS"),
+                      SetArgReferee<1>("vrf-1"),
+                      SetArgReferee<2>(std::vector<swss::FieldValueTuple>(
+                          {swss::FieldValueTuple("err_str", "Ok")})),
+                      Return(true)));
+
+  pdpi::IrWriteResponse response;
+  response.add_statuses();
+  EXPECT_OK(UpdateAppDbVrfTable(p4::v1::Update::INSERT, /*rpc_index=*/0,
+                                table_entry, mock_vrf_table_,
+                                mock_vrf_notifier_, mock_app_db_client_,
+                                mock_state_db_client_, response));
+}
+
+TEST_F(DirectVrfEntryTranslationTest, DeleteVrfEntry) {
+  pdpi::IrTableEntry table_entry;
+  ASSERT_TRUE(TextFormat::ParseFromString(R"pb(matches {
+                                                 name: "vrf_id"
+                                                 exact { str: "vrf-1" }
+                                               })pb",
+                                          &table_entry));
+
+  EXPECT_CALL(mock_app_db_client_, exists("VRF_TABLE:vrf-1"))
+      .WillOnce(Return(true));
+  EXPECT_CALL(mock_vrf_table_, del(Eq("vrf-1"), _, _)).Times(1);
+  EXPECT_CALL(mock_vrf_notifier_, WaitForNotificationAndPop)
+      .WillOnce(DoAll(SetArgReferee<0>("SWSS_RC_SUCCESS"),
+                      SetArgReferee<1>("vrf-1"),
+                      SetArgReferee<2>(std::vector<swss::FieldValueTuple>(
+                          {swss::FieldValueTuple("err_str", "Ok")})),
+                      Return(true)));
+
+  pdpi::IrWriteResponse response;
+  response.add_statuses();
+  EXPECT_OK(UpdateAppDbVrfTable(p4::v1::Update::DELETE, /*rpc_index=*/0,
+                                table_entry, mock_vrf_table_,
+                                mock_vrf_notifier_, mock_app_db_client_,
+                                mock_state_db_client_, response));
+}
+
+TEST_F(DirectVrfEntryTranslationTest, ModifyVrfEntryIsNotAllowed) {
+  pdpi::IrTableEntry table_entry;
+  ASSERT_TRUE(TextFormat::ParseFromString(R"pb(matches {
+                                                 name: "vrf_id"
+                                                 exact { str: "vrf-1" }
+                                               })pb",
+                                          &table_entry));
+
+  pdpi::IrWriteResponse response;
+  response.add_statuses();
+  EXPECT_OK(UpdateAppDbVrfTable(p4::v1::Update::MODIFY, /*rpc_index=*/0,
+                                table_entry, mock_vrf_table_,
+                                mock_vrf_notifier_, mock_app_db_client_,
+                                mock_state_db_client_, response));
+  EXPECT_EQ(response.statuses(0).code(), google::rpc::INVALID_ARGUMENT);
+}
+
+TEST_F(DirectVrfEntryTranslationTest, RequireVrfIdMatchField) {
+  pdpi::IrTableEntry table_entry;
+  ASSERT_TRUE(TextFormat::ParseFromString(R"pb(matches {
+                                                 name: "invalid_name"
+                                                 exact { str: "vrf-1" }
+                                               })pb",
+                                          &table_entry));
+
+  pdpi::IrWriteResponse response;
+  response.add_statuses();
+  EXPECT_OK(UpdateAppDbVrfTable(p4::v1::Update::INSERT, /*rpc_index=*/0,
+                                table_entry, mock_vrf_table_,
+                                mock_vrf_notifier_, mock_app_db_client_,
+                                mock_state_db_client_, response));
+  EXPECT_EQ(response.statuses(0).code(), google::rpc::INVALID_ARGUMENT);
+}
+
+TEST_F(DirectVrfEntryTranslationTest, CannotChangeTheSonicDefaultVrf) {
+  pdpi::IrTableEntry table_entry;
+  ASSERT_TRUE(TextFormat::ParseFromString(R"pb(matches {
+                                                 name: "invalid_name"
+                                                 exact { str: "" }
+                                               })pb",
+                                          &table_entry));
+
+  pdpi::IrWriteResponse response;
+  response.add_statuses();
+  EXPECT_OK(UpdateAppDbVrfTable(p4::v1::Update::INSERT, /*rpc_index=*/0,
+                                table_entry, mock_vrf_table_,
+                                mock_vrf_notifier_, mock_app_db_client_,
+                                mock_state_db_client_, response));
+  EXPECT_EQ(response.statuses(0).code(), google::rpc::INVALID_ARGUMENT);
+}
+
+TEST_F(DirectVrfEntryTranslationTest, ReadIgnoresUninstalledVrfs) {
+  // Return 2 table entries, but only 2 have been fully installed by the OA.
+  EXPECT_CALL(mock_app_db_client_, keys("*"))
+      .WillOnce(Return(std::vector<std::string>{
+          "VRF_TABLE:vrf-0",
+          "_VRF_TABLE:vrf-1",
+          "VRF_TABLE:vrf-2",
+      }));
+
+  // We expect to read back only those 2 entries that have been installed by the
+  // OA.
+  EXPECT_THAT(
+      GetAllAppDbVrfTableEntries(mock_app_db_client_),
+      IsOkAndHolds(UnorderedElementsAre(EqualsProto(
+                                            R"pb(
+                                              table_name: "vrf_table"
+                                              matches {
+                                                name: "vrf_id"
+                                                exact { str: "vrf-0" }
+                                              }
+                                              action { name: "no_action" }
+                                            )pb"),
+                                        EqualsProto(
+                                            R"pb(
+                                              table_name: "vrf_table"
+                                              matches {
+                                                name: "vrf_id"
+                                                exact { str: "vrf-2" }
+                                              }
+                                              action { name: "no_action" }
+                                            )pb"))));
 }
 
 }  // namespace

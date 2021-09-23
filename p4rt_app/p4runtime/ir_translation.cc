@@ -204,7 +204,10 @@ absl::Status TranslateMatchField(const TranslateTableEntryOptions& options,
     RETURN_IF_ERROR(
         TranslatePortInMatchField(options.direction, options.port_map, match));
   }
-  if (IsVrfType(match_def->match_field().type_name())) {
+
+  // Only update VRFs that are not going to the VRF_TABLE.
+  if (IsVrfType(match_def->match_field().type_name()) &&
+      table_def.preamble().alias() != "vrf_table") {
     RETURN_IF_ERROR(TranslateVrfInMatchField(options.direction, match));
   }
   return absl::OkStatus();

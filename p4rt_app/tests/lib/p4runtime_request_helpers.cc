@@ -33,5 +33,13 @@ absl::StatusOr<p4::v1::WriteRequest> PdWriteRequestToPi(
   return pdpi::PdWriteRequestToPi(ir_p4_info, pd_proto);
 }
 
+absl::StatusOr<p4::v1::WriteRequest> IrWriteRequestToPi(
+    absl::string_view ir_request, const pdpi::IrP4Info& ir_p4_info) {
+  pdpi::IrWriteRequest ir_proto;
+  RETURN_IF_ERROR(gutil::ReadProtoFromString(ir_request, &ir_proto))
+      << "Unable to translate IrWriteRequest proto string";
+  return pdpi::IrWriteRequestToPi(ir_p4_info, ir_proto);
+}
+
 }  // namespace test_lib
 }  // namespace p4rt_app
