@@ -88,6 +88,17 @@ const typename M::mapped_type &FindOrDie(const M &map,
   return iter->second;
 }
 
+// Returns a copy of the value associated with the given key if it exists, or
+// returns the given default value otherwise.
+// NOTE: May be inefficient for large datatypes that are expensive to copy.
+template <typename Map>
+typename Map::mapped_type FindOrDefault(
+    const Map &map, const typename Map::key_type &key,
+    typename Map::mapped_type default_value) {
+  auto it = map.find(key);
+  return (it != map.end()) ? it->second : default_value;
+}
+
 // Checks if the id is unique in set.
 template <typename M>
 absl::Status InsertIfUnique(absl::flat_hash_set<M> &set, const M &id,
