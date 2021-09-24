@@ -11,7 +11,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+#
 package(
     default_visibility = ["//visibility:public"],
     licenses = ["notice"],
@@ -32,6 +32,40 @@ cc_library(
         "//thinkit:switch",
         "//thinkit/proto:generic_testbed_cc_proto",
         "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest",
+    ],
+    alwayslink = True,
+)
+
+cc_library(
+    name = "ethcounter_ixia_test",
+    testonly = True,
+    srcs = ["ethcounter_ixia_test.cc"],
+    hdrs = ["ethcounter_ixia_test.h"],
+    deps = [
+        "//gutil:status",
+        "//gutil:status_matchers",
+        "//gutil:testing",
+        "//lib:ixia_helper",
+        "//lib/gnmi:gnmi_helper",
+        "//lib/p4rt:packet_listener",
+        "//lib/validator:validator_lib",
+        "//p4_pdpi:connection_management",
+        "//p4_pdpi:entity_management",
+        "//p4_pdpi:ir",
+        "//p4_pdpi:pd",
+        "//p4_pdpi/packetlib",
+        "//p4_pdpi/packetlib:packetlib_cc_proto",
+        "//sai_p4/instantiations/google:sai_p4info_cc",
+        "//thinkit:generic_testbed",
+        "//thinkit:generic_testbed_fixture",
+        "//thinkit:switch",
+        "//thinkit/proto:generic_testbed_cc_proto",
+        "@com_github_google_glog//:glog",
+        "@com_github_nlohmann_json//:json",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
