@@ -21,6 +21,7 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
@@ -192,7 +193,7 @@ void TestGnmiPortComponentPaths(
 
 void TestGnmiInterfaceConfigSetPortSpeed(
     thinkit::Switch& sut, absl::string_view if_name,
-    const std::vector<int>& supported_speeds) {
+    const absl::flat_hash_set<int>& supported_speeds) {
   ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
 
   // Get current configured port speed for the port.
