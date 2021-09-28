@@ -26,6 +26,7 @@
 #include "p4rt_app/sonic/adapters/mock_system_call_adapter.h"
 #include "p4rt_app/sonic/packetio_impl.h"
 #include "p4rt_app/sonic/packetio_port.h"
+#include "sai_p4/fixed/ids.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 
 namespace p4rt_app {

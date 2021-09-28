@@ -265,7 +265,7 @@ absl::Status SendPacketOut(const SystemCallAdapter &system_call_adapter,
         // interrupted before transmit could start, retry
       } else {
         return gutil::InternalErrorBuilder()
-               << "Failed to send packet out of " << transmit_socket
+               << "Failed to send packet out of " << interface_name
                << ", errno " << errno;
       }
     } else {

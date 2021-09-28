@@ -83,6 +83,10 @@
 // Mutually exclusive with "egress_port".
 #define PACKET_OUT_SUBMIT_TO_INGRESS_ID 2
 
+// TODO: BMV2 requires the header to be multiple of 8-bits.
+// Packet-out unused padding field to align the header to 8-bit multple.
+#define PACKET_OUT_UNUSED_PAD_ID 3
+
 //--- Packet Replication Engine Instances --------------------------------------
 
 // Egress instance type definitions.

@@ -55,37 +55,6 @@ absl::Status SendPacketOut(
     sonic::PacketIoInterface* const packetio_impl,
     const p4::v1::PacketOut& packet);
 
-// Temporary Packet In/Out metadata id definitions until we get P4Info into GOB
-// TODO (kishanps) To be removed after these defines are available locally.
-
-// Packet-in ingress port field. Indicates which port the packet arrived at.
-// Uses @p4runtime_translation(.., string).
-#define PACKET_IN_INGRESS_PORT_ID 1
-// Bitwidth for ingress port id
-#define INGRESS_PORT_BITWIDTH 9
-
-// Packet-in target egress port field. Indicates the port a packet would have
-// taken if it had not gotten trapped. Uses @p4runtime_translation(.., string).
-#define PACKET_IN_TARGET_EGRESS_PORT_ID 2
-// Bitwidth for target egress port id
-#define TARGET_EGRESS_BITWIDTH 9
-
-// Packet-out egress port field. Indicates the egress port for the packet-out to
-// be taken. Mutually exclusive with "submit_to_ingress". Uses
-// @p4runtime_translation(.., string).
-#define PACKET_OUT_EGRESS_PORT_ID 1
-// Bitwidth for egress port id
-#define EGRESS_PORT_BITWIDTH 9
-
-// Packet-out submit_to_ingress field. Indicates that the packet should go
-// through the ingress pipeline to determine which port to take (if any).
-// Mutually exclusive with "egress_port".
-#define PACKET_OUT_SUBMIT_TO_INGRESS_ID 2
-// Bitwidth for ingress inject
-#define SUBMIT_TO_INGRESS_BITWIDTH 1
-
-#define PACKET_OUT_UNUSED_PAD_ID 3
-
 class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
  public:
   // TODO: find way to group arguments so we don't have to pass so

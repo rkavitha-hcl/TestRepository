@@ -51,6 +51,7 @@
 #include "p4rt_app/sonic/vrf_entry_translation.h"
 #include "p4rt_app/utils/status_utility.h"
 #include "p4rt_app/utils/table_utility.h"
+#include "sai_p4/fixed/ids.h"
 #include "sai_p4/fixed/roles.h"
 #include "swss/component_state_helper_interface.h"
 
@@ -410,11 +411,10 @@ absl::Status SendPacketOut(
         break;
       }
       case PACKET_OUT_SUBMIT_TO_INGRESS_ID: {
-        ASSIGN_OR_RETURN(submit_to_ingress,
-                         pdpi::ArbitraryByteStringToUint(
-                             meta.value(), SUBMIT_TO_INGRESS_BITWIDTH),
-                         _.LogError() << "Unable to get inject_ingress "
-                                         "from the packet metadata");
+        ASSIGN_OR_RETURN(
+            submit_to_ingress,
+            pdpi::ArbitraryByteStringToUint(meta.value(), /*bitwidth=*/1),
+            _ << "Unable to get inject_ingress from the packet metadata");
         break;
       }
       case PACKET_OUT_UNUSED_PAD_ID: {
