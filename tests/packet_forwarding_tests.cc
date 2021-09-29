@@ -14,26 +14,45 @@
 
 #include "tests/packet_forwarding_tests.h"
 
-#include <net/ethernet.h>
-#include <netinet/in.h>
+#include <memory>
+#include <string>
+#include <type_traits>
+#include <vector>
 
+#include "absl/container/flat_hash_map.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/numbers.h"
+#include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/synchronization/mutex.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
+#include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "gutil/proto.h"
+#include "gutil/status.h"
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "lib/gnmi/gnmi_helper.h"
+#include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/connection_management.h"
 #include "p4_pdpi/entity_management.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/netaddr/ipv4_address.h"
 #include "p4_pdpi/netaddr/ipv6_address.h"
 #include "p4_pdpi/packetlib/packetlib.h"
+#include "p4_pdpi/packetlib/packetlib.pb.h"
 #include "p4_pdpi/pd.h"
+#include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
+#include "thinkit/control_device.h"
 #include "thinkit/generic_testbed.h"
 #include "thinkit/proto/generic_testbed.pb.h"
+#include "thinkit/switch.h"
 
 namespace pins_test {
 namespace {
@@ -321,7 +340,7 @@ TEST_P(PacketForwardingTestFixture, PacketForwardingTest) {
   {
     ASSERT_OK_AND_ASSIGN(
         auto finalizer,
-        testbed.get()->Interface().CollectPackets(
+        testbed.get()->Device().CollectPackets(
             [&](absl::string_view interface, absl::string_view packet) {
               if (interface == peer_interfaces[1]) {
                 absl::MutexLock lock(&mutex);
@@ -335,7 +354,7 @@ TEST_P(PacketForwardingTestFixture, PacketForwardingTest) {
     for (int i = 0; i < 10; i++) {
       // Send packet to SUT.
       ASSERT_OK(
-          testbed->Interface().SendPacket(peer_interfaces[0], test_packet_data))
+          testbed->Device().SendPacket(peer_interfaces[0], test_packet_data))
           << "failed to inject the packet.";
       LOG(INFO) << "SendPacket completed";
     }

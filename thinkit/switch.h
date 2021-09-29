@@ -17,9 +17,9 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 
 #include "absl/status/statusor.h"
-#include "absl/strings/string_view.h"
 #include "cert/cert.grpc.pb.h"
 #include "diag/diag.grpc.pb.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
