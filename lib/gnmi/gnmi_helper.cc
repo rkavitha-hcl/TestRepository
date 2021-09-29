@@ -40,7 +40,7 @@
 #include "grpcpp/impl/codegen/string_ref.h"
 #include "gutil/status.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
-#include "p4_pdpi/connection_management.h"
+#include "p4_pdpi/p4_runtime_session.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
 #include "proto/gnmi/gnmi.pb.h"
 #include "proto/gnmi_ext/gnmi_ext.pb.h"

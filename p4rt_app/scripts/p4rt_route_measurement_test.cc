@@ -27,9 +27,8 @@
 #include "gutil/proto_matchers.h"
 #include "gutil/status_matchers.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
-#include "p4_pdpi/connection_management.h"
-#include "p4_pdpi/entity_management.h"
 #include "p4_pdpi/netaddr/ipv4_address.h"
+#include "p4_pdpi/p4_runtime_session.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 
 DEFINE_int32(batch_size, 1000, "Number of entries in each batch");

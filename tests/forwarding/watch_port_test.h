@@ -18,7 +18,7 @@
 #include <thread>  // NOLINT: Need threads (instead of fiber) for upstream code.
 #include <vector>
 
-#include "p4_pdpi/connection_management.h"
+#include "p4_pdpi/p4_runtime_session.h"
 #include "tests/forwarding/group_programming_util.h"
 #include "tests/forwarding/packet_test_util.h"
 #include "thinkit/mirror_testbed_fixture.h"

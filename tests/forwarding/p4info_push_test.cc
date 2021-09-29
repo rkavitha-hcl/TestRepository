@@ -20,7 +20,7 @@
 #include "gutil/status_matchers.h"
 #include "lib/gnmi/gnmi_helper.h"
 #include "p4/v1/p4runtime.pb.h"
-#include "p4_pdpi/entity_management.h"
+#include "p4_pdpi/p4_runtime_session.h"
 
 // Note: "gutil/status_matchers.h" is needed for GitHub builds to succeed.
 

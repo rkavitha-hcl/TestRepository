@@ -27,7 +27,7 @@
 #include "gutil/status_matchers.h"
 #include "lib/gnmi/gnmi_helper.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
-#include "p4_pdpi/connection_management.h"
+#include "p4_pdpi/p4_runtime_session.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
 #include "proto/gnmi/gnmi.pb.h"
 #include "single_include/nlohmann/json.hpp"

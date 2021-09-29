@@ -12,23 +12,28 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GOOGLE_P4_PDPI_CONNECTION_MANAGEMENT_H_
-#define GOOGLE_P4_PDPI_CONNECTION_MANAGEMENT_H_
+#ifndef GOOGLE_P4_PDPI_P4_RUNTIME_SESSION_H_
+#define GOOGLE_P4_PDPI_P4_RUNTIME_SESSION_H_
 
 #include <stdint.h>
 
 #include <memory>
 #include <string>
 #include <utility>
+#include <vector>
 
 #include "absl/memory/memory.h"
 #include "absl/numeric/int128.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "grpcpp/security/credentials.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "p4_pdpi/ir.pb.h"
 #include "sai_p4/fixed/roles.h"
 #include "thinkit/switch.h"
 
@@ -174,5 +179,71 @@ std::unique_ptr<p4::v1::P4Runtime::Stub> CreateP4RuntimeStub(
     const std::string& address,
     const std::shared_ptr<grpc::ChannelCredentials>& credentials);
 
+// -- Helper functions mainly used with `P4RuntimeSession` ---------------------
+
+// Create PI updates from PI table entries.
+std::vector<p4::v1::Update> CreatePiUpdates(
+    absl::Span<const p4::v1::TableEntry> pi_entries,
+    p4::v1::Update_Type update_type);
+
+// Sets the request's metadata (i.e. device id, role). And sends a PI
+// (program independent) read request.
+absl::StatusOr<p4::v1::ReadResponse> SetMetadataAndSendPiReadRequest(
+    P4RuntimeSession* session, p4::v1::ReadRequest& read_request);
+
+// Sets the request's metadata (i.e. device id, role and election id).
+// And sends a PI (program independent) write request.
+absl::Status SetMetadataAndSendPiWriteRequest(
+    P4RuntimeSession* session, p4::v1::WriteRequest& write_request);
+
+// Sends a PI (program independent) write request with given stub.
+absl::Status SendPiWriteRequest(p4::v1::P4Runtime::StubInterface* stub,
+                                const p4::v1::WriteRequest& request);
+
+// Sets the requests' metadata (i.e. device id, role and election id). And sends
+// PI (program independent) write requests.
+absl::Status SetMetadataAndSendPiWriteRequests(
+    P4RuntimeSession* session,
+    std::vector<p4::v1::WriteRequest>& write_requests);
+
+// Reads PI (program independent) table entries.
+absl::StatusOr<std::vector<p4::v1::TableEntry>> ReadPiTableEntries(
+    P4RuntimeSession* session);
+
+// Removes PI (program independent) table entries on the switch.
+absl::Status RemovePiTableEntries(
+    P4RuntimeSession* session, const IrP4Info& info,
+    absl::Span<const p4::v1::TableEntry> pi_entries);
+
+// Clears the table entries.
+absl::Status ClearTableEntries(P4RuntimeSession* session);
+
+// Installs the given PI (program independent) table entry on the switch.
+absl::Status InstallPiTableEntry(P4RuntimeSession* session,
+                                 const p4::v1::TableEntry& pi_entry);
+
+// Installs the given PI (program independent) table entries on the switch.
+absl::Status InstallPiTableEntries(
+    P4RuntimeSession* session, const IrP4Info& info,
+    absl::Span<const p4::v1::TableEntry> pi_entries);
+
+// Sends the given PI updates to the switch.
+absl::Status SendPiUpdates(P4RuntimeSession* session,
+                           absl::Span<const p4::v1::Update> pi_updates);
+
+// Sets the forwarding pipeline to the given P4 info and, optionally, device
+// configuration.
+absl::Status SetForwardingPipelineConfig(
+    P4RuntimeSession* session,
+    p4::v1::SetForwardingPipelineConfigRequest::Action action,
+    const p4::config::v1::P4Info& p4info,
+    absl::optional<absl::string_view> p4_device_config = absl::nullopt);
+
+// Gets the forwarding pipeline from the device.
+absl::StatusOr<p4::v1::GetForwardingPipelineConfigResponse>
+GetForwardingPipelineConfig(
+    P4RuntimeSession* session,
+    p4::v1::GetForwardingPipelineConfigRequest::ResponseType type);
+
 }  // namespace pdpi
-#endif  // GOOGLE_P4_PDPI_CONNECTION_MANAGEMENT_H_
+#endif  // GOOGLE_P4_PDPI_P4_RUNTIME_SESSION_H_

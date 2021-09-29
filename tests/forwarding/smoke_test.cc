@@ -22,7 +22,7 @@
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "p4/v1/p4runtime.pb.h"
-#include "p4_pdpi/entity_management.h"
+#include "p4_pdpi/p4_runtime_session.h"
 #include "p4_pdpi/pd.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"

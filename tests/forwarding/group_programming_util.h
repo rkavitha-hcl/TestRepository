@@ -18,8 +18,8 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "p4/v1/p4runtime.pb.h"
-#include "p4_pdpi/connection_management.h"
 #include "p4_pdpi/ir.pb.h"
+#include "p4_pdpi/p4_runtime_session.h"
 #include "thinkit/test_environment.h"
 
 // Set of helper functions to program and verify group operations.

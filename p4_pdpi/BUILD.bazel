@@ -199,15 +199,19 @@ cc_proto_library(
 )
 
 cc_library(
-    name = "connection_management",
+    name = "p4_runtime_session",
     srcs = [
-        "connection_management.cc",
+        "p4_runtime_session.cc",
     ],
     hdrs = [
-        "connection_management.h",
+        "p4_runtime_session.h",
     ],
     deps = [
+        ":ir",
+        ":ir_cc_proto",
+        ":sequencing",
         "//gutil:status",
+        "//p4_pdpi/utils:ir",
         "//sai_p4/fixed:p4_roles",
         "//thinkit:switch",
         "@com_github_grpc_grpc//:grpc++",
@@ -217,32 +221,8 @@ cc_library(
         "@com_google_absl//absl/numeric:int128",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/time",
-    ],
-)
-
-cc_library(
-    name = "entity_management",
-    srcs = [
-        "entity_management.cc",
-    ],
-    hdrs = [
-        "entity_management.h",
-    ],
-    deps = [
-        ":connection_management",
-        ":ir",
-        ":ir_cc_proto",
-        ":sequencing",
-        "//gutil:status",
-        "//p4_pdpi/utils:ir",
-        "//sai_p4/fixed:p4_roles",
-        "@com_github_grpc_grpc//:grpc++",
-        "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
-        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_absl//absl/types:span",
         "@com_google_protobuf//:protobuf",
