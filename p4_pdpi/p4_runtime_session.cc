@@ -237,13 +237,7 @@ absl::StatusOr<std::vector<TableEntry>> ReadPiTableEntries(
   }
   return table_entries;
 }
-
 absl::Status ClearTableEntries(P4RuntimeSession* session) {
-  ASSIGN_OR_RETURN(auto table_entries, ReadPiTableEntries(session));
-
-  // Early return if there is nothing to clear.
-  if (table_entries.empty()) return absl::OkStatus();
-
   // Get P4Info from Switch. It is needed to sequence the delete requests.
   ASSIGN_OR_RETURN(
       p4::v1::GetForwardingPipelineConfigResponse response,
@@ -251,8 +245,20 @@ absl::Status ClearTableEntries(P4RuntimeSession* session) {
           session,
           p4::v1::GetForwardingPipelineConfigRequest::P4INFO_AND_COOKIE));
 
+  // If no p4info has been pushed to the switch, then it cannot have any table
+  // entries to clear. Furthermore, reading table entries (i.e. part of the
+  // statement after this one) will fail if no p4info has been pushed.
+  if (!response.has_config()) return absl::OkStatus();
+
+  // Get table entries.
+  ASSIGN_OR_RETURN(auto table_entries, ReadPiTableEntries(session));
+
+  // Early return if there is nothing to clear.
+  if (table_entries.empty()) return absl::OkStatus();
+
   // Convert into IrP4Info.
   ASSIGN_OR_RETURN(IrP4Info info, CreateIrP4Info(response.config().p4info()));
+
   RETURN_IF_ERROR(RemovePiTableEntries(session, info, table_entries));
 
   // Verify that all entries were cleared successfully.
