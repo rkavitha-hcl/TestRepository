@@ -30,21 +30,6 @@
 namespace p4rt_app {
 namespace {
 
-bool IsPortName(absl::string_view name) {
-  return (name == "port") || (name == "watch_port") || (name == "in_port") ||
-         (name == "out_port") || (name == "dst_port");
-}
-
-void SetPortMatchFieldFormatToString(pdpi::IrMatchFieldDefinition& match_def,
-                                     bool log) {
-  if (!IsPortName(match_def.match_field().name())) return;
-  if (log) {
-    LOG(WARNING) << "Updating match field '" << match_def.match_field().name()
-                 << "' format to STRING.";
-  }
-  match_def.set_format(pdpi::Format::STRING);
-}
-
 void SetCompositeUdfFieldFormatToHexString(
     pdpi::IrMatchFieldDefinition& match_def) {
   static constexpr absl::string_view kCompositeMatchLabel = "composite_field";
@@ -70,12 +55,10 @@ void SetCompositeUdfFieldFormatToHexString(
 
 void TweakForOrchAgent(pdpi::IrTableDefinition& table_def) {
   for (auto& [match_id, match_def] : *table_def.mutable_match_fields_by_id()) {
-    SetPortMatchFieldFormatToString(match_def, /*log=*/true);
     SetCompositeUdfFieldFormatToHexString(match_def);
   }
   for (auto& [match_name, match_def] :
        *table_def.mutable_match_fields_by_name()) {
-    SetPortMatchFieldFormatToString(match_def, /*log=*/false);
     SetCompositeUdfFieldFormatToHexString(match_def);
   }
 }

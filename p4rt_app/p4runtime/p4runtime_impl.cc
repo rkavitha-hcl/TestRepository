@@ -121,7 +121,7 @@ absl::Status AppendTableEntryReads(
     bool translate_port_ids,
     const boost::bimap<std::string, std::string>& port_translation_map,
     swss::DBConnectorInterface& app_db_client,
-    swss::DBConnectorInterface& counters_db_client, P4RuntimeTweaks* tweak) {
+    swss::DBConnectorInterface& counters_db_client) {
   RETURN_IF_ERROR(SupportedTableEntryRequest(pi_table_entry));
 
   // Get all P4RT keys from the AppDb.
@@ -180,7 +180,7 @@ absl::StatusOr<p4::v1::ReadResponse> DoRead(
     bool translate_port_ids,
     const boost::bimap<std::string, std::string>& port_translation_map,
     swss::DBConnectorInterface& app_db_client,
-    swss::DBConnectorInterface& counters_db_client, P4RuntimeTweaks* tweak) {
+    swss::DBConnectorInterface& counters_db_client) {
   p4::v1::ReadResponse response;
   for (const auto& entity : request.entities()) {
     LOG(INFO) << "Read request: " << entity.ShortDebugString();
@@ -189,7 +189,7 @@ absl::StatusOr<p4::v1::ReadResponse> DoRead(
         RETURN_IF_ERROR(AppendTableEntryReads(
             response, entity.table_entry(), p4_info, request.role(),
             translate_port_ids, port_translation_map, app_db_client,
-            counters_db_client, tweak));
+            counters_db_client));
         break;
       }
       default:
@@ -270,7 +270,7 @@ sonic::AppDbUpdates PiTableEntryUpdatesToIr(
     const p4_constraints::ConstraintInfo& constraint_info,
     bool translate_port_ids,
     const boost::bimap<std::string, std::string>& port_translation_map,
-    pdpi::IrWriteResponse* response, P4RuntimeTweaks* tweak) {
+    pdpi::IrWriteResponse* response) {
   sonic::AppDbUpdates ir_updates;
   for (const auto& update : request.updates()) {
     // An RPC response should be created for every updater.
@@ -496,7 +496,7 @@ grpc::Status P4RuntimeImpl::Write(grpc::ServerContext* context,
     pdpi::IrWriteResponse* rpc_response = rpc_status.mutable_rpc_response();
     sonic::AppDbUpdates app_db_updates = PiTableEntryUpdatesToIr(
         *request, *ir_p4info_, *p4_constraint_info_, translate_port_ids_,
-        port_translation_map_, rpc_response, &tweak_);
+        port_translation_map_, rpc_response);
 
     // Any AppDb update failures should be appended to the `rpc_response`. If
     // UpdateAppDb fails we should go critical.
@@ -553,9 +553,9 @@ grpc::Status P4RuntimeImpl::Read(
                           "ReadResponse writer cannot be a nullptr.");
     }
 
-    auto response_status = DoRead(
-        *request, ir_p4info_.value(), translate_port_ids_,
-        port_translation_map_, *app_db_client_, *counter_db_client_, &tweak_);
+    auto response_status =
+        DoRead(*request, ir_p4info_.value(), translate_port_ids_,
+               port_translation_map_, *app_db_client_, *counter_db_client_);
     if (!response_status.ok()) {
       LOG(WARNING) << "Read failure: " << response_status.status();
       return grpc::Status(
