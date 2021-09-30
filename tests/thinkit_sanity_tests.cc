@@ -367,9 +367,9 @@ void TestGnoiSystemColdReboot(thinkit::Switch& sut,
   request.set_message("Testing Purpose");
   gnoi::system::RebootResponse response;
   grpc::ClientContext context;
-  LOG(INFO) << "Sending Reboot request: " << request.ShortDebugString();
+  VLOG(1) << "Sending Reboot request: " << request.ShortDebugString();
   ASSERT_OK(sut_gnoi_system_stub->Reboot(&context, request, &response));
-  LOG(INFO) << "Received Reboot response: " << response.ShortDebugString();
+  VLOG(1) << "Received Reboot response: " << response.ShortDebugString();
 
   absl::Time start_time = absl::Now();
   bool system_down = false;
