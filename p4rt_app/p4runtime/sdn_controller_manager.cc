@@ -204,15 +204,6 @@ grpc::Status SdnControllerManager::HandleArbitrationUpdate(
                 << " is downgrading to backup with election ID "
                 << PrettyPrintElectionId(new_election_id_for_connection)
                 << "; no longer have a primary.";
-    } else if (!new_connection && old_election_id_for_connection ==
-                                      new_election_id_for_connection) {
-      // TODO: This is an odd
-      // special case in the spec that we aim to eliminate.
-      LOG(WARNING) << "Ignoring MasterArbitrationUpdate from existing backup "
-                      "connection for role "
-                   << PrettyPrintRoleName(role_name)
-                   << " with new and old election ID "
-                   << PrettyPrintElectionId(new_election_id_for_connection);
     } else {
       SendArbitrationResponse(controller);
       LOG(INFO) << "Backup connection for role "
