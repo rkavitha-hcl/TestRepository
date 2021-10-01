@@ -269,6 +269,88 @@ TEST_F(FixedL3TableTest, SupportIpv6TableFlow) {
       IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
 }
 
+TEST_F(FixedL3TableTest, SupportMyStationFlowWithPort) {
+  // P4 write request.
+  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 l3_admit_table_entry {
+                                   match {
+                                     dst_mac {
+                                       value: "00:AA:BB:CC:00:00"
+                                       mask: "FF:FF:FF:FF:00:00"
+                                     }
+                                     in_port { value: "2" }
+                                   }
+                                   action { admit_to_l3 {} }
+                                   priority: 1000
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
+
+  // Expected P4RT AppDb entry.
+  auto expected_entry =
+      test_lib::AppDbEntryBuilder{}
+          .SetTableName("FIXED_L3_ADMIT_TABLE")
+          .SetPriority(1000)
+          .AddMatchField("dst_mac", R"(00:aa:bb:cc:00:00&ff:ff:ff:ff:00:00)")
+          .AddMatchField("in_port", "Ethernet4")
+          .SetAction("admit_to_l3");
+
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_THAT(
+      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
+      IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
+
+  p4rt_service_.GetP4rtAppDbTable().DebugState();
+}
+
+TEST_F(FixedL3TableTest, SupportMyStationFlowWithoutPort) {
+  // P4 write request.
+  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 l3_admit_table_entry {
+                                   match {
+                                     dst_mac {
+                                       value: "00:AA:BB:CC:00:00"
+                                       mask: "FF:FF:FF:FF:00:00"
+                                     }
+                                   }
+                                   action { admit_to_l3 {} }
+                                   priority: 1000
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
+
+  // Expected P4RT AppDb entry.
+  auto expected_entry =
+      test_lib::AppDbEntryBuilder{}
+          .SetTableName("FIXED_L3_ADMIT_TABLE")
+          .SetPriority(1000)
+          .AddMatchField("dst_mac", R"(00:aa:bb:cc:00:00&ff:ff:ff:ff:00:00)")
+          .SetAction("admit_to_l3");
+
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_THAT(
+      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
+      IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
+
+  p4rt_service_.GetP4rtAppDbTable().DebugState();
+}
+
 TEST_F(FixedL3TableTest, InvalidPortIdFails) {
   // P4 write request with an unassigned port value (i.e. 999).
   ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
