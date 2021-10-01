@@ -7,13 +7,23 @@
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd $DIR
 
-# Run all things that need updating.
-bazel query :all | grep '_up_to_date_test$' | while read target; do
-  bazel run $target -- --update
+# Update the individual p4info files. Exclude special files that are covered
+# after this loop.
+bazel query :all \
+  | grep '_up_to_date_test$' \
+  | grep -vE ':(sai_pd|union_p4info)' \
+  | while read target; do
+    bazel run "${target}" -- --update
 done
 
-bazel run\
-  //platforms/networking/gpins/testing/blackbox/p4/test_infra_integration_tests:p4_config_diff_test\
+# union_p4info combines all the other p4info files.
+bazel run :union_p4info_up_to_date_test -- --update
+
+# sai_pd generates sai_pd files based on the union_p4info.
+bazel run :sai_pd_up_to_date_test -- --update
+
+bazel run \
+  //platforms/networking/gpins/testing/blackbox/p4/test_infra_integration_tests:p4_config_diff_test \
   -- --test_update_golden_files
 
 # Check P4 program.
