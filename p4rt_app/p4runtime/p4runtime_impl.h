@@ -28,7 +28,6 @@
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_pdpi/ir.h"
-#include "p4rt_app/p4runtime/p4runtime_tweaks.h"
 #include "p4rt_app/p4runtime/sdn_controller_manager.h"
 #include "p4rt_app/sonic/adapters/system_call_adapter.h"
 #include "p4rt_app/sonic/app_db_manager.h"
@@ -219,9 +218,6 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
   // Some switch enviornments cannot rely on the SONiC port names, and can
   // instead choose to use port ID's configured through gNMI.
   const bool translate_port_ids_;
-
-  // TODO: delete once it is no longer needed.
-  P4RuntimeTweaks tweak_ ABSL_GUARDED_BY(server_state_lock_);
 };
 
 }  // namespace p4rt_app

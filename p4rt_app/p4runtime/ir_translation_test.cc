@@ -21,7 +21,10 @@
 #include "gmock/gmock.h"
 #include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"
+#include "gutil/proto_matchers.h"
 #include "gutil/status_matchers.h"
+#include "p4_pdpi/ir.pb.h"
+#include "p4rt_app/utils/ir_builder.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 
@@ -29,6 +32,7 @@ namespace p4rt_app {
 namespace {
 
 using ::google::protobuf::TextFormat;
+using ::gutil::EqualsProto;
 using ::gutil::IsOkAndHolds;
 using ::gutil::StatusIs;
 using ::testing::HasSubstr;
@@ -410,6 +414,64 @@ TEST(IrTranslationTest, ActionParametersWithUnsupportedFormatFails) {
               .port_map = translation_map},
           table_entry),
       StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(P4RuntimeTweaksP4InfoTest, ForOrchAgentSetsCompositeUdfFormatToString) {
+  const std::string match_field_proto_string =
+      R"pb(id: 123
+           name: "match_field_name"
+           annotations: "@composite_field(@sai_udf(base=SAI_UDF_BASE_L3, offset=2, length=2), @sai_udf(base=SAI_UDF_BASE_L3, offset=4, length=2))")pb";
+
+  pdpi::IrTableDefinition ir_table =
+      IrTableDefinitionBuilder()
+          .preamble(R"pb(alias: "Table" id: 1)pb")
+          .match_field(match_field_proto_string, pdpi::IPV4)
+          .entry_action(IrActionDefinitionBuilder().preamble(
+              R"pb(alias: "action_name")pb"))
+          .size(512)();
+
+  pdpi::IrP4Info ir_p4_info;
+  (*ir_p4_info.mutable_tables_by_id())[1] = ir_table;
+  (*ir_p4_info.mutable_tables_by_name())["Table"] = ir_table;
+
+  pdpi::IrTableDefinition ir_table_with_string_format =
+      IrTableDefinitionBuilder()
+          .preamble(R"pb(alias: "Table" id: 1)pb")
+          .match_field(match_field_proto_string, pdpi::HEX_STRING)
+          .entry_action(IrActionDefinitionBuilder().preamble(
+              R"pb(alias: "action_name")pb"))
+          .size(512)();
+
+  TranslateIrP4InfoForOrchAgent(ir_p4_info);
+  EXPECT_THAT(ir_p4_info.tables_by_id().at(1),
+              EqualsProto(ir_table_with_string_format));
+  EXPECT_THAT(ir_p4_info.tables_by_name().at("Table"),
+              EqualsProto(ir_table_with_string_format));
+}
+
+// We're only testing non-udf & all-udf. Partial-udf isn't supported, so it does
+// not need to be tested.
+TEST(P4RuntimeTweaksP4InfoTest, ForOrchAgentIgnoresCompositeNonUdfFields) {
+  const std::string match_field_proto_string =
+      R"pb(id: 123
+           name: "match_field_name"
+           annotations: "@composite_field(@sai_field(SAI_FIELD1), @sai_field(SAI_FIELD2))")pb";
+
+  pdpi::IrTableDefinition ir_table =
+      IrTableDefinitionBuilder()
+          .preamble(R"pb(alias: "Table" id: 1)pb")
+          .match_field(match_field_proto_string, pdpi::IPV4)
+          .entry_action(IrActionDefinitionBuilder().preamble(
+              R"pb(alias: "action_name")pb"))
+          .size(512)();
+
+  pdpi::IrP4Info ir_p4_info;
+  (*ir_p4_info.mutable_tables_by_id())[1] = ir_table;
+  (*ir_p4_info.mutable_tables_by_name())["Table"] = ir_table;
+
+  pdpi::IrP4Info unchanged_ir_p4_info = ir_p4_info;
+  TranslateIrP4InfoForOrchAgent(ir_p4_info);
+  EXPECT_THAT(ir_p4_info, gutil::EqualsProto(unchanged_ir_p4_info));
 }
 
 }  // namespace

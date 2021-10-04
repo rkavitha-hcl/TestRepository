@@ -25,6 +25,7 @@
 #include "p4/config/v1/p4types.pb.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
+#include "p4_pdpi/utils/annotation_parser.h"
 
 namespace p4rt_app {
 namespace {
@@ -213,6 +214,39 @@ absl::Status TranslateMatchField(const TranslateTableEntryOptions& options,
   return absl::OkStatus();
 }
 
+void SetCompositeUdfFieldFormatToHexString(
+    pdpi::IrMatchFieldDefinition& match_def) {
+  static constexpr absl::string_view kCompositeMatchLabel = "composite_field";
+  static constexpr absl::string_view kUdfMatchLabel = "sai_udf";
+
+  if (match_def.format() == pdpi::Format::HEX_STRING) return;
+
+  auto parse_result = pdpi::GetAnnotationAsArgList(
+      kCompositeMatchLabel, match_def.match_field().annotations());
+  if (!parse_result.ok()) return;     // Composite annotation not found.
+  if (parse_result->empty()) return;  // No sub-fields.
+
+  // Check if all sub-fields are UDF.
+  for (const pdpi::annotation::AnnotationComponents& annotation :
+       pdpi::GetAllAnnotations(*parse_result)) {
+    if (annotation.label != kUdfMatchLabel) {
+      return;
+    }
+  }
+
+  match_def.set_format(pdpi::Format::HEX_STRING);
+}
+
+void TranslateIrTableDefForOrchAgent(pdpi::IrTableDefinition& table_def) {
+  for (auto& [match_id, match_def] : *table_def.mutable_match_fields_by_id()) {
+    SetCompositeUdfFieldFormatToHexString(match_def);
+  }
+  for (auto& [match_name, match_def] :
+       *table_def.mutable_match_fields_by_name()) {
+    SetCompositeUdfFieldFormatToHexString(match_def);
+  }
+}
+
 }  // namespace
 
 absl::StatusOr<std::string> TranslatePort(
@@ -271,6 +305,15 @@ absl::Status TranslateTableEntry(const TranslateTableEntryOptions& options,
   }
 
   return absl::OkStatus();
+}
+
+void TranslateIrP4InfoForOrchAgent(pdpi::IrP4Info& p4_info) {
+  for (auto& [table_id, table_def] : *p4_info.mutable_tables_by_id()) {
+    TranslateIrTableDefForOrchAgent(table_def);
+  }
+  for (auto& [table_id, table_def] : *p4_info.mutable_tables_by_name()) {
+    TranslateIrTableDefForOrchAgent(table_def);
+  }
 }
 
 }  // namespace p4rt_app

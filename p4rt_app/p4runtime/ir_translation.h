@@ -18,6 +18,7 @@
 #include "absl/status/status.h"
 #include "boost/bimap.hpp"
 #include "p4_pdpi/ir.h"
+#include "p4_pdpi/ir.pb.h"
 
 namespace p4rt_app {
 
@@ -43,6 +44,11 @@ absl::StatusOr<std::string> TranslatePort(
 // it will return an InvalidArgument error.
 absl::Status TranslateTableEntry(const TranslateTableEntryOptions& options,
                                  pdpi::IrTableEntry& entry);
+
+// Updates the IrP4Info so that the contents can be consumed by the OrchAgent.
+// For example:
+//  * OA expects UDF formats to be HEX_STRINGS
+void TranslateIrP4InfoForOrchAgent(pdpi::IrP4Info& p4_info);
 
 }  // namespace p4rt_app
 

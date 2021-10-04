@@ -750,7 +750,7 @@ grpc::Status P4RuntimeImpl::SetForwardingPipelineConfig(
     if (!ir_p4info_result.ok())
       return gutil::AbslStatusToGrpcStatus(ir_p4info_result.status());
     pdpi::IrP4Info new_ir_p4info = std::move(ir_p4info_result.value());
-    tweak_.ForOrchAgent(new_ir_p4info);
+    TranslateIrP4InfoForOrchAgent(new_ir_p4info);
 
     if (!ir_p4info_.has_value()) {
       // Apply a config if we don't currently have one.
