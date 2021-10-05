@@ -588,5 +588,19 @@ TEST_F(ResponsePathTest, EnforceOrdering) {
                      HasSubstr("#3: INVALID_ARGUMENT: error with vrf-3"))));
 }
 
+TEST_F(ResponsePathTest, ReadingUnexpectedValueFails) {
+  // Force the response path to return an unexpected notification key.
+  p4rt_service_.GetP4rtAppDbTable().InsertTableEntry(
+      /*key=*/"out_of_order", /*values=*/{{"action", "invalid_action_name"}});
+
+  // The P4RT App should be the only writer to the P4RT table. Therefore, if we
+  // cannot read back an entry that we should have written something is wrong.
+  p4::v1::ReadRequest read_request;
+  read_request.add_entities()->mutable_table_entry();
+  EXPECT_THAT(
+      pdpi::SetMetadataAndSendPiReadRequest(p4rt_session_.get(), read_request),
+      StatusIs(absl::StatusCode::kUnknown));
+}
+
 }  // namespace
 }  // namespace p4rt_app

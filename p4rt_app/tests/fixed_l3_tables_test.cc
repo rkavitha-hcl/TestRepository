@@ -406,5 +406,37 @@ TEST_F(FixedL3TableTest, IncorrectlyFormatedRequestFailsConstraintCheck) {
       StatusIs(absl::StatusCode::kUnknown, HasSubstr("#1: INVALID_ARGUMENT")));
 }
 
+TEST_F(FixedL3TableTest, MissingActionWhenRequiredFails) {
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::WriteRequest write_request,
+      test_lib::PdWriteRequestToPi(
+          R"pb(
+            updates {
+              type: INSERT
+              table_entry {
+                ipv6_table_entry {
+                  match {
+                    vrf_id: "80"
+                    ipv6_dst { value: "2002:a17:506:c114::" prefix_length: 64 }
+                  }
+                  action { set_nexthop_id { nexthop_id: "20" } }
+                }
+              }
+            }
+          )pb",
+          ir_p4_info_));
+
+  write_request.mutable_updates(0)
+      ->mutable_entity()
+      ->mutable_table_entry()
+      ->mutable_action()
+      ->Clear();
+
+  EXPECT_THAT(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(),
+                                             write_request),
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("#1: INVALID_ARGUMENT")));
+}
+
 }  // namespace
 }  // namespace p4rt_app
