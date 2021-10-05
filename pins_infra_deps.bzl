@@ -191,3 +191,12 @@ def pins_infra_deps():
             remote = "git@github.com:pins/sonic-swss-common.git",
             shallow_since = "1616719037 -0700",
         )
+    if not native.existing_rule("rules_pkg"):
+        http_archive(
+            name = "rules_pkg",
+            urls = [
+                "https://mirror.bazel.build/github.com/bazelbuild/rules_pkg/releases/download/0.5.1/rules_pkg-0.5.1.tar.gz",
+                "https://github.com/bazelbuild/rules_pkg/releases/download/0.5.1/rules_pkg-0.5.1.tar.gz",
+            ],
+            sha256 = "a89e203d3cf264e564fcb96b6e06dd70bc0557356eb48400ce4b5d97c2c3720d",
+        )

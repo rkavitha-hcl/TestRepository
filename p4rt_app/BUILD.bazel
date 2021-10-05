@@ -16,6 +16,12 @@ package(
     licenses = ["notice"],
 )
 
+p4rt_version = "0.0.1"
+
+p4rt_maintainer = "PINS Working Group <pins-wg@opennetworking.org>"
+
+load("@rules_pkg//:pkg.bzl", "pkg_deb", "pkg_tar")
+
 cc_binary(
     name = "p4rt",
     srcs = ["p4rt.cc"],
@@ -36,4 +42,50 @@ cc_binary(
         "@com_google_protobuf//:protobuf",
         "@sonic_swss_common//:libswsscommon",
     ],
+)
+
+pkg_tar(
+    name = "p4rt_binaries",
+    testonly = True,  # requred for p4rt_route_measurement_test
+    srcs = [
+        ":p4rt",  # TODO explore p4rt.stripped
+        "//p4rt_app/scripts:p4rt_program_table",
+        "//p4rt_app/scripts:p4rt_route_measurement_test",
+    ],
+    extension = "tar.bz2",
+    mode = "0755",
+    package_dir = "/usr/local/bin",
+    visibility = ["//visibility:private"],
+)
+
+pkg_tar(
+    name = "p4rt_debug",
+    srcs = [
+        ":p4rt.dwp",
+    ],
+    extension = "tar.bz2",
+    mode = "0755",
+    package_dir = "/usr/local/bin",
+    visibility = ["//visibility:private"],
+)
+
+pkg_deb(
+    name = "p4rt_deb",
+    testonly = True,  # requred for p4rt_route_measurement_test
+    architecture = "amd64",
+    data = ":p4rt_binaries",
+    description = "P4RT service",
+    maintainer = p4rt_maintainer,
+    package = "sonic-p4rt",
+    version = p4rt_version,
+)
+
+pkg_deb(
+    name = "p4rt_dbg_deb",
+    architecture = "amd64",
+    data = ":p4rt_debug",
+    description = "P4RT service debug symbols",
+    maintainer = p4rt_maintainer,
+    package = "sonic-p4rt-dbgsym",
+    version = p4rt_version,
 )
