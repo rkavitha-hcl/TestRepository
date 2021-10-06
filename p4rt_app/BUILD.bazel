@@ -69,11 +69,27 @@ pkg_tar(
     visibility = ["//visibility:private"],
 )
 
+
+# Here's how to generate the list of Debian packages that contain the shared
+# libraries that the p4rt binary depends on. It's probably better to manually
+# manage the "depends" list in p4rt_deb, but this can help in debugging when
+# a dependency (or transitive dependency) changes.
+# 
+#   ldd bazel-out/k8-fastbuild/bin/p4rt_app/p4rt | \
+#     sed "s/^[[:space:]]*\([^ ]*\.so[^ ]*\).*$/\1/" | \
+#     xargs -n1 -I{} bash -c "dpkg -S {} 2>/dev/null || true" | \
+#     cut -d: -f1 | \
+#     sort -u
+#
 pkg_deb(
     name = "p4rt_deb",
     testonly = True,  # requred for p4rt_route_measurement_test
     architecture = "amd64",
     data = ":p4rt_binaries",
+    depends = [
+        "libswsscommon",
+        "libgmpxx4ldbl",
+    ],
     description = "P4RT service",
     maintainer = p4rt_maintainer,
     package = "sonic-p4rt",
