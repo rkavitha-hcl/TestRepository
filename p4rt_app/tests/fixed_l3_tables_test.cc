@@ -212,7 +212,7 @@ TEST_F(FixedL3TableTest, SupportIpv4TableFlow) {
   auto expected_entry = test_lib::AppDbEntryBuilder{}
                             .SetTableName("FIXED_IPV4_TABLE")
                             .AddMatchField("ipv4_dst", "10.81.8.0/23")
-                            .AddMatchField("vrf_id", "p4rt-50")
+                            .AddMatchField("vrf_id", "50")
                             .SetAction("set_nexthop_id")
                             .AddActionParam("nexthop_id", "8");
 
@@ -258,7 +258,7 @@ TEST_F(FixedL3TableTest, SupportIpv6TableFlow) {
   auto expected_entry = test_lib::AppDbEntryBuilder{}
                             .SetTableName("FIXED_IPV6_TABLE")
                             .AddMatchField("ipv6_dst", "2002:a17:506:c114::/64")
-                            .AddMatchField("vrf_id", "p4rt-80")
+                            .AddMatchField("vrf_id", "80")
                             .SetAction("set_nexthop_id")
                             .AddActionParam("nexthop_id", "20");
 

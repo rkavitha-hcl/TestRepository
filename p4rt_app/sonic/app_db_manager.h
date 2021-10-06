@@ -60,16 +60,15 @@ struct AppDbUpdates {
 // Takes a list of AppDb updates (i.e. inserts, modifies, or deletes) and
 // translates them so that they are consumable by the AppDb. It will also
 // create, or remove, any VRF IDs as needed.
-absl::Status UpdateAppDb(
-    const AppDbUpdates& updates, const pdpi::IrP4Info& p4_info,
-    swss::ProducerStateTableInterface& p4rt_table,
-    swss::ConsumerNotifierInterface& p4rt_notification,
-    swss::DBConnectorInterface& app_db_client,
-    swss::DBConnectorInterface& state_db_client,
-    swss::ProducerStateTableInterface& vrf_table,
-    swss::ConsumerNotifierInterface& vrf_notification,
-    absl::flat_hash_map<std::string, int>& vrf_id_reference_count,
-    pdpi::IrWriteResponse* response);
+absl::Status UpdateAppDb(const AppDbUpdates& updates,
+                         const pdpi::IrP4Info& p4_info,
+                         swss::ProducerStateTableInterface& p4rt_table,
+                         swss::ConsumerNotifierInterface& p4rt_notification,
+                         swss::DBConnectorInterface& app_db_client,
+                         swss::DBConnectorInterface& state_db_client,
+                         swss::ProducerStateTableInterface& vrf_table,
+                         swss::ConsumerNotifierInterface& vrf_notification,
+                         pdpi::IrWriteResponse* response);
 
 // Returns all P4RT keys currently installed in the AppDb. This does not include
 // any keys that are currently being handled by the lower layers (i.e. keys

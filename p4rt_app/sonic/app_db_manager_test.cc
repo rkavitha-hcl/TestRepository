@@ -68,16 +68,16 @@ class AppDbManagerTest : public ::testing::Test {
 
   const std::string p4rt_table_name_ = "P4RT";
   const std::string vrf_table_name_ = "VRF_TABLE";
+
   // Mock AppDb tables.
   swss::MockDBConnector mock_app_db_client_;
   swss::MockProducerStateTable mock_p4rt_table_;
   swss::MockConsumerNotifier mock_p4rt_notification_;
   swss::MockProducerStateTable mock_vrf_table_;
   swss::MockConsumerNotifier mock_vrf_notification_;
+
   // Mock StateDb tables.
   swss::MockDBConnector mock_state_db_client_;
-
-  absl::flat_hash_map<std::string, int> vrf_id_reference_count_;
 };
 
 TEST_F(AppDbManagerTest, InsertTableEntry) {
@@ -132,11 +132,11 @@ TEST_F(AppDbManagerTest, InsertTableEntry) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(
-      UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
-                  mock_p4rt_table_, mock_p4rt_notification_,
-                  mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
-                  mock_vrf_notification_, vrf_id_reference_count_, &response));
+  EXPECT_OK(UpdateAppDb(updates,
+                        sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
+                        mock_p4rt_table_, mock_p4rt_notification_,
+                        mock_app_db_client_, mock_state_db_client_,
+                        mock_vrf_table_, mock_vrf_notification_, &response));
   ASSERT_EQ(response.statuses_size(), 1);
   EXPECT_EQ(response.statuses(0).code(), google::rpc::OK);
 }
@@ -179,7 +179,7 @@ TEST_F(AppDbManagerTest, InsertWithUnknownAppDbTableTypeFails) {
       UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                   mock_p4rt_table_, mock_p4rt_notification_,
                   mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
-                  mock_vrf_notification_, vrf_id_reference_count_, &response),
+                  mock_vrf_notification_, &response),
       StatusIs(absl::StatusCode::kInternal));
 }
 
@@ -224,11 +224,11 @@ TEST_F(AppDbManagerTest, InsertDuplicateTableEntryFails) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(
-      UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
-                  mock_p4rt_table_, mock_p4rt_notification_,
-                  mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
-                  mock_vrf_notification_, vrf_id_reference_count_, &response));
+  EXPECT_OK(UpdateAppDb(updates,
+                        sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
+                        mock_p4rt_table_, mock_p4rt_notification_,
+                        mock_app_db_client_, mock_state_db_client_,
+                        mock_vrf_table_, mock_vrf_notification_, &response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::ALREADY_EXISTS);
 }
 
@@ -273,11 +273,11 @@ TEST_F(AppDbManagerTest, ModifyNonExistentTableEntryFails) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(
-      UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
-                  mock_p4rt_table_, mock_p4rt_notification_,
-                  mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
-                  mock_vrf_notification_, vrf_id_reference_count_, &response));
+  EXPECT_OK(UpdateAppDb(updates,
+                        sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
+                        mock_p4rt_table_, mock_p4rt_notification_,
+                        mock_app_db_client_, mock_state_db_client_,
+                        mock_vrf_table_, mock_vrf_notification_, &response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::NOT_FOUND);
 }
 
@@ -322,11 +322,11 @@ TEST_F(AppDbManagerTest, DeleteNonExistentTableEntryFails) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(
-      UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
-                  mock_p4rt_table_, mock_p4rt_notification_,
-                  mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
-                  mock_vrf_notification_, vrf_id_reference_count_, &response));
+  EXPECT_OK(UpdateAppDb(updates,
+                        sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
+                        mock_p4rt_table_, mock_p4rt_notification_,
+                        mock_app_db_client_, mock_state_db_client_,
+                        mock_vrf_table_, mock_vrf_notification_, &response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::NOT_FOUND);
 }
 
@@ -606,51 +606,6 @@ TEST(PortIdTranslationTest, DuplicatePortNamesFails) {
               StatusIs(absl::StatusCode::kInternal));
 }
 
-TEST_F(AppDbManagerTest, DeleteAppDbEntryFails) {
-  pdpi::IrTableEntry table_entry;
-  ASSERT_TRUE(TextFormat::ParseFromString(R"pb(
-                                            table_name: "ipv4_table"
-                                            matches {
-                                              name: "ipv4_dst"
-                                              lpm {
-                                                value { ipv4: "10.81.8.0" }
-                                                prefix_length: 23
-                                              }
-                                            }
-                                            matches {
-                                              name: "vrf_id"
-                                              exact { str: "p4rt-50" }
-                                            }
-                                            action {
-                                              name: "set_nexthop_id"
-                                              params {
-                                                name: "nexthop_id"
-                                                value { str: "8" }
-                                              }
-                                            }
-                                          )pb",
-                                          &table_entry));
-  AppDbUpdates updates;
-  updates.entries.push_back(AppDbEntry{
-      .rpc_index = 0,
-      .entry = table_entry,
-      .update_type = p4::v1::Update::DELETE,
-      .appdb_table = AppDbTableType::P4RT,
-  });
-  updates.total_rpc_updates = 1;
-
-  EXPECT_CALL(mock_app_db_client_, exists).WillOnce(Return(true));
-
-  pdpi::IrWriteResponse response;
-  response.add_statuses();
-  EXPECT_OK(
-      UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
-                  mock_p4rt_table_, mock_p4rt_notification_,
-                  mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
-                  mock_vrf_notification_, vrf_id_reference_count_, &response));
-  // Expect INTERNAL error due to non-existent vrf in vrf_id_reference_count_.
-  EXPECT_EQ(response.statuses(0).code(), google::rpc::INTERNAL);
-}
 }  // namespace
 }  // namespace sonic
 }  // namespace p4rt_app

@@ -90,9 +90,7 @@ absl::StatusOr<std::string> CreateEntryForAppDbDelete(
     const absl::flat_hash_set<std::string>& duplicate_keys,
     std::vector<std::string>& p4rt_deletes,
     swss::ProducerStateTableInterface& p4rt_table,
-    swss::ProducerStateTableInterface& vrf_table,
-    swss::DBConnectorInterface& app_db_client,
-    absl::flat_hash_map<std::string, int>& vrf_id_reference_count) {
+    swss::DBConnectorInterface& app_db_client) {
   LOG(INFO) << "Delete PDPI IR entry: " << entry.ShortDebugString();
 
   ASSIGN_OR_RETURN(std::string key, GetP4rtTableKey(entry, p4_info));
@@ -121,15 +119,6 @@ absl::StatusOr<std::string> CreateEntryForAppDbDelete(
                                       app_db_client.hgetall(p4rt_prefix_key)));
 
   LOG(INFO) << "Delete AppDb entry: " << key;
-
-  // Update VRF reference count.
-  auto status = DecrementVrfReferenceCount(vrf_table, ir_table_entry,
-                                           vrf_id_reference_count);
-  if (!status.ok()) {
-    return gutil::InternalErrorBuilder()
-           << "Vrf reference count decrement in P4RT app failed, error: "
-           << status.ToString();
-  }
   p4rt_deletes.push_back(key);
   return key;
 }
@@ -141,11 +130,8 @@ absl::StatusOr<std::string> CreateEntryForAppDbInsert(
     const absl::flat_hash_set<std::string>& duplicate_keys,
     std::vector<swss::KeyOpFieldsValuesTuple>& p4rt_inserts,
     swss::ProducerStateTableInterface& p4rt_table,
-    swss::ProducerStateTableInterface& vrf_table,
-    swss::ConsumerNotifierInterface& vrf_notification,
     swss::DBConnectorInterface& app_db_client,
-    swss::DBConnectorInterface& state_db_client,
-    absl::flat_hash_map<std::string, int>& vrf_id_reference_count) {
+    swss::DBConnectorInterface& state_db_client) {
   LOG(INFO) << "Insert PDPI IR entry: " << entry.ShortDebugString();
 
   ASSIGN_OR_RETURN(std::string key, GetP4rtTableKey(entry, p4_info));
@@ -165,11 +151,6 @@ absl::StatusOr<std::string> CreateEntryForAppDbInsert(
            << entry.table_name() << "'.";
   }
 
-  // Create a VRF ID if the entry needs it.
-  RETURN_IF_ERROR(InsertVrfEntryAndUpdateState(vrf_table, vrf_notification,
-                                               app_db_client, state_db_client,
-                                               entry, vrf_id_reference_count));
-
   LOG(INFO) << "Insert AppDb entry: " << key;
   swss::KeyOpFieldsValuesTuple key_value;
   kfvKey(key_value) = key;
@@ -186,11 +167,8 @@ absl::StatusOr<std::string> CreateEntryForAppDbModify(
     const absl::flat_hash_set<std::string>& duplicate_keys,
     std::vector<swss::KeyOpFieldsValuesTuple>& p4rt_modifies,
     swss::ProducerStateTableInterface& p4rt_table,
-    swss::ProducerStateTableInterface& vrf_table,
-    swss::ConsumerNotifierInterface& vrf_notification,
     swss::DBConnectorInterface& app_db_client,
-    swss::DBConnectorInterface& state_db_client,
-    absl::flat_hash_map<std::string, int>& vrf_id_reference_count) {
+    swss::DBConnectorInterface& state_db_client) {
   LOG(INFO) << "Modify PDPI IR entry: " << entry.ShortDebugString();
 
   ASSIGN_OR_RETURN(std::string key, GetP4rtTableKey(entry, p4_info));
@@ -209,12 +187,6 @@ absl::StatusOr<std::string> CreateEntryForAppDbModify(
            << "[P4RT App] Table entry with the given key does not exist in '"
            << entry.table_name() << "'.";
   }
-
-  // Update the VRF IDs depending on the current values inside the AppDb, and
-  // the new values from the IR entry.
-  RETURN_IF_ERROR(ModifyVrfEntryAndUpdateState(
-      vrf_table, vrf_notification, app_db_client, state_db_client,
-      app_db_client.hgetall(app_db_key), entry, vrf_id_reference_count));
 
   LOG(INFO) << "Modify AppDb entry: " << key;
   swss::KeyOpFieldsValuesTuple key_value;
@@ -322,16 +294,15 @@ std::vector<std::string> GetAllAppDbP4TableEntryKeys(
   return p4rt_keys;
 }
 
-absl::Status UpdateAppDb(
-    const AppDbUpdates& updates, const pdpi::IrP4Info& p4_info,
-    swss::ProducerStateTableInterface& p4rt_table,
-    swss::ConsumerNotifierInterface& p4rt_notification,
-    swss::DBConnectorInterface& app_db_client,
-    swss::DBConnectorInterface& state_db_client,
-    swss::ProducerStateTableInterface& vrf_table,
-    swss::ConsumerNotifierInterface& vrf_notification,
-    absl::flat_hash_map<std::string, int>& vrf_id_reference_count,
-    pdpi::IrWriteResponse* response) {
+absl::Status UpdateAppDb(const AppDbUpdates& updates,
+                         const pdpi::IrP4Info& p4_info,
+                         swss::ProducerStateTableInterface& p4rt_table,
+                         swss::ConsumerNotifierInterface& p4rt_notification,
+                         swss::DBConnectorInterface& app_db_client,
+                         swss::DBConnectorInterface& state_db_client,
+                         swss::ProducerStateTableInterface& vrf_table,
+                         swss::ConsumerNotifierInterface& vrf_notification,
+                         pdpi::IrWriteResponse* response) {
   // We keep a temporary cache of any keys that are duplicated in the batch
   // request so the flow can be rejected.
   absl::flat_hash_set<std::string> duplicate_keys =
@@ -366,21 +337,19 @@ absl::Status UpdateAppDb(
     absl::StatusOr<std::string> key;
     switch (entry.update_type) {
       case p4::v1::Update::INSERT:
-        key = CreateEntryForAppDbInsert(
-            entry.entry, p4_info, duplicate_keys, p4rt_inserts, p4rt_table,
-            vrf_table, vrf_notification, app_db_client, state_db_client,
-            vrf_id_reference_count);
+        key = CreateEntryForAppDbInsert(entry.entry, p4_info, duplicate_keys,
+                                        p4rt_inserts, p4rt_table, app_db_client,
+                                        state_db_client);
         break;
       case p4::v1::Update::MODIFY:
-        key = CreateEntryForAppDbModify(
-            entry.entry, p4_info, duplicate_keys, p4rt_modifies, p4rt_table,
-            vrf_table, vrf_notification, app_db_client, state_db_client,
-            vrf_id_reference_count);
+        key = CreateEntryForAppDbModify(entry.entry, p4_info, duplicate_keys,
+                                        p4rt_modifies, p4rt_table,
+                                        app_db_client, state_db_client);
         break;
       case p4::v1::Update::DELETE:
-        key = CreateEntryForAppDbDelete(entry.entry, p4_info, duplicate_keys,
-                                        p4rt_deletes, p4rt_table, vrf_table,
-                                        app_db_client, vrf_id_reference_count);
+        key =
+            CreateEntryForAppDbDelete(entry.entry, p4_info, duplicate_keys,
+                                      p4rt_deletes, p4rt_table, app_db_client);
         break;
       default:
         key = gutil::InvalidArgumentErrorBuilder()
@@ -402,16 +371,6 @@ absl::Status UpdateAppDb(
   RETURN_IF_ERROR(GetAndProcessResponseNotification(
       p4rt_table.get_table_name(), p4rt_notification, app_db_client,
       state_db_client, app_db_status));
-
-  // Delete the VRF ID if it is no longer needed.
-  // This is done at the end of the current batch to avoid race issues between
-  // table entry deletion and VRF deletion.
-  RETURN_IF_ERROR(sonic::PruneVrfReferences(vrf_table, vrf_notification,
-                                            app_db_client, state_db_client,
-                                            vrf_id_reference_count))
-          .SetPrepend()
-      << "Failed to delete some vrf entries but corresponding table entries "
-         "deleted, vrf errors from Orchagent: ";
 
   return absl::OkStatus();
 }

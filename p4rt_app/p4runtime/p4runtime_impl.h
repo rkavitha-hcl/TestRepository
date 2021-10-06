@@ -175,13 +175,6 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
   std::unique_ptr<SdnControllerManager> controller_manager_
       ABSL_GUARDED_BY(server_state_lock_);
 
-  // Before using a VRF value in a P4 table the SONiC data plane needs to know
-  // how to handle it. To do this we need to create a VRF_TABLE entry in the
-  // AppDb. Only when all rules using this ID are deleted can we remove the
-  // entry.
-  absl::flat_hash_map<std::string, int> vrf_id_reference_count_
-      ABSL_GUARDED_BY(server_state_lock_);
-
   // SONiC uses name to reference ports (e.g. Ethernet4), but the controller can
   // be configured to send port IDs. The P4RT App takes responsibility for
   // translating between the two.

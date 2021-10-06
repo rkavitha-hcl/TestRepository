@@ -87,7 +87,7 @@ TEST_F(ResponsePathTest, TableEntryInsertReadAndRemove) {
   auto expected_entry = test_lib::AppDbEntryBuilder{}
                             .SetTableName("FIXED_IPV6_TABLE")
                             .AddMatchField("ipv6_dst", "2002:a17:506:c114::/64")
-                            .AddMatchField("vrf_id", "p4rt-80")
+                            .AddMatchField("vrf_id", "80")
                             .SetAction("set_nexthop_id")
                             .AddActionParam("nexthop_id", "20");
 
@@ -157,7 +157,7 @@ TEST_F(ResponsePathTest, TableEntryModify) {
   auto expected_entry = test_lib::AppDbEntryBuilder{}
                             .SetTableName("FIXED_IPV6_TABLE")
                             .AddMatchField("ipv6_dst", "2002:a17:506:c114::/64")
-                            .AddMatchField("vrf_id", "p4rt-80");
+                            .AddMatchField("vrf_id", "80");
 
   // The insert write request should not fail, and once complete the entry
   // should exist in the P4RT AppDb table.

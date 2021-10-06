@@ -34,28 +34,6 @@ bool IsPortType(const p4::config::v1::P4NamedType& type) {
   return type.name() == "port_id_t";
 }
 
-bool IsVrfType(const p4::config::v1::P4NamedType& type) {
-  return type.name() == "vrf_id_t";
-}
-
-absl::StatusOr<std::string> TranslateVrfId(TranslationDirection direction,
-                                           const std::string& vrf_id) {
-  constexpr absl::string_view kVrfPrefix = "p4rt-";
-
-  switch (direction) {
-    case TranslationDirection::kForController: {
-      if (vrf_id.empty()) return "vrf-0";  // TODO: remove
-      return std::string{absl::StripPrefix(vrf_id, kVrfPrefix)};
-    }
-    case TranslationDirection::kForOrchAgent: {
-      if (vrf_id == "vrf-0") return "";  // TODO: remove
-      return absl::StrCat(kVrfPrefix, vrf_id);
-    }
-  }
-  return gutil::InternalErrorBuilder() << "Could not translate VRF ID because "
-                                          "unsupported direction was selected.";
-}
-
 absl::Status TranslatePortValue(
     TranslationDirection direction,
     const boost::bimap<std::string, std::string>& port_map,
@@ -72,22 +50,6 @@ absl::Status TranslatePortValue(
              << value.format_case() << " instead.";
   }
 
-  return absl::OkStatus();
-}
-
-absl::Status TranslateVrfValue(TranslationDirection direction,
-                               pdpi::IrValue& value) {
-  switch (value.format_case()) {
-    case pdpi::IrValue::kStr: {
-      ASSIGN_OR_RETURN(*value.mutable_str(),
-                       TranslateVrfId(direction, value.str()));
-      break;
-    }
-    default:
-      return gutil::InvalidArgumentErrorBuilder()
-             << "Vrf value must use Format::STRING, but found "
-             << value.format_case() << " instead.";
-  }
   return absl::OkStatus();
 }
 
@@ -119,12 +81,6 @@ absl::Status TranslateAction(const TranslateTableEntryOptions& options,
         IsPortType(param_def->param().type_name())) {
       RETURN_IF_ERROR(TranslatePortValue(options.direction, options.port_map,
                                          *param.mutable_value()))
-          << " Found in action parameter '" << param.name() << "' of action '"
-          << action.name() << "'.";
-    }
-    if (IsVrfType(param_def->param().type_name())) {
-      RETURN_IF_ERROR(
-          TranslateVrfValue(options.direction, *param.mutable_value()))
           << " Found in action parameter '" << param.name() << "' of action '"
           << action.name() << "'.";
     }
@@ -172,22 +128,6 @@ absl::Status TranslatePortInMatchField(
   return absl::OkStatus();
 }
 
-absl::Status TranslateVrfInMatchField(TranslationDirection direction,
-                                      pdpi::IrMatch& match) {
-  // When matching on a VRF ID we expect the field to be an exact match.
-  switch (match.match_value_case()) {
-    case pdpi::IrMatch::kExact:
-      RETURN_IF_ERROR(TranslateVrfValue(direction, *match.mutable_exact()))
-          << " Found in match field '" << match.name() << "'.";
-      break;
-    default:
-      return gutil::InvalidArgumentErrorBuilder()
-             << "[P4RT App] The VRF match field '" << match.name()
-             << "' is not an exact match type.";
-  }
-  return absl::OkStatus();
-}
-
 absl::Status TranslateMatchField(const TranslateTableEntryOptions& options,
                                  const pdpi::IrTableDefinition& table_def,
                                  pdpi::IrMatch& match) {
@@ -206,11 +146,6 @@ absl::Status TranslateMatchField(const TranslateTableEntryOptions& options,
         TranslatePortInMatchField(options.direction, options.port_map, match));
   }
 
-  // Only update VRFs that are not going to the VRF_TABLE.
-  if (IsVrfType(match_def->match_field().type_name()) &&
-      table_def.preamble().alias() != "vrf_table") {
-    RETURN_IF_ERROR(TranslateVrfInMatchField(options.direction, match));
-  }
   return absl::OkStatus();
 }
 
