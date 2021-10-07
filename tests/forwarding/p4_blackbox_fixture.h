@@ -42,21 +42,11 @@ class P4BlackboxFixture : public thinkit::MirrorTestbedFixture {
     ASSERT_OK(pins_test::PushGnmiConfig(GetMirrorTestbed().ControlSwitch(),
                                         GetGnmiConfig()));
 
-    // Initialize the connection.
-    ASSERT_OK_AND_ASSIGN(sut_p4rt_session_, pdpi::P4RuntimeSession::Create(
-                                                GetMirrorTestbed().Sut()));
-    ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-        sut_p4rt_session_.get(),
-        p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-        sai::GetP4Info(sai::Instantiation::kMiddleblock)));
-
-    // Clear entries here in case the previous test did not (e.g. because it
-    // crashed).
-    ASSERT_OK(pdpi::ClearTableEntries(sut_p4rt_session_.get()));
-    // Check that switch is in a clean state.
-    ASSERT_OK_AND_ASSIGN(auto read_back_entries,
-                         pdpi::ReadPiTableEntries(sut_p4rt_session_.get()));
-    ASSERT_EQ(read_back_entries.size(), 0);
+    // Initialize the connection and clear table entries.
+    ASSERT_OK_AND_ASSIGN(sut_p4rt_session_,
+                         pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+                             GetMirrorTestbed().Sut(),
+                             sai::GetP4Info(sai::Instantiation::kMiddleblock)));
   }
 
   void TearDown() override {

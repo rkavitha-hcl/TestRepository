@@ -108,19 +108,12 @@ absl::StatusOr<GpinsControlDevice> GpinsControlDevice::CreateGpinsControlDevice(
     std::unique_ptr<thinkit::Switch> sut) {
   p4::config::v1::P4Info p4info =
       sai::GetP4Info(sai::Instantiation::kMiddleblock);
-  ASSIGN_OR_RETURN(auto control_p4_session,
-                   pdpi::P4RuntimeSession::Create(*sut.get()));
   ASSIGN_OR_RETURN(auto ir_p4info, pdpi::CreateIrP4Info(p4info));
 
   // Adds PacketIO rule
-  RETURN_IF_ERROR(
-      pdpi::SetForwardingPipelineConfig(
-          control_p4_session.get(),
-          p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-          sai::GetP4Info(sai::Instantiation::kMiddleblock)))
-          .SetPrepend()
-      << "Failed to push P4Info: ";
-  RETURN_IF_ERROR(pdpi::ClearTableEntries(control_p4_session.get()));
+  ASSIGN_OR_RETURN(
+      auto control_p4_session,
+      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(*sut, p4info));
   ASSIGN_OR_RETURN(auto gnmi_stub, sut->CreateGnmiStub());
   ASSIGN_OR_RETURN(auto interface_name_to_port_id,
                    GetAllInterfaceNameToPortId(*gnmi_stub));

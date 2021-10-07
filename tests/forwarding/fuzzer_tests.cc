@@ -115,18 +115,10 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
   ASSERT_OK(pins_test::PushGnmiConfig(mirror_testbed.ControlSwitch(),
                                       GetParam().gnmi_config));
 
-  // Initialize connection.
-  ASSERT_OK_AND_ASSIGN(auto stub, sut.CreateP4RuntimeStub());
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<pdpi::P4RuntimeSession> session,
-      pdpi::P4RuntimeSession::Create(std::move(stub), sut.DeviceId()));
-  ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-      session.get(),
-      p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-      GetParam().p4info));
-
-  // Clear switch state.
-  ASSERT_OK(pdpi::ClearTableEntries(session.get()));
+  // Initialize connection and clear switch state.
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> session,
+                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+                           sut, GetParam().p4info));
 
   absl::BitGen gen;
 

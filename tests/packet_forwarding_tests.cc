@@ -314,14 +314,10 @@ TEST_P(PacketForwardingTestFixture, PacketForwardingTest) {
   LOG(INFO) << "Destination port: " << sut_interfaces[1]
             << " port id: " << sut_interface_ports[1];
 
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
-                       pdpi::P4RuntimeSession::Create(testbed->Sut()));
-
-  ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-      p4_session.get(),
-      p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-      sai::GetP4Info(sai::Instantiation::kMiddleblock)));
-  ASSERT_OK(pdpi::ClearTableEntries(p4_session.get()));
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
+      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+          testbed->Sut(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
 
   // Sets up a route from first to second port.
   ASSERT_OK(

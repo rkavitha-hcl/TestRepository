@@ -159,29 +159,7 @@ int GetNumberOfPackets(TestConfiguration config) {
   return GetNumberOfPackets(PacketsShouldBeHashed(config));
 }
 
-absl::Status SetUpSut(pdpi::P4RuntimeSession* const p4_session,
-                      const p4::config::v1::P4Info& p4info) {
-  RETURN_IF_ERROR(
-      pdpi::SetForwardingPipelineConfig(
-          p4_session,
-          p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-          p4info))
-          .SetPrepend()
-      << "Failed to push P4Info for Sut: ";
-  RETURN_IF_ERROR(pdpi::ClearTableEntries(p4_session));
-  return absl::OkStatus();
-}
-
-absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession* const p4_session,
-                                const p4::config::v1::P4Info& p4info) {
-  RETURN_IF_ERROR(
-      pdpi::SetForwardingPipelineConfig(
-          p4_session,
-          p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-          p4info))
-          .SetPrepend()
-      << "Failed to push P4Info for Control switch: ";
-  RETURN_IF_ERROR(pdpi::ClearTableEntries(p4_session));
+absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession* const p4_session) {
   // Trap all packets on control switch.
   ASSIGN_OR_RETURN(
       p4::v1::TableEntry punt_all_pi_entry,
@@ -289,13 +267,6 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
   // The port on which we input all dataplane test packets.
   const int ingress_port = orion_port_ids[0];
 
-  // Setup SUT & control switch.
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> sut_p4_session,
-                       pdpi::P4RuntimeSession::Create(testbed.Sut()));
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<pdpi::P4RuntimeSession> control_p4_session,
-      pdpi::P4RuntimeSession::Create(testbed.ControlSwitch()));
-
   const std::string& gnmi_config = GetParam().gnmi_config;
   ASSERT_OK(
       testbed.Environment().StoreTestArtifact("gnmi_config.txt", gnmi_config));
@@ -309,8 +280,16 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
                                                     p4info.DebugString()));
   ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
                        pdpi::CreateIrP4Info(p4info));
-  ASSERT_OK(SetUpSut(sut_p4_session.get(), p4info));
-  ASSERT_OK(SetUpControlSwitch(control_p4_session.get(), p4info));
+
+  // Setup SUT & control switch.
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> sut_p4_session,
+                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+                           testbed.Sut(), p4info));
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<pdpi::P4RuntimeSession> control_p4_session,
+      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+          testbed.ControlSwitch(), p4info));
+  ASSERT_OK(SetUpControlSwitch(control_p4_session.get()));
 
   // Listen for packets from the SUT on the ControlSwitch.
   TestData test_data;

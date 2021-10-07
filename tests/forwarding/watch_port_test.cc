@@ -156,20 +156,10 @@ absl::Status ProgramDefaultRoutes(pdpi::P4RuntimeSession& p4_session,
   return pdpi::SetMetadataAndSendPiWriteRequest(&p4_session, write_request);
 }
 
-// Pushes P4Info and installs a default vrf for all packets on the SUT.
+// Installs a default vrf for all packets on the SUT.
 absl::Status SetUpSut(pdpi::P4RuntimeSession& p4_session,
-                      const p4::config::v1::P4Info& p4info,
                       const pdpi::IrP4Info& ir_p4info,
                       absl::string_view default_vrf) {
-  RETURN_IF_ERROR(
-      pdpi::SetForwardingPipelineConfig(
-          &p4_session,
-          p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-          p4info))
-          .SetPrepend()
-      << "Failed to push P4Info for Sut: ";
-  RETURN_IF_ERROR(pdpi::ClearTableEntries(&p4_session));
-
   // Set default VRF for all packets.
   ASSIGN_OR_RETURN(
       p4::v1::TableEntry pi_entry,
@@ -186,18 +176,9 @@ absl::Status SetUpSut(pdpi::P4RuntimeSession& p4_session,
   return pdpi::InstallPiTableEntry(&p4_session, pi_entry);
 }
 
-// Pushes P4Info and punts all packets on the control switch.
+// Punts all packets on the control switch.
 absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession& p4_session,
-                                const p4::config::v1::P4Info& p4info,
                                 const pdpi::IrP4Info& ir_p4info) {
-  RETURN_IF_ERROR(
-      pdpi::SetForwardingPipelineConfig(
-          &p4_session,
-          p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-          p4info))
-          .SetPrepend()
-      << "Failed to push P4Info for Control switch: ";
-  RETURN_IF_ERROR(pdpi::ClearTableEntries(&p4_session));
   // Trap all packets on control switch.
   ASSIGN_OR_RETURN(
       p4::v1::TableEntry punt_all_pi_entry,
@@ -387,18 +368,19 @@ void WatchPortTestFixture::SetUp() {
   ASSERT_OK(pins_test::PushGnmiConfig(testbed.Sut(), gnmi_config));
   ASSERT_OK(pins_test::PushGnmiConfig(testbed.ControlSwitch(), gnmi_config));
 
-  ASSERT_OK_AND_ASSIGN(sut_p4_session_,
-                       pdpi::P4RuntimeSession::Create(testbed.Sut()));
-  ASSERT_OK_AND_ASSIGN(control_p4_session_,
-                       pdpi::P4RuntimeSession::Create(testbed.ControlSwitch()));
-
   ASSERT_OK(testbed.Environment().StoreTestArtifact("p4info.pb.txt",
                                                     GetP4Info().DebugString()));
 
   // Setup SUT & control switch.
-  ASSERT_OK(SetUpSut(*sut_p4_session_, GetP4Info(), GetIrP4Info(), kVrfId));
-  ASSERT_OK(
-      SetUpControlSwitch(*control_p4_session_, GetP4Info(), GetIrP4Info()));
+
+  ASSERT_OK_AND_ASSIGN(sut_p4_session_,
+                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+                           testbed.Sut(), GetP4Info()));
+  ASSERT_OK_AND_ASSIGN(control_p4_session_,
+                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+                           testbed.ControlSwitch(), GetP4Info()));
+  ASSERT_OK(SetUpSut(*sut_p4_session_, GetIrP4Info(), kVrfId));
+  ASSERT_OK(SetUpControlSwitch(*control_p4_session_, GetIrP4Info()));
 
   // Create GNMI stub for admin operations.
   ASSERT_OK_AND_ASSIGN(sut_gnmi_stub_, testbed.Sut().CreateGnmiStub());
