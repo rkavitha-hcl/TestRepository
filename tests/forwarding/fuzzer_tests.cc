@@ -42,6 +42,7 @@
 #include "p4_pdpi/sequencing.h"
 #include "sai_p4/fixed/roles.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
+#include "tests/thinkit_sanity_tests.h"
 #include "thinkit/mirror_testbed_fixture.h"
 #include "thinkit/test_environment.h"
 
@@ -88,6 +89,36 @@ testing::Environment* const env =
 TestEnvironment& Environment() { return *dynamic_cast<TestEnvironment*>(env); }
 
 }  // namespace
+
+// FuzzerTestFixture class functions
+
+void FuzzerTestFixture::SetUp() {
+  GetParam().mirror_testbed->SetUp();
+  if (auto& id = GetParam().test_case_id; id.has_value()) {
+    GetParam().mirror_testbed->GetMirrorTestbed().Environment().SetTestCaseID(
+        *id);
+  }
+}
+
+void FuzzerTestFixture::TearDown() {
+  auto& sut = GetParam().mirror_testbed->GetMirrorTestbed().Sut();
+
+  // Attempt to connect to switch and clear tables.
+  auto session = pdpi::P4RuntimeSession::Create(sut);
+  absl::Status switch_cleared =
+      session.ok() ? pdpi::ClearTableEntries(session->get()) : session.status();
+
+  // Though the above statement should never fail, it sometimes
+  // inadvertently does due to some bug. Then we reboot the switch to
+  // clear the state.
+  if (!switch_cleared.ok()) {
+    ADD_FAILURE()
+        << "Failed to clear entries from switch (now attempting reboot): "
+        << switch_cleared;
+    pins_test::TestGnoiSystemColdReboot(sut);
+  }
+  GetParam().mirror_testbed->TearDown();
+}
 
 using ::p4::v1::WriteRequest;
 

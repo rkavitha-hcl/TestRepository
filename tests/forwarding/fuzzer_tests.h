@@ -42,15 +42,13 @@ struct FuzzerTestFixtureParams {
 class FuzzerTestFixture
     : public testing::TestWithParam<FuzzerTestFixtureParams> {
  protected:
-  void SetUp() override {
-    GetParam().mirror_testbed->SetUp();
-    if (auto& id = GetParam().test_case_id; id.has_value()) {
-      GetParam().mirror_testbed->GetMirrorTestbed().Environment().SetTestCaseID(
-          *id);
-    }
-  }
+  // Sets up the mirror test bed, then sets the test_case_id.
+  void SetUp() override;
 
-  void TearDown() override { GetParam().mirror_testbed->TearDown(); }
+  // Resets switch state after a fatal failure by attempting to clear the switch
+  // tables normally, falling back to rebooting the switch. Also runs the
+  // standard mirror test bed tear down procedure.
+  void TearDown() override;
 
   ~FuzzerTestFixture() override { delete GetParam().mirror_testbed; }
 };
