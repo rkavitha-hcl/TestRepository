@@ -219,11 +219,27 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
         ASSERT_OK_AND_ASSIGN(
             const pdpi::IrTableDefinition& table,
             gutil::FindOrStatus(info.tables_by_id(), table_id));
-        // Mask known failures unless we are specifically testing the resource
-        // limits milestone.
-        if (GetParam().milestone == Milestone::kResourceLimits ||
-            !(mask_known_failures &&
-              IsMaskedResource(table.preamble().alias()))) {
+
+        // Determine if we should check for resource exhaustion:
+        // If this is the resource limits test, then we always want to check.
+        bool this_is_the_resource_limits_test =
+            GetParam().milestone == Milestone::kResourceLimits;
+
+        // If this is not some other labeled test, then we may still want to
+        // check...
+        bool this_is_not_some_other_specific_test =
+            !GetParam().milestone.has_value();
+
+        // ... but we only want to check if we are not masking any failures or
+        // just not this specific one.
+        bool is_not_masked =
+            !mask_known_failures || !IsMaskedResource(table.preamble().alias());
+
+        // Mask known failures unless this is the resource limits test.
+        // If it is some other specific test, then don't check if resources
+        // are exhausted.
+        if (this_is_the_resource_limits_test ||
+            (this_is_not_some_other_specific_test && is_not_masked)) {
           // Check that table was full before this status.
           ASSERT_TRUE(state.IsTableFull(table_id)) << absl::Substitute(
               "Switch reported RESOURCE_EXHAUSTED for table named '$0'. The "
