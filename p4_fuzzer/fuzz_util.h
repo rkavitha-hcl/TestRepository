@@ -32,6 +32,7 @@
 
 #include "absl/random/random.h"
 #include "absl/strings/match.h"
+#include "absl/types/optional.h"
 #include "glog/logging.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.pb.h"
@@ -205,10 +206,13 @@ absl::StatusOr<p4::v1::TableEntry> FuzzValidTableEntry(
 std::vector<AnnotatedTableEntry> ValidForwardingEntries(
     absl::BitGen* gen, const FuzzerConfig& config, const int num_entries);
 
-// Randomly generates a set of updates, both valid and invalid.
-AnnotatedWriteRequest FuzzWriteRequest(absl::BitGen* gen,
-                                       const FuzzerConfig& config,
-                                       const SwitchState& switch_state);
+// Randomly generates a set of updates, both valid and invalid. Optionally takes
+// a max_batch_size parameter determining the maximum number of updates in a
+// request.
+AnnotatedWriteRequest FuzzWriteRequest(
+    absl::BitGen* gen, const FuzzerConfig& config,
+    const SwitchState& switch_state,
+    absl::optional<int> max_batch_size = absl::nullopt);
 
 // Takes a P4 Runtime table and returns randomly chosen action ref from the
 // action refs that are not in default only scope.

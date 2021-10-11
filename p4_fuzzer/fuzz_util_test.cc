@@ -20,6 +20,7 @@
 #include "absl/random/seed_sequences.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/collections.h"
@@ -265,6 +266,24 @@ TEST(FuzzActionProfileActionSetTest, HandlesLowMaxGroupSizeCorrectly) {
       total_weight += action.weight();
     }
     EXPECT_LE(total_weight, max_group_size);
+  }
+}
+
+TEST(FuzzUtilTest, FuzzWriteRequestRespectMaxBatchSize) {
+  ASSERT_OK_AND_ASSIGN(const FuzzerTestState fuzzer_state,
+                       ConstructFuzzerTestState(TestP4InfoOptions()));
+  absl::BitGen gen;
+
+  // Create 200 instances of, in expectation, ~50 updates each without the
+  // max_batch_size parameter and verify that they all have batches smaller than
+  // max_batch_size.
+  for (int i = 0; i < 200; ++i) {
+    int max_batch_size = absl::Uniform<int>(gen, 0, 50);
+    EXPECT_LE(FuzzWriteRequest(&gen, fuzzer_state.config,
+                               fuzzer_state.switch_state, max_batch_size)
+                  .updates_size(),
+              max_batch_size)
+        << absl::StrCat(" using max_batch_size=", max_batch_size);
   }
 }
 

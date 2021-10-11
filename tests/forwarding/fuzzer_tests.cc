@@ -14,6 +14,7 @@
 #include "tests/forwarding/fuzzer_tests.h"
 
 #include <algorithm>
+#include <limits>
 #include <set>
 
 #include "absl/container/flat_hash_set.h"
@@ -48,6 +49,11 @@
 
 ABSL_FLAG(int, fuzzer_iterations, 1000,
           "Number of updates the fuzzer should generate.");
+
+// TODO: absl::optional<int> is a much cleaner way to represent
+// that there should be no max batch size.
+ABSL_FLAG(int, max_batch_size, std::numeric_limits<int>::max(),
+          "Maximum batch size of a single write request.");
 
 namespace p4_fuzzer {
 namespace {
@@ -158,9 +164,10 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
   int num_ok_statuses = 0;
   int num_notok_without_mutations = 0;
   int num_ok_with_mutations = 0;
-  int max_batch_size = 0;
+  int max_batch_size_seen = 0;
   std::set<std::string> error_messages;
   SwitchState state(info);
+  const int max_batch_size = absl::GetFlag(FLAGS_max_batch_size);
   const int num_iterations = absl::GetFlag(FLAGS_fuzzer_iterations);
   for (int i = 0; i < num_iterations; i++) {
     if (Environment().PastDeadline()) {
@@ -172,10 +179,10 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
 
     // Generated fuzzed request.
     AnnotatedWriteRequest annotated_request =
-        FuzzWriteRequest(&gen, config, state);
+        FuzzWriteRequest(&gen, config, state, max_batch_size);
     WriteRequest request = RemoveAnnotations(annotated_request);
     num_updates += request.updates_size();
-    max_batch_size = std::max(max_batch_size, request.updates_size());
+    max_batch_size_seen = std::max(max_batch_size_seen, request.updates_size());
 
     // Set IDs.
     request.set_device_id(session->DeviceId());
@@ -304,7 +311,7 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
   // problem.
   LOG(INFO) << "  Avg updates per request:     "
             << num_updates / static_cast<double>(num_iterations);
-  LOG(INFO) << "  max updates in a request:    " << max_batch_size;
+  LOG(INFO) << "  max updates in a request:    " << max_batch_size_seen;
   LOG(INFO) << "  num_ok_statuses:             " << num_ok_statuses;
 
   // These should be 0 if the fuzzer works optimally. These numbers do not

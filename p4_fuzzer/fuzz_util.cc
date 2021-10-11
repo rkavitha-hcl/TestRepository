@@ -969,10 +969,15 @@ std::vector<AnnotatedTableEntry> ValidForwardingEntries(
 
 AnnotatedWriteRequest FuzzWriteRequest(absl::BitGen* gen,
                                        const FuzzerConfig& config,
-                                       const SwitchState& switch_state) {
+                                       const SwitchState& switch_state,
+                                       absl::optional<int> max_batch_size) {
   AnnotatedWriteRequest request;
 
   while (absl::Bernoulli(*gen, kAddUpdateProbability)) {
+    if (max_batch_size.has_value() &&
+        request.updates_size() >= *max_batch_size) {
+      break;
+    }
     *request.add_updates() = FuzzUpdate(gen, config, switch_state);
   }
 
