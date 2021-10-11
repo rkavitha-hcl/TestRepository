@@ -117,6 +117,12 @@ bool PacketsShouldBeHashed(const TestConfiguration& config) {
 // Number of Wcmp members in a group for this test.
 constexpr int kNumWcmpMembersForTest = 3;
 
+constexpr absl::string_view kAddVrfTableEntry = R"pb(
+  vrf_table_entry {
+    match { vrf_id: "vrf-80" }
+    action { no_action {} }
+  })pb";
+
 constexpr absl::string_view kSetVrfTableEntry = R"pb(
   acl_pre_ingress_table_entry {
     match {}
@@ -190,11 +196,17 @@ absl::Status ProgramHashingEntities(thinkit::TestEnvironment& test_environment,
           .SetPrepend()
       << "Failed to program WCMP group: ";
 
-  std::vector<p4::v1::TableEntry> pi_entries;
-
-  // Set default VRF for all packets.
+  // Create default VRF.
   ASSIGN_OR_RETURN(
       p4::v1::TableEntry pi_entry,
+      pdpi::PdTableEntryToPi(ir_p4info, gutil::ParseProtoOrDie<sai::TableEntry>(
+                                            kAddVrfTableEntry)));
+  RETURN_IF_ERROR(pdpi::InstallPiTableEntry(&session, pi_entry));
+
+  std::vector<p4::v1::TableEntry> pi_entries;
+  // Set default VRF for all packets.
+  ASSIGN_OR_RETURN(
+      pi_entry,
       pdpi::PdTableEntryToPi(ir_p4info, gutil::ParseProtoOrDie<sai::TableEntry>(
                                             kSetVrfTableEntry)));
   pi_entries.push_back(pi_entry);

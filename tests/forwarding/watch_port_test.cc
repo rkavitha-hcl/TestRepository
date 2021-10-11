@@ -160,9 +160,22 @@ absl::Status ProgramDefaultRoutes(pdpi::P4RuntimeSession& p4_session,
 absl::Status SetUpSut(pdpi::P4RuntimeSession& p4_session,
                       const pdpi::IrP4Info& ir_p4info,
                       absl::string_view default_vrf) {
-  // Set default VRF for all packets.
+  // Create default VRF for test.
   ASSIGN_OR_RETURN(
       p4::v1::TableEntry pi_entry,
+      pdpi::PdTableEntryToPi(
+          ir_p4info, gutil::ParseProtoOrDie<sai::TableEntry>(absl::Substitute(
+                         R"pb(
+                           vrf_table_entry {
+                             match { vrf_id: "$0" }
+                             action { no_action {} }
+                           })pb",
+                         default_vrf))));
+  RETURN_IF_ERROR(pdpi::InstallPiTableEntry(&p4_session, pi_entry));
+
+  // Set default VRF for all packets.
+  ASSIGN_OR_RETURN(
+      pi_entry,
       pdpi::PdTableEntryToPi(
           ir_p4info, gutil::ParseProtoOrDie<sai::TableEntry>(absl::Substitute(
                          R"pb(
