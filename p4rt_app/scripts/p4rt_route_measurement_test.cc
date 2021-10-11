@@ -118,6 +118,22 @@ static constexpr absl::string_view nexthop_entry = R"pb(
   }
 )pb";
 
+static constexpr absl::string_view vrf_entry = R"pb(
+  updates {
+    type: INSERT
+    entity {
+      table_entry {
+        table_id: 33554506
+        match {
+          field_id: 1
+          exact { value: "12" }
+        }
+        action { action { action_id: 24742814 } }
+      }
+    }
+  }
+)pb";
+
 static constexpr absl::string_view ip4table_entry = R"pb(
   type: $0
   entity {
@@ -215,6 +231,8 @@ class P4rtRouteTest : public Test {
     ASSERT_OK(ProgramRequest(neighbor_entry, p4::v1::Update::INSERT));
     // Create nexthop table entry.
     ASSERT_OK(ProgramRequest(nexthop_entry, p4::v1::Update::INSERT));
+    // Create the vrf used for the route entries.
+    ASSERT_OK(ProgramRequest(vrf_entry, p4::v1::Update::INSERT));
   }
 
   void TearDown() override {
