@@ -22,16 +22,17 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
-#include "authz_policy/authz_policy_processor.h"
 #include "gflags/gflags.h"
 #include "glog/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/text_format.h"
+#include "grpcpp/security/authorization_policy_provider.h"
 #include "grpcpp/security/server_credentials.h"
 #include "grpcpp/security/tls_certificate_provider.h"
 #include "grpcpp/security/tls_credentials_options.h"
 #include "grpcpp/server.h"
 #include "grpcpp/server_builder.h"
+#include "gutil/io.h"
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
@@ -59,10 +60,8 @@ DEFINE_bool(
     authz_policy_enabled, false,
     "Enable authz policy. Only take effect if use_insecure_server_credentials "
     "is false and mTLS is configured.");
-DEFINE_string(authorization_policy_file_path, "/keys",
-              "Path prefix of the authorization policy file.");
-DEFINE_string(authorization_policy_file_name, "authorization_policy.proto.txt",
-              "File name of the authorization policy file.");
+DEFINE_string(authorization_policy_file, "/keys/authorization_policy.json",
+              "File name of the JSON authorization policy file.");
 DEFINE_bool(use_genetlink, false,
             "Enable Generic Netlink model for Packet Receive");
 DEFINE_bool(use_port_ids, false,
@@ -70,7 +69,7 @@ DEFINE_bool(use_port_ids, false,
             "of the SONiC interface names.");
 DEFINE_int32(p4rt_grpc_port, 9559, "gRPC port for the P4Runtime Server");
 DEFINE_string(
-    p4rt_unit_socket, "/sock/p4rt.sock",
+    p4rt_unix_socket, "/sock/p4rt.sock",
     "Unix socket file for internal insecure connections. Disabled if empty.");
 
 absl::StatusOr<std::shared_ptr<ServerCredentials>> BuildServerCredentials() {
@@ -118,16 +117,29 @@ absl::StatusOr<std::shared_ptr<ServerCredentials>> BuildServerCredentials() {
       return gutil::InternalErrorBuilder()
              << "nullptr returned from grpc::SslServerCredentials";
     }
-
-    if (FLAGS_authz_policy_enabled && !FLAGS_ca_certificate_file.empty()) {
-      auto authz_policy_processor = std::make_shared<
-          p4rt_app::grpc_authz_processor::GrpcAuthzPolicyProcessor>(
-          FLAGS_authorization_policy_file_path,
-          FLAGS_authorization_policy_file_name);
-      creds->SetAuthMetadataProcessor(authz_policy_processor);
-    }
   }
   return creds;
+}
+
+std::shared_ptr<grpc::experimental::AuthorizationPolicyProviderInterface>
+CreateStaticAuthzPolicyProvider() {
+  auto policy = gutil::ReadFile(FLAGS_authorization_policy_file);
+  if (!policy.ok()) {
+    LOG(ERROR) << "Failed to read authorization config file "
+               << FLAGS_authorization_policy_file
+               << ". No authorization will be applied.";
+    return nullptr;
+  }
+  grpc::Status status;
+  auto provider =
+      grpc::experimental::StaticDataAuthorizationPolicyProvider::Create(
+          *policy, &status);
+  if (!status.ok()) {
+    LOG(ERROR) << "Failed to create authorization provider. No authorization "
+                  "will be applied.";
+    return nullptr;
+  }
+  return provider;
 }
 
 int main(int argc, char** argv) {
@@ -209,6 +221,24 @@ int main(int argc, char** argv) {
       component_state_singleton, system_state_singleton, FLAGS_use_genetlink,
       FLAGS_use_port_ids);
 
+  // Create a server to listen on the unix socket port.
+  std::thread internal_server_thread;
+  if (!FLAGS_p4rt_unix_socket.empty()) {
+    internal_server_thread = std::thread(
+        [](p4rt_app::P4RuntimeImpl* p4rt_server) {
+          ServerBuilder builder;
+          builder.AddListeningPort(
+              absl::StrCat("unix:", FLAGS_p4rt_unix_socket),
+              grpc::InsecureServerCredentials());
+          builder.RegisterService(p4rt_server);
+          std::unique_ptr<Server> server(builder.BuildAndStart());
+          LOG(INFO) << "Started unix socket server listening on "
+                    << FLAGS_p4rt_unix_socket << ".";
+          server->Wait();
+        },
+        &p4runtime_server);
+  }
+
   // Start a P4 runtime server
   ServerBuilder builder;
   auto server_cred = BuildServerCredentials();
@@ -220,10 +250,16 @@ int main(int argc, char** argv) {
 
   std::string server_addr = absl::StrCat("[::]:", FLAGS_p4rt_grpc_port);
   builder.AddListeningPort(server_addr, *server_cred);
-  if (!FLAGS_p4rt_unit_socket.empty()) {
-    builder.AddListeningPort(absl::StrCat("unix:", FLAGS_p4rt_unit_socket),
-                             grpc::InsecureServerCredentials());
+
+  // Set authorization policy.
+  if (FLAGS_authz_policy_enabled && !FLAGS_ca_certificate_file.empty()) {
+    auto provider = CreateStaticAuthzPolicyProvider();
+    if (provider != nullptr) {
+      builder.experimental().SetAuthorizationPolicyProvider(
+          std::move(provider));
+    }
   }
+
   builder.RegisterService(&p4runtime_server);
 
   std::unique_ptr<Server> server(builder.BuildAndStart());

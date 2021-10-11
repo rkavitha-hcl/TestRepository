@@ -16,9 +16,10 @@ def pins_infra_deps():
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
             name = "com_github_grpc_grpc",
-            url = "https://github.com/grpc/grpc/archive/v1.38.0.zip",
-            strip_prefix = "grpc-1.38.0",
-            sha256 = "c67bdcd2ca4eb98eb22fce387abec7f5b73db2c7a86fda37e8765deed49570ac",
+            # Newest commit on main on 2021-09-24.
+            url = "https://github.com/grpc/grpc/archive/835eacc32dccd43c7c8689e682c01dad5bc09a42.zip",
+            strip_prefix = "grpc-835eacc32dccd43c7c8689e682c01dad5bc09a42",
+            sha256 = "0ec61ec90b73bdd0f15598af7d44faa1211c617fd9173e042420c730e35a0832",
         )
     if not native.existing_rule("com_google_absl"):
         http_archive(
