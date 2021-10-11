@@ -19,6 +19,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "gmock/gmock.h"
+#include "google/rpc/code.pb.h"
 #include "gtest/gtest.h"
 #include "gutil/collections.h"
 #include "gutil/status.h"
@@ -148,12 +149,12 @@ struct UpdateStatus {
 absl::Status Check(const std::vector<UpdateStatus>& updates,
                    const FuzzerTestState& fuzzer_state, bool valid) {
   WriteRequest request;
-  std::vector<p4::v1::Error> statuses;
+  std::vector<pdpi::IrUpdateStatus> statuses;
   for (const auto& [update, status] : updates) {
     *request.add_updates() = update;
-    p4::v1::Error p4_error;
-    p4_error.set_canonical_code(static_cast<int32_t>(status));
-    statuses.push_back(p4_error);
+    pdpi::IrUpdateStatus ir_update_status;
+    ir_update_status.set_code(static_cast<google::rpc::Code>(status));
+    statuses.push_back(ir_update_status);
   }
   absl::optional<std::vector<std::string>> oracle = WriteRequestOracle(
       fuzzer_state.config.info, request, statuses, fuzzer_state.switch_state);

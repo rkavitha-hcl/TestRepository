@@ -29,7 +29,6 @@
 namespace p4_fuzzer {
 
 using absl::StatusCode;
-using ::p4::v1::Error;
 using ::p4::v1::TableEntry;
 using ::p4::v1::Update;
 using ::p4::v1::WriteRequest;
@@ -47,9 +46,10 @@ absl::Status IsWellformedUpdate(const pdpi::IrP4Info& ir_p4_info,
 }
 
 absl::Status UpdateOracle(const pdpi::IrP4Info& ir_p4_info,
-                          const Update& update, const Error& status,
+                          const Update& update,
+                          const pdpi::IrUpdateStatus& status,
                           const SwitchState& state) {
-  StatusCode code = static_cast<StatusCode>(status.canonical_code());
+  StatusCode code = static_cast<StatusCode>(status.code());
   absl::Status invalid_reason = IsWellformedUpdate(ir_p4_info, update);
   if (!invalid_reason.ok()) {
     if (code != StatusCode::kInvalidArgument) {
@@ -126,7 +126,7 @@ absl::optional<std::string> SequenceOfUpdatesOracle(
   for (int i = 0; i < updates.size(); i++) {
     int index = updates[i].index;
     const Update& update = updates[i].update;
-    const Error& status = updates[i].status;
+    const pdpi::IrUpdateStatus& status = updates[i].status;
 
     const auto& update_oracle_result =
         UpdateOracle(ir_p4_info, update, status, state);
@@ -138,7 +138,7 @@ absl::optional<std::string> SequenceOfUpdatesOracle(
     }
 
     // Update the state
-    if (status.canonical_code() == 0) {
+    if (status.code() == 0) {
       const auto& status = state.ApplyUpdate(update);
       if (!status.ok()) {
         error +=
@@ -154,7 +154,8 @@ absl::optional<std::string> SequenceOfUpdatesOracle(
 // See go/p4-fuzzing for more info on the design.
 absl::optional<std::vector<std::string>> WriteRequestOracle(
     const pdpi::IrP4Info& ir_p4_info, const WriteRequest& request,
-    const absl::Span<const Error>& statuses, const SwitchState& state) {
+    const absl::Span<const pdpi::IrUpdateStatus>& statuses,
+    const SwitchState& state) {
   // For now, we only support checking requests with table entries.
   CHECK(absl::c_all_of(request.updates(), [](const Update& update) {
     return update.entity().has_table_entry();
@@ -167,7 +168,7 @@ absl::optional<std::vector<std::string>> WriteRequestOracle(
   std::vector<IndexUpdateStatus> updates;
   for (int i = 0; i < request.updates().size(); i++) {
     const Update& update = request.updates(i);
-    const Error& status = statuses[i];
+    const pdpi::IrUpdateStatus& status = statuses[i];
     updates.push_back({i, update, status});
   }
 
@@ -179,7 +180,7 @@ absl::optional<std::vector<std::string>> WriteRequestOracle(
       flowkey_to_updates;
   for (const auto& update : updates) {
     // Filter out any resource exhausted errors.
-    StatusCode code = static_cast<StatusCode>(update.status.canonical_code());
+    StatusCode code = static_cast<StatusCode>(update.status.code());
     if (code == StatusCode::kResourceExhausted) continue;
 
     flowkey_to_updates[TableEntryKey(update.update.entity().table_entry())]
@@ -258,7 +259,7 @@ absl::optional<std::vector<std::string>> WriteRequestOracle(
   // table.
   absl::flat_hash_map<int, int> table_id_to_num_inserts;
   for (const auto& update : updates) {
-    StatusCode code = static_cast<StatusCode>(update.status.canonical_code());
+    StatusCode code = static_cast<StatusCode>(update.status.code());
     const auto& p4update = update.update;
 
     // Not successful, skip.
@@ -273,7 +274,7 @@ absl::optional<std::vector<std::string>> WriteRequestOracle(
   // Then, assume all inserts happen first, and check if resource exhaustion is
   // okay.
   for (const auto& update : updates) {
-    StatusCode code = static_cast<StatusCode>(update.status.canonical_code());
+    StatusCode code = static_cast<StatusCode>(update.status.code());
     const auto& p4update = update.update;
     auto table_id = p4update.entity().table_entry().table_id();
     if (code != StatusCode::kResourceExhausted) continue;
