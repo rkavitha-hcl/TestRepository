@@ -335,7 +335,7 @@ TEST_P(PacketForwardingTestFixture, PacketForwardingTest) {
   {
     ASSERT_OK_AND_ASSIGN(
         auto finalizer,
-        testbed.get()->Device().CollectPackets(
+        testbed.get()->ControlDevice().CollectPackets(
             [&](absl::string_view interface, absl::string_view packet) {
               if (interface == peer_interfaces[1]) {
                 absl::MutexLock lock(&mutex);
@@ -348,8 +348,8 @@ TEST_P(PacketForwardingTestFixture, PacketForwardingTest) {
 
     for (int i = 0; i < 10; i++) {
       // Send packet to SUT.
-      ASSERT_OK(
-          testbed->Device().SendPacket(peer_interfaces[0], test_packet_data))
+      ASSERT_OK(testbed->ControlDevice().SendPacket(peer_interfaces[0],
+                                                    test_packet_data))
           << "failed to inject the packet.";
       LOG(INFO) << "SendPacket completed";
     }

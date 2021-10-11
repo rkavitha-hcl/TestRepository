@@ -67,7 +67,7 @@ class GenericTestbed {
   // Returns the control device responsible for packet injection and various
   // management operations. This could be but isn't limited to being another
   // PINS switch, a non-PINS switch, or a host machine.
-  virtual ControlDevice& Device() = 0;
+  virtual class ControlDevice& ControlDevice() = 0;
 
   // Returns the test environment in which the test is run.
   virtual TestEnvironment& Environment() = 0;

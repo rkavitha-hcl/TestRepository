@@ -117,20 +117,20 @@ TEST_P(ExampleTestFixture, LinkFlapTest) {
   LOG(INFO) << "Set sut " << sut_interface << " admin link state down.";
   EXPECT_OK(SetAdminStatus(gnmi_stub.get(), sut_interface, "DOWN"));
   LOG(INFO) << "Validatate " << peer_interface << " state: DOWN.";
-  EXPECT_THAT(generic_testbed->Device().GetUpLinks({peer_interface}),
+  EXPECT_THAT(generic_testbed->ControlDevice().GetUpLinks({peer_interface}),
               IsOkAndHolds(testing::IsEmpty()));
 
   // Sets admin-status Up through gNMI.
   LOG(INFO) << "Set sut " << sut_interface << " admin link state up.";
   EXPECT_OK(SetAdminStatus(gnmi_stub.get(), sut_interface, "UP"));
   LOG(INFO) << "Validatate " << peer_interface << " state: UP.";
-  EXPECT_THAT(generic_testbed->Device().GetUpLinks({peer_interface}),
+  EXPECT_THAT(generic_testbed->ControlDevice().GetUpLinks({peer_interface}),
               IsOkAndHolds(Contains(peer_interface)));
 
   // Flaps control switch port and checks that SUT’s gNMI reflects that.
   LOG(INFO) << "Set control switch " << peer_interface
             << " admin link state down.";
-  EXPECT_OK(generic_testbed->Device().SetAdminLinkState(
+  EXPECT_OK(generic_testbed->ControlDevice().SetAdminLinkState(
       {peer_interface}, thinkit::LinkState::kDown));
   absl::SleepFor(absl::Seconds(15));
   // Checks oper-status through gNMI.
@@ -139,7 +139,7 @@ TEST_P(ExampleTestFixture, LinkFlapTest) {
               IsOkAndHolds(OperStatus::kDown));
   LOG(INFO) << "Set control switch " << peer_interface
             << " admin link state up.";
-  EXPECT_OK(generic_testbed->Device().SetAdminLinkState(
+  EXPECT_OK(generic_testbed->ControlDevice().SetAdminLinkState(
       {peer_interface}, thinkit::LinkState::kUp));
   absl::SleepFor(absl::Seconds(15));
   LOG(INFO) << "Validatate " << sut_interface << " state: UP.";
