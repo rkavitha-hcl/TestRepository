@@ -18,7 +18,6 @@
 #include <thread>  // NOLINT
 
 #include "absl/container/flat_hash_map.h"
-#include "gutil/status_matchers.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"

@@ -19,7 +19,6 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
-#include "absl/strings/escaping.h"
 #include "glog/logging.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
@@ -58,8 +57,7 @@ PacketListener::PacketListener(
             LOG(WARNING) << port_id << " not found.";
             return;
           }
-          callback(port_name->second,
-                   absl::BytesToHexString(pd_response.packet().payload()));
+          callback(port_name->second, pd_response.packet().payload());
         }
       }) {}
 
