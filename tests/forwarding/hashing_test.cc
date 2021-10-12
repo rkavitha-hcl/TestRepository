@@ -64,10 +64,6 @@
 // TODO switch generates router solicitation packets.
 ABSL_FLAG(bool, ignore_router_solicitation_packets, true,
           "Ignore router solicitation packets.");
-// TODO: IPV4_SRC_PORT & L4_DST_PORT field hashing distribution is
-// not working.
-ABSL_FLAG(bool, ignore_l4_port_hashing, true,
-          "Ignore known failure for L4_SRC_PORT & L4_DST_PORT field hashing.");
 
 namespace gpins {
 namespace {
@@ -532,21 +528,17 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
                                 chi_square));
           LOG(INFO) << "- chi square is " << chi_square;
           LOG(INFO) << "- p-value is " << pvalue;
-          if ((config.field != PacketField::kL4SrcPort &&
-               config.field != PacketField::kL4DstPort) ||
-              !absl::GetFlag(FLAGS_ignore_l4_port_hashing)) {
-            EXPECT_GT(pvalue, 0.001)
-                << "For config " << DescribeTestConfig(config) << ": "
-                << "The p-value is small enough that we reject the "
-                   "null-hypothesis "
-                   "(H_0 = 'The switch distribution is correct'), and "
-                   "instead "
-                   "have strong evidence that switch produces the wrong "
-                   "distribution:"
-                << DescribeDistribution(GetNumberOfPackets(config), members,
-                                        num_packets_per_port,
-                                        /*expect_one_port=*/false);
-          }
+          EXPECT_GT(pvalue, 0.001)
+              << "For config " << DescribeTestConfig(config) << ": "
+              << "The p-value is small enough that we reject the "
+                 "null-hypothesis "
+                 "(H_0 = 'The switch distribution is correct'), and "
+                 "instead "
+                 "have strong evidence that switch produces the wrong "
+                 "distribution:"
+              << DescribeDistribution(GetNumberOfPackets(config), members,
+                                      num_packets_per_port,
+                                      /*expect_one_port=*/false);
         } else {
           LOG(INFO) << "- packets were forwarded to "
                     << num_packets_per_port.size() << " ports";
