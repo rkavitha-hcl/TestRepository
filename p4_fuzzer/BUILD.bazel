@@ -190,6 +190,7 @@ cc_library(
     ],
     hdrs = ["oracle_util.h"],
     deps = [
+        ":fuzzer_cc_proto",
         ":switch_state",
         ":table_entry_key",
         "//gutil:status",
@@ -209,6 +210,7 @@ cc_test(
     name = "oracle_util_test",
     srcs = ["oracle_util_test.cc"],
     deps = [
+        ":fuzzer_cc_proto",
         ":mutation_and_fuzz_util",
         ":oracle_util",
         ":test_utils",

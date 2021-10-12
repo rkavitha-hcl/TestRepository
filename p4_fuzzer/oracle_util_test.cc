@@ -28,6 +28,7 @@
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_fuzzer/fuzz_util.h"
+#include "p4_fuzzer/fuzzer.pb.h"
 #include "p4_fuzzer/test_utils.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
@@ -42,7 +43,6 @@ namespace {
 using ::absl::StatusCode;
 using ::p4::v1::TableEntry;
 using ::p4::v1::Update;
-using ::p4::v1::WriteRequest;
 
 int AclIngressTableSize() {
   return sai::GetIrP4Info(sai::Instantiation::kMiddleblock)
@@ -141,14 +141,14 @@ TableEntry GetIngressAclTableEntry(int match, int action) {
 
 // An update and it's corresponding status.
 struct UpdateStatus {
-  p4::v1::Update update;
+  AnnotatedUpdate update;
   StatusCode status;
 };
 
 // Checks whether the update+state combo is plausible or not
 absl::Status Check(const std::vector<UpdateStatus>& updates,
                    const FuzzerTestState& fuzzer_state, bool valid) {
-  WriteRequest request;
+  AnnotatedWriteRequest request;
   std::vector<pdpi::IrUpdateStatus> statuses;
   for (const auto& [update, status] : updates) {
     *request.add_updates() = update;
@@ -181,23 +181,25 @@ absl::Status Check(const std::vector<UpdateStatus>& updates,
 }
 
 UpdateStatus MakeInsert(const TableEntry& table_entry, StatusCode status) {
-  p4::v1::Update update;
-  update.set_type(p4::v1::Update::INSERT);
-  *update.mutable_entity()->mutable_table_entry() = table_entry;
-  return {update, status};
+  AnnotatedUpdate annotated_update;
+  p4::v1::Update* update = annotated_update.mutable_pi();
+  update->set_type(p4::v1::Update::INSERT);
+  *update->mutable_entity()->mutable_table_entry() = table_entry;
+  return {annotated_update, status};
 }
 
 UpdateStatus MakeDelete(const TableEntry& table_entry, StatusCode status) {
-  p4::v1::Update update;
-  update.set_type(p4::v1::Update::DELETE);
-  *update.mutable_entity()->mutable_table_entry() = table_entry;
-  return {update, status};
+  AnnotatedUpdate annotated_update;
+  p4::v1::Update* update = annotated_update.mutable_pi();
+  update->set_type(p4::v1::Update::DELETE);
+  *update->mutable_entity()->mutable_table_entry() = table_entry;
+  return {annotated_update, status};
 }
 
 // Add a table entry to a state.
 void AddTableEntry(const TableEntry& table_entry, SwitchState* state) {
-  auto status =
-      state->ApplyUpdate(MakeInsert(table_entry, absl::StatusCode::kOk).update);
+  auto status = state->ApplyUpdate(
+      MakeInsert(table_entry, absl::StatusCode::kOk).update.pi());
   CHECK(status.ok());
 }
 
