@@ -17,10 +17,7 @@
 #include <string>
 #include <thread>  // NOLINT
 
-#include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/synchronization/mutex.h"
-#include "glog/logging.h"
 #include "gutil/status_matchers.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
@@ -44,19 +41,13 @@ class PacketListener : public thinkit::PacketGenerationFinalizer {
                      interface_port_id_to_name,
                  thinkit::PacketCallback callback);
 
-  ~PacketListener() ABSL_LOCKS_EXCLUDED(mutex_) {
-    {
-      absl::MutexLock lock(&mutex_);
-      time_to_exit_ = true;
-    }
-    LOG(INFO) << "receive packet thread join.";
+  ~PacketListener() {
+    session_->TryCancel();
     receive_packet_thread_.join();
   }
 
  private:
   pdpi::P4RuntimeSession* session_;
-  bool time_to_exit_ ABSL_GUARDED_BY(mutex_);
-  absl::Mutex mutex_;
   std::thread receive_packet_thread_;
 };
 
