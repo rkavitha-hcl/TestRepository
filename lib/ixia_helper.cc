@@ -25,8 +25,8 @@
 #include "glog/logging.h"
 #include "gutil/status.h"
 #include "gutil/testing.h"
+#include "include/nlohmann/json.hpp"
 #include "lib/gnmi/gnmi_helper.h"
-#include "single_include/nlohmann/json.hpp"
 
 namespace pins_test::ixia {
 
