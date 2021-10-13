@@ -22,9 +22,5 @@ bazel run :union_p4info_up_to_date_test -- --update
 # sai_pd generates sai_pd files based on the union_p4info.
 bazel run :sai_pd_up_to_date_test -- --update
 
-bazel run \
-  //platforms/networking/gpins/testing/blackbox/p4/test_infra_integration_tests:p4_config_diff_test \
-  -- --test_update_golden_files
-
 # Check P4 program.
 bazel test :sai_p4info_test
