@@ -243,15 +243,14 @@ TEST_P(CpuQosIxiaTestFixture, TestCPUQueueRateLimit) {
       std::unique_ptr<thinkit::GenericTestbed> generic_testbed,
       GetParam().testbed_interface->GetTestbedWithRequirements(requirements));
 
+  // Set test case ID.
+  generic_testbed->Environment().SetTestCaseID(
+      "15830795-b6db-415e-835b-beae6aa59204");
+
   ASSERT_OK(generic_testbed->Environment().StoreTestArtifact(
       "gnmi_config.txt", GetParam().gnmi_config));
 
   thinkit::Switch &sut = generic_testbed->Sut();
-
-  // Connect to TestTracker for test status.
-  if (auto &id = GetParam().test_case_id; id.has_value()) {
-    generic_testbed->Environment().SetTestCaseID(*id);
-  }
 
   // Push GNMI config.
   ASSERT_OK(pins_test::PushGnmiConfig(sut, GetParam().gnmi_config));
