@@ -185,9 +185,9 @@ absl::Status SetGnmiConfigPath(gnmi::gNMI::StubInterface* sut_gnmi_stub,
   grpc::ClientContext context;
   auto status = sut_gnmi_stub->Set(&context, request, &response);
   if (!status.ok()) {
-    LOG(INFO) << "SET request failed! Error code: " << status.error_code()
-              << " , Error message: " << status.error_message();
-    return gutil::InternalErrorBuilder();
+    return gutil::UnknownErrorBuilder().LogError()
+           << "SET request failed! Error code: " << status.error_code()
+           << " , Error message: " << status.error_message();
   }
   LOG(INFO) << "Received SET response: " << response.ShortDebugString();
   return absl::OkStatus();
