@@ -29,7 +29,8 @@ control ingress(inout headers_t headers,
     acl_pre_ingress.apply(headers, local_metadata, standard_metadata);
     l3_admit.apply(headers, local_metadata, standard_metadata);
     hashing.apply(headers, local_metadata, standard_metadata);
-    lag_hashing_config.apply(headers);
+    // TODO: re-enable LAG hashing
+    // lag_hashing_config.apply(headers);
     routing.apply(headers, local_metadata, standard_metadata);
     acl_ingress.apply(headers, local_metadata, standard_metadata);
     ttl.apply(headers, local_metadata, standard_metadata);

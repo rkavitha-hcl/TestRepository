@@ -107,7 +107,8 @@ INSTANTIATE_TEST_SUITE_P(
 // LAGs.
 using LagHashingTest = testing::TestWithParam<sai::Instantiation>;
 
-TEST_P(LagHashingTest, MustConfigureLagHashing) {
+// TODO: enable lag hash testing for FBR.
+TEST_P(LagHashingTest, DISABLED_MustConfigureLagHashing) {
   // Start the P4RT service
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
