@@ -59,12 +59,19 @@ absl::StatusOr<HashConfigType> GetHashConfigType(
          << "Unsupported hash configuration '" << action_name << "'.";
 }
 
-// Map of supported SAI hashing algorithms.
+// Map of supported SAI hashing algorithms. This is a reverse mapping of
+// hash_algorithm_map in sonic-swss/orchagent/switchorch.cpp
 const absl::flat_hash_map<std::string, std::string>&
 GetAvailableHashAlgorithms() {
   static const auto* const kHashAlgorithms =
       new absl::flat_hash_map<std::string, std::string>{
+          {"SAI_HASH_ALGORITHM_CRC", "crc"},
+          {"SAI_HASH_ALGORITHM_XOR", "xor"},
+          {"SAI_HASH_ALGORITHM_RANDOM", "random"},
           {"SAI_HASH_ALGORITHM_CRC_32LO", "crc_32lo"},
+          {"SAI_HASH_ALGORITHM_CRC_32HI", "crc_32hi"},
+          {"SAI_HASH_ALGORITHM_CRC_CCITT", "crc_ccitt"},
+          {"SAI_HASH_ALGORITHM_CRC_XOR", "crc_xor"},
       };
   return *kHashAlgorithms;
 }
