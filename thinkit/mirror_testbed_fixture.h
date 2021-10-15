@@ -38,9 +38,9 @@ class MirrorTestbedInterface {
   virtual MirrorTestbed& GetMirrorTestbed() = 0;
 };
 
-// The Thinkit `TestParams` defines test parameters to
+// The Thinkit `MirrorTestbedFixtureParams` defines test parameters to
 // `MirrorTestbedFixture` class.
-struct TestParams {
+struct MirrorTestbedFixtureParams {
   // Ownership transferred in MirrorTestbedFixture class.
   MirrorTestbedInterface* mirror_testbed;
   std::string gnmi_config;
@@ -70,7 +70,8 @@ struct TestParams {
 //
 //  Individual tests should use the new suite name:
 //    TEST_P(MyPinsTest, MyTestName) {}
-class MirrorTestbedFixture : public testing::TestWithParam<TestParams> {
+class MirrorTestbedFixture
+    : public testing::TestWithParam<MirrorTestbedFixtureParams> {
  protected:
   // A derived class that needs/wants to do its own setup can override this
   // method. However, it should take care to call this base setup first. That
