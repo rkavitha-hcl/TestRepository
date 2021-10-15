@@ -58,7 +58,12 @@
 // -- ACL Table sizes ----------------------------------------------------------
 
 #define ACL_INGRESS_TABLE_MINIMUM_GUARANTEED_SIZE 128
-#define ACL_PRE_INGRESS_TABLE_MINIMUM_GUARANTEED_SIZE 256
+
+// Some switches allocate table sizes in powers of 2. Since GPINs (Orchargent)
+// allocates 1 extra table entry for the loopback IP, we pick the size as
+// 2^8 - 1 to avoid allocation of 2^9 entries on such switches.
+#define ACL_PRE_INGRESS_TABLE_MINIMUM_GUARANTEED_SIZE 255
+
 #define ACL_EGRESS_TABLE_MINIMUM_GUARANTEED_SIZE 128
 
 // 1 entry for LLDP, 1 entry for ND, and 6 entries for traceroute: TTL 0,1,2 for
