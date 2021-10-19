@@ -17,6 +17,7 @@
 #include <sstream>
 #include <stdexcept>
 #include <string>
+#include <thread>  // NOLINT
 
 #include "absl/flags/parse.h"
 #include "absl/status/status.h"
@@ -35,6 +36,8 @@
 #include "gutil/io.h"
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
+#include "p4rt_app/event_monitoring/port_change_events.h"
+#include "p4rt_app/event_monitoring/state_event_monitor.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "p4rt_app/sonic/adapters/system_call_adapter.h"
 #include "p4rt_app/sonic/packetio_impl.h"
@@ -71,6 +74,9 @@ DEFINE_int32(p4rt_grpc_port, 9559, "gRPC port for the P4Runtime Server");
 DEFINE_string(
     p4rt_unix_socket, "/sock/p4rt.sock",
     "Unix socket file for internal insecure connections. Disabled if empty.");
+
+constexpr char kRedisDbHost[] = "localhost";
+constexpr int kRedisDbPort = 6379;
 
 absl::StatusOr<std::shared_ptr<ServerCredentials>> BuildServerCredentials() {
   constexpr int kCertRefreshIntervalSec = 5;
@@ -143,9 +149,6 @@ CreateStaticAuthzPolicyProvider() {
 }
 
 int main(int argc, char** argv) {
-  constexpr char kRedisDbHost[] = "localhost";
-  constexpr int kRedisDbPort = 6379;
-
   google::InitGoogleLogging(argv[0]);
   gflags::ParseCommandLineFlags(&argc, &argv, true);
 
@@ -239,6 +242,24 @@ int main(int argc, char** argv) {
         &p4runtime_server);
   }
 
+  // Spawn a separate thread that can react to any port change events.
+  bool monitor_port_events = true;
+  auto port_events_thread = std::thread([&monitor_port_events]() {
+    swss::DBConnector state_db(APPL_STATE_DB, kRedisDbHost, kRedisDbPort,
+                               /*timeout=*/0);
+    p4rt_app::sonic::StateEventMonitor port_state_monitor(&state_db,
+                                                          "PORT_TABLE");
+    p4rt_app::PortChangeEvents port_event_handler(port_state_monitor);
+
+    // Continue to monitor port events for the life of the P4RT service.
+    while (monitor_port_events) {
+      absl::Status status = port_event_handler.WaitForEventAndUpdateP4Runtime();
+      if (!status.ok()) {
+        LOG(ERROR) << status;
+      }
+    }
+  });
+
   // Start a P4 runtime server
   ServerBuilder builder;
   auto server_cred = BuildServerCredentials();
@@ -265,6 +286,10 @@ int main(int argc, char** argv) {
   std::unique_ptr<Server> server(builder.BuildAndStart());
   LOG(INFO) << "Server listening on " << server_addr << ".";
   server->Wait();
+
+  LOG(INFO) << "Stopping monitoring of port events.";
+  monitor_port_events = false;
+  port_events_thread.join();
 
   return 0;
 }
