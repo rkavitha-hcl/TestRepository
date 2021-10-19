@@ -1,5 +1,20 @@
-#ifndef GOOGLE_SAI_RESOURCE_LIMITS_P4_
-#define GOOGLE_SAI_RESOURCE_LIMITS_P4_
+#ifndef GOOGLE_SAI_RESOURCE_GUARANTEES_P4_
+#define GOOGLE_SAI_RESOURCE_GUARANTEES_P4_
+
+// This file documents the resource guarantees that each table provides.
+// These guarantees are not based on the hardware limits of particular targets,
+// but instead model the requirements that we believe we need for our
+// operations. Specifically, we try to give a a conservative upper bound of our
+// current requirements to support current usage and be better prepared for
+// future changes.
+//
+// For some targets and some tables, these numbers are read by the switch and
+// used to allocate tables accordingly. For other targets/tables these numbers
+// are ignored by the switch. In either case, we can use p4-fuzzer to ensure
+// that the given guarantees are actually upheld by the switch.
+//
+// See go/gpins-resource-guarantees for details on how a variety of these
+// numbers arose and to what extent they are truly guarantees.
 
 // -- Fixed Table sizes --------------------------------------------------------
 
@@ -7,16 +22,18 @@
 
 #define NEIGHBOR_TABLE_MINIMUM_GUARANTEED_SIZE 1024
 
-#define ROUTER_INTERFACE_TABLE_MINIMUM_GUARANTEED_SIZE 1024
+#define ROUTER_INTERFACE_TABLE_MINIMUM_GUARANTEED_SIZE 256
 
 #define MIRROR_SESSION_TABLE_MINIMUM_GUARANTEED_SIZE 2
 
+# copybara:strip_begin(comment applies specifically to Broadcom TH4)
 // We choose a small number of guranteed VRF table entries here because VRFs
 // consume default route enties in the IPv4 and IPv6 tables, and this isn't
 // currently modelled in P4. We could support more VRFs in principle, but
 // restrict ourselves to a small number so VRFs won't interfere with our
 // gurantees for the IPv4 and IPv6 tables too much.
 // TODO: Find a better way to model such interdepencies.
+# copybara:strip_end
 #define ROUTING_VRF_TABLE_MINIMUM_GUARANTEED_SIZE 32
 
 # copybara:strip_begin(comment only applies internally)
@@ -59,7 +76,7 @@
 
 #define ACL_INGRESS_TABLE_MINIMUM_GUARANTEED_SIZE 128
 
-// Some switches allocate table sizes in powers of 2. Since GPINs (Orchargent)
+// Some switches allocate table sizes in powers of 2. Since GPINs (Orchagent)
 // allocates 1 extra table entry for the loopback IP, we pick the size as
 // 2^8 - 1 to avoid allocation of 2^9 entries on such switches.
 #define ACL_PRE_INGRESS_TABLE_MINIMUM_GUARANTEED_SIZE 255
@@ -70,4 +87,4 @@
 // IPv4 and IPv6
 #define ACL_WBB_INGRESS_TABLE_MINIMUM_GUARANTEED_SIZE 8
 
-#endif  // GOOGLE_SAI_RESOURCE_LIMITS_P4_
+#endif  // GOOGLE_SAI_RESOURCE_GUARANTEES_P4_
