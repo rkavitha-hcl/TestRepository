@@ -87,6 +87,18 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "mock_p4runtime_impl",
+    testonly = True,
+    hdrs = ["mock_p4runtime_impl.h"],
+    deps = [
+        ":p4runtime_impl",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_googletest//:gtest",
+        "@sonic_swss_common//tests/mocks:mock_component_state_helper",
+    ],
+)
+
 cc_test(
     name = "p4runtime_impl_test",
     srcs = ["p4runtime_impl_test.cc"],

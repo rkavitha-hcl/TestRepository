@@ -16,6 +16,7 @@
 
 #include "absl/status/status.h"
 #include "p4rt_app/event_monitoring/state_event_monitor.h"
+#include "p4rt_app/p4runtime/p4runtime_impl.h"
 
 namespace p4rt_app {
 
@@ -27,11 +28,13 @@ namespace p4rt_app {
 //   * Port ID field changes.
 class PortChangeEvents {
  public:
-  PortChangeEvents(sonic::StateEventMonitor& state_event_monitor);
+  PortChangeEvents(P4RuntimeImpl& p4runtime_,
+                   sonic::StateEventMonitor& state_event_monitor);
 
   absl::Status WaitForEventAndUpdateP4Runtime();
 
  private:
+  P4RuntimeImpl& p4runtime_;
   sonic::StateEventMonitor& state_event_monitor_;
 };
 

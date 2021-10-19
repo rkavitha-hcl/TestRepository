@@ -16,9 +16,12 @@
 #include <deque>
 
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/str_join.h"
 #include "glog/logging.h"
 #include "gutil/status.h"
+#include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "swss/rediscommand.h"
 #include "swss/select.h"
 #include "swss/selectable.h"
@@ -27,8 +30,8 @@
 namespace p4rt_app {
 
 PortChangeEvents::PortChangeEvents(
-    sonic::StateEventMonitor& state_event_monitor)
-    : state_event_monitor_(state_event_monitor) {
+    P4RuntimeImpl& p4runtime, sonic::StateEventMonitor& state_event_monitor)
+    : p4runtime_(p4runtime), state_event_monitor_(state_event_monitor) {
   // Do nothing.
 }
 
@@ -36,6 +39,7 @@ absl::Status PortChangeEvents::WaitForEventAndUpdateP4Runtime() {
   ASSIGN_OR_RETURN(std::deque<swss::KeyOpFieldsValuesTuple> events,
                    state_event_monitor_.GetNextEvents());
 
+  std::vector<std::string> failures = {"Port change event failures:"};
   for (const auto& event : events) {
     std::string op = kfvOp(event);
     std::string key = kfvKey(event);
@@ -46,19 +50,36 @@ absl::Status PortChangeEvents::WaitForEventAndUpdateP4Runtime() {
       if (field == "id") id = value;
     }
 
-    // If no id field is found we should try to remove it from the P4RT app
-    // regardless of the Redis operation.
+    // We will try to apply all port events, and will not stop on a failure.
+    absl::Status status;
     if (id.empty()) {
-      LOG(WARNING) << absl::StreamFormat(
-          "Port Event: %s %s has no ID field. Removing from P4RT App.", op,
-          key);
-      continue;
+      // If no id field is found we should try to remove it from the P4RT app
+      // regardless of the Redis operation.
+      LOG(WARNING) << "Removing '" << key << "' because it has no ID field.";
+      status = p4runtime_.RemovePortTranslation(key);
+    } else if (op == "SET") {
+      LOG(INFO) << "Adding '" << key << "' with ID '" << id << "'.";
+      status = p4runtime_.AddPortTranslation(key, id);
+    } else if (op == "DEL") {
+      LOG(INFO) << "Removing '" << key << "' with ID '" << id << "'.";
+      status = p4runtime_.RemovePortTranslation(key);
+    } else {
+      LOG(ERROR) << "Unexpected operand '" << op << "'.";
+      status = absl::InvalidArgumentError(
+          absl::StrCat("unhandled SWSS operand '", op, "'"));
     }
 
-    LOG(INFO) << absl::StreamFormat("Port Event: %s %s with ID %s", op, key,
-                                    id);
+    // Collect any status failures so we can report them up later.
+    if (!status.ok()) {
+      LOG(ERROR) << "Couldn't handle port event for '" << key
+                 << "': " << status;
+      failures.push_back(status.ToString());
+    }
   }
 
+  if (failures.size() > 1) {
+    return gutil::UnknownErrorBuilder() << absl::StrJoin(failures, "\n  ");
+  }
   return absl::OkStatus();
 }
 

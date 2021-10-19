@@ -824,6 +824,54 @@ grpc::Status P4RuntimeImpl::GetForwardingPipelineConfig(
 #endif
 }
 
+absl::Status P4RuntimeImpl::AddPortTranslation(const std::string& port_name,
+                                               const std::string& port_id) {
+  absl::MutexLock l(&server_state_lock_);
+
+  // Do not allow empty strings.
+  if (port_name.empty()) {
+    return absl::InvalidArgumentError(
+        "Cannot add port translation without the port name.");
+  } else if (port_id.empty()) {
+    return absl::InvalidArgumentError(
+        "Cannot add port translation without the port ID.");
+  }
+
+  // If the Port Name/ID pair already exists then the operation is a no-op.
+  if (const auto iter = port_translation_map_.left.find(port_name);
+      iter != port_translation_map_.left.end() && iter->second == port_id) {
+    return absl::OkStatus();
+  }
+
+  // However, we do not accept reuse of existing values.
+  if (const auto& [_, success] =
+          port_translation_map_.insert({port_name, port_id});
+      !success) {
+    return gutil::AlreadyExistsErrorBuilder()
+           << "Could not add port '" << port_name << "' with ID '" << port_id
+           << "' because an entry already exists.";
+  }
+
+  return absl::OkStatus();
+}
+
+absl::Status P4RuntimeImpl::RemovePortTranslation(
+    const std::string& port_name) {
+  absl::MutexLock l(&server_state_lock_);
+
+  // Do not allow empty strings.
+  if (port_name.empty()) {
+    return absl::InvalidArgumentError(
+        "Cannot add port translation without the port name.");
+  }
+
+  if (auto port = port_translation_map_.left.find(port_name);
+      port != port_translation_map_.left.end()) {
+    port_translation_map_.left.erase(port);
+  }
+  return absl::OkStatus();
+}
+
 absl::Status P4RuntimeImpl::ApplyForwardingPipelineConfig(
     const pdpi::IrP4Info& ir_p4info) {
   // Setup definitions for each each P4 ACL table.

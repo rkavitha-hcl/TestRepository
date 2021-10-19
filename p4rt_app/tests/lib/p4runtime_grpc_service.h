@@ -16,6 +16,7 @@
 
 #include <memory>
 
+#include "absl/status/status.h"
 #include "grpcpp/server.h"
 #include "grpcpp/server_builder.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
@@ -38,6 +39,10 @@ class P4RuntimeGrpcService {
   ~P4RuntimeGrpcService();
 
   int GrpcPort() const;
+
+  absl::Status AddPortTranslation(const std::string& port_name,
+                                  const std::string& port_id);
+  absl::Status RemovePortTranslation(const std::string& port_name);
 
   // Accessors for AppDb tables.
   swss::FakeSonicDbTable& GetP4rtAppDbTable();

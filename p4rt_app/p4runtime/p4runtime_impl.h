@@ -54,7 +54,7 @@ absl::Status SendPacketOut(
     sonic::PacketIoInterface* const packetio_impl,
     const p4::v1::PacketOut& packet);
 
-class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
+class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
  public:
   // TODO: find way to group arguments so we don't have to pass so
   // many at once.
@@ -104,6 +104,26 @@ class P4RuntimeImpl final : public p4::v1::P4Runtime::Service {
       grpc::ServerReaderWriter<p4::v1::StreamMessageResponse,
                                p4::v1::StreamMessageRequest>* stream) override
       ABSL_LOCKS_EXCLUDED(server_state_lock_);
+
+  // Will add a new port translation for P4Runtime requests. Duplicate Name/ID
+  // pairs will be treated as a no-op, but re-use and empty values will be
+  // rejected.
+  virtual absl::Status AddPortTranslation(const std::string& port_name,
+                                          const std::string& port_id);
+
+  // Will remove an existing port translation. If the translation does not exist
+  // it is treated as a no-op and quitely passes. However, the port name cannot
+  // be an empty string.
+  virtual absl::Status RemovePortTranslation(const std::string& port_name);
+
+ protected:
+  // Simple constructor that should only be used for testing purposes.
+  P4RuntimeImpl(swss::ComponentStateHelperInterface& component_state,
+                swss::SystemStateHelperInterface& system_state,
+                bool translate_port_ids)
+      : component_state_(component_state),
+        system_state_(system_state),
+        translate_port_ids_(translate_port_ids) {}
 
  private:
   P4RuntimeImpl(const P4RuntimeImpl&) = delete;

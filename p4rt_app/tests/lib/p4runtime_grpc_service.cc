@@ -18,6 +18,7 @@
 #include <utility>
 
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "glog/logging.h"
 #include "grpcpp/security/server_credentials.h"
@@ -139,6 +140,16 @@ P4RuntimeGrpcService::~P4RuntimeGrpcService() {
 }
 
 int P4RuntimeGrpcService::GrpcPort() const { return 9999; }
+
+absl::Status P4RuntimeGrpcService::AddPortTranslation(
+    const std::string& port_name, const std::string& port_id) {
+  return p4runtime_server_->AddPortTranslation(port_name, port_id);
+}
+
+absl::Status P4RuntimeGrpcService::RemovePortTranslation(
+    const std::string& port_name) {
+  return p4runtime_server_->RemovePortTranslation(port_name);
+}
 
 swss::FakeSonicDbTable& P4RuntimeGrpcService::GetP4rtAppDbTable() {
   return fake_p4rt_table_;

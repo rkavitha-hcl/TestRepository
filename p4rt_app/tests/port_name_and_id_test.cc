@@ -28,6 +28,7 @@
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
+#include "p4rt_app/tests/lib/p4runtime_component_test_fixture.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
 #include "p4rt_app/tests/lib/p4runtime_request_helpers.h"
 #include "sai_p4/instantiations/google/instantiations.h"
@@ -59,6 +60,60 @@ class PortNameAndIdTest : public testing::Test {
   const pdpi::IrP4Info ir_p4_info_ =
       sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
 };
+
+TEST_F(PortNameAndIdTest, AddAThenDeletePortTranslation) {
+  test_lib::P4RuntimeGrpcService p4rt_service =
+      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+
+  EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
+  EXPECT_OK(p4rt_service.RemovePortTranslation("Ethernet0"));
+}
+
+TEST_F(PortNameAndIdTest, AllowDuplicatePortTranslations) {
+  test_lib::P4RuntimeGrpcService p4rt_service =
+      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+
+  EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
+  EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
+}
+
+TEST_F(PortNameAndIdTest, CannotReusePortTranslationsValues) {
+  test_lib::P4RuntimeGrpcService p4rt_service =
+      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+
+  EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
+
+  // Cannot duplicate the port_name or the port_id.
+  EXPECT_THAT(p4rt_service.AddPortTranslation("Ethernet0", "1"),
+              StatusIs(absl::StatusCode::kAlreadyExists));
+  EXPECT_THAT(p4rt_service.AddPortTranslation("Ethernet1", "0"),
+              StatusIs(absl::StatusCode::kAlreadyExists));
+}
+
+TEST_F(PortNameAndIdTest, CannotAddPortTranslationWithEmptyValues) {
+  test_lib::P4RuntimeGrpcService p4rt_service =
+      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+
+  EXPECT_THAT(p4rt_service.AddPortTranslation("", "1"),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+  EXPECT_THAT(p4rt_service.AddPortTranslation("Ethernet0", ""),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST_F(PortNameAndIdTest, RemovingNonExistantPortTranslationPasses) {
+  test_lib::P4RuntimeGrpcService p4rt_service =
+      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+
+  EXPECT_OK(p4rt_service.RemovePortTranslation("Ethernet0"));
+}
+
+TEST_F(PortNameAndIdTest, CannotRemovePortTranslationWithEmptyValues) {
+  test_lib::P4RuntimeGrpcService p4rt_service =
+      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+
+  EXPECT_THAT(p4rt_service.RemovePortTranslation(""),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
 
 TEST_F(PortNameAndIdTest, ExpectingName) {
   // Start the P4RT server to accept port names, and configure a ethernet port

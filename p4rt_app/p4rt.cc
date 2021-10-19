@@ -244,21 +244,24 @@ int main(int argc, char** argv) {
 
   // Spawn a separate thread that can react to any port change events.
   bool monitor_port_events = true;
-  auto port_events_thread = std::thread([&monitor_port_events]() {
-    swss::DBConnector state_db(APPL_STATE_DB, kRedisDbHost, kRedisDbPort,
-                               /*timeout=*/0);
-    p4rt_app::sonic::StateEventMonitor port_state_monitor(&state_db,
-                                                          "PORT_TABLE");
-    p4rt_app::PortChangeEvents port_event_handler(port_state_monitor);
+  auto port_events_thread =
+      std::thread([&p4runtime_server, &monitor_port_events]() {
+        swss::DBConnector state_db(APPL_STATE_DB, kRedisDbHost, kRedisDbPort,
+                                   /*timeout=*/0);
+        p4rt_app::sonic::StateEventMonitor port_state_monitor(&state_db,
+                                                              "PORT_TABLE");
+        p4rt_app::PortChangeEvents port_event_handler(p4runtime_server,
+                                                      port_state_monitor);
 
-    // Continue to monitor port events for the life of the P4RT service.
-    while (monitor_port_events) {
-      absl::Status status = port_event_handler.WaitForEventAndUpdateP4Runtime();
-      if (!status.ok()) {
-        LOG(ERROR) << status;
-      }
-    }
-  });
+        // Continue to monitor port events for the life of the P4RT service.
+        while (monitor_port_events) {
+          absl::Status status =
+              port_event_handler.WaitForEventAndUpdateP4Runtime();
+          if (!status.ok()) {
+            LOG(ERROR) << status;
+          }
+        }
+      });
 
   // Start a P4 runtime server
   ServerBuilder builder;
