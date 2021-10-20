@@ -56,16 +56,12 @@ class FixedL3TableTest : public test_lib::P4RuntimeComponentTestFixture {
  protected:
   FixedL3TableTest()
       : test_lib::P4RuntimeComponentTestFixture(
-            sai::Instantiation::kMiddleblock,
-            /*gnmi_ports=*/{
-                test_lib::FakeGnmiPortConfig{
-                    .port_id = "2",
-                    .port_name = "Ethernet4",
-                },
-            }) {}
+            sai::Instantiation::kMiddleblock) {}
 };
 
 TEST_F(FixedL3TableTest, SupportRouterInterfaceTableFlows) {
+  ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet4", "2"));
+
   // P4 write request.
   ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
                        test_lib::PdWriteRequestToPi(
@@ -270,6 +266,8 @@ TEST_F(FixedL3TableTest, SupportIpv6TableFlow) {
 }
 
 TEST_F(FixedL3TableTest, SupportMyStationFlowWithPort) {
+  ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet4", "2"));
+
   // P4 write request.
   ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
                        test_lib::PdWriteRequestToPi(

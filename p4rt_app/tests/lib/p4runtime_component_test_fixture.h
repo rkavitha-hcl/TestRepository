@@ -29,21 +29,12 @@
 namespace p4rt_app {
 namespace test_lib {
 
-// A gNMI port config can be used to fake the controller setting up ports in the
-// switch. These configurations should be applied before pushing the P4Info
-// config.
-struct FakeGnmiPortConfig {
-  std::string port_id;
-  std::string port_name;
-};
-
 // A P4Runtime component test fixture that will bring up a fake P4RT Application
 // service, and P4RT client session. This fixture can also be used to fake any
 // gNMI configurations.
 class P4RuntimeComponentTestFixture : public testing::Test {
  protected:
-  P4RuntimeComponentTestFixture(sai::Instantiation sai_instantiation,
-                                std::vector<FakeGnmiPortConfig> gnmi_ports);
+  P4RuntimeComponentTestFixture(sai::Instantiation sai_instantiation);
   void SetUp() override;
 
   // Component test configurations that should never change for the lifetime of
@@ -53,7 +44,6 @@ class P4RuntimeComponentTestFixture : public testing::Test {
   const pdpi::IrP4Info ir_p4_info_;
 
   // Bring up a fake P4Runtime gRPC server to run tests against.
-  std::vector<FakeGnmiPortConfig> gnmi_ports_;
   P4RuntimeGrpcService p4rt_service_ =
       P4RuntimeGrpcService(P4RuntimeGrpcServiceOptions{});
 

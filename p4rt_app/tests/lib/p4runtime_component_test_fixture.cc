@@ -24,22 +24,13 @@ namespace p4rt_app {
 namespace test_lib {
 
 P4RuntimeComponentTestFixture::P4RuntimeComponentTestFixture(
-    sai::Instantiation sai_instantiation,
-    std::vector<FakeGnmiPortConfig> gnmi_ports)
+    sai::Instantiation sai_instantiation)
     : p4_info_(sai::GetP4Info(sai_instantiation)),
-      ir_p4_info_(sai::GetIrP4Info(sai_instantiation)),
-      gnmi_ports_(gnmi_ports) {
+      ir_p4_info_(sai::GetIrP4Info(sai_instantiation)) {
   // do nothing.
 }
 
 void P4RuntimeComponentTestFixture::SetUp() {
-  // Fake any gNMI configurations first.
-  // Configure any ethernet ports for the tests.
-  for (const auto& port : gnmi_ports_) {
-    p4rt_service_.GetPortAppDbTable().InsertTableEntry(port.port_name,
-                                                       {{"id", port.port_id}});
-  }
-
   // Open a P4RT client connection to the gRPC server.
   std::string address = absl::StrCat("localhost:", p4rt_service_.GrpcPort());
   auto stub =

@@ -58,8 +58,7 @@ class ResponsePathTest : public test_lib::P4RuntimeComponentTestFixture {
  protected:
   ResponsePathTest()
       : test_lib::P4RuntimeComponentTestFixture(
-            sai::Instantiation::kMiddleblock,
-            /*gnmi_ports=*/{}) {}
+            sai::Instantiation::kMiddleblock) {}
 };
 
 TEST_F(ResponsePathTest, TableEntryInsertReadAndRemove) {

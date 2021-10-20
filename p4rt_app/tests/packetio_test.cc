@@ -68,10 +68,8 @@ class FakePacketIoTest : public testing::Test {
         p4rt_session_, pdpi::P4RuntimeSession::Create(std::move(stub),
                                                       /*device_id=*/183807201));
 
-    p4rt_service_.GetPortAppDbTable().InsertTableEntry("Ethernet0",
-                                                       {{"id", "0"}});
-    p4rt_service_.GetPortAppDbTable().InsertTableEntry("Ethernet1",
-                                                       {{"id", "1"}});
+    ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet0", "0"));
+    ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet1", "1"));
   }
 
   // Form PacketOut message and write to stream channel.

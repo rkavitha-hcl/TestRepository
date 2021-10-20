@@ -26,7 +26,6 @@
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
-#include "boost/bimap.hpp"
 #include "glog/logging.h"
 #include "gutil/collections.h"
 #include "gutil/status.h"
@@ -373,41 +372,6 @@ absl::Status UpdateAppDb(const AppDbUpdates& updates,
       state_db_client, app_db_status));
 
   return absl::OkStatus();
-}
-
-absl::StatusOr<boost::bimap<std::string, std::string>> GetPortIdTranslationMap(
-    swss::DBConnectorInterface& app_db_client) {
-  boost::bimap<std::string, std::string> translation_map;
-
-  for (const std::string& key : app_db_client.keys("PORT_TABLE:Ethernet*")) {
-    std::string sonic_port_name(absl::StripPrefix(key, "PORT_TABLE:"));
-    std::unordered_map<std::string, std::string> port_entry =
-        app_db_client.hgetall(key);
-
-    // If the port entry must have an 'id' field.
-    std::string* port_id = gutil::FindOrNull(port_entry, "id");
-    if (port_id == nullptr) {
-      std::string msg = absl::StrFormat(
-          "The port configuration for '%s' is invalid: missing 'id' field.",
-          key);
-      LOG(WARNING) << msg;
-      return gutil::InternalErrorBuilder() << msg;
-    }
-
-    // Try to insert the new entry. If the insert fails then either the port's
-    // name or it's id was duplicated in the config.
-    auto result = translation_map.insert({sonic_port_name, *port_id});
-    if (result.second == false) {
-      std::string msg = absl::StrFormat(
-          "The port configuration for '%s' with ID '%s' is invalid: duplicated "
-          "port name or port ID.",
-          sonic_port_name, *port_id);
-      LOG(WARNING) << msg;
-      return gutil::InternalErrorBuilder() << msg;
-    }
-  }
-
-  return translation_map;
 }
 
 }  // namespace sonic

@@ -120,7 +120,6 @@ TEST_F(PortNameAndIdTest, ExpectingName) {
   // to NOT have an ID field.
   test_lib::P4RuntimeGrpcService p4rt_service = test_lib::P4RuntimeGrpcService(
       test_lib::P4RuntimeGrpcServiceOptions{.translate_port_ids = false});
-  p4rt_service.GetPortAppDbTable().InsertTableEntry("Ethernet0", {});
 
   // Connect to the P4RT server and push a P4Info file.
   ASSERT_OK_AND_ASSIGN(auto p4rt_session, StartP4rtSession(p4rt_service));
@@ -158,7 +157,7 @@ TEST_F(PortNameAndIdTest, ExpectingIdGetId) {
   // with an ID field.
   test_lib::P4RuntimeGrpcService p4rt_service = test_lib::P4RuntimeGrpcService(
       test_lib::P4RuntimeGrpcServiceOptions{.translate_port_ids = true});
-  p4rt_service.GetPortAppDbTable().InsertTableEntry("Ethernet0", {{"id", "1"}});
+  ASSERT_OK(p4rt_service.AddPortTranslation("Ethernet0", "1"));
 
   // Connect to the P4RT server and push a P4Info file.
   ASSERT_OK_AND_ASSIGN(auto p4rt_session, StartP4rtSession(p4rt_service));
@@ -196,7 +195,7 @@ TEST_F(PortNameAndIdTest, ExpectingIdGetName) {
   // with an ID field.
   test_lib::P4RuntimeGrpcService p4rt_service = test_lib::P4RuntimeGrpcService(
       test_lib::P4RuntimeGrpcServiceOptions{.translate_port_ids = true});
-  p4rt_service.GetPortAppDbTable().InsertTableEntry("Ethernet0", {{"id", "1"}});
+  ASSERT_OK(p4rt_service.AddPortTranslation("Ethernet0", "1"));
 
   // Connect to the P4RT server and push a P4Info file.
   ASSERT_OK_AND_ASSIGN(auto p4rt_session, StartP4rtSession(p4rt_service));

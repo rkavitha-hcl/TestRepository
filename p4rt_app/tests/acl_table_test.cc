@@ -54,8 +54,7 @@ class AclTableTest : public test_lib::P4RuntimeComponentTestFixture {
  protected:
   AclTableTest()
       : test_lib::P4RuntimeComponentTestFixture(
-            sai::Instantiation::kMiddleblock,
-            /*gnmi_ports=*/{}) {}
+            sai::Instantiation::kMiddleblock) {}
 };
 
 TEST_F(AclTableTest, ReadCounters) {

@@ -27,6 +27,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/substitute.h"
+#include "boost/bimap.hpp"
 #include "glog/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/message_differencer.h"
@@ -765,16 +766,6 @@ grpc::Status P4RuntimeImpl::SetForwardingPipelineConfig(
     }
     forwarding_pipeline_config_ = request->config();
     LOG(INFO) << "SetForwardingPipelineConfig completed successfully.";
-
-    // Collect any port ID to port name translations;
-    if (translate_port_ids_) {
-      auto port_map_result = sonic::GetPortIdTranslationMap(*app_db_client_);
-      if (!port_map_result.ok()) {
-        return gutil::AbslStatusToGrpcStatus(port_map_result.status());
-      }
-      port_translation_map_ = *port_map_result;
-      LOG(INFO) << "Collected port ID to port name mappings.";
-    }
 
 #ifdef __EXCEPTIONS
   } catch (const std::exception& e) {

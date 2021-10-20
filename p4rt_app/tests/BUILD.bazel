@@ -217,6 +217,7 @@ cc_test(
 
 cc_test(
     name = "packetio_test",
+    size = "small",
     srcs = ["packetio_test.cc"],
     tags = ["exclusive"],
     deps = [

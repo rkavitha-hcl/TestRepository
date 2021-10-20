@@ -24,7 +24,6 @@
 #include "absl/strings/ascii.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
-#include "boost/bimap.hpp"
 #include "p4_pdpi/ir.pb.h"
 #include "swss/consumernotifierinterface.h"
 #include "swss/dbconnectorinterface.h"
@@ -87,15 +86,6 @@ std::vector<std::string> GetAllAppDbP4TableEntryKeys(
 absl::StatusOr<pdpi::IrTableEntry> ReadAppDbP4TableEntry(
     const pdpi::IrP4Info& p4info, swss::DBConnectorInterface& app_db_client,
     swss::DBConnectorInterface& counters_db_client, const std::string& key);
-
-// Checks all the Ethernet port entries found in the AppDb. For each entry it
-// checks for a controller ID, and returns a mapping from the controller ID to
-// the port name.
-//
-// If it detectes duplicate controller IDs an INTERNAL error is returned because
-// the configuration is invalid.
-absl::StatusOr<boost::bimap<std::string, std::string>> GetPortIdTranslationMap(
-    swss::DBConnectorInterface& app_db_client);
 
 }  // namespace sonic
 }  // namespace p4rt_app
