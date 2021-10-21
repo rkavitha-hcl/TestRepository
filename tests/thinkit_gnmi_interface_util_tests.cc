@@ -802,7 +802,7 @@ TEST_F(GNMIThinkitInterfaceUtilityTest,
       .WillOnce(Return(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "")));
   EXPECT_THAT(pins_test::GetBreakoutStateInfoForPort(mock_gnmi_stub_ptr.get(),
                                                      port, breakout_mode),
-              StatusIs(absl::StatusCode::kInternal,
+              StatusIs(absl::StatusCode::kUnknown,
                        HasSubstr("Failed to get GNMI state path value for "
                                  "physical-channels for port Ethernet0")));
 }
@@ -830,7 +830,7 @@ TEST_F(GNMIThinkitInterfaceUtilityTest,
       .WillOnce(Return(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "")));
   EXPECT_THAT(pins_test::GetBreakoutStateInfoForPort(mock_gnmi_stub_ptr.get(),
                                                      port, breakout_mode),
-              StatusIs(absl::StatusCode::kInternal,
+              StatusIs(absl::StatusCode::kUnknown,
                        HasSubstr("Failed to get GNMI state path value for "
                                  "oper-status for port Ethernet0")));
 }
