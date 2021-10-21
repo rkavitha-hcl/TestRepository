@@ -41,9 +41,6 @@ constexpr absl::string_view kSubmitToIngress = "send_to_ingress";
 
 namespace {
 
-// Max buffer size for Receive packets.
-static constexpr int kPacketIoPortMaxBufferSize = 1024;
-
 // Prefix of valid receive interfaces.
 static constexpr absl::string_view kValidReceivePrefixes[] = {"Ethernet"};
 
@@ -62,65 +59,8 @@ bool IsValidPort(absl::string_view port_name, const T &prefix_list) {
   return false;
 }
 
-// A class derived from Selectable base class only to re-use the EPOLL wait
-// mechanism. Operates on receive socket that was created for each netdev port
-// and the virtual funcs will read the buffers when packet in arrives.
-class PacketInSelectable : public swss::Selectable {
- public:
-  PacketInSelectable(const std::string port_name, int receive_socket,
-                     packet_metadata::ReceiveCallbackFunction callback_function)
-      : port_name_(port_name),
-        receive_socket_(receive_socket),
-        callback_function_(callback_function) {}
-  ~PacketInSelectable() override{};
-
-  // Override functions.
-  int getFd() override { return receive_socket_; }
-  // Reads data from socket and invokes callback function to pass back the In
-  // packet.
-  uint64_t readData() override {
-    ssize_t msg_len = 0;
-    do {
-      msg_len = read(receive_socket_, read_buffer_, kPacketIoPortMaxBufferSize);
-    } while (errno == EINTR);
-    if (msg_len < 0) {
-      LOG(ERROR) << "Error " << errno << " in reading buffer from socket for "
-                 << port_name_;
-    } else if (msg_len == 0) {
-      LOG(ERROR) << "Unexpected socket shutdown during read for " << port_name_;
-    } else {
-      std::string packet(read_buffer_, msg_len);
-      // Just pass empty string for target egress port since this support is not
-      // available in netdev model.
-      auto status = callback_function_(port_name_, "", packet);
-      if (!status.ok()) {
-        LOG(WARNING) << "Unable to send packet to the controller"
-                     << status.ToString();
-      }
-    }
-
-    return 0;
-  }
-
- private:
-  PacketInSelectable(const PacketInSelectable &) = delete;
-  PacketInSelectable &operator=(const PacketInSelectable &) = delete;
-
-  // Sonic port name.
-  std::string port_name_;
-
-  // Receive socket.
-  int receive_socket_;
-
-  // Buffer to hold data read from socket.
-  char read_buffer_[kPacketIoPortMaxBufferSize];
-
-  // Callback function to be invoked.
-  packet_metadata::ReceiveCallbackFunction callback_function_;
-};
-
 absl::Status CreateAndBindSockets(const SystemCallAdapter &system_call_adapter,
-                                  const std::string &port_name,
+                                  absl::string_view port_name,
                                   int &port_socket) {
   port_socket =
       system_call_adapter.socket(AF_PACKET, SOCK_RAW, htons(ETH_P_ALL));
@@ -158,7 +98,8 @@ absl::Status CreateAndBindSockets(const SystemCallAdapter &system_call_adapter,
   memset(&addr, 0, sizeof(struct sockaddr_ll));
   addr.sll_family = AF_PACKET;
   addr.sll_protocol = htons(ETH_P_ALL);
-  addr.sll_ifindex = system_call_adapter.if_nametoindex(port_name.c_str());
+  addr.sll_ifindex =
+      system_call_adapter.if_nametoindex(std::string(port_name).c_str());
   RET_CHECK(addr.sll_ifindex != 0) << "Failed to get ifindex for " << port_name;
 
   RET_CHECK(system_call_adapter.bind(port_socket,
@@ -208,9 +149,22 @@ static void ReceiveThread(
 
 // Create Receive, Transmit sockets for a particular port identified by its
 // ifname.
+absl::StatusOr<int> CreatePacketIoSocket(
+    const SystemCallAdapter &system_call_adapter, absl::string_view port_name) {
+  int port_socket = -1;
+  auto status =
+      CreateAndBindSockets(system_call_adapter, port_name, port_socket);
+  if (!status.ok()) {
+    if (port_socket >= 0) system_call_adapter.close(port_socket);
+    return gutil::InternalErrorBuilder() << status.ToString();
+  }
+
+  return port_socket;
+}
+
+// TODO: Remove after removal of static Packet I/O.
 absl::StatusOr<std::unique_ptr<PacketIoPortSockets>> CreatePacketIoSockets(
-    const SystemCallAdapter &system_call_adapter,
-    const std::string &port_name) {
+    const SystemCallAdapter &system_call_adapter, absl::string_view port_name) {
   int port_socket;
   auto status =
       CreateAndBindSockets(system_call_adapter, port_name, port_socket);
@@ -219,7 +173,8 @@ absl::StatusOr<std::unique_ptr<PacketIoPortSockets>> CreatePacketIoSockets(
     return gutil::InternalErrorBuilder() << status.ToString();
   }
 
-  return absl::make_unique<PacketIoPortSockets>(port_name, port_socket);
+  return absl::make_unique<PacketIoPortSockets>(std::string(port_name),
+                                                port_socket);
 }
 
 }  // namespace
@@ -236,6 +191,20 @@ void WaitForPortInitDone(swss::DBConnectorInterface &app_db_client) {
         << "Waiting for PortInitDone to be set before P4RT can start";
     absl::SleepFor(absl::Seconds(5));
   }
+}
+
+absl::StatusOr<std::unique_ptr<PacketIoPortParams>> AddPacketIoPort(
+    const SystemCallAdapter &system_call_adapter, absl::string_view port_name,
+    packet_metadata::ReceiveCallbackFunction callback_function) {
+  ASSIGN_OR_RETURN(int port_socket,
+                   CreatePacketIoSocket(system_call_adapter, port_name));
+  auto in_selectable = absl::make_unique<PacketInSelectable>(
+      port_name, port_socket, callback_function);
+
+  return absl::make_unique<PacketIoPortParams>(PacketIoPortParams{
+      .socket = port_socket,
+      .packet_in_selectable = std::move(in_selectable),
+  });
 }
 
 absl::Status SendPacketOut(const SystemCallAdapter &system_call_adapter,

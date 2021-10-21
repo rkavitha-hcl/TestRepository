@@ -25,6 +25,7 @@
 #include "p4rt_app/sonic/adapters/system_call_adapter.h"
 #include "p4rt_app/sonic/packetio_interface.h"
 #include "p4rt_app/sonic/packetio_port.h"
+#include "swss/selectable.h"
 
 namespace p4rt_app {
 namespace sonic {
@@ -40,6 +41,10 @@ class PacketIoImpl final : public PacketIoInterface {
   ABSL_MUST_USE_RESULT absl::StatusOr<std::thread> StartReceive(
       packet_metadata::ReceiveCallbackFunction callback_function,
       bool use_genetlink);
+  // Add a new port to Packet I/O.
+  absl::Status AddPacketIoPort(absl::string_view port_name);
+  // Remove an existing port from Packet I/O.
+  absl::Status RemovePacketIoPort(absl::string_view port_name);
   // Send the given packet out on the specified interface.
   absl::Status SendPacketOut(absl::string_view port_name,
                              const std::string& packet);
@@ -52,12 +57,24 @@ class PacketIoImpl final : public PacketIoInterface {
       std::vector<std::unique_ptr<sonic::PacketIoPortSockets>> port_sockets);
 
  private:
+  PacketIoImpl(std::unique_ptr<SystemCallAdapter> system_call_adapter,
+               const packet_metadata::ReceiveCallbackFunction callback_function,
+               const bool use_genetlink);
   // System call adapter object to call into the utility functions.
   const std::unique_ptr<SystemCallAdapter> system_call_adapter_;
   // Vector of PacketIoPortSockets;
   const std::vector<std::unique_ptr<sonic::PacketIoPortSockets>> port_sockets_;
   // Map of Transmit port names and the sockets.
-  const absl::flat_hash_map<std::string, int> socket_map_;
+  absl::flat_hash_map<std::string, int> port_to_socket_;
+  // Callback function used in receive callbacks.
+  const packet_metadata::ReceiveCallbackFunction callback_function_;
+  // Uses genetlink or netdev model for receive.
+  const bool use_genetlink_ = false;
+  // Map of port to PacketInSelectables.
+  absl::flat_hash_map<std::string, std::unique_ptr<PacketInSelectable>>
+      port_to_selectables_;
+  // Stores the 'Select' object used in the receive thread.
+  swss::Select port_select_;
 };
 
 }  // namespace sonic

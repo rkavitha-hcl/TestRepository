@@ -23,6 +23,7 @@
 #include "glog/logging.h"
 #include "p4_pdpi/utils/ir.h"
 #include "p4rt_app/sonic/adapters/system_call_adapter.h"
+#include "p4rt_app/sonic/packetio_selectables.h"
 #include "p4rt_app/sonic/receive_genetlink.h"
 #include "swss/dbconnectorinterface.h"
 #include "swss/select.h"
@@ -34,6 +35,12 @@ namespace sonic {
 
 // Prefix for submit to ingress.
 ABSL_CONST_INIT extern const absl::string_view kSubmitToIngress;
+
+// A structure to hold port parameters related to packet I/O.
+struct PacketIoPortParams {
+  int socket;
+  std::unique_ptr<PacketInSelectable> packet_in_selectable;
+};
 
 // A structure to hold port name, receive and transmit socket for a particular
 // netdev port.
@@ -51,6 +58,11 @@ struct PacketIoPortSockets {
 
 // Blocking wait until port init is done.
 void WaitForPortInitDone(swss::DBConnectorInterface& app_db_client);
+
+// Adds a port to packet I/O by creating the receive & transmit sockets.
+absl::StatusOr<std::unique_ptr<PacketIoPortParams>> AddPacketIoPort(
+    const SystemCallAdapter& system_call_adapter, absl::string_view port_name,
+    packet_metadata::ReceiveCallbackFunction callback_function);
 
 // Discover all netdev ports in Linux that corresponds to each physical port on
 // the switch. CPU punted/generated packets originate/egress on a physical port

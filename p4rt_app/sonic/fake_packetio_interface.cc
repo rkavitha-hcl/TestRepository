@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "p4rt_app/sonic/fake_packetio_interface.h"
 
+#include "absl/status/status.h"
 #include "glog/logging.h"
 #include "gutil/collections.h"
 
@@ -53,6 +54,16 @@ absl::Status FakePacketIoInterface::SendPacketOut(absl::string_view port_name,
   VLOG(1) << "Sending packet out: " << port_name << ", " << packet;
   transmit_packets_[port_name].push_back(packet);
   return absl::OkStatus();
+}
+
+absl::Status FakePacketIoInterface::AddPacketIoPort(
+    absl::string_view port_name) {
+  return absl::UnimplementedError("");
+}
+
+absl::Status FakePacketIoInterface::RemovePacketIoPort(
+    absl::string_view port_name) {
+  return absl::UnimplementedError("");
 }
 
 }  // namespace sonic

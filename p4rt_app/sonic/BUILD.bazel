@@ -168,10 +168,22 @@ cc_library(
 )
 
 cc_library(
+    name = "packetio_selectables",
+    srcs = ["packetio_selectables.cc"],
+    hdrs = ["packetio_selectables.h"],
+    deps = [
+        ":receive_genetlink",
+        "@com_github_google_glog//:glog",
+        "@sonic_swss_common//:libswsscommon",
+    ],
+)
+
+cc_library(
     name = "packetio_port",
     srcs = ["packetio_port.cc"],
     hdrs = ["packetio_port.h"],
     deps = [
+        ":packetio_selectables",
         ":receive_genetlink",
         "//gutil:collections",
         "//gutil:status",
@@ -200,6 +212,8 @@ cc_library(
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@sonic_swss_common//:libswsscommon",
     ],
 )
 

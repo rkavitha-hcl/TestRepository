@@ -51,6 +51,8 @@ class FakePacketIoInterface final : public PacketIoInterface {
       bool use_genetlink = false);
   absl::Status SendPacketOut(absl::string_view port_name,
                              const std::string& packet);
+  absl::Status AddPacketIoPort(absl::string_view port_name);
+  absl::Status RemovePacketIoPort(absl::string_view port_name);
 
  private:
   // Used for fake implementation.
