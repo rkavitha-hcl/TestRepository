@@ -97,6 +97,13 @@ TestEnvironment& Environment() { return *dynamic_cast<TestEnvironment*>(env); }
 
 void FuzzerTestFixture::SetUp() {
   GetParam().mirror_testbed->SetUp();
+  // TODO: Reboots the switch if we want to push a modified
+  // p4info.
+  if (GetParam().reboot_switch_before_and_after_test_due_to_modified_p4info) {
+    LOG(INFO) << "Rebooting switch since we want to push a modified p4info.";
+    pins_test::TestGnoiSystemColdReboot(
+        GetParam().mirror_testbed->GetMirrorTestbed().Sut());
+  }
   if (auto& id = GetParam().test_case_id; id.has_value()) {
     GetParam().mirror_testbed->GetMirrorTestbed().Environment().SetTestCaseID(
         *id);
@@ -106,19 +113,26 @@ void FuzzerTestFixture::SetUp() {
 void FuzzerTestFixture::TearDown() {
   auto& sut = GetParam().mirror_testbed->GetMirrorTestbed().Sut();
 
-  // Attempt to connect to switch and clear tables.
-  auto session = pdpi::P4RuntimeSession::Create(sut);
-  absl::Status switch_cleared =
-      session.ok() ? pdpi::ClearTableEntries(session->get()) : session.status();
-
-  // Though the above statement should never fail, it sometimes
-  // inadvertently does due to some bug. Then we reboot the switch to
-  // clear the state.
-  if (!switch_cleared.ok()) {
-    ADD_FAILURE()
-        << "Failed to clear entries from switch (now attempting reboot): "
-        << switch_cleared;
+  // TODO: Reboots the switch if we pushed a modified p4info.
+  if (GetParam().reboot_switch_before_and_after_test_due_to_modified_p4info) {
+    LOG(INFO) << "Rebooting switch since we pushed a modified p4info.";
     pins_test::TestGnoiSystemColdReboot(sut);
+  } else {
+    // Attempt to connect to switch and clear tables.
+    auto session = pdpi::P4RuntimeSession::Create(sut);
+    absl::Status switch_cleared = session.ok()
+                                      ? pdpi::ClearTableEntries(session->get())
+                                      : session.status();
+
+    // Though the above statement should never fail, it sometimes
+    // inadvertently does due to some bug. Then we reboot the switch to
+    // clear the state.
+    if (!switch_cleared.ok()) {
+      ADD_FAILURE()
+          << "Failed to clear entries from switch (now attempting reboot): "
+          << switch_cleared;
+      pins_test::TestGnoiSystemColdReboot(sut);
+    }
   }
   GetParam().mirror_testbed->TearDown();
 }
