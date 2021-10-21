@@ -56,139 +56,103 @@
 namespace pins_test {
 namespace {
 
-constexpr absl::string_view kDefaultVrf = R"pb(
+constexpr absl::string_view kL3AdmitEntry = R"pb(
   updates {
     type: INSERT
-    entity {
-      table_entry {
-        table_id: 33554689
-        action {
-          action {
-            action_id: 16777472
-            params { param_id: 1 value: "default-vrf" }
-          }
-        }
-        priority: 1132
+    table_entry {
+      vrf_table_entry {
+        match { vrf_id: "default-vrf" }
+        action { no_action {} }
       }
     }
   }
-)pb";
+  updates {
+    type: INSERT
+    table_entry {
+      acl_pre_ingress_table_entry {
+        match {}
+        priority: 2000
+        action { set_vrf { vrf_id: "default-vrf" } }
+      }
+    }
+  }
+  updates {
+    type: INSERT
+    table_entry {
+      l3_admit_table_entry {
+        match {}
+        priority: 2070
+        action { admit_to_l3 {} }
+      }
+    }
+  })pb";
 
 constexpr absl::string_view kIngressRouterInterface = R"pb(
   updates {
     type: INSERT
-    entity {
-      table_entry {
-        table_id: 33554497
-        match {
-          field_id: 1
-          exact { value: "ingress-router-interface" }
-        }
+    table_entry {
+      router_interface_table_entry {
+        match { router_interface_id: "ingress-router-interface" }
         action {
-          action {
-            action_id: 16777218
-            params { param_id: 1 value: "$0" }
-            params { param_id: 2 value: "\000\000\000\000\000\$1" }
-          }
+          set_port_and_src_mac { port: "$0" src_mac: "00:00:00:00:00:$1" }
         }
       }
     }
-  }
-)pb";
+  })pb";
 
 constexpr absl::string_view kEgressRouterInterface = R"pb(
   updates {
     type: INSERT
-    entity {
-      table_entry {
-        table_id: 33554497
-        match {
-          field_id: 1
-          exact { value: "egress-router-interface" }
-        }
+    table_entry {
+      router_interface_table_entry {
+        match { router_interface_id: "egress-router-interface" }
         action {
-          action {
-            action_id: 16777218
-            params { param_id: 1 value: "$0" }
-            params { param_id: 2 value: "\000\000\000\000\000\$1" }
-          }
+          set_port_and_src_mac { port: "$0" src_mac: "00:00:00:00:00:$1" }
         }
       }
     }
-  }
-)pb";
+  })pb";
 
 constexpr absl::string_view kNeighborEntry = R"pb(
   updates {
     type: INSERT
-    entity {
-      table_entry {
-        table_id: 33554496
+    table_entry {
+      neighbor_table_entry {
         match {
-          field_id: 1
-          exact { value: "egress-router-interface" }
+          router_interface_id: "egress-router-interface"
+          neighbor_id: "10.0.0.1"
         }
-        match {
-          field_id: 2
-          exact { value: "10.0.0.1" }
-        }
-        action {
-          action {
-            action_id: 16777217
-            params { param_id: 1 value: "\000\032\021\027_\200" }
-          }
-        }
+        action { set_dst_mac { dst_mac: "3c:28:6d:34:c0:02" } }
       }
     }
-  }
-)pb";
+  })pb";
 
 constexpr absl::string_view kNexthopEntry = R"pb(
   updates {
     type: INSERT
-    entity {
-      table_entry {
-        table_id: 33554498
-        match {
-          field_id: 1
-          exact { value: "nexthop-1" }
-        }
+    table_entry {
+      nexthop_table_entry {
+        match { nexthop_id: "nexthop-1" }
         action {
-          action {
-            action_id: 16777219
-            params { param_id: 1 value: "egress-router-interface" }
-            params { param_id: 2 value: "10.0.0.1" }
+          set_nexthop {
+            router_interface_id: "egress-router-interface"
+            neighbor_id: "10.0.0.1"
           }
         }
       }
     }
-  }
-)pb";
+  })pb";
 
 constexpr absl::string_view kIp4tableEntry = R"pb(
   updates {
     type: INSERT
-    entity {
-      table_entry {
-        table_id: 33554500
-        match {
-          field_id: 1
-          exact { value: "default-vrf" }
-        }
-        match {
-          field_id: 2
-          lpm { value: "\x0a\x00\x00\x01" prefix_len: 32 }
-        }
-        action {
-          action {
-            action_id: 16777221
-            params { param_id: 1 value: "nexthop-1" }
-          }
-        }
+    table_entry {
+      ipv4_table_entry {
+        match { vrf_id: "default-vrf" }
+        action { set_nexthop_id { nexthop_id: "nexthop-1" } }
       }
     }
-  }
-)pb";
+  })pb";
 
 // Test packet proto message sent from control switch to sut.
 constexpr absl::string_view kTestPacket = R"pb(
@@ -229,19 +193,20 @@ constexpr absl::string_view kTestPacket = R"pb(
 // Creates mac address for the interface based on it's port id.
 std::string CreateMacAddress(int port_id) {
   if (port_id < 10) {
-    return absl::StrCat("00", port_id);
-  } else if (port_id < 100) {
     return absl::StrCat("0", port_id);
   } else {
-    return absl::StrCat(port_id % 1000);
+    return absl::StrCat(port_id % 100);
   }
 }
 
 // Sets the request type and sends a write request.
 absl::Status ProgramRequest(pdpi::P4RuntimeSession& p4_session,
+                            const pdpi::IrP4Info& ir_p4info,
                             absl::string_view request_str) {
-  p4::v1::WriteRequest request;
-  RETURN_IF_ERROR(gutil::ReadProtoFromString(request_str, &request));
+  ASSIGN_OR_RETURN(
+      p4::v1::WriteRequest request,
+      pdpi::PdWriteRequestToPi(
+          ir_p4info, gutil::ParseProtoOrDie<sai::WriteRequest>(request_str)));
   request.mutable_updates(0)->set_type(p4::v1::Update::INSERT);
   RETURN_IF_ERROR(pdpi::SetMetadataAndSendPiWriteRequest(&p4_session, request))
       << "Failed to program the request: " << request.ShortDebugString();
@@ -249,31 +214,34 @@ absl::Status ProgramRequest(pdpi::P4RuntimeSession& p4_session,
 }
 
 // Sets up route from source port to destination port on sut.
-absl::Status SetupRoute(pdpi::P4RuntimeSession& p4_session, int src_port_id,
+absl::Status SetupRoute(pdpi::P4RuntimeSession& p4_session,
+                        const pdpi::IrP4Info& ir_p4info, int src_port_id,
                         int des_port_id) {
   LOG(INFO) << "Setup Route on sut from port: " << src_port_id << " to "
             << des_port_id;
   LOG(INFO) << "Program request default_vrf.";
-  RETURN_IF_ERROR(ProgramRequest(p4_session, kDefaultVrf));
+  RETURN_IF_ERROR(ProgramRequest(p4_session, ir_p4info, kL3AdmitEntry));
 
   LOG(INFO) << "Program request ingress_router_interface.";
-  RETURN_IF_ERROR(ProgramRequest(
-      p4_session, absl::Substitute(kIngressRouterInterface, src_port_id,
-                                   CreateMacAddress(src_port_id))));
+  RETURN_IF_ERROR(
+      ProgramRequest(p4_session, ir_p4info,
+                     absl::Substitute(kIngressRouterInterface, src_port_id,
+                                      CreateMacAddress(src_port_id))));
   LOG(INFO) << "Program request egress_router_interface.";
-  RETURN_IF_ERROR(ProgramRequest(
-      p4_session, absl::Substitute(kEgressRouterInterface, des_port_id,
-                                   CreateMacAddress(des_port_id))));
+  RETURN_IF_ERROR(
+      ProgramRequest(p4_session, ir_p4info,
+                     absl::Substitute(kEgressRouterInterface, des_port_id,
+                                      CreateMacAddress(des_port_id))));
 
   // Create neighbor object.
   LOG(INFO) << "Program request neightbor_entry.";
-  RETURN_IF_ERROR(ProgramRequest(p4_session, kNeighborEntry));
+  RETURN_IF_ERROR(ProgramRequest(p4_session, ir_p4info, kNeighborEntry));
 
   // Create nexthop table entry.
   LOG(INFO) << "Program request nexthop_entry.";
-  RETURN_IF_ERROR(ProgramRequest(p4_session, kNexthopEntry));
+  RETURN_IF_ERROR(ProgramRequest(p4_session, ir_p4info, kNexthopEntry));
   LOG(INFO) << "Program request ip4table_entry.";
-  RETURN_IF_ERROR(ProgramRequest(p4_session, kIp4tableEntry));
+  RETURN_IF_ERROR(ProgramRequest(p4_session, ir_p4info, kIp4tableEntry));
   LOG(INFO) << "Setup route complete.";
   return absl::OkStatus();
 }
@@ -318,10 +286,12 @@ TEST_P(PacketForwardingTestFixture, PacketForwardingTest) {
       std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
           testbed->Sut(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+  const pdpi::IrP4Info& ir_p4info =
+      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
 
   // Sets up a route from first to second port.
-  ASSERT_OK(
-      SetupRoute(*p4_session, sut_interface_ports[0], sut_interface_ports[1]));
+  ASSERT_OK(SetupRoute(*p4_session, ir_p4info, sut_interface_ports[0],
+                       sut_interface_ports[1]));
 
   // Makes test packets.
   const auto test_packet =
