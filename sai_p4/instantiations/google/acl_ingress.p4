@@ -75,8 +75,10 @@ control acl_ingress(in headers_t headers,
     ip_protocol::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);
     // Forbid using ether_type for IP packets (by convention, use is_ip* instead).
     ether_type != 0x0800 && ether_type != 0x86dd;
-    // Only allow arp_tpa for ARP packets
+#ifdef SAI_INSTANTIATION_MIDDLEBLOCK
+    // Only allow arp_tpa for ARP packets.
     arp_tpa::mask != 0 -> ether_type == 0x0806;
+#endif
     // Only allow icmp_type for ICMP packets
     icmpv6_type::mask != 0 -> ((is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1) && ip_protocol == 58);
     // Forbid illegal combinations of IP_TYPE fields.
@@ -123,11 +125,13 @@ control acl_ingress(in headers_t headers,
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_ICMPV6_TYPE);
       local_metadata.l4_dst_port : ternary @name("l4_dst_port") @id(15)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_L4_DST_PORT);
+#ifdef SAI_INSTANTIATION_MIDDLEBLOCK
       headers.arp.target_proto_addr : ternary @name("arp_tpa") @id(16)
           @composite_field(
               @sai_udf(base=SAI_UDF_BASE_L3, offset=24, length=2),
               @sai_udf(base=SAI_UDF_BASE_L3, offset=26, length=2)
           ) @format(IPV4_ADDRESS);
+#endif
 #ifdef SAI_INSTANTIATION_FABRIC_BORDER_ROUTER
       local_metadata.ingress_port : optional @name("in_port") @id(17)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_IN_PORT);

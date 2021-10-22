@@ -343,7 +343,8 @@ tables {
     alias: "acl_ingress_table"
     annotations: "@p4runtime_role(\"sdn_controller\")"
     annotations: "@sai_acl(INGRESS)"
-    annotations: "@entry_restriction(\"\n    // Only allow IP field matches for IP packets.\n    dst_ip::mask != 0 -> is_ipv4 == 1;\n    dst_ipv6::mask != 0 -> is_ipv6 == 1;\n    ttl::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);\n    dscp::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);\n    ecn::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);\n    ip_protocol::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);\n    // Forbid using ether_type for IP packets (by convention, use is_ip* instead).\n    ether_type != 0x0800 && ether_type != 0x86dd;\n    // Only allow arp_tpa for ARP packets\n    arp_tpa::mask != 0 -> ether_type == 0x0806;\n    // Only allow icmp_type for ICMP packets\n    icmpv6_type::mask != 0 -> ((is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1) && ip_protocol == 58);\n    // Forbid illegal combinations of IP_TYPE fields.\n    is_ip::mask != 0 -> (is_ipv4::mask == 0 && is_ipv6::mask == 0);\n    is_ipv4::mask != 0 -> (is_ip::mask == 0 && is_ipv6::mask == 0);\n    is_ipv6::mask != 0 -> (is_ip::mask == 0 && is_ipv4::mask == 0);\n    // Forbid unsupported combinations of IP_TYPE fields.\n    is_ipv4::mask != 0 -> (is_ipv4 == 1);\n    is_ipv6::mask != 0 -> (is_ipv6 == 1);\n  \")"
+    annotations: "@entry_restriction(\"\n    // Only allow IP field matches for IP packets.\n    dst_ip::mask != 0 -> is_ipv4 == 1;\n    dst_ipv6::mask != 0 -> is_ipv6 == 1;\n    ttl::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);\n    dscp::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);\n    ecn::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);\n    ip_protocol::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);\n    // Forbid using ether_type for IP packets (by convention, use is_ip* instead).\n    ether_type != 0x0800 && ether_type != 0x86dd;\n\n\n\n\n    // Only allow icmp_type for ICMP packets\n    icmpv6_type::mask != 0 -> ((is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1) && ip_protocol == 58);\n    // Forbid illegal combinations of IP_TYPE fields.\n    is_ip::mask != 0 -> (is_ipv4::mask == 0 && is_ipv6::mask == 0);\n    is_ipv4::mask != 0 -> (is_ip::mask == 0 && is_ipv6::mask == 0);\n    is_ipv6::mask != 0 -> (is_ip::mask == 0 && is_ipv4::mask == 0);\n    // Forbid unsupported combinations of IP_TYPE fields.\n    is_ipv4::mask != 0 -> (is_ipv4 == 1);\n    is_ipv6::mask != 0 -> (is_ipv6 == 1);\n  \")"
+    annotations: "@entry_restriction(\"\n    // Only allow IP field matches for IP packets.\n    dst_ip::mask != 0 -> is_ipv4 == 1;\n    dst_ipv6::mask != 0 -> is_ipv6 == 1;\n    ttl::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);\n    dscp::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);\n    ecn::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);\n    ip_protocol::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);\n    // Forbid using ether_type for IP packets (by convention, use is_ip* instead).\n    ether_type != 0x0800 && ether_type != 0x86dd;\n\n    // Only allow arp_tpa for ARP packets.\n    arp_tpa::mask != 0 -> ether_type == 0x0806;\n\n    // Only allow icmp_type for ICMP packets\n    icmpv6_type::mask != 0 -> ((is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1) && ip_protocol == 58);\n    // Forbid illegal combinations of IP_TYPE fields.\n    is_ip::mask != 0 -> (is_ipv4::mask == 0 && is_ipv6::mask == 0);\n    is_ipv4::mask != 0 -> (is_ip::mask == 0 && is_ipv6::mask == 0);\n    is_ipv6::mask != 0 -> (is_ip::mask == 0 && is_ipv4::mask == 0);\n    // Forbid unsupported combinations of IP_TYPE fields.\n    is_ipv4::mask != 0 -> (is_ipv4 == 1);\n    is_ipv6::mask != 0 -> (is_ipv6 == 1);\n  \")"
   }
   match_fields {
     id: 1
@@ -456,14 +457,6 @@ tables {
     match_type: TERNARY
   }
   match_fields {
-    id: 16
-    name: "arp_tpa"
-    annotations: "@composite_field(@ sai_udf ( base = SAI_UDF_BASE_L3 , offset = 24 , length = 2 ) , @ sai_udf ( base = SAI_UDF_BASE_L3 , offset = 26 , length = 2 ))"
-    annotations: "@format(IPV4_ADDRESS)"
-    bitwidth: 32
-    match_type: TERNARY
-  }
-  match_fields {
     id: 17
     name: "in_port"
     annotations: "@sai_field(SAI_ACL_TABLE_ATTR_FIELD_IN_PORT)"
@@ -471,6 +464,14 @@ tables {
     type_name {
       name: "port_id_t"
     }
+  }
+  match_fields {
+    id: 16
+    name: "arp_tpa"
+    annotations: "@composite_field(@ sai_udf ( base = SAI_UDF_BASE_L3 , offset = 24 , length = 2 ) , @ sai_udf ( base = SAI_UDF_BASE_L3 , offset = 26 , length = 2 ))"
+    annotations: "@format(IPV4_ADDRESS)"
+    bitwidth: 32
+    match_type: TERNARY
   }
   action_refs {
     id: 16777473
