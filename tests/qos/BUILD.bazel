@@ -1,3 +1,4 @@
+
 # Copyright 2021 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -27,7 +28,10 @@ cc_library(
         "cpu_qos_test.h",
     ],
     deps = [
+        ":openconfig_cc_proto",
         "//gutil:collections",
+        "//gutil:proto",
+        "//gutil:proto_matchers",
         "//gutil:status",
         "//gutil:status_matchers",
         "//gutil:testing",
@@ -54,9 +58,11 @@ cc_library(
         "//thinkit:mirror_testbed_fixture",
         "//thinkit:switch",
         "//thinkit/proto:generic_testbed_cc_proto",
+        "@com_github_gnmi//proto/gnmi:gnmi_cc_proto",
         "@com_github_google_glog//:glog",
         "@com_github_nlohmann_json//:nlohmann_json",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
@@ -68,6 +74,17 @@ cc_library(
         "@com_google_absl//absl/time",
         "@com_google_absl//absl/types:optional",
         "@com_google_googletest//:gtest",
+        "@com_google_protobuf//:protobuf",
     ],
     alwayslink = True,
+)
+
+proto_library(
+    name = "openconfig_proto",
+    srcs = ["openconfig.proto"],
+)
+
+cc_proto_library(
+    name = "openconfig_cc_proto",
+    deps = [":openconfig_proto"],
 )
