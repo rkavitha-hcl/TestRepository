@@ -78,9 +78,8 @@ control acl_pre_ingress(in headers_t headers,
       dscp = headers.ipv6.dscp;
     }
 
-    if (acl_pre_ingress_table.apply().miss) {
-      local_metadata.vrf_id = kDefaultVrf;
-    }
+    local_metadata.vrf_id = kDefaultVrf;
+    acl_pre_ingress_table.apply();
   }
 }  // control acl_pre_ingress
 
