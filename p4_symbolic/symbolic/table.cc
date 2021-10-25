@@ -471,9 +471,8 @@ absl::StatusOr<SymbolicTableMatches> EvaluateTable(
        table.table_implementation().action_to_next_control()) {
     if (first) {
       next_control = control;
-      continue;
-    }
-    if (next_control != control) {
+      first = false;
+    } else if (next_control != control) {
       return absl::UnimplementedError(absl::StrCat(
           "Table \"", table_name,
           "\" invokes different control constructs based on matched actions."));
