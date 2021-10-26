@@ -2190,7 +2190,8 @@ absl::StatusOr<IrWriteRpcStatus> GrpcStatusToIrWriteRpcStatus(
     for (const auto &inner_rpc_status_detail : inner_rpc_status.details()) {
       if (!inner_rpc_status_detail.UnpackTo(&p4_error)) {
         return gutil::InvalidArgumentErrorBuilder()
-               << "Can not parse google::rpc::Status contained in grpc_status";
+               << "Can not parse google::rpc::Status contained in grpc_status: "
+               << inner_rpc_status_detail.DebugString();
       }
       RETURN_IF_ERROR(IsGoogleRpcCode(p4_error.canonical_code()));
       RETURN_IF_ERROR(ValidateGenericUpdateStatus(
