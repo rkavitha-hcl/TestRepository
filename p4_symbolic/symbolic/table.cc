@@ -30,6 +30,7 @@
 #include "absl/types/span.h"
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
+#include "p4_pdpi/internal/ordered_map.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_symbolic/symbolic/action.h"
 #include "p4_symbolic/symbolic/operators.h"
@@ -227,8 +228,13 @@ absl::StatusOr<z3::expr> EvaluateTableEntryCondition(
   z3::expr condition_expression = Z3Context().bool_val(true);
   const google::protobuf::Map<std::string, ir::FieldValue> &match_to_fields =
       table.table_implementation().match_name_to_field();
-  for (const auto &[name, match_fields] :
-       table.table_definition().match_fields_by_name()) {
+
+  // It is desirable for P4Symbolic to produce deterministic outputs. Therefore,
+  // all containers need to be traversed in a deterministic order.
+  const auto sorted_match_fields_by_name =
+      Ordered(table.table_definition().match_fields_by_name());
+
+  for (const auto &[name, match_fields] : sorted_match_fields_by_name) {
     p4::config::v1::MatchField match_definition = match_fields.match_field();
 
     int match_field_index = FindMatchWithName(entry, name);
