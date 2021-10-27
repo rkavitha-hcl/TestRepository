@@ -71,6 +71,11 @@ enum Mutation {
 
   // Attempts to modify a table entry that does not exist in the switch.
   NONEXISTING_MODIFY = 15;
+
+  // TODO: New mutation: Table entry without any actions.
+  // TODO: New mutation: Table entry with an action that exists,
+  // but is invalid for the table.
+  // TODO: New mutation: Delete/Insert with invalid references.
 }
 
 // Human readable version of a (fuzzed) table entry. Contains the original

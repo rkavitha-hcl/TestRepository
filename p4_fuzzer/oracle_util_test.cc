@@ -17,6 +17,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "gmock/gmock.h"
 #include "google/rpc/code.pb.h"
@@ -53,47 +54,57 @@ int AclIngressTableSize() {
 
 // Return an Action Selector with >=2 actions to make it a more useful helper
 // function.
-TableEntry GetValidActionSelectorTableEntry(FuzzerTestState& fuzzer_state,
-                                            const TestP4InfoOptions& options) {
+absl::StatusOr<TableEntry> GetValidActionSelectorTableEntry(
+    FuzzerTestState& fuzzer_state) {
   // If we want two or more actions, the max cardinality better be at least 2.
   CHECK_GE(kActionProfileActionSetMaxCardinality, 2);
-  const pdpi::IrTableDefinition& table_definition =
-      fuzzer_state.config.info.tables_by_id().at(
-          options.action_selector_table_id);
 
-  auto action_profile_set =
-      FuzzActionProfileActionSet(&fuzzer_state.gen, fuzzer_state.config,
-                                 fuzzer_state.switch_state, table_definition);
-  EXPECT_OK(action_profile_set);
+  ASSIGN_OR_RETURN(const auto table_definition,
+                   GetAOneShotTableDefinition(fuzzer_state.config.info));
 
-  while (action_profile_set->action_profile_actions_size() < 2) {
-    action_profile_set =
+  ASSIGN_OR_RETURN(
+      TableEntry table_entry,
+      FuzzValidTableEntry(&fuzzer_state.gen, fuzzer_state.config,
+                          fuzzer_state.switch_state, table_definition));
+
+  // It is probabilistically highly unlikely that we don't get at least 2
+  // actions in 1000 iterations, but this prevents infinite loops if there is a
+  // bug.
+  for (int loop_counter = 0; loop_counter < 1000; loop_counter++) {
+    if (table_entry.action()
+            .action_profile_action_set()
+            .action_profile_actions_size() >= 2) {
+      return table_entry;
+    }
+    ASSIGN_OR_RETURN(
+        *table_entry.mutable_action()->mutable_action_profile_action_set(),
         FuzzActionProfileActionSet(&fuzzer_state.gen, fuzzer_state.config,
-                                   fuzzer_state.switch_state, table_definition);
-    EXPECT_OK(action_profile_set);
+                                   fuzzer_state.switch_state,
+                                   table_definition));
   }
-
-  TableEntry table_entry;
-  table_entry.set_table_id(options.action_selector_table_id);
-  auto* match = table_entry.add_match();
-  match->set_field_id(options.table_match_field_id);
-  match->mutable_exact()->set_value(
-      std::string(options.table_match_field_valid_value));
-  *table_entry.mutable_action()->mutable_action_profile_action_set() =
-      std::move(*action_profile_set);
-  return table_entry;
+  return absl::InternalError(
+      "Failed to generate an action profile action set with more than "
+      "two actions after 1000 iterations.");
 }
 
 // Return an Action Selector with >=2 actions, each with weight =
 // max_group_size - 1.
-TableEntry GetInvalidActionSelectorExceedingMaxGroupSize(
-    FuzzerTestState& fuzzer_state, const TestP4InfoOptions& options) {
-  auto table_entry = GetValidActionSelectorTableEntry(fuzzer_state, options);
+absl::StatusOr<TableEntry> GetInvalidActionSelectorExceedingMaxGroupSize(
+    FuzzerTestState& fuzzer_state) {
+  ASSIGN_OR_RETURN(auto table_entry,
+                   GetValidActionSelectorTableEntry(fuzzer_state));
+  ASSIGN_OR_RETURN(const auto table_definition,
+                   GetAOneShotTableDefinition(fuzzer_state.config.info));
 
+  ASSIGN_OR_RETURN(const auto action_profile,
+                   GetActionProfileImplementingTable(fuzzer_state.config.info,
+                                                     table_definition));
+
+  int max_group_size = action_profile.action_profile().max_group_size();
   for (auto& action : *table_entry.mutable_action()
                            ->mutable_action_profile_action_set()
                            ->mutable_action_profile_actions()) {
-    action.set_weight(options.action_profile_max_group_size - 1);
+    action.set_weight(max_group_size - 1);
   }
   return table_entry;
 }
@@ -284,9 +295,9 @@ TEST(OracleUtilTest, BatchResourcesAlmostFull) {
 // TODO: Enable this test once the Oracle properly rejects empty
 // strings for values.
 TEST(OracleUtilTest, DISABLED_EmptyValuesAreInvalid) {
-  TestP4InfoOptions options;
-  ASSERT_OK_AND_ASSIGN(auto fuzzer_state, ConstructFuzzerTestState(options));
-  TableEntry entry = GetValidActionSelectorTableEntry(fuzzer_state, options);
+  FuzzerTestState fuzzer_state = ConstructStandardFuzzerTestState();
+  ASSERT_OK_AND_ASSIGN(TableEntry entry,
+                       GetValidActionSelectorTableEntry(fuzzer_state));
 
   // TODO: The fuzzer currently sometimes constructs empty values.
   // This assertion, and the one below, may fail until this bug is fixed.
@@ -313,10 +324,10 @@ TEST(OracleUtilTest, DISABLED_EmptyValuesAreInvalid) {
 // action selectors with total weight > the max_group_size
 // parameter.
 TEST(OracleUtilTest, DISABLED_ActionSelectorWeightSumCannotExceedMaxGroupSize) {
-  TestP4InfoOptions options;
-  ASSERT_OK_AND_ASSIGN(auto fuzzer_state, ConstructFuzzerTestState(options));
-  TableEntry entry =
-      GetInvalidActionSelectorExceedingMaxGroupSize(fuzzer_state, options);
+  FuzzerTestState fuzzer_state = ConstructStandardFuzzerTestState();
+  ASSERT_OK_AND_ASSIGN(
+      TableEntry entry,
+      GetInvalidActionSelectorExceedingMaxGroupSize(fuzzer_state));
 
   // Weight > max_group_size is malformed.
   EXPECT_OK(Check({MakeInsert(entry, absl::StatusCode::kInvalidArgument)},

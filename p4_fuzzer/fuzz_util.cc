@@ -131,6 +131,8 @@ std::vector<uint32_t> TablesUsedByFuzzer(const FuzzerConfig& config) {
     if (table.role() != config.role) continue;
     // TODO: the switch is currently having issues with this table.
     if (table.preamble().alias() == "mirror_session_table") continue;
+    // Tables without actions cannot have valid table entries.
+    if (table.entry_actions().empty()) continue;
     table_ids.push_back(key);
   }
   return table_ids;
