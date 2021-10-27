@@ -203,6 +203,7 @@ cc_test(
 
 cc_library(
     name = "instantiations",
+    srcs = ["instantiations.cc"],
     hdrs = ["instantiations.h"],
     deps = [
         "@com_github_google_glog//:glog",

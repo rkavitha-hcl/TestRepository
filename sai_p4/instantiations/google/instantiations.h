@@ -6,6 +6,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/string_view.h"
 #include "glog/logging.h"
 
 namespace sai {
@@ -45,7 +46,7 @@ inline std::string InstantiationToString(Instantiation role) {
 
 // Returns the name of the given switch role.
 inline absl::StatusOr<Instantiation> StringToInstantiation(
-    const std::string& instantiation_name) {
+    absl::string_view instantiation_name) {
   for (auto instantiation : AllInstantiations()) {
     if (instantiation_name == InstantiationToString(instantiation)) {
       return instantiation;
@@ -54,6 +55,17 @@ inline absl::StatusOr<Instantiation> StringToInstantiation(
   return absl::InvalidArgumentError(
       absl::StrCat("invalid Instantiation: ", instantiation_name));
 }
+
+// Parses an Instantiation from the command line flag value
+// `instantiation_text`. Returns true and sets `*instantiation` on success;
+// returns false and sets `*error` on failure.
+// See https://abseil.io/docs/cpp/guides/flags#validating-flag-values for more
+// information.
+bool AbslParseFlag(absl::string_view instantiation_text,
+                   Instantiation* instantiation, std::string* error);
+
+// Returns a textual flag value corresponding to the given instantiation.
+std::string AbslUnparseFlag(Instantiation instantiation);
 
 inline std::ostream& operator<<(std::ostream& os, Instantiation instantiation) {
   return os << InstantiationToString(instantiation);
