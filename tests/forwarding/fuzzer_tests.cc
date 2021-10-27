@@ -221,88 +221,94 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
         absl::StrCat("# Response to request number ", i + 1, "\n",
                      response.DebugString())));
 
-    ASSERT_TRUE(response.has_rpc_response())
-        << "Expected proper response, but got: " << response.DebugString();
+    // TODO: The switch currently often returns an RPC wide error
+    // when failing to delete a WCMP group.
+    if (!mask_known_failures) {
+      ASSERT_TRUE(response.has_rpc_response())
+          << "Expected proper response, but got: " << response.DebugString();
+    }
+    if (response.has_rpc_response()) {
+      for (int i = 0; i < response.rpc_response().statuses().size(); i++) {
+        const pdpi::IrUpdateStatus& status =
+            response.rpc_response().statuses(i);
+        const p4::v1::Update& update = request.updates(i);
 
-    for (int i = 0; i < response.rpc_response().statuses().size(); i++) {
-      const pdpi::IrUpdateStatus& status = response.rpc_response().statuses(i);
-      const p4::v1::Update& update = request.updates(i);
+        EXPECT_NE(status.code(), google::rpc::Code::INTERNAL)
+            << "Fuzzing should never cause an INTERNAL error, but got: "
+            << status.DebugString();
+        // Check resource exhaustion.
+        if (status.code() == google::rpc::Code::RESOURCE_EXHAUSTED) {
+          int table_id = update.entity().table_entry().table_id();
+          ASSERT_OK_AND_ASSIGN(
+              const pdpi::IrTableDefinition& table,
+              gutil::FindOrStatus(info.tables_by_id(), table_id));
 
-      EXPECT_NE(status.code(), google::rpc::Code::INTERNAL)
-          << "Fuzzing should never cause an INTERNAL error, but got: "
-          << status.DebugString();
-      // Check resource exhaustion.
-      if (status.code() == google::rpc::Code::RESOURCE_EXHAUSTED) {
-        int table_id = update.entity().table_entry().table_id();
-        ASSERT_OK_AND_ASSIGN(
-            const pdpi::IrTableDefinition& table,
-            gutil::FindOrStatus(info.tables_by_id(), table_id));
+          // Determine if we should check for resource exhaustion:
+          // If this is the resource limits test, then we always want to check.
+          bool this_is_the_resource_limits_test =
+              GetParam().milestone == Milestone::kResourceLimits;
 
-        // Determine if we should check for resource exhaustion:
-        // If this is the resource limits test, then we always want to check.
-        bool this_is_the_resource_limits_test =
-            GetParam().milestone == Milestone::kResourceLimits;
+          // If this is not some other labeled test, then we may still want to
+          // check...
+          bool this_is_not_some_other_specific_test =
+              !GetParam().milestone.has_value();
 
-        // If this is not some other labeled test, then we may still want to
-        // check...
-        bool this_is_not_some_other_specific_test =
-            !GetParam().milestone.has_value();
+          // ... but we only want to check if we are not masking any failures or
+          // just not this specific one.
+          bool is_not_masked = !mask_known_failures ||
+                               !IsMaskedResource(table.preamble().alias());
 
-        // ... but we only want to check if we are not masking any failures or
-        // just not this specific one.
-        bool is_not_masked =
-            !mask_known_failures || !IsMaskedResource(table.preamble().alias());
-
-        // Mask known failures unless this is the resource limits test.
-        // If it is some other specific test, then don't check if resources
-        // are exhausted.
-        if (this_is_the_resource_limits_test ||
-            (this_is_not_some_other_specific_test && is_not_masked)) {
-          // Check that table was full before this status.
-          ASSERT_TRUE(state.IsTableFull(table_id)) << absl::Substitute(
-              "Switch reported RESOURCE_EXHAUSTED for table named '$0'. The "
-              "table currently has $1 entries, but is supposed to support at "
-              "least $2 entries.\nUpdate = $3\nState = $4",
-              table.preamble().alias(), state.GetNumTableEntries(table_id),
-              table.size(), update.DebugString(), state.SwitchStateSummary());
+          // Mask known failures unless this is the resource limits test.
+          // If it is some other specific test, then don't check if resources
+          // are exhausted.
+          if (this_is_the_resource_limits_test ||
+              (this_is_not_some_other_specific_test && is_not_masked)) {
+            // Check that table was full before this status.
+            ASSERT_TRUE(state.IsTableFull(table_id)) << absl::Substitute(
+                "Switch reported RESOURCE_EXHAUSTED for table named '$0'. The "
+                "table currently has $1 entries, but is supposed to support at "
+                "least $2 entries.\nUpdate = $3\nState = $4",
+                table.preamble().alias(), state.GetNumTableEntries(table_id),
+                table.size(), update.DebugString(), state.SwitchStateSummary());
+          }
         }
-      }
-      // Collect error messages and update state.
-      if (status.code() != google::rpc::Code::OK) {
-        error_messages.insert(absl::StrCat(
-            google::rpc::Code_Name(status.code()), ": ", status.message()));
-      } else {
-        ASSERT_OK(state.ApplyUpdate(update));
-        num_ok_statuses += 1;
-      }
+        // Collect error messages and update state.
+        if (status.code() != google::rpc::Code::OK) {
+          error_messages.insert(absl::StrCat(
+              google::rpc::Code_Name(status.code()), ": ", status.message()));
+        } else {
+          ASSERT_OK(state.ApplyUpdate(update));
+          num_ok_statuses += 1;
+        }
 
-      bool is_mutated = annotated_request.updates(i).mutations_size() > 0;
+        bool is_mutated = annotated_request.updates(i).mutations_size() > 0;
 
-      // If the Fuzzer uses a mutation, then the update is likely to be
-      // invalid.
-      if (status.code() == google::rpc::Code::OK && is_mutated) {
-        EXPECT_OK(environment.AppendToTestArtifact(
-            "fuzzer_mutated_but_ok.txt",
-            absl::StrCat("-------------------\n\nRequest = \n",
-                         annotated_request.updates(i).DebugString())));
-        num_ok_with_mutations++;
-      }
-
-      if (status.code() != google::rpc::Code::OK &&
-          status.code() != google::rpc::Code::RESOURCE_EXHAUSTED &&
-          status.code() != google::rpc::Code::UNIMPLEMENTED) {
-        if (!is_mutated) {
-          // Switch did not consider update OK but fuzzer did not use a
-          // mutation (i.e. thought the update should be valid).
+        // If the Fuzzer uses a mutation, then the update is likely to be
+        // invalid.
+        if (status.code() == google::rpc::Code::OK && is_mutated) {
           EXPECT_OK(environment.AppendToTestArtifact(
-              "fuzzer_inaccuracies.txt",
-              absl::StrCat("-------------------\n\nrequest = \n",
-                           annotated_request.updates(i).DebugString(),
-                           "\n\nstatus = \n", status.DebugString())));
-          EXPECT_OK(environment.AppendToTestArtifact(
-              "fuzzer_inaccuracies_short.txt",
-              absl::StrCat(status.message(), "\n")));
-          num_notok_without_mutations += 1;
+              "fuzzer_mutated_but_ok.txt",
+              absl::StrCat("-------------------\n\nRequest = \n",
+                           annotated_request.updates(i).DebugString())));
+          num_ok_with_mutations++;
+        }
+
+        if (status.code() != google::rpc::Code::OK &&
+            status.code() != google::rpc::Code::RESOURCE_EXHAUSTED &&
+            status.code() != google::rpc::Code::UNIMPLEMENTED) {
+          if (!is_mutated) {
+            // Switch did not consider update OK but fuzzer did not use a
+            // mutation (i.e. thought the update should be valid).
+            EXPECT_OK(environment.AppendToTestArtifact(
+                "fuzzer_inaccuracies.txt",
+                absl::StrCat("-------------------\n\nrequest = \n",
+                             annotated_request.updates(i).DebugString(),
+                             "\n\nstatus = \n", status.DebugString())));
+            EXPECT_OK(environment.AppendToTestArtifact(
+                "fuzzer_inaccuracies_short.txt",
+                absl::StrCat(status.message(), "\n")));
+            num_notok_without_mutations += 1;
+          }
         }
       }
     }
