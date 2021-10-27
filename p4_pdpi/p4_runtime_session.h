@@ -219,6 +219,15 @@ absl::Status SetMetadataAndSendPiWriteRequests(
 absl::StatusOr<std::vector<p4::v1::TableEntry>> ReadPiTableEntries(
     P4RuntimeSession* session);
 
+// Reads and returns the `CounterData` for the table entry whose `table_id`,
+// `match`, and `priority` fields match `target_entry_signature`, or returns
+// NotFoundError if no such table entry exists. Note that on P4Runtime
+// standard-compliant targets, at most one matching table entry can exist.
+// Other fields of `target_entry_signature` -- e.g. the `action` -- are ignored.
+absl::StatusOr<p4::v1::CounterData> ReadPiCounterData(
+    P4RuntimeSession* session,
+    const p4::v1::TableEntry& target_entry_signature);
+
 // Removes PI (program independent) table entries on the switch.
 absl::Status RemovePiTableEntries(
     P4RuntimeSession* session, const IrP4Info& info,

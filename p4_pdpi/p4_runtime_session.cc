@@ -20,7 +20,9 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
 #include "absl/types/span.h"
+#include "google/protobuf/descriptor.h"
 #include "google/protobuf/repeated_field.h"
+#include "google/protobuf/util/message_differencer.h"
 #include "grpcpp/channel.h"
 #include "grpcpp/create_channel.h"
 #include "gutil/status.h"
@@ -251,6 +253,45 @@ absl::StatusOr<std::vector<TableEntry>> ReadPiTableEntries(
   }
   return table_entries;
 }
+
+absl::StatusOr<p4::v1::CounterData> ReadPiCounterData(
+    P4RuntimeSession* session,
+    const p4::v1::TableEntry& target_entry_signature) {
+  // Some targets only support wildcard reads, so we read back all entries
+  // before looking for the one we are interested in.
+  ASSIGN_OR_RETURN(std::vector<TableEntry> entries,
+                   ReadPiTableEntries(session));
+
+  // We use a protobuf differ to find the entry we are interested in based on
+  // its "signature", given by the `table_id`, `match`, and `priority` fields.
+  using google::protobuf::util::MessageDifferencer;
+  MessageDifferencer differ;
+  differ.set_repeated_field_comparison(MessageDifferencer::AS_SET);
+  std::vector<const google::protobuf::FieldDescriptor*> signature_fields;
+  for (std::string field_name : {"table_id", "match", "priority"}) {
+    const google::protobuf::FieldDescriptor* field_descriptor =
+        TableEntry::descriptor()->FindFieldByName(field_name);
+    if (field_descriptor == nullptr) {
+      return gutil::InternalErrorBuilder()
+             << "failed to obtain FieldDescriptor for field '" << field_name
+             << "' of p4::v1::TableEntry";
+    }
+    signature_fields.push_back(field_descriptor);
+  }
+
+  for (const auto& entry : entries) {
+    if (differ.CompareWithFields(entry, target_entry_signature,
+                                 signature_fields, signature_fields)) {
+      return entry.counter_data();
+    }
+  }
+  return gutil::NotFoundErrorBuilder()
+         << "failed to read counter data for the table entry with the "
+            "following signature, since no table entry matching the signature "
+            "exists: <"
+         << target_entry_signature.ShortDebugString() << ">";
+}
+
 absl::Status ClearTableEntries(P4RuntimeSession* session) {
   // Get P4Info from Switch. It is needed to sequence the delete requests.
   ASSIGN_OR_RETURN(
