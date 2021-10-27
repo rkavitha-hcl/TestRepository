@@ -277,6 +277,30 @@ absl::Status UnionFirstFieldIntoSecondAssertingIdenticalId(
   return absl::OkStatus();
 }
 
+// Specializes UnionFirstFieldIntoSecondAssertingIdenticalId for actions.
+// Instead of requiring equality for all fields, it unions the preamble. This is
+// done to allow differing annotations for the same action.
+// Requires: GetId(action) == GetId(unioned_action)
+absl::Status UnionFirstFieldIntoSecondAssertingIdenticalId(
+    const p4::config::v1::Action& action,
+    p4::config::v1::Action& unioned_action) {
+  RETURN_IF_ERROR(AssertIdsAreEqualForUnioning(action, unioned_action));
+
+  RETURN_IF_ERROR(UnionFirstPreambleIntoSecondAssertingIdenticalId(
+      action.preamble(), *unioned_action.mutable_preamble()));
+
+  if (auto diff_result =
+          DiffMessages(action, unioned_action, /*ignored_fields=*/{"preamble"});
+      diff_result.has_value()) {
+    return absl::InvalidArgumentError(
+        absl::Substitute("actions with identical id '$0' were incompatible. "
+                         "Relevant differences: $1",
+                         action.preamble().id(), *diff_result));
+  }
+
+  return absl::OkStatus();
+}
+
 // Unions `fields` of type T into `unioned_fields` using their ids (as returned
 // by GetId) as keys to a map of the rest of their contents.
 template <class T>
