@@ -724,7 +724,7 @@ TEST_P(CpuQosTestWithoutIxia,
       }
       if (header.has_ipv6_header()) {
         ASSERT_OK_AND_ASSIGN(auto ip_dst,
-                             netaddr::Ipv4Address::OfString(
+                             netaddr::Ipv6Address::OfString(
                                  header.ipv6_header().ipv6_destination()));
         ASSERT_THAT(loopback_ips, Not(Contains(ip_dst)))
             << "TODO: Implement logic to pick non-loopback IP "
