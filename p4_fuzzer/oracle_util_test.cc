@@ -242,16 +242,41 @@ TEST(OracleUtilTest, DISABLED_SameKeyInBatch) {
             fuzzer_state, /*valid=*/true));
 }
 
-TEST(OracleUtilTest, BatchResources) {
-  // Create a state that's full.
-  FuzzerTestState full_state = ConstructFuzzerTestStateFromSaiMiddleBlock();
-  for (int i = 1; i <= AclIngressTableSize(); i++) {
-    AddTableEntry(GetIngressAclTableEntry(/*match=*/i, /*action=*/0),
-                  &full_state.switch_state);
+TEST(OracleUtilTest, ResourcesCanBeExhaustedInFullState) {
+  FuzzerTestState full_state = ConstructStandardFuzzerTestState();
+
+  // Get a prototype table entry.
+  ASSERT_OK_AND_ASSIGN(
+      const auto table,
+      GetATableDefinitionWithMatchType(
+          full_state, p4::config::v1::MatchField_MatchType_EXACT));
+  ASSERT_OK_AND_ASSIGN(const auto match_field,
+                       GetAMatchFieldDefinitionWithMatchType(
+                           table, p4::config::v1::MatchField_MatchType_EXACT));
+  ASSERT_OK_AND_ASSIGN(auto table_entry_prototype,
+                       FuzzValidTableEntry(&full_state.gen, full_state.config,
+                                           full_state.switch_state, table));
+
+  // Ensure that the parameter number matches up with the field id. This is a
+  // convenience and can be replaced with a loop if it ever turns out to be
+  // false.
+  const int match_field_index = match_field.match_field().id() - 1;
+  ASSERT_EQ(table_entry_prototype.mutable_match(match_field_index)->field_id(),
+            match_field.match_field().id());
+
+  // Fill up the state.
+  for (int i = 1; i <= table.size(); i++) {
+    TableEntry table_entry = table_entry_prototype;
+    table_entry.mutable_match(match_field_index)
+        ->mutable_exact()
+        ->set_value(absl::StrCat(i));
+    AddTableEntry(table_entry, &full_state.switch_state);
   }
 
-  TableEntry next = GetIngressAclTableEntry(
-      /*match=*/AclIngressTableSize() + 1, /*action=*/0);
+  TableEntry next = table_entry_prototype;
+  next.mutable_match(match_field_index)
+      ->mutable_exact()
+      ->set_value(absl::StrCat(table.size() + 1));
 
   // Inserting into full table is okay.
   EXPECT_OK(Check({MakeInsert(next, absl::StatusCode::kOk)}, full_state,
@@ -263,33 +288,62 @@ TEST(OracleUtilTest, BatchResources) {
                   /*valid=*/true));
 }
 
-TEST(OracleUtilTest, BatchResourcesAlmostFull) {
-  // Create a state that's almost full (1 entry remaining).
-  FuzzerTestState almost_full = ConstructFuzzerTestStateFromSaiMiddleBlock();
-  for (int i = 1; i <= AclIngressTableSize() - 1; i++) {
-    AddTableEntry(GetIngressAclTableEntry(/*match=*/i, /*action=*/0),
-                  &almost_full.switch_state);
+TEST(OracleUtilTest, ResourcesCanBeExhaustedInAlmostFullStateWithBatch) {
+  FuzzerTestState almost_full_state = ConstructStandardFuzzerTestState();
+
+  // Get a prototype table entry.
+  ASSERT_OK_AND_ASSIGN(
+      const auto table,
+      GetATableDefinitionWithMatchType(
+          almost_full_state, p4::config::v1::MatchField_MatchType_EXACT));
+  ASSERT_OK_AND_ASSIGN(const auto match_field,
+                       GetAMatchFieldDefinitionWithMatchType(
+                           table, p4::config::v1::MatchField_MatchType_EXACT));
+  ASSERT_OK_AND_ASSIGN(
+      auto table_entry_prototype,
+      FuzzValidTableEntry(&almost_full_state.gen, almost_full_state.config,
+                          almost_full_state.switch_state, table));
+
+  // Ensure that the parameter number matches up with the field id. This is a
+  // convenience and can be replaced with a loop if it ever turns out to be
+  // false.
+  const int match_field_index = match_field.match_field().id() - 1;
+  ASSERT_TRUE(
+      table_entry_prototype.mutable_match(match_field_index)->field_id() ==
+      match_field.match_field().id());
+
+  // Make the state almost full (1 entry remaining).
+  for (int i = 1; i <= table.size() - 1; i++) {
+    TableEntry table_entry = table_entry_prototype;
+    table_entry.mutable_match(match_field_index)
+        ->mutable_exact()
+        ->set_value(absl::StrCat(i));
+    AddTableEntry(table_entry, &almost_full_state.switch_state);
   }
 
-  TableEntry next1 = GetIngressAclTableEntry(
-      /*match=*/AclIngressTableSize() + 1, /*action=*/0);
-  TableEntry next2 = GetIngressAclTableEntry(
-      /*match=*/AclIngressTableSize() + 2, /*action=*/0);
+  TableEntry next1 = table_entry_prototype;
+  TableEntry next2 = table_entry_prototype;
+  next1.mutable_match(match_field_index)
+      ->mutable_exact()
+      ->set_value(absl::StrCat(table.size() + 1));
+  next2.mutable_match(match_field_index)
+      ->mutable_exact()
+      ->set_value(absl::StrCat(table.size() + 2));
 
   // Resource exhausted is not okay.
   EXPECT_OK(Check({MakeInsert(next1, absl::StatusCode::kResourceExhausted)},
-                  almost_full, /*valid=*/false));
+                  almost_full_state, /*valid=*/false));
 
   // Inserting two flows, one of them can fail.
   EXPECT_OK(Check({MakeInsert(next1, absl::StatusCode::kOk),
                    MakeInsert(next2, absl::StatusCode::kResourceExhausted)},
-                  almost_full, /*valid=*/true));
+                  almost_full_state, /*valid=*/true));
   EXPECT_OK(Check({MakeInsert(next1, absl::StatusCode::kResourceExhausted),
                    MakeInsert(next2, absl::StatusCode::kOk)},
-                  almost_full, /*valid=*/true));
+                  almost_full_state, /*valid=*/true));
   EXPECT_OK(Check({MakeInsert(next1, absl::StatusCode::kOk),
                    MakeInsert(next2, absl::StatusCode::kOk)},
-                  almost_full, /*valid=*/true));
+                  almost_full_state, /*valid=*/true));
 }
 
 // TODO: Enable this test once the Oracle properly rejects empty
