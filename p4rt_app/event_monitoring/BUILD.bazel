@@ -73,3 +73,34 @@ cc_library(
         "@sonic_swss_common//:libswsscommon",
     ],
 )
+
+cc_library(
+    name = "state_verification_events",
+    srcs = ["state_verification_events.cc"],
+    hdrs = ["state_verification_events.h"],
+    deps = [
+        "//gutil:status",
+        "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/time",
+        "@sonic_swss_common//:libswsscommon",
+    ],
+)
+
+cc_test(
+    name = "state_verification_events_test",
+    srcs = ["state_verification_events_test.cc"],
+    deps = [
+        ":state_verification_events",
+        "//gutil:status_matchers",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_googletest//:gtest_main",
+        "@sonic_swss_common//:libswsscommon",
+        "@sonic_swss_common//tests/mocks:mock_consumer_notifier",
+        "@sonic_swss_common//tests/mocks:mock_db_connector",
+    ],
+)
