@@ -23,6 +23,7 @@
 #include "absl/base/internal/endian.h"
 #include "absl/random/distributions.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "google/protobuf/repeated_field.h"
 #include "gutil/collections.h"
 #include "gutil/status.h"
@@ -136,6 +137,42 @@ std::vector<uint32_t> TablesUsedByFuzzer(const FuzzerConfig& config) {
     table_ids.push_back(key);
   }
   return table_ids;
+}
+
+// Checks whether an update is unacceptable with respect to the fuzzer config,
+// current switch state, and the set of updates already in this batch.
+// Currently, an update may be unacceptable by:
+// - Inserting entries into a full table, which is configured such that the
+//   fuzzer should not exceed its resource guarantees.
+bool IsBadUpdate(const FuzzerConfig& config, const SwitchState& switch_state,
+                 const AnnotatedWriteRequest& request,
+                 const AnnotatedUpdate& candidate_update) {
+  const std::string& table_name =
+      candidate_update.ir().table_entry().table_name();
+  // See if the update should be discarded because it is trying to insert into a
+  // table that has a strict resource limit and cannot accommodate more inserts
+  // than is already in the write request.
+  if (candidate_update.ir().type() == p4::v1::Update_Type_INSERT &&
+      config.tables_for_which_to_not_exceed_resource_guarantees.contains(
+          table_name)) {
+    // We determine how many entries we are trying to insert in the relevant
+    // table including the candidate update.
+    int num_inserts = 1;
+    for (const auto& update : request.updates()) {
+      if (update.ir().table_entry().table_name() == table_name &&
+          update.ir().type() == p4::v1::Update_Type_INSERT) {
+        num_inserts++;
+      }
+      // Because batches are handled non-deterministically, we want to be
+      // conservative and not take any deletes into account.
+    }
+    // If the table cannot accommodate sufficiently many inserts, then the
+    // candidate update is 'bad'.
+    return !switch_state.CanAccommodateInserts(
+        candidate_update.pi().entity().table_entry().table_id(), num_inserts);
+  }
+
+  return false;
 }
 
 // Returns the table ids of tables that use one shot action selector
@@ -980,7 +1017,21 @@ AnnotatedWriteRequest FuzzWriteRequest(absl::BitGen* gen,
         request.updates_size() >= *max_batch_size) {
       break;
     }
-    *request.add_updates() = FuzzUpdate(gen, config, switch_state);
+    AnnotatedUpdate update = FuzzUpdate(gen, config, switch_state);
+    // Discards updates that are 'bad' and tries again to maintain a simple and
+    // predictable distribution of batch sizes. To avoid infinite loops, though
+    // other logic should make them impossible, we assume that we produce good
+    // updates at least ~0.01% of the time, terminating the loop early w.h.p.
+    // only if our success rate is significantly worse than this.
+    int update_attempts = 1;
+    while (IsBadUpdate(config, switch_state, request, update) &&
+           update_attempts < 10000) {
+      update = FuzzUpdate(gen, config, switch_state);
+      update_attempts++;
+    }
+    if (!IsBadUpdate(config, switch_state, request, update)) {
+      *request.add_updates() = update;
+    }
   }
 
   return request;

@@ -14,6 +14,7 @@
 #ifndef GOOGLE_P4_FUZZER_FUZZER_TESTS_H_
 #define GOOGLE_P4_FUZZER_FUZZER_TESTS_H_
 
+#include "absl/container/btree_set.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "thinkit/mirror_testbed_fixture.h"
 
@@ -37,6 +38,17 @@ struct FuzzerTestFixtureParams {
   // Milestone for more details.
   absl::optional<Milestone> milestone;
   absl::optional<std::string> test_case_id;
+  // By default, the fuzzer attempts to exceed the listed resource guarantees on
+  // all tables, allowing the switch to reject entries beyond those guarantees
+  // with a RESOURCE_EXHAUSTED error.
+  // This variable lets users specify a set of tables for which the fuzzer
+  // should treat their resource guarantees as hard limits rather than trying to
+  // go above them. If there are limitations or bugs on the switch causing it to
+  // behave incorrectly when the resource guarantees of particular tables are
+  // exceeded, this list can be used to allow the fuzzer to produce interesting
+  // results in spite of this shortcoming.
+  absl::btree_set<std::string>
+      tables_for_which_to_not_exceed_resource_guarantees;
   // TODO: Currently, the switch must be rebooted before a
   // different P4Info is pushed. Set this boolean if the P4Info passed in as a
   // parameter is different from the one we expect to exist on the switch.

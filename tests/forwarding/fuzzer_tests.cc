@@ -71,10 +71,8 @@ bool IsMaskedResource(absl::string_view table_name) {
   // stemming from the fuzzer creating too many VRFs. See also
   // b/181968931.
   // TODO: wcmp_group_table has a resource limit problem.
-  // TODO: vrf_table is not supported yet.
   return table_name == "acl_pre_ingress_table" || table_name == "ipv4_table" ||
-         table_name == "ipv6_table" || table_name == "wcmp_group_table" ||
-         table_name == "vrf_table";
+         table_name == "ipv6_table" || table_name == "wcmp_group_table";
 }
 
 class TestEnvironment : public testing::Environment {
@@ -153,6 +151,8 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
       .info = info,
       .ports = {"1"},
       .qos_queues = {"0x1"},
+      .tables_for_which_to_not_exceed_resource_guarantees =
+          GetParam().tables_for_which_to_not_exceed_resource_guarantees,
       .role = "sdn_controller",
   };
 

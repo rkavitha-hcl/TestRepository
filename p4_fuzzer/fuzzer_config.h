@@ -14,6 +14,7 @@
 #ifndef GOOGLE_P4_FUZZER_FUZZER_CONFIG_H_
 #define GOOGLE_P4_FUZZER_FUZZER_CONFIG_H_
 
+#include "absl/container/btree_set.h"
 #include "p4_pdpi/ir.pb.h"
 
 namespace p4_fuzzer {
@@ -25,6 +26,15 @@ struct FuzzerConfig {
   std::vector<std::string> ports;
   // The set of valid QOS queues.
   std::vector<std::string> qos_queues;
+  // The set of tables where the fuzzer should treat their resource guarantees
+  // as hard limits rather than trying to go above them. If there are
+  // limitations or bugs on the switch causing it to behave incorrectly when the
+  // resource guarantees of particular tables are exceeded, this list can be
+  // used to allow the fuzzer to produce interesting results in spite of this
+  // shortcoming.
+  // This is a btree_set to ensure a deterministic ordering.
+  absl::btree_set<std::string>
+      tables_for_which_to_not_exceed_resource_guarantees;
   // The P4RT role the fuzzer should use.
   std::string role;
 };
