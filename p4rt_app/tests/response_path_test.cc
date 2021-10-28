@@ -290,6 +290,63 @@ TEST_F(ResponsePathTest, InsertRequestFails) {
                HasSubstr("#1: INVALID_ARGUMENT: my error message")));
 }
 
+TEST_F(ResponsePathTest, ErrorResponseHandlesNonPrintableCharacters) {
+  // The P4RT spec's error message are encoded as a string. However, not all
+  // P4RT objects are not required to be string (e.g. they can be arbitrary
+  // bytes). This can cause issues if a non UTF-8 object fails, and we report
+  // that value back as an error message. P4RT app should escape any bytes.
+
+  // UTF-8 characters fall in the range of 0x00 to 0x7F, and non UTF-8
+  // characters fall in the range of 0x80 to 0x8F.
+  std::vector<char> non_utf8_error;
+  for (int i = 0x00; i < 0x8F; ++i) non_utf8_error.emplace_back(i);
+
+  p4::v1::WriteRequest request;
+  ASSERT_OK(gutil::ReadProtoFromString(
+      R"pb(updates {
+             type: INSERT
+             entity {
+               table_entry {
+                 table_id: 33554496
+                 match {
+                   field_id: 1
+                   exact { value: "1" }
+                 }
+                 match {
+                   field_id: 2
+                   exact { value: "fe80::021a:11ff:fe17:5f80" }
+                 }
+                 action {
+                   action {
+                     action_id: 16777217
+                     params { param_id: 1 value: "\000\032\021\027_\200" }
+                   }
+                 }
+               }
+             }
+           })pb",
+      &request));
+
+  auto neighbor_entry =
+      test_lib::AppDbEntryBuilder{}
+          .SetTableName("FIXED_NEIGHBOR_TABLE")
+          .AddMatchField("neighbor_id", "fe80::021a:11ff:fe17:5f80")
+          .AddMatchField("router_interface_id", "1");
+
+  // The Orchagent fails with an invalid parameter, and a message with non UTF-8
+  // characters in it.
+  p4rt_service_.GetP4rtAppDbTable().SetResponseForKey(
+      neighbor_entry.GetKey(), "SWSS_RC_INVALID_PARAM",
+      std::string(non_utf8_error.begin(), non_utf8_error.end()));
+
+  // We expect the error message to be converted to some printable string. Today
+  // it's done with absl::CHexEscape so we verify some of those characters exist
+  // in the response.
+  EXPECT_THAT(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("\0x80\0x81\0x82")));
+}
+
 TEST_F(ResponsePathTest, ModifyRequestFails) {
   // Insert a request into the AppDb.
   ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,

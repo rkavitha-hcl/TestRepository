@@ -20,6 +20,7 @@
 #include "absl/container/btree_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "glog/logging.h"
@@ -105,8 +106,9 @@ GetAppDbResponses(int expected_response_count,
              << "[OrchAgent] responded with '" << fvField(first_tuple)
              << "' as its first value, but P4RT App was expecting 'err_str'.";
     } else {
+      // Sanatize any response messages coming from the OA layers.
       result.set_code(SwssToP4RTErrorCode(status_str));
-      result.set_message(fvValue(first_tuple));
+      result.set_message(absl::CHexEscape(fvValue(first_tuple)));
     }
 
     // Insert into the responses map, but do not allow duplicates.
