@@ -96,6 +96,12 @@ constexpr int kFrameCheckSequenceSize = 4;
 // 10 seconds.
 constexpr absl::Duration kMaxQueueCounterUpdateTime = absl::Seconds(15);
 
+// After pushing gNMI config to a switch, the tests sleep for this duration
+// assuming that the gNMI config will have been fully applied afterwards.
+// TODO: Instead of hard-coding this time, tests should dynamically
+// poll the state of the switch to ensure config has been applied.
+constexpr absl::Duration kTimeToWaitForGnmiConfigToApply = absl::Seconds(15);
+
 // Packet receiver thread to receive punted packets from switch over a P4
 // session. The callback is invoked serially for every packet received.
 // Example:
@@ -648,9 +654,9 @@ TEST_P(CpuQosTestWithoutIxia,
   ASSERT_OK_AND_ASSIGN(auto gnmi_stub, sut.CreateGnmiStub());
 
   // TODO: Poll for config to be applied, links to come up instead.
-  LOG(INFO) << "Sleeping 10 seconds to wait for config to be applied/links to "
-               "come up.";
-  absl::SleepFor(absl::Seconds(10));
+  LOG(INFO) << "Sleeping " << kTimeToWaitForGnmiConfigToApply
+            << " to wait for config to be applied/links to come up.";
+  absl::SleepFor(kTimeToWaitForGnmiConfigToApply);
 
   // Pick a link to be used for packet injection.
   ASSERT_OK_AND_ASSIGN(SutToControlLink link_used_for_test_packets,
@@ -771,9 +777,9 @@ TEST_P(CpuQosTestWithoutIxia, PerEntryAclCounterIncrementsWhenEntryIsHit) {
   ASSERT_OK_AND_ASSIGN(auto gnmi_stub, sut.CreateGnmiStub());
 
   // TODO: Poll for config to be applied, links to come up instead.
-  LOG(INFO) << "Sleeping 10 seconds to wait for config to be applied/links to "
-               "come up.";
-  absl::SleepFor(absl::Seconds(10));
+  LOG(INFO) << "Sleeping " << kTimeToWaitForGnmiConfigToApply
+            << " to wait for config to be applied/links to come up.";
+  absl::SleepFor(kTimeToWaitForGnmiConfigToApply);
 
   // Pick a link to be used for packet injection.
   ASSERT_OK_AND_ASSIGN(SutToControlLink link_used_for_test_packets,
@@ -906,9 +912,9 @@ TEST_P(CpuQosTestWithoutIxia, TrafficToLoopackIpGetsMappedToCorrectQueues) {
   ASSERT_OK(pins_test::PushGnmiConfig(control_device, GetParam().gnmi_config));
   ASSERT_OK_AND_ASSIGN(auto gnmi_stub, sut.CreateGnmiStub());
   // TODO: Poll for config to be applied, links to come up instead.
-  LOG(INFO) << "Sleeping 10 seconds to wait for config to be applied/links to "
-               "come up.";
-  absl::SleepFor(absl::Seconds(10));
+  LOG(INFO) << "Sleeping " << kTimeToWaitForGnmiConfigToApply
+            << " to wait for config to be applied/links to come up.";
+  absl::SleepFor(kTimeToWaitForGnmiConfigToApply);
 
   // Pick a link to be used for packet injection.
   ASSERT_OK_AND_ASSIGN(SutToControlLink link_used_for_test_packets,
@@ -1083,7 +1089,9 @@ TEST_P(CpuQosTestWithIxia, TestCPUQueueAssignmentAndRateLimit) {
 
   // Wait to let the links come up. Switch guarantees state paths to reflect
   // in 10s. Lets wait for a bit more.
-  absl::SleepFor(absl::Seconds(15));
+  LOG(INFO) << "Sleeping " << kTimeToWaitForGnmiConfigToApply
+            << " to wait for config to be applied/links to come up.";
+  absl::SleepFor(kTimeToWaitForGnmiConfigToApply);
 
   // TODO: Move this to helper function.
   // Loop through the interface_info looking for Ixia/SUT interface pairs,
