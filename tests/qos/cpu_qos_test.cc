@@ -593,7 +593,6 @@ TestPacketsThatShouldNotGetPunted() {
   for (auto &packet : packets) {
     RETURN_IF_ERROR(packetlib::PadPacketToMinimumSize(packet).status());
     RETURN_IF_ERROR(packetlib::UpdateAllComputedFields(packet).status());
-    LOG(INFO) << packet.DebugString();  // TODO: remove.
   }
   return packets;
 }
@@ -1026,8 +1025,9 @@ TEST_P(CpuQosTestWithoutIxia, TrafficToLoopackIpGetsMappedToCorrectQueues) {
       EXPECT_EQ(
           CumulativeNumPacketsEnqueued(queue_counters_after_test_packet),
           CumulativeNumPacketsEnqueued(queue_counters_before_test_packet) + 1)
-          << "expected counter to increment for queue '" << target_queue
-          << "' targeted by the following test packet:\n"
+          << "Counters for queue " << target_queue
+          << " did not increment within " << kMaxQueueCounterUpdateTime
+          << " after injecting the following test packet:\n"
           << packet.DebugString()
           << "\nBefore: " << queue_counters_before_test_packet
           << "\nAfter : " << queue_counters_after_test_packet;
