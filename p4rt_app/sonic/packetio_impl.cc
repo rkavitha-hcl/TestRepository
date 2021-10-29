@@ -93,15 +93,15 @@ absl::Status PacketIoImpl::RemovePacketIoPort(absl::string_view port_name) {
     return absl::OkStatus();
   }
 
-  auto it = port_to_selectables_.find(port_name);
-  if (it == port_to_selectables_.end()) {
-    return absl::InvalidArgumentError(absl::StrCat(
-        "Unable to find selectables for port remove: ", port_name));
-  }
-
   // Cleanup PacketInSelectable, if in Netdev mode.
   if (!use_genetlink_) {
+    auto it = port_to_selectables_.find(port_name);
+    if (it == port_to_selectables_.end()) {
+      return absl::InvalidArgumentError(absl::StrCat(
+          "Unable to find selectables for port remove: ", port_name));
+    }
     std::unique_ptr<sonic::PacketInSelectable>& port_selectable = it->second;
+
     // Remove the port selectable from the selectables object.
     port_select_.removeSelectable(port_selectable.get());
     if (port_to_selectables_.erase(port_name) != 1) {
