@@ -17,6 +17,7 @@
 #include <linux/filter.h>
 #include <net/ethernet.h>
 #include <netpacket/packet.h>
+#include <string.h>
 #include <sys/ioctl.h>
 #include <sys/socket.h>
 #include <unistd.h>
@@ -31,33 +32,17 @@
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "gutil/collections.h"
 #include "gutil/status.h"
+#include "p4rt_app/sonic/adapters/system_call_adapter.h"
 
 namespace p4rt_app {
 namespace sonic {
 constexpr absl::string_view kSubmitToIngress = "send_to_ingress";
 
 namespace {
-
-// Prefix of valid receive interfaces.
-static constexpr absl::string_view kValidReceivePrefixes[] = {"Ethernet"};
-
-// Prefix of valid transmit interfaces.
-static constexpr absl::string_view kValidTransmitPrefixes[] = {
-    "Ethernet", kSubmitToIngress};
-
-// Check if the given port starts with one of the valid prefixes.
-template <typename T>
-bool IsValidPort(absl::string_view port_name, const T &prefix_list) {
-  for (const auto &prefix : prefix_list) {
-    if (absl::StartsWith(port_name, prefix)) {
-      return true;
-    }
-  }
-  return false;
-}
 
 absl::Status CreateAndBindSockets(const SystemCallAdapter &system_call_adapter,
                                   absl::string_view port_name,
@@ -111,42 +96,6 @@ absl::Status CreateAndBindSockets(const SystemCallAdapter &system_call_adapter,
   return absl::OkStatus();
 }
 
-// Receiver thread that adds each socket FD of netdev Linux port into
-// swss::Selectable port and goes into EPOLL blocking wait state.
-// readData virutal function of swss reads the buffer from socket and invokes
-// the callback function for every packet in activity on each port.
-static void ReceiveThread(
-    packet_metadata::ReceiveCallbackFunction callback_function,
-    const absl::flat_hash_map<std::string, int> &socket_map) {
-  swss::Select port_select;
-  std::vector<std::unique_ptr<PacketInSelectable>> selectables;
-
-  for (const auto &port_params : socket_map) {
-    // Pull out the tuple elements.
-    std::string port_name;
-    int receive_socket;
-    std::tie(port_name, receive_socket) = port_params;
-    // Check if this port is valid for Receive.
-    if (!IsValidPort(port_name, kValidReceivePrefixes)) continue;
-
-    std::unique_ptr<PacketInSelectable> in_selectable =
-        absl::make_unique<PacketInSelectable>(port_name, receive_socket,
-                                              callback_function);
-    // Add the port object into the EPOLL via Select.addSelectable().
-    port_select.addSelectable(in_selectable.get());
-    // Move this to the receive thread scope so that it does not get freed after
-    // the for loop.
-    selectables.push_back(std::move(in_selectable));
-  }
-
-  LOG(INFO) << "Successfully created Receive thread";
-  while (true) {
-    swss::Selectable *sel;
-    port_select.select(&sel);
-  }
-  // Never expected to be here.
-}
-
 // Create Receive, Transmit sockets for a particular port identified by its
 // ifname.
 absl::StatusOr<int> CreatePacketIoSocket(
@@ -160,21 +109,6 @@ absl::StatusOr<int> CreatePacketIoSocket(
   }
 
   return port_socket;
-}
-
-// TODO: Remove after removal of static Packet I/O.
-absl::StatusOr<std::unique_ptr<PacketIoPortSockets>> CreatePacketIoSockets(
-    const SystemCallAdapter &system_call_adapter, absl::string_view port_name) {
-  int port_socket;
-  auto status =
-      CreateAndBindSockets(system_call_adapter, port_name, port_socket);
-  if (!status.ok()) {
-    if (port_socket >= 0) system_call_adapter.close(port_socket);
-    return gutil::InternalErrorBuilder() << status.ToString();
-  }
-
-  return absl::make_unique<PacketIoPortSockets>(std::string(port_name),
-                                                port_socket);
 }
 
 }  // namespace
@@ -191,6 +125,17 @@ void WaitForPortInitDone(swss::DBConnectorInterface &app_db_client) {
         << "Waiting for PortInitDone to be set before P4RT can start";
     absl::SleepFor(absl::Seconds(5));
   }
+}
+
+bool IsValidSystemPort(const SystemCallAdapter &system_call_adapter,
+                       absl::string_view port_name) {
+  struct sockaddr_ll addr;
+  memset(&addr, 0, sizeof(struct sockaddr_ll));
+  addr.sll_family = AF_PACKET;
+  addr.sll_protocol = htons(ETH_P_ALL);
+  addr.sll_ifindex =
+      system_call_adapter.if_nametoindex(std::string(port_name).c_str());
+  return addr.sll_ifindex != 0;
 }
 
 absl::StatusOr<std::unique_ptr<PacketIoPortParams>> AddPacketIoPort(
@@ -243,49 +188,6 @@ absl::Status SendPacketOut(const SystemCallAdapter &system_call_adapter,
     }
   } while (msg_len > 0);
   return absl::OkStatus();
-}
-
-absl::StatusOr<std::vector<std::unique_ptr<sonic::PacketIoPortSockets>>>
-DiscoverPacketIoPorts(const SystemCallAdapter &system_call_adapter) {
-  std::vector<std::unique_ptr<sonic::PacketIoPortSockets>> port_sockets;
-  struct ifaddrs *head, *intf;
-  RET_CHECK(system_call_adapter.getifaddrs(&head) != -1)
-      << "Failed to get interface list from system";
-
-  // Form the valid set of interface prefixes to discover.
-  std::set<absl::string_view> valid_prefixes;
-  valid_prefixes.insert(std::begin(kValidReceivePrefixes),
-                        std::end(kValidReceivePrefixes));
-  valid_prefixes.insert(std::begin(kValidTransmitPrefixes),
-                        std::end(kValidTransmitPrefixes));
-
-  for (intf = head; intf != nullptr; intf = intf->ifa_next) {
-    // Interfaces repeat for every address type - AF_INET, AF_INET6 &
-    // AF_PACKET, so use just one family type for iterating.
-    if (intf->ifa_addr == NULL || intf->ifa_addr->sa_family != AF_PACKET)
-      continue;
-    // Find if this interface starts with one of the valid prefixes.
-    if (!IsValidPort(intf->ifa_name, valid_prefixes)) continue;
-
-    const std::string port_name(intf->ifa_name);
-    absl::StatusOr<std::unique_ptr<PacketIoPortSockets>> port_object =
-        CreatePacketIoSockets(system_call_adapter, port_name);
-    if (port_object.ok()) {
-      port_sockets.push_back(std::move(port_object.value()));
-    } else {
-      LOG(INFO) << port_object.status();
-    }
-  }
-  system_call_adapter.freeifaddrs(head);
-
-  return port_sockets;
-}
-
-std::thread StartReceive(
-    packet_metadata::ReceiveCallbackFunction callback_function,
-    const absl::flat_hash_map<std::string, int> &socket_map) {
-  // Create Receive thread to receive packets from the socket.
-  return std::thread(ReceiveThread, callback_function, socket_map);
 }
 
 }  // namespace sonic

@@ -17,10 +17,12 @@
 #include <utility>
 #include <vector>
 
+#include "absl/cleanup/cleanup.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
+#include "absl/synchronization/notification.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "glog/logging.h"
@@ -52,9 +54,27 @@ namespace p4rt_app {
 namespace {
 
 using ::gutil::EqualsProto;
+using ::gutil::StatusIs;
 using ::p4::v1::P4Runtime;
 using ::testing::Eq;
 using ::testing::UnorderedElementsAre;
+
+// Helper method to read Responses from stream channel.
+std::vector<p4::v1::StreamMessageResponse> ReadResponses(
+    pdpi::P4RuntimeSession& p4rt_session, int expected_count) {
+  std::vector<p4::v1::StreamMessageResponse> actual_responses;
+  p4::v1::StreamMessageResponse response;
+  int i = 0;
+  while (i < expected_count && p4rt_session.StreamChannelRead(response)) {
+    if (response.has_error()) {
+      LOG(ERROR) << "Received error on stream channel: "
+                 << response.DebugString();
+    }
+    actual_responses.push_back(response);
+    ++i;
+  }
+  return actual_responses;
+}
 
 // Test class for PacketIo component tests.
 class FakePacketIoTest : public testing::Test {
@@ -67,9 +87,6 @@ class FakePacketIoTest : public testing::Test {
     ASSERT_OK_AND_ASSIGN(
         p4rt_session_, pdpi::P4RuntimeSession::Create(std::move(stub),
                                                       /*device_id=*/183807201));
-
-    ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet0", "0"));
-    ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet1", "1"));
   }
 
   // Form PacketOut message and write to stream channel.
@@ -91,26 +108,9 @@ class FakePacketIoTest : public testing::Test {
     return absl::OkStatus();
   }
 
-  // Helper method to read Responses from stream channel.
-  static void ReadResponses(FakePacketIoTest* const fake_test,
-                            int expected_count) {
-    pdpi::P4RuntimeSession* const p4rt_session = fake_test->p4rt_session_.get();
-    p4::v1::StreamMessageResponse response;
-    int i = 0;
-    while (i < expected_count && p4rt_session->StreamChannelRead(response)) {
-      if (response.has_error()) {
-        LOG(ERROR) << "Received error on stream channel: "
-                   << response.DebugString();
-      }
-      fake_test->actual_responses_.push_back(response);
-      i++;
-    }
-  }
-
   test_lib::P4RuntimeGrpcService p4rt_service_ =
       test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
-  std::vector<p4::v1::StreamMessageResponse> actual_responses_;
 };
 
 TEST_F(FakePacketIoTest, VerifyPacketIn) {
@@ -118,25 +118,28 @@ TEST_F(FakePacketIoTest, VerifyPacketIn) {
       p4rt_session_.get(),
       p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
       sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+  ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet0", "0"));
+  ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet1", "1"));
 
   // Spawn the receiver thread.
-  std::thread receive_thread(&FakePacketIoTest::ReadResponses, this,
-                             /*expected_count=*/2);
+  std::vector<p4::v1::StreamMessageResponse> actual_responses;
+  absl::Notification got_responses;
+  std::thread receive_thread([&] {
+    actual_responses = ReadResponses(*p4rt_session_, /*expected_count=*/2);
+    got_responses.Notify();
+  });
+  absl::Cleanup cleanup([&] { receive_thread.join(); });
+
   // Push the expected PacketIn.
   EXPECT_OK(p4rt_service_.GetFakePacketIoInterface().PushPacketIn(
       "Ethernet0", "Ethernet0", "test packet1"));
   EXPECT_OK(p4rt_service_.GetFakePacketIoInterface().PushPacketIn(
       "Ethernet1", "Ethernet1", "test packet2"));
 
-  // Retry a few times to check if all expected packets arrived.
-  for (int i = 0; i < 10; i++) {
-    if (actual_responses_.size() == 2) {
-      break;
-    } else {
-      absl::SleepFor(absl::Seconds(1));
-    }
-  }
-  EXPECT_THAT(actual_responses_,
+  // Wait for a max timeout, close the session and verify responses.
+  got_responses.WaitForNotificationWithTimeout(absl::Seconds(10));
+  ASSERT_OK(p4rt_session_->Finish());
+  EXPECT_THAT(actual_responses,
               UnorderedElementsAre(EqualsProto(R"pb(
                                      packet {
                                        payload: "test packet1"
@@ -151,27 +154,68 @@ TEST_F(FakePacketIoTest, VerifyPacketIn) {
                                        metadata { metadata_id: 2 value: "1" }
                                      }
                                    )pb")));
-  receive_thread.join();
+}
+
+TEST_F(FakePacketIoTest, VerifyPacketInFailAfterPortRemove) {
+  ASSERT_OK(pdpi::SetForwardingPipelineConfig(
+      p4rt_session_.get(),
+      p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+      sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+
+  // Add and remove a port and verify packet In fails.
+  ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet0", "0"));
+  ASSERT_OK(p4rt_service_.RemovePortTranslation("Ethernet0"));
+  EXPECT_THAT(p4rt_service_.GetFakePacketIoInterface().PushPacketIn(
+                  "Ethernet0", "Ethernet0", "test packet1"),
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST_F(FakePacketIoTest, PacketOutFailBeforeP4InfoPush) {
-  std::thread receive_thread(&FakePacketIoTest::ReadResponses, this,
-                             /*expected_count=*/1);
+  ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet0", "0"));
+  std::vector<p4::v1::StreamMessageResponse> actual_responses;
+  absl::Notification got_responses;
+  std::thread receive_thread([&] {
+    actual_responses = ReadResponses(*p4rt_session_, /*expected_count=*/1);
+    got_responses.Notify();
+  });
+  absl::Cleanup cleanup([&] { receive_thread.join(); });
   EXPECT_OK(SendPacketOut(0, "test packet1",
                           sai::GetIrP4Info(sai::Instantiation::kMiddleblock)));
-  // Retry a few times to check if the expected error arrived.
-  for (int i = 0; i < 10; i++) {
-    if (actual_responses_.size() == 1) {
-      break;
-    } else {
-      absl::SleepFor(absl::Seconds(1));
-    }
-  }
-  ASSERT_EQ(actual_responses_.size(), 1);
-  ASSERT_TRUE(actual_responses_[0].has_error());
-  ASSERT_THAT(actual_responses_[0].error().canonical_code(),
-              Eq(grpc::StatusCode::FAILED_PRECONDITION));
-  receive_thread.join();
+  // Wait for a max timeout, close the session and verify responses.
+  got_responses.WaitForNotificationWithTimeout(absl::Seconds(10));
+  ASSERT_OK(p4rt_session_->Finish());
+  ASSERT_EQ(actual_responses.size(), 1);
+  ASSERT_TRUE(actual_responses[0].has_error());
+  ASSERT_EQ(actual_responses[0].error().canonical_code(),
+            grpc::StatusCode::FAILED_PRECONDITION);
+}
+
+TEST_F(FakePacketIoTest, PacketOutFailAfterPortRemoval) {
+  ASSERT_OK(pdpi::SetForwardingPipelineConfig(
+      p4rt_session_.get(),
+      p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+      sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+
+  // Add and remove a port and verify packet out fails.
+  ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet0", "0"));
+  ASSERT_OK(p4rt_service_.RemovePortTranslation("Ethernet0"));
+  std::vector<p4::v1::StreamMessageResponse> actual_responses;
+  absl::Notification got_responses;
+  std::thread receive_thread([&]() {
+    actual_responses = ReadResponses(*p4rt_session_, /*expected_count=*/1);
+    got_responses.Notify();
+  });
+  absl::Cleanup cleanup([&] { receive_thread.join(); });
+  EXPECT_OK(SendPacketOut(0, "test packet1",
+                          sai::GetIrP4Info(sai::Instantiation::kMiddleblock)));
+
+  // Wait for a max timeout, close the session and verify responses.
+  got_responses.WaitForNotificationWithTimeout(absl::Seconds(10));
+  ASSERT_OK(p4rt_session_->Finish());
+  ASSERT_EQ(actual_responses.size(), 1);
+  ASSERT_TRUE(actual_responses[0].has_error());
+  ASSERT_EQ(actual_responses[0].error().canonical_code(),
+            grpc::StatusCode::INVALID_ARGUMENT);
 }
 
 TEST_F(FakePacketIoTest, PacketOutFailForSecondary) {
@@ -214,7 +258,7 @@ TEST_F(FakePacketIoTest, VerifyPacketOut) {
       p4rt_session_.get(),
       p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
       sai::GetP4Info(sai::Instantiation::kMiddleblock)));
-
+  ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet0", "0"));
   EXPECT_OK(SendPacketOut(0, "test packet1",
                           sai::GetIrP4Info(sai::Instantiation::kMiddleblock)));
   EXPECT_OK(SendPacketOut(0, "test packet2",
@@ -254,53 +298,35 @@ class PacketIoUsingPortNameTest : public testing::Test {
         sai::GetP4Info(sai::Instantiation::kMiddleblock)));
   }
 
-  // Helper method to read Responses from stream channel.
-  static void ReadResponses(PacketIoUsingPortNameTest* const fake_test,
-                            int expected_count) {
-    pdpi::P4RuntimeSession* const p4rt_session = fake_test->p4rt_session_.get();
-    p4::v1::StreamMessageResponse response;
-    int i = 0;
-    while (i < expected_count && p4rt_session->StreamChannelRead(response)) {
-      if (response.has_error()) {
-        LOG(ERROR) << "Received error on stream channel: "
-                   << response.DebugString();
-      }
-      fake_test->actual_responses_.push_back(response);
-      i++;
-    }
-  }
-
   test_lib::P4RuntimeGrpcService p4rt_service_ = test_lib::P4RuntimeGrpcService(
       test_lib::P4RuntimeGrpcServiceOptions{.translate_port_ids = false});
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
-  std::vector<p4::v1::StreamMessageResponse> actual_responses_;
 };
 
 TEST_F(PacketIoUsingPortNameTest, VerifyPacketInWithPortNames) {
-  // Spawn the receiver thread.
-  std::thread receive_thread(&PacketIoUsingPortNameTest::ReadResponses, this,
-                             /*expected_count=*/1);
+  ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet0", "0"));
+  std::vector<p4::v1::StreamMessageResponse> actual_responses;
+  absl::Notification got_responses;
+  std::thread receive_thread([&]() {
+    actual_responses = ReadResponses(*p4rt_session_, /*expected_count=*/1);
+    got_responses.Notify();
+  });
+  absl::Cleanup cleanup([&] { receive_thread.join(); });
 
   // Push the expected PacketIn.
   EXPECT_OK(p4rt_service_.GetFakePacketIoInterface().PushPacketIn(
       "Ethernet0", "Ethernet0", "test packet1"));
 
-  // Retry a few times to check if all expected packets arrived.
-  for (int i = 0; i < 10; i++) {
-    if (actual_responses_.size() == 1) {
-      break;
-    } else {
-      absl::SleepFor(absl::Seconds(1));
-    }
-  }
-  EXPECT_THAT(actual_responses_, UnorderedElementsAre(EqualsProto(R"pb(
+  // Wait for a max timeout, close the session and verify responses.
+  got_responses.WaitForNotificationWithTimeout(absl::Seconds(10));
+  ASSERT_OK(p4rt_session_->Finish());
+  EXPECT_THAT(actual_responses, UnorderedElementsAre(EqualsProto(R"pb(
                 packet {
                   payload: "test packet1"
                   metadata { metadata_id: 1 value: "Ethernet0" }
                   metadata { metadata_id: 2 value: "Ethernet0" }
                 }
               )pb")));
-  receive_thread.join();
 }
 
 }  // namespace

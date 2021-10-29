@@ -13,6 +13,8 @@
 // limitations under the License.
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
 
+#include <utility>
+
 #include "absl/strings/string_view.h"
 #include "boost/bimap.hpp"
 #include "glog/logging.h"
@@ -88,12 +90,6 @@ TEST(P4RuntimeImplTest, SendPacketOutEgressPortUsingPortIdOk) {
       sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   int fd[2];
   EXPECT_GE(pipe(fd), 0);
-  std::vector<std::unique_ptr<p4rt_app::sonic::PacketIoPortSockets>>
-      port_sockets;
-  port_sockets.push_back(
-      absl::make_unique<p4rt_app::sonic::PacketIoPortSockets>("Ethernet1",
-                                                              fd[1]));
-
   boost::bimap<std::string, std::string> port_maps;
   port_maps.insert({"Ethernet1", "1"});
 
@@ -106,10 +102,12 @@ TEST(P4RuntimeImplTest, SendPacketOutEgressPortUsingPortIdOk) {
   EXPECT_CALL(*mock_call_adapter, ioctl)
       .WillOnce(DoAll(SetArgPointee<2>(if_resp), Return(0)));
   EXPECT_CALL(*mock_call_adapter, write).Times(1);
-  auto packetio_impl = absl::make_unique<sonic::PacketIoImpl>(
-      std::move(mock_call_adapter), std::move(port_sockets));
+  EXPECT_CALL(*mock_call_adapter, socket).WillOnce(Return(fd[1]));
+  EXPECT_CALL(*mock_call_adapter, if_nametoindex).WillOnce(Return(1));
+  sonic::PacketIoImpl packetio_impl(std::move(mock_call_adapter));
+  ASSERT_OK(packetio_impl.AddPacketIoPort("Ethernet1"));
   EXPECT_OK(SendPacketOut(ir_p4_info, /*translate_port_ids=*/true, port_maps,
-                          packetio_impl.get(), packet));
+                          &packetio_impl, packet));
 }
 
 TEST(P4RuntimeImplTest, SendPacketOutEgressPortUsingPortNameOk) {
@@ -121,12 +119,6 @@ TEST(P4RuntimeImplTest, SendPacketOutEgressPortUsingPortNameOk) {
       sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   int fd[2];
   EXPECT_GE(pipe(fd), 0);
-  std::vector<std::unique_ptr<p4rt_app::sonic::PacketIoPortSockets>>
-      port_sockets;
-  port_sockets.push_back(
-      absl::make_unique<p4rt_app::sonic::PacketIoPortSockets>("Ethernet1",
-                                                              fd[1]));
-
   boost::bimap<std::string, std::string> port_maps;
   port_maps.insert({"Ethernet1", "1"});
 
@@ -139,10 +131,12 @@ TEST(P4RuntimeImplTest, SendPacketOutEgressPortUsingPortNameOk) {
   EXPECT_CALL(*mock_call_adapter, ioctl)
       .WillOnce(DoAll(SetArgPointee<2>(if_resp), Return(0)));
   EXPECT_CALL(*mock_call_adapter, write).Times(1);
-  auto packetio_impl = absl::make_unique<sonic::PacketIoImpl>(
-      std::move(mock_call_adapter), std::move(port_sockets));
+  EXPECT_CALL(*mock_call_adapter, socket).WillOnce(Return(fd[1]));
+  EXPECT_CALL(*mock_call_adapter, if_nametoindex).WillOnce(Return(1));
+  sonic::PacketIoImpl packetio_impl(std::move(mock_call_adapter));
+  ASSERT_OK(packetio_impl.AddPacketIoPort("Ethernet1"));
   EXPECT_OK(SendPacketOut(ir_p4_info, /*translate_port_ids=*/false, port_maps,
-                          packetio_impl.get(), packet));
+                          &packetio_impl, packet));
 }
 
 TEST(P4RuntimeImplTest, SendPacketOutIngressInjectOk) {
@@ -154,11 +148,6 @@ TEST(P4RuntimeImplTest, SendPacketOutIngressInjectOk) {
       sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   int fd[2];
   EXPECT_GE(pipe(fd), 0);
-  std::vector<std::unique_ptr<p4rt_app::sonic::PacketIoPortSockets>>
-      port_sockets;
-  port_sockets.push_back(
-      absl::make_unique<p4rt_app::sonic::PacketIoPortSockets>("send_to_ingress",
-                                                              fd[1]));
 
   auto mock_call_adapter = absl::make_unique<sonic::MockSystemCallAdapter>();
   struct ifreq if_resp { /*ifr_name=*/
@@ -169,12 +158,14 @@ TEST(P4RuntimeImplTest, SendPacketOutIngressInjectOk) {
   EXPECT_CALL(*mock_call_adapter, ioctl)
       .WillOnce(DoAll(SetArgPointee<2>(if_resp), Return(0)));
   EXPECT_CALL(*mock_call_adapter, write).Times(1);
-  auto packetio_impl = absl::make_unique<sonic::PacketIoImpl>(
-      std::move(mock_call_adapter), std::move(port_sockets));
+  EXPECT_CALL(*mock_call_adapter, socket).WillOnce(Return(fd[1]));
+  EXPECT_CALL(*mock_call_adapter, if_nametoindex).WillOnce(Return(1));
+  sonic::PacketIoImpl packetio_impl(std::move(mock_call_adapter));
+  ASSERT_OK(packetio_impl.AddPacketIoPort(sonic::kSubmitToIngress));
 
   boost::bimap<std::string, std::string> port_maps;
   EXPECT_OK(SendPacketOut(ir_p4_info, /*translate_port_ids=*/true, port_maps,
-                          packetio_impl.get(), packet));
+                          &packetio_impl, packet));
 }
 
 TEST(P4RuntimeImplTest, SendPacketOutDuplicateId) {
@@ -187,23 +178,13 @@ TEST(P4RuntimeImplTest, SendPacketOutDuplicateId) {
        iter != packet.mutable_metadata()->end(); iter++) {
     iter->set_metadata_id(PACKET_OUT_EGRESS_PORT_ID);
   }
-
   pdpi::IrP4Info ir_p4_info =
       sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
-  int fd[2];
-  EXPECT_GE(pipe(fd), 0);
-  std::vector<std::unique_ptr<p4rt_app::sonic::PacketIoPortSockets>>
-      port_sockets;
-  port_sockets.push_back(
-      absl::make_unique<p4rt_app::sonic::PacketIoPortSockets>("Ethernet0",
-                                                              fd[1]));
-
   auto mock_call_adapter = absl::make_unique<sonic::MockSystemCallAdapter>();
-  auto packetio_impl = absl::make_unique<sonic::PacketIoImpl>(
-      std::move(mock_call_adapter), std::move(port_sockets));
+  sonic::PacketIoImpl packetio_impl(std::move(mock_call_adapter));
   boost::bimap<std::string, std::string> port_maps;
   ASSERT_THAT(SendPacketOut(ir_p4_info, /*translate_port_ids=*/true, port_maps,
-                            packetio_impl.get(), packet),
+                            &packetio_impl, packet),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
@@ -221,20 +202,12 @@ TEST(P4RuntimeImplTest, SendPacketOutIdMismatch) {
 
   pdpi::IrP4Info ir_p4_info =
       sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
-  int fd[2];
-  EXPECT_GE(pipe(fd), 0);
-  std::vector<std::unique_ptr<p4rt_app::sonic::PacketIoPortSockets>>
-      port_sockets;
-  port_sockets.push_back(
-      absl::make_unique<p4rt_app::sonic::PacketIoPortSockets>("Ethernet0",
-                                                              fd[1]));
-
   auto mock_call_adapter = absl::make_unique<sonic::MockSystemCallAdapter>();
-  auto packetio_impl = absl::make_unique<sonic::PacketIoImpl>(
-      std::move(mock_call_adapter), std::move(port_sockets));
+  sonic::PacketIoImpl packetio_impl(std::move(mock_call_adapter));
+
   boost::bimap<std::string, std::string> port_maps;
   ASSERT_THAT(SendPacketOut(ir_p4_info, /*translate_port_ids=*/true, port_maps,
-                            packetio_impl.get(), packet),
+                            &packetio_impl, packet),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
@@ -249,12 +222,6 @@ TEST(P4RuntimeImplTest, SendPacketOutMultipleValidValues) {
       sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   int fd[2];
   EXPECT_GE(pipe(fd), 0);
-  std::vector<std::unique_ptr<p4rt_app::sonic::PacketIoPortSockets>>
-      port_sockets;
-  port_sockets.push_back(
-      absl::make_unique<p4rt_app::sonic::PacketIoPortSockets>("send_to_ingress",
-                                                              fd[1]));
-
   auto mock_call_adapter = absl::make_unique<sonic::MockSystemCallAdapter>();
   struct ifreq if_resp { /*ifr_name=*/
     {""}, /*ifr_flags=*/{
@@ -264,11 +231,13 @@ TEST(P4RuntimeImplTest, SendPacketOutMultipleValidValues) {
   EXPECT_CALL(*mock_call_adapter, ioctl)
       .WillOnce(DoAll(SetArgPointee<2>(if_resp), Return(0)));
   EXPECT_CALL(*mock_call_adapter, write).Times(1);
-  auto packetio_impl = absl::make_unique<sonic::PacketIoImpl>(
-      std::move(mock_call_adapter), std::move(port_sockets));
+  EXPECT_CALL(*mock_call_adapter, socket).WillOnce(Return(fd[1]));
+  EXPECT_CALL(*mock_call_adapter, if_nametoindex).WillOnce(Return(1));
+  sonic::PacketIoImpl packetio_impl(std::move(mock_call_adapter));
+  ASSERT_OK(packetio_impl.AddPacketIoPort(sonic::kSubmitToIngress));
   boost::bimap<std::string, std::string> port_maps;
   ASSERT_OK(SendPacketOut(ir_p4_info, /*translate_port_ids=*/true, port_maps,
-                          packetio_impl.get(), packet));
+                          &packetio_impl, packet));
 }
 
 TEST(P4RuntimeImplTest, SendPacketOutPortZero) {
@@ -281,11 +250,7 @@ TEST(P4RuntimeImplTest, SendPacketOutPortZero) {
       sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
   int fd[2];
   EXPECT_GE(pipe(fd), 0);
-  std::vector<std::unique_ptr<p4rt_app::sonic::PacketIoPortSockets>>
-      port_sockets;
-  port_sockets.push_back(
-      absl::make_unique<p4rt_app::sonic::PacketIoPortSockets>("Ethernet0",
-                                                              fd[1]));
+
   boost::bimap<std::string, std::string> port_maps;
   port_maps.insert({"Ethernet0", "0"});
 
@@ -298,10 +263,12 @@ TEST(P4RuntimeImplTest, SendPacketOutPortZero) {
   EXPECT_CALL(*mock_call_adapter, ioctl)
       .WillOnce(DoAll(SetArgPointee<2>(if_resp), Return(0)));
   EXPECT_CALL(*mock_call_adapter, write).Times(1);
-  auto packetio_impl = absl::make_unique<sonic::PacketIoImpl>(
-      std::move(mock_call_adapter), std::move(port_sockets));
+  EXPECT_CALL(*mock_call_adapter, socket).WillOnce(Return(fd[1]));
+  EXPECT_CALL(*mock_call_adapter, if_nametoindex).WillOnce(Return(1));
+  sonic::PacketIoImpl packetio_impl(std::move(mock_call_adapter));
+  ASSERT_OK(packetio_impl.AddPacketIoPort("Ethernet0"));
   ASSERT_OK(SendPacketOut(ir_p4_info, /*translate_port_ids=*/true, port_maps,
-                          packetio_impl.get(), packet));
+                          &packetio_impl, packet));
 }
 
 TEST(P4RuntimeImplTest, AddPacketInMetadataOk) {

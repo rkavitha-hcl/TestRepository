@@ -159,14 +159,6 @@ TEST(PacketIoTest, AddPacketIoPortOK) {
   EXPECT_NE(port_params->packet_in_selectable, nullptr);
 }
 
-TEST(PacketIoTest, DiscoverPacketIoPortsFail) {
-  MockSystemCallAdapter mock_call_adapter;
-  EXPECT_CALL(mock_call_adapter, getifaddrs).WillOnce(Return(-1));
-  EXPECT_THAT(DiscoverPacketIoPorts(mock_call_adapter),
-              StatusIs(absl::StatusCode::kInternal,
-                       HasSubstr("Failed to get interface list")));
-}
-
 TEST(PacketIoTest, CreateAndBindSocketFail) {
   MockSystemCallAdapter mock_call_adapter;
   // Set expectations for the CreateAndBindSockets.

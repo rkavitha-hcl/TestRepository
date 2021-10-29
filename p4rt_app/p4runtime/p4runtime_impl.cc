@@ -17,6 +17,7 @@
 
 #include <iomanip>
 #include <iostream>
+#include <memory>
 #include <sstream>
 #include <stdexcept>
 #include <string>
@@ -47,6 +48,8 @@
 #include "p4rt_app/sonic/app_db_acl_def_table_manager.h"
 #include "p4rt_app/sonic/app_db_manager.h"
 #include "p4rt_app/sonic/hashing.h"
+#include "p4rt_app/sonic/packetio_impl.h"
+#include "p4rt_app/sonic/packetio_interface.h"
 #include "p4rt_app/sonic/packetio_port.h"
 #include "p4rt_app/sonic/response_handler.h"
 #include "p4rt_app/sonic/vrf_entry_translation.h"
@@ -843,7 +846,8 @@ absl::Status P4RuntimeImpl::AddPortTranslation(const std::string& port_name,
            << "' because an entry already exists.";
   }
 
-  return absl::OkStatus();
+  // Add the port to Packet I/O.
+  return packetio_impl_->AddPacketIoPort(port_name);
 }
 
 absl::Status P4RuntimeImpl::RemovePortTranslation(
@@ -853,13 +857,17 @@ absl::Status P4RuntimeImpl::RemovePortTranslation(
   // Do not allow empty strings.
   if (port_name.empty()) {
     return absl::InvalidArgumentError(
-        "Cannot add port translation without the port name.");
+        "Cannot remove port translation without the port name.");
   }
 
   if (auto port = port_translation_map_.left.find(port_name);
       port != port_translation_map_.left.end()) {
     port_translation_map_.left.erase(port);
+
+    // Remove port from Packet I/O.
+    RETURN_IF_ERROR(packetio_impl_->RemovePacketIoPort(port_name));
   }
+
   return absl::OkStatus();
 }
 
@@ -908,7 +916,8 @@ absl::Status P4RuntimeImpl::ApplyForwardingPipelineConfig(
   return absl::OkStatus();
 }
 
-absl::StatusOr<std::thread> P4RuntimeImpl::StartReceive(bool use_genetlink) {
+absl::StatusOr<std::thread> P4RuntimeImpl::StartReceive(
+    const bool use_genetlink) {
   // Define the lambda function for the callback to be executed for every
   // receive packet.
   auto SendPacketInToController =
@@ -958,8 +967,11 @@ absl::StatusOr<std::thread> P4RuntimeImpl::StartReceive(bool use_genetlink) {
   };
 
   absl::MutexLock l(&server_state_lock_);
-  // Now that all packet io ports have been discovered, start the receive thread
-  // that will wait for in packets.
+  if (packetio_impl_ == nullptr) {
+    return absl::InvalidArgumentError("PacketIoImpl is a required object");
+  }
+
+  // Spawn the receiver thread.
   return packetio_impl_->StartReceive(SendPacketInToController, use_genetlink);
 }
 

@@ -206,6 +206,7 @@ cc_library(
     deps = [
         ":packetio_interface",
         ":packetio_port",
+        ":receive_genetlink",
         "//gutil:collections",
         "//p4rt_app/sonic/adapters:system_call_adapter",
         "@com_github_google_glog//:glog",
@@ -226,6 +227,7 @@ cc_library(
         "//gutil:collections",
         "@com_github_google_glog//:glog",
         "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",

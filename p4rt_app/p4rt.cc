@@ -203,16 +203,11 @@ int main(int argc, char** argv) {
   auto notification_channel_switch = absl::make_unique<swss::ConsumerNotifier>(
       "APPL_DB_SWITCH_TABLE_RESPONSE_CHANNEL", sonic_app_db.get());
 
+  // Create PacketIoImpl for Packet I/O.
+  auto packetio_impl = p4rt_app::sonic::PacketIoImpl::CreatePacketIoImpl();
+
   // Wait for PortInitDone to be done.
   p4rt_app::sonic::WaitForPortInitDone(*sonic_app_db);
-
-  // Create PacketIoImpl that will auto discover the ports.
-  auto packetio_impl_or = p4rt_app::sonic::PacketIoImpl::CreatePacketIoImpl();
-  if (!packetio_impl_or.ok()) {
-    LOG(ERROR) << "Couldnt discover Packet I/O ports, error: "
-               << packetio_impl_or.status();
-    return -1;
-  }
 
   // Create the P4RT server.
   p4rt_app::P4RuntimeImpl p4runtime_server(
@@ -221,7 +216,7 @@ int main(int argc, char** argv) {
       std::move(notification_channel_p4rt), std::move(app_db_table_vrf),
       std::move(notification_channel_vrf), std::move(app_db_table_hash),
       std::move(notification_channel_hash), std::move(app_db_table_switch),
-      std::move(notification_channel_switch), std::move(*packetio_impl_or),
+      std::move(notification_channel_switch), std::move(packetio_impl),
       component_state_singleton, system_state_singleton, FLAGS_use_genetlink,
       FLAGS_use_port_ids);
 

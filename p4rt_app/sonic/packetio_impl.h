@@ -21,6 +21,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
 #include "glog/logging.h"
 #include "p4rt_app/sonic/adapters/system_call_adapter.h"
 #include "p4rt_app/sonic/packetio_interface.h"
@@ -30,12 +31,14 @@
 namespace p4rt_app {
 namespace sonic {
 
+// Prefix for submit to ingress.
+inline constexpr absl::string_view kSubmitToIngress = "send_to_ingress";
+
 // Implementation class for PacketIoInterface.
 class PacketIoImpl final : public PacketIoInterface {
  public:
-  // Factory method to discover and create sockets for packetio interfaces.
-  static absl::StatusOr<std::unique_ptr<PacketIoInterface>>
-  CreatePacketIoImpl();
+  // Factory method to create packetio implementation interface.
+  static std::unique_ptr<PacketIoInterface> CreatePacketIoImpl();
   // Start the receive thread for the packet-io interfaces that invokes callback
   // function for every packet in.
   ABSL_MUST_USE_RESULT absl::StatusOr<std::thread> StartReceive(
@@ -52,24 +55,17 @@ class PacketIoImpl final : public PacketIoInterface {
   PacketIoImpl& operator=(const PacketIoImpl&) = delete;
   PacketIoImpl() = delete;
   // Use only in unit tests, use factory method otherwise.
-  PacketIoImpl(
-      std::unique_ptr<SystemCallAdapter> system_call_adapter,
-      std::vector<std::unique_ptr<sonic::PacketIoPortSockets>> port_sockets);
+  explicit PacketIoImpl(std::unique_ptr<SystemCallAdapter> system_call_adapter);
 
  private:
-  PacketIoImpl(std::unique_ptr<SystemCallAdapter> system_call_adapter,
-               const packet_metadata::ReceiveCallbackFunction callback_function,
-               const bool use_genetlink);
   // System call adapter object to call into the utility functions.
   const std::unique_ptr<SystemCallAdapter> system_call_adapter_;
-  // Vector of PacketIoPortSockets;
-  const std::vector<std::unique_ptr<sonic::PacketIoPortSockets>> port_sockets_;
   // Map of Transmit port names and the sockets.
   absl::flat_hash_map<std::string, int> port_to_socket_;
   // Callback function used in receive callbacks.
-  const packet_metadata::ReceiveCallbackFunction callback_function_;
+  packet_metadata::ReceiveCallbackFunction callback_function_;
   // Uses genetlink or netdev model for receive.
-  const bool use_genetlink_ = false;
+  bool use_genetlink_ = false;
   // Map of port to PacketInSelectables.
   absl::flat_hash_map<std::string, std::unique_ptr<PacketInSelectable>>
       port_to_selectables_;

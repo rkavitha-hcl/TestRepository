@@ -13,55 +13,29 @@
 // limitations under the License.
 #include "p4rt_app/sonic/packetio_impl.h"
 
+#include <memory>
+#include <thread>  //NOLINT
+#include <utility>
+
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "glog/logging.h"
 #include "gutil/collections.h"
+#include "p4rt_app/sonic/receive_genetlink.h"
+#include "swss/selectable.h"
 
 namespace p4rt_app {
 namespace sonic {
-namespace {
-
-// Helper function to set socket map.
-absl::flat_hash_map<std::string, int> CreateSocketMap(
-    const std::vector<std::unique_ptr<sonic::PacketIoPortSockets>>&
-        port_sockets) {
-  absl::flat_hash_map<std::string, int> socket_map;
-  // Populate the socket map.
-  for (const auto& port : port_sockets) {
-    socket_map[port->port_name] = port->port_socket;
-  }
-  return socket_map;
-}
-
-}  // namespace
 
 PacketIoImpl::PacketIoImpl(
-    std::unique_ptr<SystemCallAdapter> system_call_adapter,
-    std::vector<std::unique_ptr<sonic::PacketIoPortSockets>> port_sockets)
-    : system_call_adapter_(std::move(system_call_adapter)),
-      port_sockets_(std::move(port_sockets)),
-      port_to_socket_(CreateSocketMap(port_sockets_)) {}
+    std::unique_ptr<SystemCallAdapter> system_call_adapter)
+    : system_call_adapter_(std::move(system_call_adapter)) {}
 
-PacketIoImpl::PacketIoImpl(
-    std::unique_ptr<SystemCallAdapter> system_call_adapter,
-    const packet_metadata::ReceiveCallbackFunction callback_function,
-    const bool use_genetlink)
-    : system_call_adapter_(std::move(system_call_adapter)),
-      callback_function_(callback_function),
-      use_genetlink_(use_genetlink) {}
-
-absl::StatusOr<std::unique_ptr<PacketIoInterface>>
-PacketIoImpl::CreatePacketIoImpl() {
-  auto system_call_adapter = absl::make_unique<SystemCallAdapter>();
-  auto port_sockets_or =
-      p4rt_app::sonic::DiscoverPacketIoPorts(*system_call_adapter);
-  if (!port_sockets_or.ok()) {
-    return gutil::InternalErrorBuilder() << port_sockets_or.status();
-  }
-  auto packetio_impl = absl::make_unique<PacketIoImpl>(
-      std::move(system_call_adapter), std::move(*port_sockets_or));
-  return packetio_impl;
+std::unique_ptr<PacketIoInterface> PacketIoImpl::CreatePacketIoImpl() {
+  return std::make_unique<PacketIoImpl>(std::make_unique<SystemCallAdapter>());
 }
 
 absl::Status PacketIoImpl::SendPacketOut(absl::string_view port_name,
@@ -71,17 +45,6 @@ absl::Status PacketIoImpl::SendPacketOut(absl::string_view port_name,
       auto socket, gutil::FindOrStatus(port_to_socket_, std::string(port_name)),
       _ << "Unable to find transmit socket for destination: " << port_name);
   return sonic::SendPacketOut(*system_call_adapter_, socket, port_name, packet);
-}
-
-absl::StatusOr<std::thread> PacketIoImpl::StartReceive(
-    packet_metadata::ReceiveCallbackFunction callback_function,
-    bool use_genetlink) {
-  LOG(INFO) << "Spawning Rx thread";
-  if (use_genetlink) {
-    return packet_metadata::StartReceive(callback_function);
-  } else {
-    return sonic::StartReceive(callback_function, port_to_socket_);
-  }
 }
 
 absl::Status PacketIoImpl::AddPacketIoPort(absl::string_view port_name) {
@@ -123,6 +86,13 @@ absl::Status PacketIoImpl::AddPacketIoPort(absl::string_view port_name) {
 }
 
 absl::Status PacketIoImpl::RemovePacketIoPort(absl::string_view port_name) {
+  // Nothing to do if this is not an interesting port(Ethernet* and
+  // submit_to_ingress) for Packet I/O.
+  if (!absl::StartsWith(port_name, "Ethernet") &&
+      !absl::StartsWith(port_name, kSubmitToIngress)) {
+    return absl::OkStatus();
+  }
+
   auto it = port_to_selectables_.find(port_name);
   if (it == port_to_selectables_.end()) {
     return absl::InvalidArgumentError(absl::StrCat(
@@ -149,6 +119,33 @@ absl::Status PacketIoImpl::RemovePacketIoPort(absl::string_view port_name) {
   port_to_socket_.erase(port_name);
 
   return absl::OkStatus();
+}
+
+absl::StatusOr<std::thread> PacketIoImpl::StartReceive(
+    packet_metadata::ReceiveCallbackFunction callback_function,
+    const bool use_genetlink) {
+  if (callback_function == nullptr) {
+    return absl::InvalidArgumentError("Callback function cannot be null");
+  }
+  callback_function_ = std::move(callback_function);
+  use_genetlink_ = use_genetlink;
+
+  // Add the SubmitToIngerss port explicitly, if present.
+  if (IsValidSystemPort(*system_call_adapter_, kSubmitToIngress)) {
+    RETURN_IF_ERROR(AddPacketIoPort(kSubmitToIngress));
+  }
+  if (use_genetlink_) {
+    return packet_metadata::StartReceive(callback_function_);
+  } else {
+    return std::thread([this] {
+      LOG(INFO) << "Successfully created Receive thread";
+      while (true) {
+        swss::Selectable* sel;
+        port_select_.select(&sel);
+      }
+      // Never expected to be here.
+    });
+  }
 }
 
 }  // namespace sonic

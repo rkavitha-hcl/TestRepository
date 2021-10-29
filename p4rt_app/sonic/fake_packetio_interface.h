@@ -16,9 +16,12 @@
 #ifndef GOOGLE_P4RT_APP_SONIC_FAKE_PACKETIO_INTERFACE_H_
 #define GOOGLE_P4RT_APP_SONIC_FAKE_PACKETIO_INTERFACE_H_
 
+#include <string>
 #include <thread>  //NOLINT
+#include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
@@ -48,7 +51,7 @@ class FakePacketIoInterface final : public PacketIoInterface {
   // Faked methods.
   absl::StatusOr<std::thread> StartReceive(
       packet_metadata::ReceiveCallbackFunction callback_function,
-      bool use_genetlink = false);
+      bool use_genetlink);
   absl::Status SendPacketOut(absl::string_view port_name,
                              const std::string& packet);
   absl::Status AddPacketIoPort(absl::string_view port_name);
@@ -57,6 +60,7 @@ class FakePacketIoInterface final : public PacketIoInterface {
  private:
   // Used for fake implementation.
   packet_metadata::ReceiveCallbackFunction callback_function_;
+  absl::flat_hash_set<std::string> valid_ports_;
   absl::flat_hash_map<std::string, std::vector<std::string>> transmit_packets_;
 };
 

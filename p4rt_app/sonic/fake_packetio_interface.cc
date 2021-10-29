@@ -14,6 +14,7 @@
 #include "p4rt_app/sonic/fake_packetio_interface.h"
 
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "glog/logging.h"
 #include "gutil/collections.h"
 
@@ -25,6 +26,10 @@ absl::Status FakePacketIoInterface::PushPacketIn(
     absl::string_view packet) const {
   VLOG(1) << "Pushing packet in: " << source_port << ", " << target_port << ", "
           << packet;
+  if (valid_ports_.find(source_port) == valid_ports_.end()) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Not a valid port for PacketIn: ", source_port));
+  }
   // Invoke the callback function for the passed in packets.
   return callback_function_(std::string(source_port), std::string(target_port),
                             std::string(packet));
@@ -42,9 +47,12 @@ absl::StatusOr<std::vector<std::string>> FakePacketIoInterface::VerifyPacketOut(
 
 // Faked methods.
 absl::StatusOr<std::thread> FakePacketIoInterface::StartReceive(
-    packet_metadata::ReceiveCallbackFunction callback_function,
+    const packet_metadata::ReceiveCallbackFunction callback_function,
     bool use_genetlink) {
   VLOG(1) << "Start Receive.";
+  if (callback_function == nullptr) {
+    return absl::InvalidArgumentError("Callback function cannot be null");
+  }
   callback_function_ = callback_function;
   return std::thread();
 }
@@ -52,18 +60,29 @@ absl::StatusOr<std::thread> FakePacketIoInterface::StartReceive(
 absl::Status FakePacketIoInterface::SendPacketOut(absl::string_view port_name,
                                                   const std::string& packet) {
   VLOG(1) << "Sending packet out: " << port_name << ", " << packet;
+  if (!valid_ports_.contains(port_name)) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Unable to find port for PacketOut: ", port_name));
+  }
   transmit_packets_[port_name].push_back(packet);
   return absl::OkStatus();
 }
 
 absl::Status FakePacketIoInterface::AddPacketIoPort(
     absl::string_view port_name) {
-  return absl::UnimplementedError("");
+  valid_ports_.emplace(port_name);
+  return absl::OkStatus();
 }
 
 absl::Status FakePacketIoInterface::RemovePacketIoPort(
     absl::string_view port_name) {
-  return absl::UnimplementedError("");
+  const auto it = valid_ports_.find(port_name);
+  if (it == valid_ports_.end()) {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Unable to find port for removal: ", port_name));
+  }
+  valid_ports_.erase(it);
+  return absl::OkStatus();
 }
 
 }  // namespace sonic
