@@ -112,6 +112,7 @@ message Ipv4TableEntry {
       SetWcmpGroupIdAction set_wcmp_group_id = 3;
       SetNexthopIdAction set_nexthop_id = 2;
       DropAction drop = 1;
+      TrapAction trap = 4;
     }
   }
   Action action = 2;
@@ -130,6 +131,7 @@ message Ipv6TableEntry {
       SetWcmpGroupIdAction set_wcmp_group_id = 3;
       SetNexthopIdAction set_nexthop_id = 2;
       DropAction drop = 1;
+      TrapAction trap = 4;
     }
   }
   Action action = 2;
@@ -226,7 +228,7 @@ message AclIngressTableEntry {
   message Action {
     oneof action {
       CopyAction copy = 1;
-      TrapAction trap = 2;
+      AclTrapAction acl_trap = 2;
       ForwardAction forward = 3;
       MirrorAction mirror = 4;
       AclDropAction acl_drop = 5;
@@ -381,6 +383,8 @@ message MirrorAsIpv4ErspanAction {
 
 message AdmitToL3Action {}
 
+message TrapAction {}
+
 message SetVrfAction {
   // Refers to 'vrf_table.vrf_id'.
   string vrf_id = 1;  // Format::STRING
@@ -390,7 +394,7 @@ message CopyAction {
   string qos_queue = 1;  // Format::STRING
 }
 
-message TrapAction {
+message AclTrapAction {
   string qos_queue = 1;  // Format::STRING
 }
 

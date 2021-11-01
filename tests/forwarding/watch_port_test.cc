@@ -200,7 +200,7 @@ absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession& p4_session,
                                               acl_ingress_table_entry {
                                                 match {}  # Wildcard match.
                                                 action {
-                                                  trap { qos_queue: "0x1" }
+                                                  acl_trap { qos_queue: "0x1" }
                                                 }            # Action: punt.
                                                 priority: 1  # Highest priority.
                                               }

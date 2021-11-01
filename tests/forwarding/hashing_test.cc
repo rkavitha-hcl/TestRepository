@@ -170,9 +170,9 @@ absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession* const p4_session) {
           gutil::ParseProtoOrDie<sai::TableEntry>(
               R"pb(
                 acl_ingress_table_entry {
-                  match {}                              # Wildcard match.
-                  action { trap { qos_queue: "0x1" } }  # Action: punt.
-                  priority: 1                           # Highest priority.
+                  match {}                                  # Wildcard match.
+                  action { acl_trap { qos_queue: "0x1" } }  # Action: punt.
+                  priority: 1                               # Highest priority.
                 }
               )pb")));
   return pdpi::InstallPiTableEntry(p4_session, punt_all_pi_entry);

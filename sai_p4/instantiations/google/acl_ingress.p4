@@ -37,7 +37,7 @@ control acl_ingress(in headers_t headers,
   // Copy the packet to the CPU. The original packet is dropped.
   @id(ACL_INGRESS_TRAP_ACTION_ID)
   @sai_action(SAI_PACKET_ACTION_TRAP)
-  action trap(@sai_action_param(QOS_QUEUE) @id(1) qos_queue_t qos_queue) {
+  action acl_trap(@sai_action_param(QOS_QUEUE) @id(1) qos_queue_t qos_queue) {
     copy(qos_queue);
     mark_to_drop(standard_metadata);
   }
@@ -140,7 +140,7 @@ control acl_ingress(in headers_t headers,
     actions = {
       // TODO: add action to set color to yellow
       @proto_id(1) copy();
-      @proto_id(2) trap();
+      @proto_id(2) acl_trap();
       @proto_id(3) forward();
       @proto_id(4) mirror();
       @proto_id(5) acl_drop(standard_metadata);

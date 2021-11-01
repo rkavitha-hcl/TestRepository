@@ -212,6 +212,10 @@ tables {
     id: 16777220
     annotations: "@proto_id(3)"
   }
+  action_refs {
+    id: 16777231
+    annotations: "@proto_id(4)"
+  }
   const_default_action_id: 16777222
   size: 32768
 }
@@ -249,6 +253,10 @@ tables {
   action_refs {
     id: 16777220
     annotations: "@proto_id(3)"
+  }
+  action_refs {
+    id: 16777231
+    annotations: "@proto_id(4)"
   }
   const_default_action_id: 16777222
   size: 4096
@@ -518,6 +526,13 @@ actions {
     type_name {
       name: "wcmp_group_id_t"
     }
+  }
+}
+actions {
+  preamble {
+    id: 16777231
+    name: "ingress.routing.trap"
+    alias: "trap"
   }
 }
 actions {

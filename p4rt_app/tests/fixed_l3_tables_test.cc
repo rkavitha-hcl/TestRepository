@@ -12,16 +12,17 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 #include <memory>
+#include <set>
 #include <string>
-#include <tuple>
-#include <type_traits>
 #include <unordered_map>
 #include <utility>
+#include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
-#include "absl/strings/str_cat.h"
-#include "glog/logging.h"
+#include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "gmock/gmock.h"
 #include "grpcpp/security/credentials.h"
 #include "gtest/gtest.h"
@@ -34,12 +35,14 @@
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
+#include "p4_pdpi/pd.h"
 #include "p4rt_app/tests/lib/app_db_entry_builder.h"
 #include "p4rt_app/tests/lib/p4runtime_component_test_fixture.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
 #include "p4rt_app/tests/lib/p4runtime_request_helpers.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
+#include "sai_p4/instantiations/google/sai_pd.pb.h"
 #include "swss/fakes/fake_sonic_db_table.h"
 
 namespace p4rt_app {
@@ -181,88 +184,6 @@ TEST_F(FixedL3TableTest, SupportNexthopTableFlows) {
   EXPECT_THAT(
       p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(nexthop_entry.GetKey()),
       IsOkAndHolds(UnorderedElementsAreArray(nexthop_entry.GetValueMap())));
-}
-
-TEST_F(FixedL3TableTest, SupportIpv4TableFlow) {
-  // P4 write request.
-  ASSERT_OK_AND_ASSIGN(
-      p4::v1::WriteRequest request,
-      test_lib::PdWriteRequestToPi(
-          R"pb(
-            updates {
-              type: INSERT
-              table_entry {
-                ipv4_table_entry {
-                  match {
-                    vrf_id: "50"
-                    ipv4_dst { value: "10.81.8.0" prefix_length: 23 }
-                  }
-                  action { set_nexthop_id { nexthop_id: "8" } }
-                }
-              }
-            }
-          )pb",
-          ir_p4_info_));
-
-  // Expected P4RT AppDb entry.
-  auto expected_entry = test_lib::AppDbEntryBuilder{}
-                            .SetTableName("FIXED_IPV4_TABLE")
-                            .AddMatchField("ipv4_dst", "10.81.8.0/23")
-                            .AddMatchField("vrf_id", "50")
-                            .SetAction("set_nexthop_id")
-                            .AddActionParam("nexthop_id", "8");
-
-  EXPECT_OK(
-      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
-  EXPECT_THAT(
-      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
-      IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
-
-  // Sanity check that vrf_id_t translations are read back correctly.
-  p4::v1::ReadRequest read_request;
-  read_request.add_entities()->mutable_table_entry();
-  ASSERT_OK_AND_ASSIGN(
-      p4::v1::ReadResponse read_response,
-      pdpi::SetMetadataAndSendPiReadRequest(p4rt_session_.get(), read_request));
-  ASSERT_EQ(read_response.entities_size(), 1);  // Only one write.
-  EXPECT_THAT(read_response.entities(0),
-              EqualsProto(request.updates(0).entity()));
-}
-
-TEST_F(FixedL3TableTest, SupportIpv6TableFlow) {
-  // P4 write request.
-  ASSERT_OK_AND_ASSIGN(
-      p4::v1::WriteRequest request,
-      test_lib::PdWriteRequestToPi(
-          R"pb(
-            updates {
-              type: INSERT
-              table_entry {
-                ipv6_table_entry {
-                  match {
-                    vrf_id: "80"
-                    ipv6_dst { value: "2002:a17:506:c114::" prefix_length: 64 }
-                  }
-                  action { set_nexthop_id { nexthop_id: "20" } }
-                }
-              }
-            }
-          )pb",
-          ir_p4_info_));
-
-  // Expected P4RT AppDb entry.
-  auto expected_entry = test_lib::AppDbEntryBuilder{}
-                            .SetTableName("FIXED_IPV6_TABLE")
-                            .AddMatchField("ipv6_dst", "2002:a17:506:c114::/64")
-                            .AddMatchField("vrf_id", "80")
-                            .SetAction("set_nexthop_id")
-                            .AddActionParam("nexthop_id", "20");
-
-  EXPECT_OK(
-      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
-  EXPECT_THAT(
-      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
-      IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
 }
 
 TEST_F(FixedL3TableTest, SupportMyStationFlowWithPort) {
@@ -435,6 +356,139 @@ TEST_F(FixedL3TableTest, MissingActionWhenRequiredFails) {
                                              write_request),
       StatusIs(absl::StatusCode::kUnknown, HasSubstr("#1: INVALID_ARGUMENT")));
 }
+
+// Ensure we can program each of the L3 flow actions.
+class L3LpmTableTest : public FixedL3TableTest,
+                       public testing::WithParamInterface<std::string> {
+ public:
+  struct TestData {
+    struct AppDbEntry {
+      std::string action;
+      std::vector<std::pair<std::string, std::string>> params;
+    };
+
+    std::string pd_action;
+    AppDbEntry app_db;
+  };
+  using TestMap = absl::flat_hash_map<std::string, L3LpmTableTest::TestData>;
+
+  static const TestMap& GetTestMap();
+  static const std::set<std::string>& TestCases();
+
+ protected:
+  absl::StatusOr<p4::v1::WriteRequest> WriteRequest(const TestData& test_case);
+};
+
+const L3LpmTableTest::TestMap& L3LpmTableTest::GetTestMap() {
+  static const auto* const kTestMap = new TestMap({
+      {"drop", {.pd_action = R"pb(drop {})pb", .app_db = {.action = "drop"}}},
+
+      {"set_nexthop_id",
+       {.pd_action = R"pb(set_nexthop_id { nexthop_id: "13" })pb",
+        .app_db = {.action = "set_nexthop_id",
+                   .params = {{"nexthop_id", "13"}}}}},
+
+      {"set_wcmp_group_id",
+       {.pd_action = R"pb(set_wcmp_group_id { wcmp_group_id: "23" })pb",
+        .app_db = {.action = "set_wcmp_group_id",
+                   .params = {{"wcmp_group_id", "23"}}}}},
+      {"trap", {.pd_action = R"pb(trap {})pb", .app_db = {.action = "trap"}}},
+  });
+  return *kTestMap;
+}
+
+const std::set<std::string>& L3LpmTableTest::TestCases() {
+  static const auto* const kTestCases = []() {
+    auto* test_cases = new std::set<std::string>();
+    for (const auto& [test_case_name, test_data] : GetTestMap()) {
+      test_cases->insert(test_case_name);
+    }
+    return test_cases;
+  }();
+  return *kTestCases;
+}
+
+TEST_P(L3LpmTableTest, SupportIpv4TableFlow) {
+  constexpr absl::string_view kPdRequestTemplate = R"pb(
+    updates {
+      type: INSERT
+      table_entry {
+        ipv4_table_entry {
+          match {
+            vrf_id: "50"
+            ipv4_dst { value: "10.81.8.0" prefix_length: 23 }
+          }
+          action { $0 }
+        }
+      }
+    }
+  )pb";
+  TestData test_data = GetTestMap().at(GetParam());
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::WriteRequest request,
+      test_lib::PdWriteRequestToPi(
+          absl::Substitute(kPdRequestTemplate, test_data.pd_action),
+          ir_p4_info_));
+
+  test_lib::AppDbEntryBuilder expected_entry;
+  expected_entry.SetTableName("FIXED_IPV4_TABLE")
+      .AddMatchField("ipv4_dst", "10.81.8.0/23")
+      .AddMatchField("vrf_id", "50")
+      .SetAction(test_data.app_db.action);
+  for (const auto& [param, value] : test_data.app_db.params) {
+    expected_entry.AddActionParam(param, value);
+  }
+
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_THAT(
+      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
+      IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
+}
+
+TEST_P(L3LpmTableTest, SupportIpv6TableFlow) {
+  constexpr absl::string_view kPdRequestTemplate = R"pb(
+    updates {
+      type: INSERT
+      table_entry {
+        ipv6_table_entry {
+          match {
+            vrf_id: "50"
+            ipv6_dst { value: "2002:a17:506:c114::" prefix_length: 64 }
+          }
+          action { $0 }
+        }
+      }
+    }
+  )pb";
+  TestData test_data = GetTestMap().at(GetParam());
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::WriteRequest request,
+      test_lib::PdWriteRequestToPi(
+          absl::Substitute(kPdRequestTemplate, test_data.pd_action),
+          ir_p4_info_));
+
+  test_lib::AppDbEntryBuilder expected_entry;
+  expected_entry.SetTableName("FIXED_IPV6_TABLE")
+      .AddMatchField("ipv6_dst", "2002:a17:506:c114::/64")
+      .AddMatchField("vrf_id", "50")
+      .SetAction(test_data.app_db.action);
+  for (const auto& [param, value] : test_data.app_db.params) {
+    expected_entry.AddActionParam(param, value);
+  }
+
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_THAT(
+      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(expected_entry.GetKey()),
+      IsOkAndHolds(UnorderedElementsAreArray(expected_entry.GetValueMap())));
+}
+
+INSTANTIATE_TEST_SUITE_P(PerAction, L3LpmTableTest,
+                         testing::ValuesIn(L3LpmTableTest::TestCases()),
+                         [](testing::TestParamInfo<std::string> info) {
+                           return info.param;
+                         });
 
 }  // namespace
 }  // namespace p4rt_app

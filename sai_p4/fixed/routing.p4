@@ -234,6 +234,13 @@ control routing(in headers_t headers,
     wcmp_group_id_value = wcmp_group_id;
   }
 
+  // Trap the packet and send it to CPU. Drop the packet in the dataplane.
+  @id(TRAP_ACTION_ID)
+  action trap() {
+    clone(CloneType.I2E, COPY_TO_CPU_SESSION_ID);
+    mark_to_drop(standard_metadata);
+  }
+
   @p4runtime_role(P4RUNTIME_ROLE_ROUTING)
   @id(ROUTING_IPV4_TABLE_ID)
   table ipv4_table {
@@ -249,6 +256,7 @@ control routing(in headers_t headers,
       @proto_id(1) drop;
       @proto_id(2) set_nexthop_id;
       @proto_id(3) set_wcmp_group_id;
+      @proto_id(4) trap;
     }
     const default_action = drop;
     size = ROUTING_IPV4_TABLE_MINIMUM_GUARANTEED_SIZE;
@@ -269,6 +277,7 @@ control routing(in headers_t headers,
       @proto_id(1) drop;
       @proto_id(2) set_nexthop_id;
       @proto_id(3) set_wcmp_group_id;
+      @proto_id(4) trap;
     }
     const default_action = drop;
     size = ROUTING_IPV6_TABLE_MINIMUM_GUARANTEED_SIZE;
