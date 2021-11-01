@@ -449,10 +449,10 @@ absl::StatusOr<SutToControlLink> PickSutToControlDeviceLinkThatsUp(
     thinkit::MirrorTestbed &testbed) {
   // TODO: Pick dynamically instead of hard-coding.
   return SutToControlLink{
-      .sut_port_gnmi_name = "Ethernet28",
-      .sut_port_p4rt_name = "516",
-      .control_device_port_gnmi_name = "Ethernet28",
-      .control_device_port_p4rt_name = "516",
+      .sut_port_gnmi_name = "Ethernet0",
+      .sut_port_p4rt_name = "1",
+      .control_device_port_gnmi_name = "Ethernet0",
+      .control_device_port_p4rt_name = "1",
   };
 }
 
