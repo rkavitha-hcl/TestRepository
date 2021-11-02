@@ -238,10 +238,11 @@ void WriteBatchToAppDb(
 
   if (!p4rt_modifies.empty()) {
     std::vector<std::string> del_keys(p4rt_modifies.size());
-    for (const auto& key_value : p4rt_modifies) {
-      del_keys.push_back(
-          absl::StrCat(p4rt_table.get_table_name(), ":", kfvKey(key_value)));
+    for (int i = 0; i < p4rt_modifies.size(); ++i) {
+      del_keys[i] = absl::StrCat(p4rt_table.get_table_name(), ":",
+                                 kfvKey(p4rt_modifies[i]));
     }
+
     // On modify we need to first remove the existing entries to get rid of any
     // action paramters that may be replaced with a new action. Doing this
     // through the app_db_client will not invoke an action in the OrchAgent.
