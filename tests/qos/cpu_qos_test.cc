@@ -240,7 +240,7 @@ absl::Status SetUpPuntToCPU(const netaddr::MacAddress &dmac,
             src_ip { value: "$1" mask: "255.255.255.255" }
             dst_ip { value: "$2" mask: "255.255.255.255" }
           }
-          action { trap { qos_queue: "$3" } }
+          action { acl_trap { qos_queue: "$3" } }
           priority: 1
         }
       )pb",
