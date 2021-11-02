@@ -14,6 +14,7 @@ cc_test(
         "//p4_pdpi:pd",
         "//p4_symbolic:parser",
         "//p4_symbolic:z3_util",
+        "//p4_symbolic/sai",
         "//p4_symbolic/sai:parser",
         "//p4_symbolic/symbolic",
         "//sai_p4/instantiations/google:instantiations",

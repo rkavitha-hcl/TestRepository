@@ -27,6 +27,7 @@
 #include "p4_pdpi/pd.h"
 #include "p4_symbolic/parser.h"
 #include "p4_symbolic/sai/parser.h"
+#include "p4_symbolic/sai/sai.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 #include "p4_symbolic/z3_util.h"
 #include "sai_p4/instantiations/google/instantiations.h"
@@ -98,6 +99,42 @@ class P4SymbolicComponentTest : public testing::Test {
       absl::make_unique<thinkit::BazelTestEnvironment>(
           /*mask_known_failures=*/true);
 };
+
+absl::StatusOr<std::string> GenerateSmtForSaiPiplelineWithSimpleEntries() {
+  const auto instantiation = sai::Instantiation::kMiddleblock;
+  const auto platform = sai::NonstandardPlatform::kP4Symbolic;
+  const P4Info p4info = sai::GetNonstandardP4Info(instantiation, platform);
+  ASSIGN_OR_RETURN(const pdpi::IrP4Info ir_p4info,
+                   pdpi::CreateIrP4Info(p4info));
+  auto pd_entries = ParseProtoOrDie<sai::TableEntries>(kTableEntries);
+  std::vector<p4::v1::TableEntry> pi_entries;
+  for (auto& pd_entry : pd_entries.entries()) {
+    ASSIGN_OR_RETURN(pi_entries.emplace_back(),
+                     pdpi::PdTableEntryToPi(ir_p4info, pd_entry));
+  }
+
+  // TODO: a workaround for using global Z3 context.
+  Z3Context(/*renew=*/true);
+
+  ASSIGN_OR_RETURN(std::unique_ptr<symbolic::SolverState> solver,
+                   EvaluateSaiPipeline(instantiation, pi_entries));
+
+  return solver->solver->to_smt2();
+}
+
+// Generate SMT constraints for the SAI pipeline from scratch multiple times and
+// make sure the results remain the same.
+TEST_F(P4SymbolicComponentTest, ConstraintGenerationIsDeterministicForSai) {
+  constexpr int kNumberOfRuns = 10;
+  ASSERT_OK_AND_ASSIGN(const std::string reference_smt_formula,
+                       GenerateSmtForSaiPiplelineWithSimpleEntries());
+  for (int run = 0; run < kNumberOfRuns; ++run) {
+    LOG(INFO) << "Run " << run;
+    ASSERT_OK_AND_ASSIGN(const std::string smt_formula,
+                         GenerateSmtForSaiPiplelineWithSimpleEntries());
+    ASSERT_THAT(smt_formula, Eq(reference_smt_formula));
+  }
+}
 
 TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
   // Some constants.
