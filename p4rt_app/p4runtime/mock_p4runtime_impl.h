@@ -60,6 +60,8 @@ class MockP4RuntimeImpl final : public P4RuntimeImpl {
   MOCK_METHOD(absl::Status, RemovePortTranslation,
               (const std::string& port_name), (override));
 
+  MOCK_METHOD(absl::Status, VerifyState, (), (override));
+
  private:
   swss::MockComponentStateHelper mock_component_state_helper_;
   swss::MockSystemStateHelper mock_system_state_helper_;

@@ -20,6 +20,7 @@
 #include "absl/status/status.h"
 #include "absl/synchronization/mutex.h"
 #include "absl/synchronization/notification.h"
+#include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "swss/consumernotifierinterface.h"
 #include "swss/dbconnectorinterface.h"
 
@@ -28,6 +29,7 @@ namespace p4rt_app {
 class StateVerificationEvents {
  public:
   explicit StateVerificationEvents(
+      P4RuntimeImpl& p4runtime,
       swss::ConsumerNotifierInterface& notification_channel,
       swss::DBConnectorInterface& response_channel);
 
@@ -46,6 +48,9 @@ class StateVerificationEvents {
   // SWSS DB connections are not thread safe so we should only handle one event
   // at a time.
   absl::Mutex event_lock_;
+
+  // P4Runtime service where we will verify state.
+  P4RuntimeImpl& p4runtime_;
 
   // SWSS notification channel that should be listening to events on the
   // VERIFY_STATE_REQ_CHANNEL in the StateDb.

@@ -53,6 +53,8 @@ P4RuntimeGrpcService::P4RuntimeGrpcService(
   // Connect SONiC AppDB tables with their equivelant AppStateDB tables.
   fake_p4rt_table_ = swss::FakeSonicDbTable(&fake_p4rt_state_table_);
   fake_vrf_table_ = swss::FakeSonicDbTable(&fake_vrf_state_table_);
+  fake_hash_table_ = swss::FakeSonicDbTable(&fake_hash_state_table_);
+  fake_switch_table_ = swss::FakeSonicDbTable(&fake_switch_state_table_);
 
   // Create AppDb interfaces used by the P4RT App.
   auto fake_app_db_client = absl::make_unique<swss::FakeDBConnector>();
@@ -92,6 +94,10 @@ P4RuntimeGrpcService::P4RuntimeGrpcService(
   fake_state_db_client->AddSonicDbTable(kP4rtTableName,
                                         &fake_p4rt_state_table_);
   fake_state_db_client->AddSonicDbTable(kVrfTableName, &fake_vrf_state_table_);
+  fake_state_db_client->AddSonicDbTable(kHashTableName,
+                                        &fake_hash_state_table_);
+  fake_state_db_client->AddSonicDbTable(kSwitchTableName,
+                                        &fake_switch_state_table_);
 
   // Create CounterDb interfaces used by the P4RT App.
   auto fake_counter_db_client = absl::make_unique<swss::FakeDBConnector>();
@@ -151,6 +157,10 @@ absl::Status P4RuntimeGrpcService::RemovePortTranslation(
   return p4runtime_server_->RemovePortTranslation(port_name);
 }
 
+absl::Status P4RuntimeGrpcService::VerifyState() {
+  return p4runtime_server_->VerifyState();
+}
+
 swss::FakeSonicDbTable& P4RuntimeGrpcService::GetP4rtAppDbTable() {
   return fake_p4rt_table_;
 }
@@ -169,6 +179,22 @@ swss::FakeSonicDbTable& P4RuntimeGrpcService::GetHashAppDbTable() {
 
 swss::FakeSonicDbTable& P4RuntimeGrpcService::GetSwitchAppDbTable() {
   return fake_switch_table_;
+}
+
+swss::FakeSonicDbTable& P4RuntimeGrpcService::GetP4rtAppStateDbTable() {
+  return fake_p4rt_state_table_;
+}
+
+swss::FakeSonicDbTable& P4RuntimeGrpcService::GetVrfAppStateDbTable() {
+  return fake_vrf_state_table_;
+}
+
+swss::FakeSonicDbTable& P4RuntimeGrpcService::GetHashAppStateDbTable() {
+  return fake_hash_state_table_;
+}
+
+swss::FakeSonicDbTable& P4RuntimeGrpcService::GetSwitchAppStateDbTable() {
+  return fake_switch_state_table_;
 }
 
 swss::FakeSonicDbTable& P4RuntimeGrpcService::GetP4rtCountersDbTable() {

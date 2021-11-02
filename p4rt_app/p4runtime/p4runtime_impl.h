@@ -98,7 +98,8 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
   grpc::Status GetForwardingPipelineConfig(
       grpc::ServerContext* context,
       const p4::v1::GetForwardingPipelineConfigRequest* request,
-      p4::v1::GetForwardingPipelineConfigResponse* response) override;
+      p4::v1::GetForwardingPipelineConfigResponse* response) override
+      ABSL_LOCKS_EXCLUDED(server_state_lock_);
 
   grpc::Status StreamChannel(
       grpc::ServerContext* context,
@@ -110,12 +111,24 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
   // pairs will be treated as a no-op, but re-use and empty values will be
   // rejected.
   virtual absl::Status AddPortTranslation(const std::string& port_name,
-                                          const std::string& port_id);
+                                          const std::string& port_id)
+      ABSL_LOCKS_EXCLUDED(server_state_lock_);
 
   // Will remove an existing port translation. If the translation does not exist
   // it is treated as a no-op and quitely passes. However, the port name cannot
   // be an empty string.
-  virtual absl::Status RemovePortTranslation(const std::string& port_name);
+  virtual absl::Status RemovePortTranslation(const std::string& port_name)
+      ABSL_LOCKS_EXCLUDED(server_state_lock_);
+
+  // Verifies state for the P4RT App. These are checks like:
+  //  * Do P4RT table entries match in AppStateDb and AppDb.
+  //  * Do VRF_TABLE entries match in AppStateDb and AppDb.
+  //  * Do HASH_TABLE entries match in AppStateDb and AppDb.
+  //  * Do SWITCH_TABLE entries match in AppStateDb and AppDb.
+  //
+  // NOTE: We do not verify ownership of table entries today. Therefore, shared
+  // tables (e.g. VRF_TABLE) could cause false positives.
+  virtual absl::Status VerifyState() ABSL_LOCKS_EXCLUDED(server_state_lock_);
 
  protected:
   // Simple constructor that should only be used for testing purposes.

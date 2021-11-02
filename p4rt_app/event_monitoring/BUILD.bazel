@@ -80,6 +80,7 @@ cc_library(
     hdrs = ["state_verification_events.h"],
     deps = [
         "//gutil:status",
+        "//p4rt_app/p4runtime:p4runtime_impl",
         "@com_github_google_glog//:glog",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
@@ -96,6 +97,7 @@ cc_test(
     deps = [
         ":state_verification_events",
         "//gutil:status_matchers",
+        "//p4rt_app/p4runtime:mock_p4runtime_impl",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/synchronization",
         "@com_google_googletest//:gtest_main",

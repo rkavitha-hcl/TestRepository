@@ -22,6 +22,7 @@
 #include "absl/time/time.h"
 #include "glog/logging.h"
 #include "gutil/status.h"
+#include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "swss/consumernotifierinterface.h"
 #include "swss/dbconnectorinterface.h"
 #include "swss/rediscommand.h"
@@ -32,9 +33,11 @@ constexpr absl::string_view kP4rtComponentName = "p4rt:p4rt";
 constexpr absl::string_view kVerificationRespTable = "VERIFY_STATE_RESP_TABLE";
 
 StateVerificationEvents::StateVerificationEvents(
+    P4RuntimeImpl& p4runtime,
     swss::ConsumerNotifierInterface& notification_channel,
     swss::DBConnectorInterface& response_channel)
-    : notification_channel_(notification_channel),
+    : p4runtime_(p4runtime),
+      notification_channel_(notification_channel),
       response_channel_(response_channel) {}
 
 absl::Status StateVerificationEvents::WaitForEventAndVerifyP4Runtime() {
@@ -56,8 +59,14 @@ absl::Status StateVerificationEvents::WaitForEventAndVerifyP4Runtime() {
     return absl::OkStatus();
   }
 
-  // TODO: run P4RuntimeImpl state verification.
+  // run P4RuntimeImpl state verification.
   std::string p4rt_status = "pass";
+  std::string error_string = "";
+  auto verification_status = p4runtime_.VerifyState();
+  if (!verification_status.ok()) {
+    p4rt_status = "fail";
+    error_string = verification_status.ToString();
+  }
 
   // When updating AppStateDb we don't need to notify the caller. Simply update
   // the P4RT app entry with the current data.
@@ -66,10 +75,10 @@ absl::Status StateVerificationEvents::WaitForEventAndVerifyP4Runtime() {
       {
           {"timestamp", key},
           {"status", p4rt_status},
-          {"err_str", ""},
+          {"err_str", error_string},
       });
 
-  return absl::OkStatus();
+  return verification_status;
 }
 
 void StateVerificationEvents::Start() {

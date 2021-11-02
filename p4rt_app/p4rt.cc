@@ -265,7 +265,7 @@ int main(int argc, char** argv) {
   swss::ConsumerNotifier state_verification_notifier("VERIFY_STATE_REQ_CHANNEL",
                                                      &state_verification_db);
   p4rt_app::StateVerificationEvents state_verification_event_monitor(
-      state_verification_notifier, state_verification_db);
+      p4runtime_server, state_verification_notifier, state_verification_db);
   state_verification_event_monitor.Start();
 
   // Start a P4 runtime server

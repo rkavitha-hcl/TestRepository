@@ -285,6 +285,31 @@ cc_test(
 )
 
 cc_library(
+    name = "state_verification",
+    srcs = ["state_verification.cc"],
+    hdrs = ["state_verification.h"],
+    deps = [
+        "//gutil:status",
+        "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@sonic_swss_common//:libswsscommon",
+    ],
+)
+
+cc_test(
+    name = "state_verification_test",
+    srcs = ["state_verification_test.cc"],
+    deps = [
+        ":state_verification",
+        "//gutil:status_matchers",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
+        "@sonic_swss_common//tests/mocks:mock_db_connector",
+    ],
+)
+
+cc_library(
     name = "vrf_entry_translation",
     srcs = ["vrf_entry_translation.cc"],
     hdrs = ["vrf_entry_translation.h"],

@@ -43,6 +43,7 @@ class P4RuntimeGrpcService {
   absl::Status AddPortTranslation(const std::string& port_name,
                                   const std::string& port_id);
   absl::Status RemovePortTranslation(const std::string& port_name);
+  absl::Status VerifyState();
 
   // Accessors for AppDb tables.
   swss::FakeSonicDbTable& GetP4rtAppDbTable();
@@ -50,6 +51,12 @@ class P4RuntimeGrpcService {
   swss::FakeSonicDbTable& GetVrfAppDbTable();
   swss::FakeSonicDbTable& GetHashAppDbTable();
   swss::FakeSonicDbTable& GetSwitchAppDbTable();
+
+  // Accessors for AppStateDb tables.
+  swss::FakeSonicDbTable& GetP4rtAppStateDbTable();
+  swss::FakeSonicDbTable& GetVrfAppStateDbTable();
+  swss::FakeSonicDbTable& GetHashAppStateDbTable();
+  swss::FakeSonicDbTable& GetSwitchAppStateDbTable();
 
   // Accessors for CounterDb tables.
   swss::FakeSonicDbTable& GetP4rtCountersDbTable();
@@ -75,6 +82,8 @@ class P4RuntimeGrpcService {
   // Faked StateDb tables.
   swss::FakeSonicDbTable fake_p4rt_state_table_;
   swss::FakeSonicDbTable fake_vrf_state_table_;
+  swss::FakeSonicDbTable fake_hash_state_table_;
+  swss::FakeSonicDbTable fake_switch_state_table_;
 
   // Faked PacketIO interface.
   sonic::FakePacketIoInterface* fake_packetio_interface_;  // No ownership.

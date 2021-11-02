@@ -22,6 +22,7 @@
 #include <stdexcept>
 #include <string>
 #include <type_traits>
+#include <vector>
 
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
@@ -52,6 +53,7 @@
 #include "p4rt_app/sonic/packetio_interface.h"
 #include "p4rt_app/sonic/packetio_port.h"
 #include "p4rt_app/sonic/response_handler.h"
+#include "p4rt_app/sonic/state_verification.h"
 #include "p4rt_app/sonic/vrf_entry_translation.h"
 #include "p4rt_app/utils/status_utility.h"
 #include "p4rt_app/utils/table_utility.h"
@@ -868,6 +870,57 @@ absl::Status P4RuntimeImpl::RemovePortTranslation(
     RETURN_IF_ERROR(packetio_impl_->RemovePacketIoPort(port_name));
   }
 
+  return absl::OkStatus();
+}
+
+absl::Status P4RuntimeImpl::VerifyState() {
+  absl::MutexLock l(&server_state_lock_);
+
+  std::vector<std::string> failures = {"P4RT App State Verification failures:"};
+
+  // Verify the P4RT entries.
+  std::vector<std::string> p4rt_table_failures =
+      sonic::VerifyAppStateDbAndAppDbEntries(
+          app_db_table_p4rt_->get_table_name(), *state_db_client_,
+          *app_db_client_);
+  if (!p4rt_table_failures.empty()) {
+    failures.insert(failures.end(), p4rt_table_failures.begin(),
+                    p4rt_table_failures.end());
+  }
+
+  // Verify the VRF_TABLE entries.
+  std::vector<std::string> vrf_table_failures =
+      sonic::VerifyAppStateDbAndAppDbEntries(
+          app_db_table_vrf_->get_table_name(), *state_db_client_,
+          *app_db_client_);
+  if (!vrf_table_failures.empty()) {
+    failures.insert(failures.end(), vrf_table_failures.begin(),
+                    vrf_table_failures.end());
+  }
+
+  // Verify the HASH_TABLE entries.
+  std::vector<std::string> hash_table_failures =
+      sonic::VerifyAppStateDbAndAppDbEntries(
+          app_db_table_hash_->get_table_name(), *state_db_client_,
+          *app_db_client_);
+  if (!hash_table_failures.empty()) {
+    failures.insert(failures.end(), hash_table_failures.begin(),
+                    hash_table_failures.end());
+  }
+
+  // Verify the SWITCH_TABLE entries.
+  std::vector<std::string> switch_table_failures =
+      sonic::VerifyAppStateDbAndAppDbEntries(
+          app_db_table_switch_->get_table_name(), *state_db_client_,
+          *app_db_client_);
+  if (!switch_table_failures.empty()) {
+    failures.insert(failures.end(), switch_table_failures.begin(),
+                    switch_table_failures.end());
+  }
+
+  if (failures.size() > 1) {
+    return gutil::UnknownErrorBuilder() << absl::StrJoin(failures, "\n  ");
+  }
   return absl::OkStatus();
 }
 
