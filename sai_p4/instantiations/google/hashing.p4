@@ -7,11 +7,25 @@
 #include "../../fixed/ids.h"
 #include "../../fixed/minimum_guaranteed_sizes.p4"
 
+#ifndef ECMP_HASH_SEED
 #define ECMP_HASH_SEED 0
-#define ECMP_HASH_OFFSET 0
+#endif
 
+#ifndef ECMP_HASH_OFFSET
+#define ECMP_HASH_OFFSET 0
+#endif
+
+#ifndef ECMP_HASH_ALGORITHM
+#define ECMP_HASH_ALGORITHM SAI_HASH_ALGORITHM_CRC_32LO
+#endif
+
+#ifndef LAG_HASH_SEED
 #define LAG_HASH_SEED 0
+#endif
+
+#ifndef LAG_HASH_OFFSET
 #define LAG_HASH_OFFSET 0
+#endif
 
 control hashing(in headers_t headers,
                 inout local_metadata_t local_metadata,
@@ -19,10 +33,7 @@ control hashing(in headers_t headers,
   bit<32> seed = 0;
   bit<4> offset = 0;
 
-  // TODO: need to set these values differently for S2 and S3
-  // S2 is SAI_HASH_ALGORITHM_CRC_CCITT with offset 4
-  // S3 is SAI_HASH_ALGORITHM_CRC       with offset 8
-  @sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)
+  @sai_hash_algorithm(ECMP_HASH_ALGORITHM)
   @sai_hash_seed(ECMP_HASH_SEED)
   @sai_hash_offset(ECMP_HASH_OFFSET)
   @id(SELECT_ECMP_HASH_ALGORITHM_ACTION_ID)

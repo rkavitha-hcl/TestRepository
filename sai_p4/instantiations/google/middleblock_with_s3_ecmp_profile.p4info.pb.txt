@@ -602,7 +602,7 @@ actions {
     alias: "select_ecmp_hash_algorithm"
     annotations: "@sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"
     annotations: "@sai_hash_seed(0)"
-    annotations: "@sai_hash_offset(0)"
+    annotations: "@sai_hash_offset(8)"
   }
 }
 actions {
