@@ -61,6 +61,20 @@ grpc::Status VerifyElectionIdIsUnused(
   return grpc::Status::OK;
 }
 
+grpc::Status VerifyElectionIdIsActive(
+    const absl::optional<std::string>& role_name,
+    const absl::optional<absl::uint128>& election_id,
+    absl::Span<const SdnConnection* const> active_connections) {
+  for (const auto& connection : active_connections) {
+    if (connection->GetRoleName() == role_name &&
+        connection->GetElectionId() == election_id) {
+      return grpc::Status::OK;
+    }
+  }
+  return grpc::Status(grpc::StatusCode::PERMISSION_DENIED,
+                      "Election ID is not active for the role.");
+}
+
 }  // namespace
 
 void SdnConnection::SetElectionId(const absl::optional<absl::uint128>& id) {
@@ -265,7 +279,8 @@ grpc::Status SdnControllerManager::AllowRequest(
     return grpc::Status(grpc::StatusCode::PERMISSION_DENIED,
                         "Only the primary connection can issue requests.");
   }
-  return grpc::Status::OK;
+
+  return VerifyElectionIdIsActive(role_name, election_id, connections_);
 }
 
 grpc::Status SdnControllerManager::AllowRequest(

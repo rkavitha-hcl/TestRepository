@@ -599,5 +599,34 @@ TEST_F(ArbitrationTest, ConnectionCannotChangeItsRoleId) {
             grpc::StatusCode::FAILED_PRECONDITION);
 }
 
+TEST_F(ArbitrationTest, CannotSendRequestsAfterDisconnecting) {
+  grpc::ClientContext stream0_context;
+  std::unique_ptr<P4RuntimeStream> stream0 =
+      stub_->StreamChannel(&stream0_context);
+
+  // Send arbitration request to establish the connection.
+  p4::v1::StreamMessageResponse stream_response;
+  p4::v1::StreamMessageRequest stream_request;
+  stream_request.mutable_arbitration()->set_device_id(GetDeviceId());
+  stream_request.mutable_arbitration()->mutable_election_id()->set_high(2);
+  ASSERT_OK_AND_ASSIGN(stream_response,
+                       SendStreamRequest(*stream0, stream_request));
+  ASSERT_EQ(stream_response.arbitration().status().code(),
+            grpc::StatusCode::OK);
+
+  // Close the stream to flush the connection for the P4RT service.
+  stream0->WritesDone();
+  EXPECT_OK(stream0->Finish());
+
+  // The write request should fail because we don't have an active connection.
+  p4::v1::WriteRequest request;
+  request.set_device_id(GetDeviceId());
+  request.mutable_election_id()->set_high(2);
+  p4::v1::WriteResponse response;
+  grpc::ClientContext context;
+  EXPECT_EQ(stub_->Write(&context, request, &response).error_code(),
+            grpc::StatusCode::PERMISSION_DENIED);
+}
+
 }  // namespace
 }  // namespace p4rt_app
