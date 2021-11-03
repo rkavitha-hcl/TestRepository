@@ -233,9 +233,6 @@ absl::Status RemovePiTableEntries(
     P4RuntimeSession* session, const IrP4Info& info,
     absl::Span<const p4::v1::TableEntry> pi_entries);
 
-// Checks that there are no table entries.
-absl::Status CheckNoTableEntries(P4RuntimeSession* session);
-
 // Clears the table entries.
 absl::Status ClearTableEntries(P4RuntimeSession* session);
 
