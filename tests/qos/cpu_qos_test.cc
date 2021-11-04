@@ -1130,6 +1130,8 @@ TEST_P(CpuQosTestWithIxia, TestCPUQueueAssignmentAndQueueRateLimit) {
   ASSERT_OK(generic_testbed->Environment().StoreTestArtifact(
       "gnmi_config.txt", GetParam().gnmi_config));
 
+  ASSERT_GT(GetParam().control_plane_bandwidth_bps, 0);
+
   thinkit::Switch &sut = generic_testbed->Sut();
 
   // Push GNMI config.
@@ -1382,6 +1384,8 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
   ASSERT_OK(generic_testbed->Environment().StoreTestArtifact(
       "gnmi_config.txt", GetParam().gnmi_config));
 
+  ASSERT_GT(GetParam().control_plane_bandwidth_bps, 0);
+
   thinkit::Switch &sut = generic_testbed->Sut();
 
   // Push GNMI config.
@@ -1506,9 +1510,13 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
     // doesnt take effect.
     int flow_rate_limit_in_bytes_per_second =
         (kMaxFrameSize * queue_info.rate_packets_per_second) / 2;
-    // Set burst size to twice the number of frames that can
-    // are being sent per second.
-    int flow_burst_limit_in_bytes = flow_rate_limit_in_bytes_per_second * 2;
+
+    if (flow_rate_limit_in_bytes_per_second >
+        GetParam().control_plane_bandwidth_bps) {
+      flow_rate_limit_in_bytes_per_second =
+          GetParam().control_plane_bandwidth_bps / 2;
+    }
+
     // TODO : Need to fix supported CPU queues. Currently, punting
     // to queue 0 is not supported by OA in SONiC.
     if (generic_testbed->Environment().MaskKnownFailures() &&
@@ -1521,10 +1529,11 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
 
     ASSERT_OK_AND_ASSIGN(
         p4::v1::TableEntry pi_acl_entry,
-        SetUpPuntToCPUWithRateLimit(
-            dest_mac, source_ip, dest_ip, queue_info.p4_queue_name,
-            flow_rate_limit_in_bytes_per_second, flow_burst_limit_in_bytes,
-            GetParam().p4info, *sut_p4_session));
+        SetUpPuntToCPUWithRateLimit(dest_mac, source_ip, dest_ip,
+                                    queue_info.p4_queue_name,
+                                    flow_rate_limit_in_bytes_per_second,
+                                    /*burst_in_bytes=*/kMaxFrameSize,
+                                    GetParam().p4info, *sut_p4_session));
 
     // Reset received packet count at tester for each iteration.
     {
