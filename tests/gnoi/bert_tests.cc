@@ -66,6 +66,8 @@ constexpr absl::Duration kWaitToReadOperStatus = absl::Seconds(30);
 constexpr absl::Duration kPollInterval = absl::Seconds(30);
 // Minimum wait time after the BERT request to read the BERT result.
 constexpr absl::Duration kWaitTime = absl::Seconds(30);
+// Wait time for ports to be up after re-enabling admin down ports.
+constexpr absl::Duration kPortsUpWaitTime = absl::Seconds(30);
 
 constexpr uint8_t kMaxAllowedInterfacesToRunBert = 96;
 
@@ -985,7 +987,7 @@ TEST_P(BertTest, RunBertOnMaximumAllowedPorts) {
       kEnabledTrue));
 
   // Wait for some time before checking the port status.
-  absl::SleepFor(absl::Seconds(10));
+  absl::SleepFor(kPortsUpWaitTime);
 
   ASSERT_OK(pins_test::PortsUp(sut));
   ASSERT_OK(pins_test::PortsUp(control_switch));
