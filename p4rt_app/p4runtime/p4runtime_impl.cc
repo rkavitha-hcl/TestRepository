@@ -119,25 +119,25 @@ sonic::AppDbTableType GetAppDbTableType(
   return sonic::AppDbTableType::P4RT;
 }
 
-// Read P4Runtime table entries out of the AppDb, and append them to the read
-// response.
+// Read P4Runtime table entries out of the AppStateDb, and append them to the
+// read response.
 absl::Status AppendTableEntryReads(
     p4::v1::ReadResponse& response, const p4::v1::TableEntry& pi_table_entry,
     const pdpi::IrP4Info& p4_info, const std::string& role_name,
     bool translate_port_ids,
     const boost::bimap<std::string, std::string>& port_translation_map,
-    swss::DBConnectorInterface& app_db_client,
+    swss::DBConnectorInterface& app_state_db_client,
     swss::DBConnectorInterface& counters_db_client) {
   RETURN_IF_ERROR(SupportedTableEntryRequest(pi_table_entry));
 
   // Get all P4RT keys from the AppDb.
   for (const auto& app_db_key :
-       sonic::GetAllAppDbP4TableEntryKeys(app_db_client)) {
+       sonic::GetAllAppDbP4TableEntryKeys(app_state_db_client)) {
     // Read a single table entry out of the AppDb
     ASSIGN_OR_RETURN(
         pdpi::IrTableEntry ir_table_entry,
-        sonic::ReadAppDbP4TableEntry(p4_info, app_db_client, counters_db_client,
-                                     app_db_key));
+        sonic::ReadAppDbP4TableEntry(p4_info, app_state_db_client,
+                                     counters_db_client, app_db_key));
 
     // Only attach the entry if the role expects it.
     auto allow_access =
@@ -167,7 +167,7 @@ absl::Status AppendTableEntryReads(
 
   // Get all VRF_TABLE entries from the AppDb.
   ASSIGN_OR_RETURN(std::vector<pdpi::IrTableEntry> vrf_entries,
-                   sonic::GetAllAppDbVrfTableEntries(app_db_client));
+                   sonic::GetAllAppDbVrfTableEntries(app_state_db_client));
   for (const auto& ir_table_entry : vrf_entries) {
     auto translate_status = pdpi::IrTableEntryToPi(p4_info, ir_table_entry);
     if (!translate_status.ok()) {
@@ -185,7 +185,7 @@ absl::StatusOr<p4::v1::ReadResponse> DoRead(
     const p4::v1::ReadRequest& request, const pdpi::IrP4Info p4_info,
     bool translate_port_ids,
     const boost::bimap<std::string, std::string>& port_translation_map,
-    swss::DBConnectorInterface& app_db_client,
+    swss::DBConnectorInterface& app_state_db_client,
     swss::DBConnectorInterface& counters_db_client) {
   p4::v1::ReadResponse response;
   for (const auto& entity : request.entities()) {
@@ -194,7 +194,7 @@ absl::StatusOr<p4::v1::ReadResponse> DoRead(
       case p4::v1::Entity::kTableEntry: {
         RETURN_IF_ERROR(AppendTableEntryReads(
             response, entity.table_entry(), p4_info, request.role(),
-            translate_port_ids, port_translation_map, app_db_client,
+            translate_port_ids, port_translation_map, app_state_db_client,
             counters_db_client));
         break;
       }
@@ -560,7 +560,7 @@ grpc::Status P4RuntimeImpl::Read(
 
     auto response_status =
         DoRead(*request, ir_p4info_.value(), translate_port_ids_,
-               port_translation_map_, *app_db_client_, *counter_db_client_);
+               port_translation_map_, *state_db_client_, *counter_db_client_);
     if (!response_status.ok()) {
       LOG(WARNING) << "Read failure: " << response_status.status();
       return grpc::Status(

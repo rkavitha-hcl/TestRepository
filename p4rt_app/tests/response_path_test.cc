@@ -646,7 +646,7 @@ TEST_F(ResponsePathTest, EnforceOrdering) {
 
 TEST_F(ResponsePathTest, ReadingUnexpectedValueFails) {
   // Force the response path to return an unexpected notification key.
-  p4rt_service_.GetP4rtAppDbTable().InsertTableEntry(
+  p4rt_service_.GetP4rtAppStateDbTable().InsertTableEntry(
       /*key=*/"out_of_order", /*values=*/{{"action", "invalid_action_name"}});
 
   // The P4RT App should be the only writer to the P4RT table. Therefore, if we
