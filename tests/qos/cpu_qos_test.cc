@@ -1381,6 +1381,9 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
   generic_testbed->Environment().SetTestCaseID(
       "6638a3a0-1955-435f-a034-17ab4bdec60d");
 
+  // TODO: Skip test till known failure is fixed.
+  GTEST_SKIP() << "Skipping till b/203545459 is fixed";
+
   ASSERT_OK(generic_testbed->Environment().StoreTestArtifact(
       "gnmi_config.txt", GetParam().gnmi_config));
 
@@ -1576,8 +1579,7 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
         << " after injecting the Ixia test packets via CPU queue "
         << queue_name;
 
-    // TODO: Remove masking this failure once bug is fixed.
-    if (!generic_testbed->Environment().MaskKnownFailures()) {
+    {
       absl::MutexLock lock(&packet_receive_info.mutex);
 
       LOG(INFO) << "Packets received at Controller: "
