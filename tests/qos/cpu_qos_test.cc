@@ -496,6 +496,22 @@ absl::StatusOr<SutToControlLink> PickSutToControlDeviceLinkThatsUp(
   };
 }
 
+absl::StatusOr<p4::v1::TableEntry> MakeRouterInterface(
+    absl::string_view router_interface_id, absl::string_view p4rt_port_name,
+    const netaddr::MacAddress &mac, const pdpi::IrP4Info &ir_p4info) {
+  ASSIGN_OR_RETURN(
+      auto pd_entry,
+      gutil::ParseTextProto<sai::TableEntry>(absl::Substitute(
+          R"pb(
+            router_interface_table_entry {
+              match { router_interface_id: "$0" }
+              action { set_port_and_src_mac { port: "$1" src_mac: "$2" } }
+            }
+          )pb",
+          router_interface_id, p4rt_port_name, mac.ToString())));
+  return pdpi::PdTableEntryToPi(ir_p4info, pd_entry);
+}
+
 // Returns vector of packets for which we will test that the packet does not
 // reach the CPU (when we haven't explicitly configure the switch otherwise).
 absl::StatusOr<std::vector<packetlib::Packet>>
@@ -698,6 +714,18 @@ TEST_P(CpuQosTestWithoutIxia,
       std::unique_ptr<pdpi::P4RuntimeSession> control_p4rt_session,
       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(control_device,
                                                              p4info));
+  // We install a RIF to make this test non-trivial, as all packets are dropped
+  // by default if no RIF exists (b/190736007).
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::TableEntry router_interface_entry,
+      MakeRouterInterface(
+          /*router_interface_id=*/"ingress-rif-to-workaround-b/190736007",
+          /*p4rt_port_name=*/link_used_for_test_packets.sut_port_p4rt_name,
+          // An arbitrary MAC address will do.
+          /*mac=*/netaddr::MacAddress(0x00, 0x07, 0xE9, 0x42, 0xAC, 0x28),
+          /*ir_p4info=*/ir_p4info));
+  ASSERT_OK(pdpi::InstallPiTableEntry(sut_p4rt_session.get(),
+                                      router_interface_entry));
 
   // Extract loopback IPs from gNMI config, to avoid using them in test packets.
   using IpAddresses =
@@ -809,6 +837,18 @@ TEST_P(CpuQosTestWithoutIxia, PerEntryAclCounterIncrementsWhenEntryIsHit) {
       std::unique_ptr<pdpi::P4RuntimeSession> control_p4rt_session,
       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(control_device,
                                                              p4info));
+  // We install a RIF to make this test non-trivial, as all packets are dropped
+  // by default if no RIF exists (b/190736007).
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::TableEntry router_interface_entry,
+      MakeRouterInterface(
+          /*router_interface_id=*/"ingress-rif-to-workaround-b/190736007",
+          /*p4rt_port_name=*/link_used_for_test_packets.sut_port_p4rt_name,
+          // An arbitrary MAC address will do.
+          /*mac=*/netaddr::MacAddress(0x00, 0x07, 0xE9, 0x42, 0xAC, 0x28),
+          /*ir_p4info=*/ir_p4info));
+  ASSERT_OK(pdpi::InstallPiTableEntry(sut_p4rt_session.get(),
+                                      router_interface_entry));
 
   // Install ACL table entry to be hit with a test packet.
   ASSERT_OK_AND_ASSIGN(const sai::TableEntry pd_acl_entry,
@@ -932,6 +972,21 @@ TEST_P(CpuQosTestWithoutIxia, TrafficToLoopackIpGetsMappedToCorrectQueues) {
       std::unique_ptr<pdpi::P4RuntimeSession> control_p4rt_session,
       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(control_device,
                                                              p4info));
+  // TODO: Unless a RIF exists at the test packet ingress port,
+  // packets will be dropped. Remove this once these RIFs are set up via
+  // gNMI.
+  if (Testbed().Environment().MaskKnownFailures()) {
+    ASSERT_OK_AND_ASSIGN(
+        p4::v1::TableEntry router_interface_entry,
+        MakeRouterInterface(
+            /*router_interface_id=*/"ingress-rif-to-workaround-b/190736007",
+            /*p4rt_port_name=*/
+            link_used_for_test_packets.sut_port_p4rt_name,
+            /*mac=*/kSutMacAddress,
+            /*ir_p4info=*/ir_p4info));
+    ASSERT_OK(
+        pdpi::InstallPiTableEntry(p4rt_session.get(), router_interface_entry));
+  }
 
   // Extract DSCP-to-queue mapping from gNMI config.
   using QueueNameByDscp = absl::flat_hash_map<int, std::string>;
