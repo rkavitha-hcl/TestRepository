@@ -219,6 +219,20 @@ cc_library(
     ],
 )
 
+cc_test(
+    name = "packetio_impl_test",
+    srcs = ["packetio_impl_test.cc"],
+    deps = [
+        ":packetio_impl",
+        "//gutil:status_matchers",
+        "//p4rt_app/sonic/adapters:mock_system_call_adapter",
+        "@com_google_absl//absl/cleanup",
+        "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
 cc_library(
     name = "fake_packetio_interface",
     srcs = ["fake_packetio_interface.cc"],
@@ -227,11 +241,13 @@ cc_library(
         ":packetio_interface",
         "//gutil:collections",
         "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/synchronization",
     ],
 )
 

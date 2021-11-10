@@ -43,19 +43,26 @@ class PacketIoImpl final : public PacketIoInterface {
   // function for every packet in.
   ABSL_MUST_USE_RESULT absl::StatusOr<std::thread> StartReceive(
       packet_metadata::ReceiveCallbackFunction callback_function,
-      bool use_genetlink);
+      bool use_genetlink) override;
   // Add a new port to Packet I/O.
-  absl::Status AddPacketIoPort(absl::string_view port_name);
+  absl::Status AddPacketIoPort(absl::string_view port_name) override;
   // Remove an existing port from Packet I/O.
-  absl::Status RemovePacketIoPort(absl::string_view port_name);
+  absl::Status RemovePacketIoPort(absl::string_view port_name) override;
   // Send the given packet out on the specified interface.
   absl::Status SendPacketOut(absl::string_view port_name,
-                             const std::string& packet);
+                             const std::string& packet) override;
+  // Checks if a transmit socket exists for the specified port.
+  bool IsValidPortForTransmit(absl::string_view port_name) const;
+  // Checks if a receive socket (netdev model) exists for the specified port.
+  bool IsValidPortForReceive(absl::string_view port_name) const;
   PacketIoImpl(const PacketIoImpl&) = delete;
   PacketIoImpl& operator=(const PacketIoImpl&) = delete;
   PacketIoImpl() = delete;
   // Use only in unit tests, use factory method otherwise.
-  explicit PacketIoImpl(std::unique_ptr<SystemCallAdapter> system_call_adapter);
+  explicit PacketIoImpl(
+      std::unique_ptr<SystemCallAdapter> system_call_adapter,
+      packet_metadata::ReceiveCallbackFunction callback_function = nullptr,
+      bool use_genetlink = false);
 
  private:
   // System call adapter object to call into the utility functions.

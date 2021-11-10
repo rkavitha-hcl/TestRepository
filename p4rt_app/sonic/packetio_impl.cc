@@ -31,11 +31,17 @@ namespace p4rt_app {
 namespace sonic {
 
 PacketIoImpl::PacketIoImpl(
-    std::unique_ptr<SystemCallAdapter> system_call_adapter)
-    : system_call_adapter_(std::move(system_call_adapter)) {}
+    std::unique_ptr<SystemCallAdapter> system_call_adapter,
+    packet_metadata::ReceiveCallbackFunction callback_function,
+    bool use_genetlink)
+    : system_call_adapter_(std::move(system_call_adapter)),
+      callback_function_(std::move(callback_function)),
+      use_genetlink_(use_genetlink) {}
 
 std::unique_ptr<PacketIoInterface> PacketIoImpl::CreatePacketIoImpl() {
-  return std::make_unique<PacketIoImpl>(std::make_unique<SystemCallAdapter>());
+  return std::make_unique<PacketIoImpl>(std::make_unique<SystemCallAdapter>(),
+                                        /*callback_function=*/nullptr,
+                                        /*use_genetlink=*/false);
 }
 
 absl::Status PacketIoImpl::SendPacketOut(absl::string_view port_name,
@@ -100,25 +106,40 @@ absl::Status PacketIoImpl::RemovePacketIoPort(absl::string_view port_name) {
       return absl::InvalidArgumentError(absl::StrCat(
           "Unable to find selectables for port remove: ", port_name));
     }
-    std::unique_ptr<sonic::PacketInSelectable>& port_selectable = it->second;
 
     // Remove the port selectable from the selectables object.
+    std::unique_ptr<sonic::PacketInSelectable>& port_selectable = it->second;
     port_select_.removeSelectable(port_selectable.get());
     if (port_to_selectables_.erase(port_name) != 1) {
       return gutil::InternalErrorBuilder()
              << "Unable to remove selectable for this port: " << port_name;
     }
   }
-
   ASSIGN_OR_RETURN(auto socket,
                    gutil::FindOrStatus(port_to_socket_, std::string(port_name)),
                    _ << "Unable to find port: " << port_name);
   if (socket >= 0) {
-    close(socket);
+    system_call_adapter_->close(socket);
   }
   port_to_socket_.erase(port_name);
 
   return absl::OkStatus();
+}
+
+bool PacketIoImpl::IsValidPortForTransmit(absl::string_view port_name) const {
+  return port_to_socket_.contains(port_name);
+}
+
+bool PacketIoImpl::IsValidPortForReceive(absl::string_view port_name) const {
+  // Receive valid only if there is a callback function.
+  if (callback_function_ == nullptr) return false;
+
+  // For netdev model, additionally check that the receive socket exists.
+  if (!use_genetlink_) {
+    return port_to_selectables_.contains(port_name);
+  }
+
+  return true;
 }
 
 absl::StatusOr<std::thread> PacketIoImpl::StartReceive(

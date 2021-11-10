@@ -15,6 +15,7 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/synchronization/mutex.h"
 #include "glog/logging.h"
 #include "gutil/collections.h"
 
@@ -38,6 +39,7 @@ absl::Status FakePacketIoInterface::PushPacketIn(
 absl::StatusOr<std::vector<std::string>> FakePacketIoInterface::VerifyPacketOut(
     absl::string_view port_name) {
   VLOG(1) << "Verify packet out: " << port_name;
+  absl::MutexLock p(&packet_lock_);
   ASSIGN_OR_RETURN(
       const auto packets,
       gutil::FindOrStatus(transmit_packets_, std::string(port_name)),
@@ -64,6 +66,7 @@ absl::Status FakePacketIoInterface::SendPacketOut(absl::string_view port_name,
     return absl::InvalidArgumentError(
         absl::StrCat("Unable to find port for PacketOut: ", port_name));
   }
+  absl::MutexLock p(&packet_lock_);
   transmit_packets_[port_name].push_back(packet);
   return absl::OkStatus();
 }
