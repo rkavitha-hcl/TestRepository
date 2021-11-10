@@ -94,7 +94,7 @@ constexpr int kFrameCheckSequenceSize = 4;
 // gNMI have to be incremented after a packet hits a queue.
 // Empirically, for PINS, queue counters currently seem to get updated every
 // 10 seconds.
-constexpr absl::Duration kMaxQueueCounterUpdateTime = absl::Seconds(15);
+constexpr absl::Duration kMaxQueueCounterUpdateTime = absl::Seconds(20);
 
 // After pushing gNMI config to a switch, the tests sleep for this duration
 // assuming that the gNMI config will have been fully applied afterwards.
@@ -1013,7 +1013,10 @@ TEST_P(CpuQosTestWithoutIxia, TrafficToLoopackIpGetsMappedToCorrectQueues) {
               CumulativeNumPacketsEnqueued(queue_counters_before_test_packet) &&
           absl::Now() - time_packet_sent < kMaxQueueCounterUpdateTime);
 
-      EXPECT_EQ(
+      // We terminate early if this fails, as that can cause this loop to get
+      // out of sync when counters increment after a long delay, resulting in
+      // confusing error messages where counters increment by 2.
+      ASSERT_EQ(
           CumulativeNumPacketsEnqueued(queue_counters_after_test_packet),
           CumulativeNumPacketsEnqueued(queue_counters_before_test_packet) + 1)
           << "Counters for queue " << target_queue
