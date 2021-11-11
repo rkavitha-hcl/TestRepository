@@ -177,6 +177,13 @@ p4::v1::WriteRequest ConstructDeleteRequest(
   return delete_request;
 }
 
+// Mocks a `CheckNoEntries` call using the stub in a previously
+// mocked P4RuntimeSession.
+// Ensures that there are no table entries remaining.
+void MockCheckNoEntries(p4::v1::MockP4RuntimeStub& stub) {
+  SetNextReadResponse(stub, {});
+}
+
 // Mocks a ClearTableEntries call using the stub and p4info in a previously
 // mocked P4RuntimeSession.
 // Pulls the p4info from the switch, then reads a table entry, deletes it, and
@@ -207,9 +214,9 @@ void MockClearTableEntries(p4::v1::MockP4RuntimeStub& stub,
         Write(_, EqualsProto(ConstructDeleteRequest(metadata, table_entry)), _))
         .Times(1);
 
-    // Response for the second read, ensuring that the tables were successfully
-    // cleared. Thus, we make sure to read back no entries.
-    SetNextReadResponse(stub, {});
+    // Mocks a `CheckNoEntries` call, ensuring that the tables are really
+    // cleared.
+    MockCheckNoEntries(stub);
   }
 }
 
@@ -241,24 +248,29 @@ TEST(P4RuntimeSessionTest, CreateWithP4InfoAndClearTables) {
   // mock_switch.
   auto stub = absl::make_unique<p4::v1::MockP4RuntimeStub>();
   ASSERT_NE(stub, nullptr);
+  {
+    InSequence s;
+    // Mocks a P4RuntimeSession `Create` call.
+    // Constructs a ReaderWriter mock stream and completes an arbitration
+    // handshake.
+    MockP4RuntimeSessionCreate(*stub, metadata);
 
-  // Mocks a P4RuntimeSession `Create` call.
-  // Constructs a ReaderWriter mock stream and completes an arbitration
-  // handshake.
-  MockP4RuntimeSessionCreate(*stub, metadata);
+    // Mocks a `ClearTableEntries` call.
+    // Pulls the p4info from the switch, then reads a table entry, deletes it,
+    // and reads again ensuring that there are no table entries remaining.
+    MockClearTableEntries(*stub, p4info, metadata);
 
-  // Mocks a `ClearTableEntries` call.
-  // Pulls the p4info from the switch, then reads a table entry, deletes it, and
-  // reads again ensuring that there are no table entries remaining.
-  MockClearTableEntries(*stub, p4info, metadata);
+    // Mocks a `SetForwardingPipelineConfig` call.
+    EXPECT_CALL(*stub, SetForwardingPipelineConfig(
+                           _,
+                           EqualsProto(ConstructForwardingPipelineConfigRequest(
+                               p4info, metadata)),
+                           _))
+        .Times(1);
 
-  // Mocks a `SetForwardingPipelineConfig` call.
-  EXPECT_CALL(*stub, SetForwardingPipelineConfig(
-                         _,
-                         EqualsProto(ConstructForwardingPipelineConfigRequest(
-                             p4info, metadata)),
-                         _))
-      .Times(1);
+    // Mocks a `CheckNoEntries` call.
+    MockCheckNoEntries(*stub);
+  }
 
   // Mocks the first part of a P4RuntimeSession `Create` call.
   EXPECT_CALL(mock_switch, CreateP4RuntimeStub())

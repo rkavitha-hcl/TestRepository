@@ -171,6 +171,8 @@ P4RuntimeSession::CreateWithP4InfoAndClearTables(
       session.get(),
       p4::v1::SetForwardingPipelineConfigRequest_Action_RECONCILE_AND_COMMIT,
       p4info));
+  RETURN_IF_ERROR(CheckNoTableEntries(session.get())).SetPrepend()
+      << "cleared all table entries and set a new forwarding pipeline config: ";
   return session;
 }
 
@@ -292,6 +294,20 @@ absl::StatusOr<p4::v1::CounterData> ReadPiCounterData(
          << target_entry_signature.ShortDebugString() << ">";
 }
 
+absl::Status CheckNoTableEntries(P4RuntimeSession* session) {
+  ASSIGN_OR_RETURN(auto table_entries, ReadPiTableEntries(session));
+  if (!table_entries.empty()) {
+    return gutil::UnknownErrorBuilder()
+           << "expected no table entries on switch, but "
+           << table_entries.size() << " entries remain:\n"
+           << absl::StrJoin(table_entries, "",
+                            [](std::string* out, auto& entry) {
+                              absl::StrAppend(out, entry.DebugString());
+                            });
+  }
+  return absl::OkStatus();
+}
+
 absl::Status ClearTableEntries(P4RuntimeSession* session) {
   // Get P4Info from Switch. It is needed to sequence the delete requests.
   ASSIGN_OR_RETURN(
@@ -317,16 +333,9 @@ absl::Status ClearTableEntries(P4RuntimeSession* session) {
   RETURN_IF_ERROR(RemovePiTableEntries(session, info, table_entries));
 
   // Verify that all entries were cleared successfully.
-  ASSIGN_OR_RETURN(table_entries, ReadPiTableEntries(session));
-  if (!table_entries.empty()) {
-    return gutil::UnknownErrorBuilder()
-           << "cleared all table entries, yet " << table_entries.size()
-           << " entries remain:\n"
-           << absl::StrJoin(table_entries, "",
-                            [](std::string* out, auto& entry) {
-                              absl::StrAppend(out, entry.DebugString());
-                            });
-  }
+  RETURN_IF_ERROR(CheckNoTableEntries(session)).SetPrepend()
+      << "cleared all table entries: ";
+
   return absl::OkStatus();
 }
 
