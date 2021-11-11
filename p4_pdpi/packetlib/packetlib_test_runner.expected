@@ -350,6 +350,101 @@ ValidatePacket(packet) = INVALID_ARGUMENT: Packet invalid for the following reas
 - in Ipv4Header headers[1]: ihl: Correct value undefined since uninterpreted_options is invalid.
 - in Ipv4Header headers[1]: total_length: Must be 0x002e, but was 0x0018 instead.
 ================================================================================
+Parsing test: IPv4 packet with IP protocol 0xfd
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+# ethernet header
+    ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
+    ether_type: 0x0800
+    # IPv4 header:
+    version: 0x4
+    ihl: 0x5
+    dscp: 0b011011
+    ecn: 0b01
+    total_length: 0x0034
+    identification: 0xa3cd
+    flags: 0b000
+    fragment_offset: 0b0000000000000
+    ttl: 0x10
+    protocol: 0xfd  # Reserved for experimentation -- payload is arbitrary.
+    checksum: 0xe78f
+    ipv4_source: 0x0a000001
+    ipv4_destination: 0x14000003
+    # payload:
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
+-- OUTPUT ----------------------------------------------------------------------
+headers {
+  ethernet_header {
+    ethernet_destination: "aa:bb:cc:dd:ee:ff"
+    ethernet_source: "11:22:33:44:55:66"
+    ethertype: "0x0800"
+  }
+}
+headers {
+  ipv4_header {
+    version: "0x4"
+    ihl: "0x5"
+    dscp: "0x1b"
+    ecn: "0x1"
+    total_length: "0x0034"
+    identification: "0xa3cd"
+    flags: "0x0"
+    fragment_offset: "0x0000"
+    ttl: "0x10"
+    protocol: "0xfd"
+    checksum: "0xe78f"
+    ipv4_source: "10.0.0.1"
+    ipv4_destination: "20.0.0.3"
+  }
+}
+payload: "\000\021\"3DUfw\210\231\252\273\314\335\356\377\000\021\"3DUfw\210\231\252\273\314\335\356\377"
+
+================================================================================
+Parsing test: IPv6 packet with IP protocol 0xfe
+================================================================================
+-- INPUT -----------------------------------------------------------------------
+# ethernet header
+    ethernet_destination: 0xffeeddccbbaa
+    ethernet_source: 0x554433221100
+    ether_type: 0x86DD
+    # IPv6 header:
+    version: 0x6
+    dscp: 0b011011
+    ecn: 0b01
+    flow_label: 0x12345
+    payload_length: 0x0010
+    next_header: 0xfd  # Reserved for experimentation -- payload is arbitrary.
+    hop_limit: 0x03
+    ipv6_source: 0x00001111222233334444555566667777
+    ipv6_destination: 0x88889999aaaabbbbccccddddeeeeffff
+    # other headers:
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
+-- OUTPUT ----------------------------------------------------------------------
+headers {
+  ethernet_header {
+    ethernet_destination: "ff:ee:dd:cc:bb:aa"
+    ethernet_source: "55:44:33:22:11:00"
+    ethertype: "0x86dd"
+  }
+}
+headers {
+  ipv6_header {
+    version: "0x6"
+    dscp: "0x1b"
+    ecn: "0x1"
+    flow_label: "0x12345"
+    payload_length: "0x0010"
+    next_header: "0xfd"
+    hop_limit: "0x03"
+    ipv6_source: "0:1111:2222:3333:4444:5555:6666:7777"
+    ipv6_destination: "8888:9999:aaaa:bbbb:cccc:dddd:eeee:ffff"
+  }
+}
+payload: "\000\021\"3DUfw\210\231\252\273\314\335\356\377"
+
+================================================================================
 Parsing test: IPv6 packet (invalid)
 ================================================================================
 -- INPUT -----------------------------------------------------------------------

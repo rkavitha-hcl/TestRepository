@@ -87,6 +87,10 @@ absl::StatusOr<NextHeader> GetNextHeader(const Ipv4Header& header) {
   if (header.protocol() == "0x06") return Header::kTcpHeader;
   if (header.protocol() == "0x11") return Header::kUdpHeader;
   if (header.protocol() == "0x01") return Header::kIcmpHeader;
+  // The following IP protcol numbers are "reserved for experimentation",
+  // meaning the bits after the L3 header are arbitrary.
+  if (header.protocol() == "0xfd") return Header::HEADER_NOT_SET;
+  if (header.protocol() == "0xfe") return Header::HEADER_NOT_SET;
   return UnsupportedNextHeader{
       .reason = absl::StrFormat("ipv4_header.protocol %s: unsupported",
                                 header.protocol())};
@@ -95,6 +99,10 @@ absl::StatusOr<NextHeader> GetNextHeader(const Ipv6Header& header) {
   if (header.next_header() == "0x06") return Header::kTcpHeader;
   if (header.next_header() == "0x11") return Header::kUdpHeader;
   if (header.next_header() == "0x3a") return Header::kIcmpHeader;
+  // The following IP protcol numbers are "reserved for experimentation",
+  // meaning the bits after the L3 header are arbitrary.
+  if (header.next_header() == "0xfd") return Header::HEADER_NOT_SET;
+  if (header.next_header() == "0xfe") return Header::HEADER_NOT_SET;
   return UnsupportedNextHeader{
       .reason = absl::StrFormat("ipv6_header.next_header %s: unsupported",
                                 header.next_header())};

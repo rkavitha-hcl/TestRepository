@@ -311,6 +311,49 @@ void RunPacketParseTests() {
     uninterpreted_suffix: 0x11  # Should be 32 bits, but is only 8 bits.
   )pb");
 
+  RunPacketParseTest("IPv4 packet with IP protocol 0xfd", R"pb(
+    # ethernet header
+    ethernet_destination: 0xaabbccddeeff
+    ethernet_source: 0x112233445566
+    ether_type: 0x0800
+    # IPv4 header:
+    version: 0x4
+    ihl: 0x5
+    dscp: 0b011011
+    ecn: 0b01
+    total_length: 0x0034
+    identification: 0xa3cd
+    flags: 0b000
+    fragment_offset: 0b0000000000000
+    ttl: 0x10
+    protocol: 0xfd  # Reserved for experimentation -- payload is arbitrary.
+    checksum: 0xe78f
+    ipv4_source: 0x0a000001
+    ipv4_destination: 0x14000003
+    # payload:
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
+  )pb");
+
+  RunPacketParseTest("IPv6 packet with IP protocol 0xfe", R"pb(
+    # ethernet header
+    ethernet_destination: 0xffeeddccbbaa
+    ethernet_source: 0x554433221100
+    ether_type: 0x86DD
+    # IPv6 header:
+    version: 0x6
+    dscp: 0b011011
+    ecn: 0b01
+    flow_label: 0x12345
+    payload_length: 0x0010
+    next_header: 0xfd  # Reserved for experimentation -- payload is arbitrary.
+    hop_limit: 0x03
+    ipv6_source: 0x00001111222233334444555566667777
+    ipv6_destination: 0x88889999aaaabbbbccccddddeeeeffff
+    # other headers:
+    payload: 0x00 11 22 33 44 55 66 77 88 99 aa bb cc dd ee ff
+  )pb");
+
   RunPacketParseTest("IPv6 packet (invalid)", R"pb(
     # ethernet header
     ethernet_destination: 0xffeeddccbbaa
