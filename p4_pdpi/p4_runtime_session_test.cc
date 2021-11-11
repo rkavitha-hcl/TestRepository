@@ -280,7 +280,7 @@ struct P4SessionWithMockStub {
 absl::StatusOr<P4SessionWithMockStub> MakeP4SessionWithMockStub(
     P4RuntimeSessionOptionalArgs metadata = P4RuntimeSessionOptionalArgs()) {
   // No leak: P4RuntimeSession will take ownerhsip.
-  auto* mock_p4rt_stub = new p4::v1::MockP4RuntimeStub();
+  auto* mock_p4rt_stub = new testing::NiceMock<p4::v1::MockP4RuntimeStub>();
   MockP4RuntimeSessionCreate(*mock_p4rt_stub, metadata);
   ASSIGN_OR_RETURN(std::unique_ptr<P4RuntimeSession> p4rt_session,
                    P4RuntimeSession::Create(absl::WrapUnique(mock_p4rt_stub),
@@ -300,7 +300,7 @@ void SetDefaultReadResponse(p4::v1::MockP4RuntimeStub& mock_p4rt_stub,
       .WillByDefault([read_entries = std::move(read_entries)](auto*, auto&) {
         auto* reader =
             new grpc::testing::MockClientReader<p4::v1::ReadResponse>();
-        testing::InSequence s;
+        InSequence s;
         for (const auto& entry : read_entries) {
           EXPECT_CALL(*reader, Read)
               .WillOnce([&](p4::v1::ReadResponse* response) -> bool {
@@ -309,6 +309,7 @@ void SetDefaultReadResponse(p4::v1::MockP4RuntimeStub& mock_p4rt_stub,
               });
         }
         EXPECT_CALL(*reader, Read).WillOnce(Return(false));
+        EXPECT_CALL(*reader, Finish).WillOnce(Return(grpc::Status::OK));
         return reader;
       });
 }
