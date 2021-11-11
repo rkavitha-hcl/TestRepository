@@ -16,10 +16,9 @@ def pins_infra_deps():
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
             name = "com_github_grpc_grpc",
-            # Newest commit on main on 2021-09-24.
-            url = "https://github.com/grpc/grpc/archive/835eacc32dccd43c7c8689e682c01dad5bc09a42.zip",
-            strip_prefix = "grpc-835eacc32dccd43c7c8689e682c01dad5bc09a42",
-            sha256 = "0ec61ec90b73bdd0f15598af7d44faa1211c617fd9173e042420c730e35a0832",
+            url = "https://github.com/grpc/grpc/archive/v1.41.0.zip",
+            strip_prefix = "grpc-1.41.0",
+            sha256 = "827b33199857246cc3af99a23f8cadf46ce0191bf699e10a1239fa10dc67b495",
         )
     if not native.existing_rule("com_google_absl"):
         http_archive(
@@ -132,7 +131,7 @@ def pins_infra_deps():
             build_file_content = """cc_library(name = "nlohmann_json",
                                                visibility = ["//visibility:public"],
                                                hdrs = glob([
-                                                   "include/nlohmann/*.hpp", 
+                                                   "include/nlohmann/*.hpp",
                                                    "include/nlohmann/**/*.hpp",
                                                    ]),
                                                includes = ["include"],
