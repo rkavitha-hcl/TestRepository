@@ -76,6 +76,50 @@ p4::v1::MasterArbitrationUpdate ConstructMasterArbitrationUpdate(
   return master_arbitration_update;
 }
 
+// Configures the given `MockP4RuntimeStub` such that the given sequence of
+// table entries will be returned for the next P4RT Read request.
+void SetNextReadResponse(p4::v1::MockP4RuntimeStub& mock_p4rt_stub,
+                         std::vector<p4::v1::TableEntry> read_entries) {
+  EXPECT_CALL(mock_p4rt_stub, ReadRaw)
+      .WillOnce([read_entries = std::move(read_entries)](auto*, auto&) {
+        auto* reader =
+            new grpc::testing::MockClientReader<p4::v1::ReadResponse>();
+        InSequence s;
+        for (const auto& entry : read_entries) {
+          EXPECT_CALL(*reader, Read)
+              .WillOnce([=](p4::v1::ReadResponse* response) -> bool {
+                *response->add_entities()->mutable_table_entry() = entry;
+                return true;
+              });
+        }
+        EXPECT_CALL(*reader, Read).WillOnce(Return(false));
+        EXPECT_CALL(*reader, Finish).WillOnce(Return(grpc::Status::OK));
+        return reader;
+      });
+}
+
+// Configures the given `MockP4RuntimeStub` such that the given sequence of
+// table entries will be returned for any P4RT Read request by default.
+void SetDefaultReadResponse(p4::v1::MockP4RuntimeStub& mock_p4rt_stub,
+                            std::vector<p4::v1::TableEntry> read_entries) {
+  ON_CALL(mock_p4rt_stub, ReadRaw)
+      .WillByDefault([read_entries = std::move(read_entries)](auto*, auto&) {
+        auto* reader =
+            new grpc::testing::MockClientReader<p4::v1::ReadResponse>();
+        InSequence s;
+        for (const auto& entry : read_entries) {
+          EXPECT_CALL(*reader, Read)
+              .WillOnce([&](p4::v1::ReadResponse* response) -> bool {
+                *response->add_entities()->mutable_table_entry() = entry;
+                return true;
+              });
+        }
+        EXPECT_CALL(*reader, Read).WillOnce(Return(false));
+        EXPECT_CALL(*reader, Finish).WillOnce(Return(grpc::Status::OK));
+        return reader;
+      });
+}
+
 // Mocks a P4RuntimeSession::Create call with a stub by constructing a
 // ReaderWriter mock stream and mocking an arbitration handshake. This function
 // does not perform any of these operations, it only sets up expectations.
@@ -151,34 +195,11 @@ void MockClearTableEntries(p4::v1::MockP4RuntimeStub& stub,
 
   {
     InSequence s;
-    // Sets up the read request used to return table entries.
-    p4::v1::ReadRequest table_entry_read_request;
-    table_entry_read_request.add_entities()->mutable_table_entry();
-    table_entry_read_request.set_device_id(kDeviceId);
-    table_entry_read_request.set_role(metadata.role);
-
-    // The Reader constructed from the stub. This needs to be malloced as it is
-    // automatically freed when the unique pointer that it will be wrapped in is
-    // freed. The stream is wrapped in Read, which is the method of the stub
-    // that calls ReadRaw, but is not itself mocked.
-    // This reader is used to read table entries from our first read call.
-    auto* initial_reader =
-        new grpc::testing::MockClientReader<p4::v1::ReadResponse>();
-    EXPECT_CALL(stub, ReadRaw(_, EqualsProto(table_entry_read_request)))
-        .WillOnce(Return(initial_reader));  // During first check for entries.
-
     p4::v1::TableEntry table_entry = ConstructTableEntry();
 
     // We return a table entry so that the function exercises the deletion
     // portion of clearing table entries.
-    EXPECT_CALL(*initial_reader, Read)
-        .WillOnce([=](p4::v1::ReadResponse* initial_read_response) {
-          *initial_read_response->add_entities()->mutable_table_entry() =
-              table_entry;
-          return true;
-        })
-        .WillOnce(Return(false));  // Indicating that there is no more to read.
-    EXPECT_CALL(*initial_reader, Finish).WillOnce(Return(grpc::Status::OK));
+    SetNextReadResponse(stub, {table_entry});
 
     // Mocks the call to delete table entry that we have created.
     EXPECT_CALL(
@@ -186,25 +207,9 @@ void MockClearTableEntries(p4::v1::MockP4RuntimeStub& stub,
         Write(_, EqualsProto(ConstructDeleteRequest(metadata, table_entry)), _))
         .Times(1);
 
-    // The Reader constructed from the stub. This needs to be malloced as it is
-    // automatically freed when the unique pointer that it will be wrapped in is
-    // freed. The stream is wrapped in Read, which is the method of the stub
-    // that calls ReadRaw, but is not itself mocked.
-    // Used for the final confirmation check for emptiness.
-    auto* final_reader =
-        new grpc::testing::MockClientReader<p4::v1::ReadResponse>();
-    EXPECT_CALL(stub, ReadRaw(_, EqualsProto(table_entry_read_request)))
-        .WillOnce(Return(final_reader));  // During final check for emptiness.
-
     // Response for the second read, ensuring that the tables were successfully
-    // cleared. Thus, we make sure it has no entities.
-    EXPECT_CALL(*final_reader, Read)
-        .WillOnce([](p4::v1::ReadResponse* final_read_response) {
-          final_read_response->clear_entities();
-          return true;
-        })
-        .WillOnce(Return(false));  // Indicating that there is no more to read.
-    EXPECT_CALL(*final_reader, Finish).WillOnce(Return(grpc::Status::OK));
+    // cleared. Thus, we make sure to read back no entries.
+    SetNextReadResponse(stub, {});
   }
 }
 
@@ -290,28 +295,6 @@ absl::StatusOr<P4SessionWithMockStub> MakeP4SessionWithMockStub(
       .p4rt_session = std::move(p4rt_session),
       .mock_p4rt_stub = *mock_p4rt_stub,
   };
-}
-
-// Configures the given `MockP4RuntimeStub` such that the given sequence of
-// table entries will be returned for any P4RT Read request by default.
-void SetDefaultReadResponse(p4::v1::MockP4RuntimeStub& mock_p4rt_stub,
-                            std::vector<p4::v1::TableEntry> read_entries) {
-  ON_CALL(mock_p4rt_stub, ReadRaw)
-      .WillByDefault([read_entries = std::move(read_entries)](auto*, auto&) {
-        auto* reader =
-            new grpc::testing::MockClientReader<p4::v1::ReadResponse>();
-        InSequence s;
-        for (const auto& entry : read_entries) {
-          EXPECT_CALL(*reader, Read)
-              .WillOnce([&](p4::v1::ReadResponse* response) -> bool {
-                *response->add_entities()->mutable_table_entry() = entry;
-                return true;
-              });
-        }
-        EXPECT_CALL(*reader, Read).WillOnce(Return(false));
-        EXPECT_CALL(*reader, Finish).WillOnce(Return(grpc::Status::OK));
-        return reader;
-      });
 }
 
 TEST(ReadPiCounterDataTest, ReturnsNotFoundWhenNoEntriesPresent) {
