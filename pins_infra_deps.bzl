@@ -91,10 +91,10 @@ def pins_infra_deps():
     if not native.existing_rule("com_github_gnoi"):
         http_archive(
             name = "com_github_gnoi",
-            # Newest commit on main on 2021-05-20.
-            url = "https://github.com/openconfig/gnoi/archive/c4a8573f7f0070ce3cef0a8127c7541c2bc71e05.zip",
-            strip_prefix = "gnoi-c4a8573f7f0070ce3cef0a8127c7541c2bc71e05",
-            sha256 = "8e3d3fc6a8f28dc2acb4eafbeb9fda7522d28ae9dee3e4edf788efb9a65b39c9",
+            # Newest commit on main on 2021-11-08.
+            url = "https://github.com/openconfig/gnoi/archive/1ece8ed91a0d5d283219a99eb4dc6c7eadb8f287.zip",
+            strip_prefix = "gnoi-1ece8ed91a0d5d283219a99eb4dc6c7eadb8f287",
+            sha256 = "991ff13a0b28f2cdc2ccb123261e7554d9bcd95c00a127411939a3a8c8a9cc62",
         )
     if not native.existing_rule("com_github_p4lang_p4c"):
         http_archive(

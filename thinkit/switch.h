@@ -22,6 +22,7 @@
 #include "absl/status/statusor.h"
 #include "cert/cert.grpc.pb.h"
 #include "diag/diag.grpc.pb.h"
+#include "factory_reset/factory_reset.grpc.pb.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
 #include "system/system.grpc.pb.h"
@@ -48,6 +49,11 @@ class Switch {
   // Creates and returns a stub to the gNMI service.
   virtual absl::StatusOr<std::unique_ptr<gnmi::gNMI::StubInterface>>
   CreateGnmiStub() = 0;
+
+  // Creates and returns a stub to the gNOI Factory Reset service.
+  virtual absl::StatusOr<
+      std::unique_ptr<gnoi::factory_reset::FactoryReset::StubInterface>>
+  CreateGnoiFactoryResetStub() = 0;
 
   // Creates and returns a stub to the gNOI System service.
   virtual absl::StatusOr<std::unique_ptr<gnoi::system::System::StubInterface>>

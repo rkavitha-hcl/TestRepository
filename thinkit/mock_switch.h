@@ -21,6 +21,7 @@
 #include "absl/strings/string_view.h"
 #include "cert/cert.grpc.pb.h"
 #include "diag/diag.grpc.pb.h"
+#include "factory_reset/factory_reset.grpc.pb.h"
 #include "gmock/gmock.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
@@ -37,6 +38,10 @@ class MockSwitch : public Switch {
               CreateP4RuntimeStub, (), (override));
   MOCK_METHOD(absl::StatusOr<std::unique_ptr<gnmi::gNMI::StubInterface>>,
               CreateGnmiStub, (), (override));
+  MOCK_METHOD(
+      absl::StatusOr<
+          std::unique_ptr<gnoi::factory_reset::FactoryReset::StubInterface>>,
+      CreateGnoiFactoryResetStub, (), (override));
   MOCK_METHOD(
       absl::StatusOr<std::unique_ptr<gnoi::system::System::StubInterface>>,
       CreateGnoiSystemStub, (), (override));
