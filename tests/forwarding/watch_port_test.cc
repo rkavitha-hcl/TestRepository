@@ -411,7 +411,8 @@ void WatchPortTestFixture::SetUp() {
   ASSERT_OK(SetUpControlSwitch(*control_p4_session_, GetIrP4Info()));
 
   // Create GNMI stub for admin operations.
-  ASSERT_OK_AND_ASSIGN(sut_gnmi_stub_, testbed.Sut().CreateGnmiStub());
+  ASSERT_OK_AND_ASSIGN(control_gnmi_stub_,
+                       testbed.ControlSwitch().CreateGnmiStub());
 
   // Start the receiver thread for control switch to listen for packets from
   // SUT, this thread is terminated in the TearDown.
@@ -459,12 +460,13 @@ void WatchPortTestFixture::TearDown() {
   if (receive_packet_thread_.joinable()) {
     receive_packet_thread_.join();
   }
-  if (sut_gnmi_stub_) {
+  if (control_gnmi_stub_) {
     ASSERT_OK_AND_ASSIGN(const auto port_name_per_port_id,
-                         GetPortNamePerPortId(*sut_gnmi_stub_));
+                         GetPortNamePerPortId(*control_gnmi_stub_));
     // Restore the admin state to UP.
     for (const auto& [port_id, name] : port_name_per_port_id) {
-      EXPECT_OK(SetInterfaceAdminState(*sut_gnmi_stub_, name, AdminState::kUp));
+      EXPECT_OK(
+          SetInterfaceAdminState(*control_gnmi_stub_, name, AdminState::kUp));
     }
   }
   thinkit::MirrorTestbedFixture::TearDown();
@@ -613,12 +615,13 @@ TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
       absl::Uniform<int>(absl::IntervalClosedOpen, gen, 0, members.size());
   const int selected_port_id = members[random_member_index].port;
   ASSERT_OK_AND_ASSIGN(const auto port_name_per_port_id,
-                       GetPortNamePerPortId(*sut_gnmi_stub_));
+                       GetPortNamePerPortId(*control_gnmi_stub_));
   for (auto operation : {AdminState::kDown, AdminState::kUp}) {
     ASSERT_OK_AND_ASSIGN(const auto& port_name,
                          gutil::FindOrStatus(port_name_per_port_id,
                                              absl::StrCat(selected_port_id)));
-    ASSERT_OK(SetInterfaceAdminState(*sut_gnmi_stub_, port_name, operation));
+    ASSERT_OK(
+        SetInterfaceAdminState(*control_gnmi_stub_, port_name, operation));
 
     // TODO: Adding watch port up action causes unexpected traffic
     // loss. Remove after the bug in OrchAgent is fixed.
@@ -728,13 +731,14 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForSingleMember) {
       << "Unexpected member size for single member group";
   const int single_member_port_id = members[0].port;
   ASSERT_OK_AND_ASSIGN(const auto port_name_per_port_id,
-                       GetPortNamePerPortId(*sut_gnmi_stub_));
+                       GetPortNamePerPortId(*control_gnmi_stub_));
   for (auto operation : {AdminState::kDown, AdminState::kUp}) {
     ASSERT_OK_AND_ASSIGN(
         const auto& port_name,
         gutil::FindOrStatus(port_name_per_port_id,
                             absl::StrCat(single_member_port_id)));
-    ASSERT_OK(SetInterfaceAdminState(*sut_gnmi_stub_, port_name, operation));
+    ASSERT_OK(
+        SetInterfaceAdminState(*control_gnmi_stub_, port_name, operation));
 
     // Clear the counters before the test.
     test_data_.ClearReceivedPackets();
@@ -838,11 +842,11 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForMemberModify) {
       absl::Uniform<int>(absl::IntervalClosedOpen, gen, 0, members.size());
   const int selected_port_id = members[random_member_index].port;
   ASSERT_OK_AND_ASSIGN(const auto port_name_per_port_id,
-                       GetPortNamePerPortId(*sut_gnmi_stub_));
+                       GetPortNamePerPortId(*control_gnmi_stub_));
   ASSERT_OK_AND_ASSIGN(const auto& selected_port_name,
                        gutil::FindOrStatus(port_name_per_port_id,
                                            absl::StrCat(selected_port_id)));
-  ASSERT_OK(SetInterfaceAdminState(*sut_gnmi_stub_, selected_port_name,
+  ASSERT_OK(SetInterfaceAdminState(*control_gnmi_stub_, selected_port_name,
                                    AdminState::kDown));
 
   // Send Modify request to remove the down member from the group.
@@ -851,7 +855,7 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForMemberModify) {
                                            GetIrP4Info(), kGroupId, members,
                                            p4::v1::Update::MODIFY));
   // Bring the down member watch port up.
-  ASSERT_OK(SetInterfaceAdminState(*sut_gnmi_stub_, selected_port_name,
+  ASSERT_OK(SetInterfaceAdminState(*control_gnmi_stub_, selected_port_name,
                                    AdminState::kUp));
 
   // TODO: Adding watch port up action causes unexpected traffic
@@ -921,12 +925,12 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForDownPortMemberInsert) {
       absl::Uniform<int>(absl::IntervalClosedOpen, gen, 0, members.size());
   const int selected_port_id = members[random_member_index].port;
   ASSERT_OK_AND_ASSIGN(const auto port_name_per_port_id,
-                       GetPortNamePerPortId(*sut_gnmi_stub_));
+                       GetPortNamePerPortId(*control_gnmi_stub_));
   ASSERT_OK_AND_ASSIGN(const auto& selected_port_name,
                        gutil::FindOrStatus(port_name_per_port_id,
                                            absl::StrCat(selected_port_id)));
   // Bring the port down before the group and members are created.
-  ASSERT_OK(SetInterfaceAdminState(*sut_gnmi_stub_, selected_port_name,
+  ASSERT_OK(SetInterfaceAdminState(*control_gnmi_stub_, selected_port_name,
                                    AdminState::kDown));
 
   // Programs the required router interfaces, nexthops for wcmp group.
@@ -961,8 +965,8 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForDownPortMemberInsert) {
 
   for (auto operation : {AdminState::kDown, AdminState::kUp}) {
     // Down operation is a no-op here since the port is already down.
-    ASSERT_OK(
-        SetInterfaceAdminState(*sut_gnmi_stub_, selected_port_name, operation));
+    ASSERT_OK(SetInterfaceAdminState(*control_gnmi_stub_, selected_port_name,
+                                     operation));
 
     // Clear the counters before the test.
     test_data_.ClearReceivedPackets();
