@@ -18,6 +18,7 @@
 #include <memory>
 
 #include "absl/memory/memory.h"
+#include "absl/strings/string_view.h"
 #include "gtest/gtest.h"
 #include "p4_pdpi/ir.pb.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
@@ -36,6 +37,8 @@ class MirrorTestbedInterface {
   virtual void TearDown() = 0;
 
   virtual MirrorTestbed& GetMirrorTestbed() = 0;
+  // TODO: Move to TestEnvironment.
+  virtual absl::Status SaveSwitchLogs(absl::string_view save_prefix) = 0;
 };
 
 // The Thinkit `MirrorTestbedFixtureParams` defines test parameters to
