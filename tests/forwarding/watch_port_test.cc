@@ -388,6 +388,14 @@ void WatchPortTestFixture::SetUp() {
   ASSERT_OK(pins_test::PushGnmiConfig(testbed.Sut(), gnmi_config));
   ASSERT_OK(pins_test::PushGnmiConfig(testbed.ControlSwitch(), gnmi_config));
 
+  // Wait for the gnmi port config to converge.
+  ASSERT_OK(
+      pins_test::WaitForGnmiPortIdConvergence(testbed.Sut(), gnmi_config,
+                                              /*timeout=*/absl::Minutes(3)));
+  ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
+      testbed.ControlSwitch(), gnmi_config,
+      /*timeout=*/absl::Minutes(3)));
+
   ASSERT_OK(testbed.Environment().StoreTestArtifact("p4info.pb.txt",
                                                     GetP4Info().DebugString()));
 

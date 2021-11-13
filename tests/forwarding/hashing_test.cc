@@ -281,6 +281,14 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
   ASSERT_OK(pins_test::PushGnmiConfig(testbed.Sut(), gnmi_config));
   ASSERT_OK(pins_test::PushGnmiConfig(testbed.ControlSwitch(), gnmi_config));
 
+  // Wait for the gnmi port config to converge.
+  ASSERT_OK(
+      pins_test::WaitForGnmiPortIdConvergence(testbed.Sut(), gnmi_config,
+                                              /*timeout=*/absl::Minutes(3)));
+  ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
+      testbed.ControlSwitch(), gnmi_config,
+      /*timeout=*/absl::Minutes(3)));
+
   // Obtain P4Info for SAI P4 program.
   const p4::config::v1::P4Info p4info =
       sai::GetP4Info(sai::Instantiation::kMiddleblock);
