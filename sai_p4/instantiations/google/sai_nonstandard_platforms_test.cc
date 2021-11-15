@@ -52,5 +52,21 @@ TEST_F(NonstandardPlatformsTest, GetNonstandardP4InfoDoesNotCheckCrash) {
   }
 }
 
+// GetNonstandardForwardingPipelineConfig contains several CHECKs; ensure it
+// doesn't fail.
+TEST_F(NonstandardPlatformsTest,
+       GetNonstandardForwardingPipelineConfigDoesNotCheckCrash) {
+  for (auto instantiation : AllInstantiations()) {
+    for (auto platform : kAllPlatforms) {
+      auto config =
+          GetNonstandardForwardingPipelineConfig(instantiation, platform);
+      ASSERT_OK(StoreTestArtifact(
+          absl::StrFormat("%s_%s_.config.textproto",
+                          InstantiationToString(instantiation),
+                          PlatformName(platform)),
+          config));
+    }
+  }
+}
 }  // namespace
 }  // namespace sai

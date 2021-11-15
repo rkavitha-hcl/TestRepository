@@ -6,6 +6,7 @@
 #include "glog/logging.h"
 #include "google/protobuf/text_format.h"
 #include "p4/config/v1/p4info.pb.h"
+#include "p4/v1/p4runtime.pb.h"
 #include "sai_p4/instantiations/google/sai_nonstandard_platforms_embed.h"
 
 namespace sai {
@@ -90,6 +91,15 @@ P4Info GetNonstandardP4Info(Instantiation instantiation,
               << PlatformName(platform) << "': key '" << key << "'"
               << " not found in table of contents";
   return p4info;
+}
+
+p4::v1::ForwardingPipelineConfig GetNonstandardForwardingPipelineConfig(
+    Instantiation instantiation, NonstandardPlatform platform) {
+  p4::v1::ForwardingPipelineConfig config;
+  *config.mutable_p4_device_config() =
+      GetNonstandardP4Config(instantiation, platform);
+  *config.mutable_p4info() = GetNonstandardP4Info(instantiation, platform);
+  return config;
 }
 
 }  // namespace sai

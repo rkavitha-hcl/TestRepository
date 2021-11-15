@@ -31,6 +31,11 @@ std::string GetNonstandardP4Config(Instantiation instantiation,
 p4::config::v1::P4Info GetNonstandardP4Info(Instantiation instantiation,
                                             NonstandardPlatform platform);
 
+// Returns a `ForwardingPipelineConfig` for the SAI P4 program for the given
+// platform.
+p4::v1::ForwardingPipelineConfig GetNonstandardForwardingPipelineConfig(
+    Instantiation instantiation, NonstandardPlatform platform);
+
 }  // namespace sai
 
 #endif  // PLATFORMS_NETWORKING_ORION_P4_SAI_SAI_NONSTANDARD_PLATFORMS_H_
