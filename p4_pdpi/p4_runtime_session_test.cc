@@ -16,6 +16,7 @@
 
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <utility>
 
 #include "absl/memory/memory.h"
@@ -57,6 +58,11 @@ constexpr uint32_t kActionId = 16777217;
 
 // Any constant is fine here.
 constexpr uint32_t kDeviceId = 100;
+
+// This is the only action that will work everywhere.
+constexpr p4::v1::SetForwardingPipelineConfigRequest::Action
+    kForwardingPipelineAction =
+        p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT;
 
 p4::v1::Uint128 ConstructElectionId(
     const P4RuntimeSessionOptionalArgs& metadata) {
@@ -224,15 +230,18 @@ void MockClearTableEntries(p4::v1::MockP4RuntimeStub& stub,
 // and metadata.
 p4::v1::SetForwardingPipelineConfigRequest
 ConstructForwardingPipelineConfigRequest(
+    const P4RuntimeSessionOptionalArgs& metadata,
     const p4::config::v1::P4Info& p4info,
-    const P4RuntimeSessionOptionalArgs& metadata) {
+    absl::optional<absl::string_view> p4_device_config = absl::nullopt) {
   p4::v1::SetForwardingPipelineConfigRequest request;
   request.set_device_id(kDeviceId);
   request.set_role(metadata.role);
   *request.mutable_election_id() = ConstructElectionId(metadata);
-  request.set_action(
-      p4::v1::SetForwardingPipelineConfigRequest_Action_RECONCILE_AND_COMMIT);
+  request.set_action(kForwardingPipelineAction);
   *request.mutable_config()->mutable_p4info() = p4info;
+  if (p4_device_config.has_value()) {
+    *request.mutable_config()->mutable_p4_device_config() = *p4_device_config;
+  }
   return request;
 }
 
@@ -264,7 +273,7 @@ TEST(P4RuntimeSessionTest, CreateWithP4InfoAndClearTables) {
     EXPECT_CALL(*stub, SetForwardingPipelineConfig(
                            _,
                            EqualsProto(ConstructForwardingPipelineConfigRequest(
-                               p4info, metadata)),
+                               metadata, p4info)),
                            _))
         .Times(1);
 
@@ -396,6 +405,49 @@ TEST(ReadPiCounterDataTest, ReturnsCorrectCounterForSignature) {
               gutil::IsOkAndHolds(EqualsProto(counter_data1)));
   EXPECT_THAT(ReadPiCounterData(p4rt_session.get(), target_entry_signature2),
               gutil::IsOkAndHolds(EqualsProto(counter_data2)));
+}
+
+TEST(SetForwardingPipelineConfigTest, BothVersionsProduceSameRequest) {
+  const p4::config::v1::P4Info& p4info = GetTestP4Info();
+  const P4RuntimeSessionOptionalArgs metadata;
+
+  // Get mock.
+  ASSERT_OK_AND_ASSIGN((auto [p4rt_session, mock_p4rt_stub]),
+                       MakeP4SessionWithMockStub());
+
+  // Mocks two `SetForwardingPipelineConfig` calls without a `p4_device_config`.
+  EXPECT_CALL(mock_p4rt_stub,
+              SetForwardingPipelineConfig(
+                  _,
+                  EqualsProto(ConstructForwardingPipelineConfigRequest(metadata,
+                                                                       p4info)),
+                  _))
+      .Times(2);
+
+  // Ensures that both versions of the function send the same proto.
+  ASSERT_OK(SetForwardingPipelineConfig(p4rt_session.get(),
+                                        kForwardingPipelineAction, p4info));
+  p4::v1::ForwardingPipelineConfig config;
+  *config.mutable_p4info() = p4info;
+  ASSERT_OK(SetForwardingPipelineConfig(p4rt_session.get(),
+                                        kForwardingPipelineAction, config));
+
+  std::string p4_device_config = "some_json_device_config";
+  // Mocks two `SetForwardingPipelineConfig` calls with a `p4_device_config`.
+  EXPECT_CALL(mock_p4rt_stub,
+              SetForwardingPipelineConfig(
+                  _,
+                  EqualsProto(ConstructForwardingPipelineConfigRequest(
+                      metadata, p4info, p4_device_config)),
+                  _))
+      .Times(2);
+
+  // Ensures that both versions of the function send the same proto.
+  ASSERT_OK(SetForwardingPipelineConfig(
+      p4rt_session.get(), kForwardingPipelineAction, p4info, p4_device_config));
+  *config.mutable_p4_device_config() = p4_device_config;
+  ASSERT_OK(SetForwardingPipelineConfig(p4rt_session.get(),
+                                        kForwardingPipelineAction, config));
 }
 
 }  // namespace

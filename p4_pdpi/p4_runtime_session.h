@@ -260,6 +260,12 @@ absl::Status SetForwardingPipelineConfig(
     const p4::config::v1::P4Info& p4info,
     absl::optional<absl::string_view> p4_device_config = absl::nullopt);
 
+// Sets the forwarding pipeline to the given one.
+absl::Status SetForwardingPipelineConfig(
+    P4RuntimeSession* session,
+    p4::v1::SetForwardingPipelineConfigRequest::Action action,
+    const p4::v1::ForwardingPipelineConfig& config);
+
 // Gets the forwarding pipeline from the device.
 absl::StatusOr<p4::v1::GetForwardingPipelineConfigResponse>
 GetForwardingPipelineConfig(

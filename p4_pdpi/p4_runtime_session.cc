@@ -379,16 +379,13 @@ absl::Status InstallPiTableEntries(P4RuntimeSession* session,
 absl::Status SetForwardingPipelineConfig(
     P4RuntimeSession* session,
     p4::v1::SetForwardingPipelineConfigRequest::Action action,
-    const P4Info& p4info, absl::optional<absl::string_view> p4_device_config) {
+    const p4::v1::ForwardingPipelineConfig& config) {
   SetForwardingPipelineConfigRequest request;
   request.set_device_id(session->DeviceId());
   request.set_role(session->Role());
   *request.mutable_election_id() = session->ElectionId();
   request.set_action(action);
-  *request.mutable_config()->mutable_p4info() = p4info;
-  if (p4_device_config.has_value()) {
-    *request.mutable_config()->mutable_p4_device_config() = *p4_device_config;
-  }
+  *request.mutable_config() = config;
 
   // Empty message; intentionally discarded.
   SetForwardingPipelineConfigResponse response;
@@ -396,6 +393,19 @@ absl::Status SetForwardingPipelineConfig(
   return gutil::GrpcStatusToAbslStatus(
       session->Stub().SetForwardingPipelineConfig(&context, request,
                                                   &response));
+}
+
+absl::Status SetForwardingPipelineConfig(
+    P4RuntimeSession* session,
+    p4::v1::SetForwardingPipelineConfigRequest::Action action,
+    const P4Info& p4info, absl::optional<absl::string_view> p4_device_config) {
+  p4::v1::ForwardingPipelineConfig config;
+  *config.mutable_p4info() = p4info;
+  if (p4_device_config.has_value()) {
+    *config.mutable_p4_device_config() = *p4_device_config;
+  }
+
+  return SetForwardingPipelineConfig(session, action, config);
 }
 
 absl::StatusOr<p4::v1::GetForwardingPipelineConfigResponse>
