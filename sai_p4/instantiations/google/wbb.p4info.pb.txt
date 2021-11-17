@@ -216,6 +216,14 @@ tables {
     id: 16777231
     annotations: "@proto_id(4)"
   }
+  action_refs {
+    id: 16777232
+    annotations: "@proto_id(5)"
+  }
+  action_refs {
+    id: 16777233
+    annotations: "@proto_id(6)"
+  }
   const_default_action_id: 16777222
   size: 32768
 }
@@ -257,6 +265,14 @@ tables {
   action_refs {
     id: 16777231
     annotations: "@proto_id(4)"
+  }
+  action_refs {
+    id: 16777232
+    annotations: "@proto_id(5)"
+  }
+  action_refs {
+    id: 16777233
+    annotations: "@proto_id(6)"
   }
   const_default_action_id: 16777222
   size: 4096
@@ -501,6 +517,26 @@ actions {
 }
 actions {
   preamble {
+    id: 16777232
+    name: "ingress.routing.set_nexthop_id_and_metadata"
+    alias: "set_nexthop_id_and_metadata"
+  }
+  params {
+    id: 1
+    name: "nexthop_id"
+    annotations: "@refers_to(nexthop_table , nexthop_id)"
+    type_name {
+      name: "nexthop_id_t"
+    }
+  }
+  params {
+    id: 2
+    name: "route_metadata"
+    bitwidth: 6
+  }
+}
+actions {
+  preamble {
     id: 24742814
     name: "ingress.routing.no_action"
     alias: "no_action"
@@ -518,6 +554,7 @@ actions {
     id: 16777220
     name: "ingress.routing.set_wcmp_group_id"
     alias: "set_wcmp_group_id"
+    annotations: "@deprecated(\"Use set_wcmp_group_id_and_metadata instead\")"
   }
   params {
     id: 1
@@ -526,6 +563,26 @@ actions {
     type_name {
       name: "wcmp_group_id_t"
     }
+  }
+}
+actions {
+  preamble {
+    id: 16777233
+    name: "ingress.routing.set_wcmp_group_id_and_metadata"
+    alias: "set_wcmp_group_id_and_metadata"
+  }
+  params {
+    id: 1
+    name: "wcmp_group_id"
+    annotations: "@refers_to(wcmp_group_table , wcmp_group_id)"
+    type_name {
+      name: "wcmp_group_id_t"
+    }
+  }
+  params {
+    id: 2
+    name: "route_metadata"
+    bitwidth: 6
   }
 }
 actions {

@@ -23,6 +23,7 @@ parser packet_parser(packet_in packet, out headers_t headers,
     local_metadata.mirror_session_id_valid = false;
     local_metadata.color = MeterColor_t.GREEN;
     local_metadata.ingress_port = (port_id_t)standard_metadata.ingress_port;
+    local_metadata.route_metadata = 0;
 
     transition parse_ethernet;
   }

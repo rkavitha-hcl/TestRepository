@@ -382,17 +382,31 @@ class L3LpmTableTest : public FixedL3TableTest,
 const L3LpmTableTest::TestMap& L3LpmTableTest::GetTestMap() {
   static const auto* const kTestMap = new TestMap({
       {"drop", {.pd_action = R"pb(drop {})pb", .app_db = {.action = "drop"}}},
-
       {"set_nexthop_id",
        {.pd_action = R"pb(set_nexthop_id { nexthop_id: "13" })pb",
         .app_db = {.action = "set_nexthop_id",
                    .params = {{"nexthop_id", "13"}}}}},
-
       {"set_wcmp_group_id",
        {.pd_action = R"pb(set_wcmp_group_id { wcmp_group_id: "23" })pb",
         .app_db = {.action = "set_wcmp_group_id",
                    .params = {{"wcmp_group_id", "23"}}}}},
       {"trap", {.pd_action = R"pb(trap {})pb", .app_db = {.action = "trap"}}},
+      {"set_nexthop_id_and_metadata",
+       {.pd_action = R"pb(set_nexthop_id_and_metadata {
+                            nexthop_id: "13"
+                            route_metadata: "0x07"
+                          })pb",
+        .app_db = {.action = "set_nexthop_id_and_metadata",
+                   .params = {{"nexthop_id", "13"},
+                              {"route_metadata", "0x07"}}}}},
+      {"set_wcmp_group_id_and_metadata",
+       {.pd_action = R"pb(set_wcmp_group_id_and_metadata {
+                            wcmp_group_id: "23"
+                            route_metadata: "0x07"
+                          })pb",
+        .app_db = {.action = "set_wcmp_group_id_and_metadata",
+                   .params = {{"wcmp_group_id", "23"},
+                              {"route_metadata", "0x07"}}}}},
   });
   return *kTestMap;
 }

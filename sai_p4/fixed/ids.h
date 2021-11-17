@@ -27,21 +27,24 @@
 // --- Actions -----------------------------------------------------------------
 
 // IDs of fixed SAI actions (8 most significant bits = 0x01).
-#define ROUTING_SET_DST_MAC_ACTION_ID 0x01000001              // 16777217
-#define ROUTING_SET_PORT_AND_SRC_MAC_ACTION_ID 0x01000002     // 16777218
-#define ROUTING_SET_NEXTHOP_ACTION_ID 0x01000003              // 16777219
-#define ROUTING_SET_WCMP_GROUP_ID_ACTION_ID 0x01000004        // 16777220
-#define ROUTING_SET_NEXTHOP_ID_ACTION_ID 0x01000005           // 16777221
-#define ROUTING_DROP_ACTION_ID 0x01000006                     // 16777222
-#define MIRRORING_MIRROR_AS_IPV4_ERSPAN_ACTION_ID 0x01000007  // 16777223
-#define L3_ADMIT_ACTION_ID 0x01000008                         // 16777224
-#define MIRRORING_SET_PRE_SESSION_ACTION_ID 0x01000009        // 16777225
-#define SELECT_ECMP_HASH_ALGORITHM_ACTION_ID 0x010000A        // 16777226
-#define COMPUTE_ECMP_HASH_IPV4_ACTION_ID 0x0100000B           // 16777227
-#define COMPUTE_ECMP_HASH_IPV6_ACTION_ID 0x0100000C           // 16777228
-#define COMPUTE_LAG_HASH_IPV4_ACTION_ID 0x0100000D            // 16777229
-#define COMPUTE_LAG_HASH_IPV6_ACTION_ID 0x0100000E            // 16777230
-#define TRAP_ACTION_ID 0x0100000F                             // 16777231
+#define ROUTING_SET_DST_MAC_ACTION_ID 0x01000001                     // 16777217
+#define ROUTING_SET_PORT_AND_SRC_MAC_ACTION_ID 0x01000002            // 16777218
+#define ROUTING_SET_NEXTHOP_ACTION_ID 0x01000003                     // 16777219
+#define ROUTING_SET_WCMP_GROUP_ID_ACTION_ID 0x01000004               // 16777220
+#define ROUTING_SET_WCMP_GROUP_ID_AND_METADATA_ACTION_ID 0x01000011  // 16777233
+#define ROUTING_SET_NEXTHOP_ID_ACTION_ID 0x01000005                  // 16777221
+#define ROUTING_SET_NEXTHOP_ID_AND_METADATA_ACTION_ID 0x01000010     // 16777232
+#define ROUTING_DROP_ACTION_ID 0x01000006                            // 16777222
+#define MIRRORING_MIRROR_AS_IPV4_ERSPAN_ACTION_ID 0x01000007         // 16777223
+#define L3_ADMIT_ACTION_ID 0x01000008                                // 16777224
+#define MIRRORING_SET_PRE_SESSION_ACTION_ID 0x01000009               // 16777225
+#define SELECT_ECMP_HASH_ALGORITHM_ACTION_ID 0x010000A               // 16777226
+#define COMPUTE_ECMP_HASH_IPV4_ACTION_ID 0x0100000B                  // 16777227
+#define COMPUTE_ECMP_HASH_IPV6_ACTION_ID 0x0100000C                  // 16777228
+#define COMPUTE_LAG_HASH_IPV4_ACTION_ID 0x0100000D                   // 16777229
+#define COMPUTE_LAG_HASH_IPV6_ACTION_ID 0x0100000E                   // 16777230
+#define TRAP_ACTION_ID 0x0100000F                                    // 16777231
+// Next available action id: 0x01000012
 
 // --- Action Profiles and Selectors (8 most significant bits = 0x11) ----------
 // This value should ideally be 0x11000001, but we currently have this value for

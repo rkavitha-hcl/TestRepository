@@ -59,6 +59,10 @@ type bit<MIRROR_SESSION_ID_BITWIDTH> mirror_session_id_t;
 #endif
 type bit<QOS_QUEUE_BITWIDTH> qos_queue_t;
 
+// -- Untranslated Types -------------------------------------------------------
+
+typedef bit<ROUTE_METADATA_BITWIDTH> route_metadata_t;
+
 // -- Meters -------------------------------------------------------------------
 
 enum MeterColor_t { GREEN, YELLOW, RED };
@@ -113,6 +117,7 @@ struct local_metadata_t {
   // has port_id_t as the type for all fields that match on ports. This allows
   // tools to treat ports specially (e.g. a fuzzer).
   port_id_t ingress_port;
+  route_metadata_t route_metadata;
 }
 
 // -- Packet IO headers --------------------------------------------------------

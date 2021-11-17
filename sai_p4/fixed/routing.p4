@@ -149,11 +149,36 @@ control routing(in headers_t headers,
   //
   // This action can only refer to `nexthop_id`s that are programmed in the
   // `nexthop_table`.
+  //
+  // TODO: Update the comments after set_nexthop_id is deprecated
+  //                    for use cases outside wcmp_group_table
   @id(ROUTING_SET_NEXTHOP_ID_ACTION_ID)
   action set_nexthop_id(@id(1) @refers_to(nexthop_table, nexthop_id)
                         nexthop_id_t nexthop_id) {
     nexthop_id_valid = true;
     nexthop_id_value = nexthop_id;
+    local_metadata.route_metadata = 0;
+  }
+
+  // When called from a route, sets SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION to
+  // SAI_PACKET_ACTION_FORWARD, and SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID to a
+  // SAI_OBJECT_TYPE_NEXT_HOP.
+  //
+  // When called from a group, sets SAI_NEXT_HOP_GROUP_MEMBER_ATTR_NEXT_HOP_ID.
+  // When called from a group, sets SAI_NEXT_HOP_GROUP_MEMBER_ATTR_WEIGHT.
+  //
+  // This action can only refer to `nexthop_id`s that are programmed in the
+  // `nexthop_table`.
+  //
+  // Also sets the route metadata available for Ingress ACL lookup.
+  @id(ROUTING_SET_NEXTHOP_ID_AND_METADATA_ACTION_ID)
+  action set_nexthop_id_and_metadata(@id(1)
+                                     @refers_to(nexthop_table, nexthop_id)
+                                     nexthop_id_t nexthop_id,
+                                     route_metadata_t route_metadata) {
+    nexthop_id_valid = true;
+    nexthop_id_value = nexthop_id;
+    local_metadata.route_metadata = route_metadata;
   }
 
   @max_group_size(WCMP_GROUP_SELECTOR_MAX_SUM_OF_WEIGHTS_PER_GROUP)
@@ -228,10 +253,30 @@ control routing(in headers_t headers,
   // This action can only refer to `wcmp_group_id`s that are programmed in the
   // `wcmp_group_table`.
   @id(ROUTING_SET_WCMP_GROUP_ID_ACTION_ID)
+  @deprecated("Use set_wcmp_group_id_and_metadata instead")
   action set_wcmp_group_id(@id(1) @refers_to(wcmp_group_table, wcmp_group_id)
                            wcmp_group_id_t wcmp_group_id) {
     wcmp_group_id_valid = true;
     wcmp_group_id_value = wcmp_group_id;
+    local_metadata.route_metadata = 0;
+  }
+
+  // Sets SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION to SAI_PACKET_ACTION_FORWARD, and
+  // SAI_ROUTE_ENTRY_ATTR_NEXT_HOP_ID to a SAI_OBJECT_TYPE_NEXT_HOP_GROUP.
+  //
+  // This action can only refer to `wcmp_group_id`s that are programmed in the
+  // `wcmp_group_table`.
+  //
+  // Also sets the route metadata available for Ingress ACL lookup.
+  @id(ROUTING_SET_WCMP_GROUP_ID_AND_METADATA_ACTION_ID)
+  action set_wcmp_group_id_and_metadata(@id(1)
+                                        @refers_to(wcmp_group_table,
+                                        wcmp_group_id)
+                                        wcmp_group_id_t wcmp_group_id,
+                                        route_metadata_t route_metadata) {
+    wcmp_group_id_valid = true;
+    wcmp_group_id_value = wcmp_group_id;
+    local_metadata.route_metadata = route_metadata;
   }
 
   // Trap the packet and send it to CPU. Drop the packet in the dataplane.
@@ -257,6 +302,8 @@ control routing(in headers_t headers,
       @proto_id(2) set_nexthop_id;
       @proto_id(3) set_wcmp_group_id;
       @proto_id(4) trap;
+      @proto_id(5) set_nexthop_id_and_metadata;
+      @proto_id(6) set_wcmp_group_id_and_metadata;
     }
     const default_action = drop;
     size = ROUTING_IPV4_TABLE_MINIMUM_GUARANTEED_SIZE;
@@ -278,6 +325,8 @@ control routing(in headers_t headers,
       @proto_id(2) set_nexthop_id;
       @proto_id(3) set_wcmp_group_id;
       @proto_id(4) trap;
+      @proto_id(5) set_nexthop_id_and_metadata;
+      @proto_id(6) set_wcmp_group_id_and_metadata;
     }
     const default_action = drop;
     size = ROUTING_IPV6_TABLE_MINIMUM_GUARANTEED_SIZE;

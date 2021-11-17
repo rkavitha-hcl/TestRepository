@@ -135,6 +135,8 @@ control acl_ingress(in headers_t headers,
 #ifdef SAI_INSTANTIATION_FABRIC_BORDER_ROUTER
       local_metadata.ingress_port : optional @name("in_port") @id(17)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_IN_PORT);
+      local_metadata.route_metadata : optional @name("route_metadata") @id(18)
+          @sai_field(SAI_ACL_TABLE_ATTR_FIELD_ROUTE_DST_USER_META);
 #endif
     }
     actions = {

@@ -113,6 +113,8 @@ message Ipv4TableEntry {
       SetNexthopIdAction set_nexthop_id = 2;
       DropAction drop = 1;
       TrapAction trap = 4;
+      SetNexthopIdAndMetadataAction set_nexthop_id_and_metadata = 5;
+      SetWcmpGroupIdAndMetadataAction set_wcmp_group_id_and_metadata = 6;
     }
   }
   Action action = 2;
@@ -132,6 +134,8 @@ message Ipv6TableEntry {
       SetNexthopIdAction set_nexthop_id = 2;
       DropAction drop = 1;
       TrapAction trap = 4;
+      SetNexthopIdAndMetadataAction set_nexthop_id_and_metadata = 5;
+      SetWcmpGroupIdAndMetadataAction set_wcmp_group_id_and_metadata = 6;
     }
   }
   Action action = 2;
@@ -223,6 +227,8 @@ message AclIngressTableEntry {
     Ternary l4_dst_port = 15;  // ternary match / Format::HEX_STRING / 16 bits
     Ternary arp_tpa = 16;      // ternary match / Format::IPV4
     Optional in_port = 17;     // optional match / Format::STRING
+    Optional route_metadata =
+        18;  // optional match / Format::HEX_STRING / 6 bits
   }
   Match match = 1;
   message Action {
@@ -384,6 +390,18 @@ message MirrorAsIpv4ErspanAction {
 message AdmitToL3Action {}
 
 message TrapAction {}
+
+message SetNexthopIdAndMetadataAction {
+  // Refers to 'nexthop_table.nexthop_id'.
+  string nexthop_id = 1;      // Format::STRING
+  string route_metadata = 2;  // Format::HEX_STRING / 6 bits
+}
+
+message SetWcmpGroupIdAndMetadataAction {
+  // Refers to 'wcmp_group_table.wcmp_group_id'.
+  string wcmp_group_id = 1;   // Format::STRING
+  string route_metadata = 2;  // Format::HEX_STRING / 6 bits
+}
 
 message SetVrfAction {
   // Refers to 'vrf_table.vrf_id'.
