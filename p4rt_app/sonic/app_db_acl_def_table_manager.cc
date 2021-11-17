@@ -480,6 +480,11 @@ StatusOr<IrActionInfo::SaiAction> ParseActionParam(
                    ExtractActionAndColor(annotation_args_result.value()),
                    _ << " Failed to process action parameter ["
                      << param.ShortDebugString() << "].");
+  if (!sai_action.color.empty()) {
+    return InvalidArgumentErrorBuilder()
+           << "Action parameter [" << param.ShortDebugString()
+           << "] specifies a color. Action parameters may not include a color.";
+  }
   if (param.param().name().empty()) {
     return InvalidArgumentErrorBuilder()
            << "ACL action parameter [" << param.ShortDebugString()
@@ -525,9 +530,9 @@ StatusOr<IrActionInfo> ParseAction(const IrActionDefinition& action) {
 // Formats an IrActionInfo::SaiAction as a JSON.
 //
 // Examples:
-//   {"action": "SAI_PACKET_ACTION_SET_TC", "param": "tc", "color": "RED"}
-//   {"action": "SAI_PACKET_ACTION_DROP", "color": "RED"}
-//   {"action": "SAI_PACKET_ACTION_COPY"}
+//  {"action": "SAI_PACKET_ACTION_SET_TC", "param": "tc"}
+//  {"action": "SAI_PACKET_ACTION_DROP", "packet_color": "RED"}
+//  {"action": "SAI_PACKET_ACTION_COPY"}
 nlohmann::json CreateSaiActionJson(const IrActionInfo::SaiAction& parameter) {
   nlohmann::json json;
   json["action"] = parameter.action;
@@ -535,7 +540,7 @@ nlohmann::json CreateSaiActionJson(const IrActionInfo::SaiAction& parameter) {
     json["param"] = parameter.parameter;
   }
   if (!parameter.color.empty()) {
-    json["color"] = parameter.color;
+    json["packet_color"] = parameter.color;
   }
 
   return json;

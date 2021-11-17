@@ -47,19 +47,19 @@ TEST(InsertAclTableDefinition, InsertsAclTableDefinition) {
           .preamble(R"pb(alias: "Table" annotations: "@sai_acl(INGRESS)")pb")
           .match_field(
               R"pb(id: 123
-                   name: "match_field_uno"
+                   name: "integer_match_field"
                    bitwidth: 10
                    annotations: "@sai_field(SAI_MATCH_FIELD_1)")pb",
               pdpi::HEX_STRING)
           .match_field(
               R"pb(id: 124
-                   name: "match_field_dos"
+                   name: "string_match_field"
                    annotations: "@sai_field(SAI_MATCH_FIELD_2)")pb",
               pdpi::STRING)
           .entry_action(
               IrActionDefinitionBuilder()
                   .preamble(
-                      R"pb(alias: "action_une"
+                      R"pb(alias: "single_param_action"
                            annotations: "@sai_action(SAI_DEFAULT)")pb")
                   .param(
                       R"pb(id: 11
@@ -68,7 +68,7 @@ TEST(InsertAclTableDefinition, InsertsAclTableDefinition) {
           .entry_action(
               IrActionDefinitionBuilder()
                   .preamble(
-                      R"pb(alias: "action_deux"
+                      R"pb(alias: "double_param_action"
                            annotations: "@sai_action(SAI_DEFAULT)")pb")
                   .param(
                       R"pb(id: 1
@@ -77,8 +77,20 @@ TEST(InsertAclTableDefinition, InsertsAclTableDefinition) {
                   .param(
                       R"pb(id: 2
                            name: "a2_p2"
-                           annotations: "@sai_action_param(SAI_ACTION_22, RED)"
+                           annotations: "@sai_action_param(SAI_ACTION_22)"
                       )pb"))
+          .entry_action(IrActionDefinitionBuilder().preamble(
+              R"pb(alias: "metered_action"
+                   annotations: "@sai_action(SAI_ACTION, GREEN)")pb"))
+          .entry_action(
+              IrActionDefinitionBuilder()
+                  .preamble(
+                      R"pb(alias: "metered_action_with_param"
+                           annotations: "@sai_action(SAI_ACTION, GREEN)")pb")
+                  .param(
+                      R"pb(id: 1
+                           name: "action_param"
+                           annotations: "@sai_action_param(SAI_ACTION_21)")pb"))
           .size(512)
           .meter_unit(p4::config::v1::MeterSpec::BYTES)
           .counter_unit(p4::config::v1::CounterSpec::BOTH)();
@@ -88,26 +100,33 @@ TEST(InsertAclTableDefinition, InsertsAclTableDefinition) {
   ASSERT_OK(InsertAclTableDefinition(fake_db, table));
   std::vector<swss::FieldValueTuple> expected_values = {
       {"stage", "INGRESS"},
-      {"match/match_field_uno", nlohmann::json::parse(R"JSON(
+      {"match/integer_match_field", nlohmann::json::parse(R"JSON(
            {"kind": "sai_field",
             "bitwidth": 10,
             "format": "HEX_STRING",
             "sai_field": "SAI_MATCH_FIELD_1"})JSON")
-                                    .dump()},
-      {"match/match_field_dos", nlohmann::json::parse(R"JSON(
+                                        .dump()},
+      {"match/string_match_field", nlohmann::json::parse(R"JSON(
            {"kind": "sai_field",
             "format": "STRING",
             "sai_field": "SAI_MATCH_FIELD_2"})JSON")
-                                    .dump()},
-      {"action/action_une", nlohmann::json::parse(R"JSON(
+                                       .dump()},
+      {"action/single_param_action", nlohmann::json::parse(R"JSON(
            [{"action": "SAI_DEFAULT"},
             {"action": "SAI_ACTION_11", "param": "a1_p1"}])JSON")
-                                .dump()},
-      {"action/action_deux", nlohmann::json::parse(R"JSON(
+                                         .dump()},
+      {"action/double_param_action", nlohmann::json::parse(R"JSON(
            [{"action": "SAI_DEFAULT"},
             {"action": "SAI_ACTION_21", "param": "a2_p1"},
-            {"action": "SAI_ACTION_22", "param": "a2_p2", "color": "RED"}])JSON")
-                                 .dump()},
+            {"action": "SAI_ACTION_22", "param": "a2_p2"}])JSON")
+                                         .dump()},
+      {"action/metered_action", nlohmann::json::parse(R"JSON(
+           [{"action": "SAI_ACTION", "packet_color": "GREEN"}])JSON")
+                                    .dump()},
+      {"action/metered_action_with_param", nlohmann::json::parse(R"JSON(
+           [{"action": "SAI_ACTION", "packet_color": "GREEN"},
+            {"action": "SAI_ACTION_21", "param": "action_param"}])JSON")
+                                               .dump()},
       {"size", "512"},
       {"meter/unit", "BYTES"},
       {"counter/unit", "BOTH"}};
@@ -819,6 +838,36 @@ TEST(InsertAclTableDefinition, FailsWithNonNoActionConstDefaultAction) {
       InsertAclTableDefinition(fake_db, table),
       StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("const_default_action must refer to NoAction.")));
+}
+
+TEST(InsertAclTableDefinition, FailsWithMeteredParameter) {
+  pdpi::IrTableDefinition
+      table =
+          IrTableDefinitionBuilder()
+              .preamble(
+                  R"pb(alias: "Table" annotations: "@sai_acl(INGRESS)")pb")
+              .match_field(
+                  R"pb(id: 123
+                       name: "match_field"
+                       annotations: "@sai_field(MATCH)")pb",
+                  pdpi::STRING)
+              .entry_action(
+                  IrActionDefinitionBuilder()
+                      .preamble(
+                          R"pb(alias: "entry_action"
+                               annotations: "@sai_action(ACTION)")pb")
+                      .param(
+                          R"pb(id: 1
+                               name: "action_param"
+                               annotations: "@sai_action_param(SAI_PARAM, RED)"
+                          )pb"))();
+
+  swss::FakeSonicDbTable fake_table;
+  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  EXPECT_THAT(
+      InsertAclTableDefinition(fake_db, table),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Action parameters may not include a color.")));
 }
 
 TEST(InsertAclTableDefinition, IgnoresNoActionConstDefaultAction) {
