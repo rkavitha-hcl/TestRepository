@@ -29,12 +29,12 @@
 #include "gutil/status_matchers.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
+#include "p4rt_app/sonic/adapters/mock_consumer_notifier_adapter.h"
+#include "p4rt_app/sonic/adapters/mock_db_connector_adapter.h"
+#include "p4rt_app/sonic/adapters/mock_producer_state_table_adapter.h"
 #include "p4rt_app/tests/lib/app_db_entry_builder.h"
 #include "p4rt_app/utils/table_utility.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
-#include "swss/mocks/mock_consumer_notifier.h"
-#include "swss/mocks/mock_db_connector.h"
-#include "swss/mocks/mock_producer_state_table.h"
 
 namespace p4rt_app {
 namespace sonic {
@@ -71,14 +71,14 @@ class AppDbManagerTest : public ::testing::Test {
   const std::string vrf_table_name_ = "VRF_TABLE";
 
   // Mock AppDb tables.
-  swss::MockDBConnector mock_app_db_client_;
-  swss::MockProducerStateTable mock_p4rt_table_;
-  swss::MockConsumerNotifier mock_p4rt_notification_;
-  swss::MockProducerStateTable mock_vrf_table_;
-  swss::MockConsumerNotifier mock_vrf_notification_;
+  MockDBConnectorAdapter mock_app_db_client_;
+  MockProducerStateTableAdapter mock_p4rt_table_;
+  MockConsumerNotifierAdapter mock_p4rt_notification_;
+  MockProducerStateTableAdapter mock_vrf_table_;
+  MockConsumerNotifierAdapter mock_vrf_notification_;
 
   // Mock StateDb tables.
-  swss::MockDBConnector mock_state_db_client_;
+  MockDBConnectorAdapter mock_state_db_client_;
 };
 
 TEST_F(AppDbManagerTest, InsertTableEntry) {
@@ -122,7 +122,7 @@ TEST_F(AppDbManagerTest, InsertTableEntry) {
                             .AddActionParam("src_mac", "00:02:03:04:05:06");
   const std::vector<swss::KeyOpFieldsValuesTuple> expected_key_value = {
       std::make_tuple(expected.GetKey(), "", expected.GetValueList())};
-  EXPECT_CALL(mock_p4rt_table_, set(expected_key_value)).Times(1);
+  EXPECT_CALL(mock_p4rt_table_, batch_set(expected_key_value)).Times(1);
 
   // Expected OrchAgent response.
   EXPECT_CALL(mock_p4rt_notification_, WaitForNotificationAndPop)
@@ -278,11 +278,11 @@ TEST_F(AppDbManagerTest, ModifyTableEntry) {
   EXPECT_CALL(mock_app_db_client_,
               exists(Eq(absl::StrCat("P4RT:", expected.GetKey()))))
       .WillOnce(Return(true));
-  EXPECT_CALL(
-      mock_app_db_client_,
-      del(std::vector<std::string>{absl::StrCat("P4RT:", expected.GetKey())}))
+  EXPECT_CALL(mock_app_db_client_,
+              batch_del(std::vector<std::string>{
+                  absl::StrCat("P4RT:", expected.GetKey())}))
       .Times(1);
-  EXPECT_CALL(mock_p4rt_table_, set(expected_key_value)).Times(1);
+  EXPECT_CALL(mock_p4rt_table_, batch_set(expected_key_value)).Times(1);
 
   // OrchAgent returns success.
   EXPECT_CALL(mock_p4rt_notification_, WaitForNotificationAndPop)
@@ -392,7 +392,7 @@ TEST_F(AppDbManagerTest, DeleteTableEntry) {
               exists(Eq(absl::StrCat("P4RT:", expected.GetKey()))))
       .WillOnce(Return(true));
   EXPECT_CALL(mock_p4rt_table_,
-              del(std::vector<std::string>{expected.GetKey()}))
+              batch_del(std::vector<std::string>{expected.GetKey()}))
       .Times(1);
 
   // OrchAgent returns success.
@@ -472,13 +472,13 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryWithoutCounterData) {
           .AddActionParam("port", "Ethernet28/5")
           .AddActionParam("src_mac", "00:02:03:04:05:06");
 
-  swss::MockDBConnector mock_app_db_client;
+  MockDBConnectorAdapter mock_app_db_client;
   EXPECT_CALL(mock_app_db_client, hgetall(Eq(app_db_entry.GetKey())))
       .WillOnce(Return(app_db_entry.GetValueMap()));
 
   // We will always check the CountersDB for packet data, but if nothing exists
   // we should not update the table entry.
-  swss::MockDBConnector mock_counters_db_client;
+  MockDBConnectorAdapter mock_counters_db_client;
   EXPECT_CALL(mock_counters_db_client,
               hgetall(Eq(absl::StrCat("COUNTERS:", app_db_entry.GetKey()))))
       .WillOnce(Return(std::unordered_map<std::string, std::string>{}));
@@ -519,7 +519,7 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryWithCounterData) {
           .AddActionParam("port", "Ethernet28/5")
           .AddActionParam("src_mac", "00:02:03:04:05:06");
 
-  swss::MockDBConnector mock_app_db_client;
+  MockDBConnectorAdapter mock_app_db_client;
   EXPECT_CALL(mock_app_db_client, hgetall(Eq(app_db_entry.GetKey())))
       .WillOnce(Return(app_db_entry.GetValueMap()));
 
@@ -529,7 +529,7 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryWithCounterData) {
   // Using decimal numbers:
   //    1152921504606846975 = 0x0FFF_FFFF_FFFF_FFFF
   //    1076078835964837887 = 0x0EEE_FFFF_FFFF_FFFF
-  swss::MockDBConnector mock_counters_db_client;
+  MockDBConnectorAdapter mock_counters_db_client;
   EXPECT_CALL(mock_counters_db_client,
               hgetall(Eq(absl::StrCat("COUNTERS:", app_db_entry.GetKey()))))
       .WillOnce(Return(std::unordered_map<std::string, std::string>{
@@ -576,11 +576,11 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryIgnoresInvalidCounterData) {
           .AddActionParam("port", "Ethernet28/5")
           .AddActionParam("src_mac", "00:02:03:04:05:06");
 
-  swss::MockDBConnector mock_app_db_client;
+  MockDBConnectorAdapter mock_app_db_client;
   EXPECT_CALL(mock_app_db_client, hgetall(Eq(app_db_entry.GetKey())))
       .WillOnce(Return(app_db_entry.GetValueMap()));
 
-  swss::MockDBConnector mock_counters_db_client;
+  MockDBConnectorAdapter mock_counters_db_client;
   EXPECT_CALL(mock_counters_db_client,
               hgetall(Eq(absl::StrCat("COUNTERS:", app_db_entry.GetKey()))))
       .WillOnce(Return(std::unordered_map<std::string, std::string>{
@@ -613,7 +613,7 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryIgnoresInvalidCounterData) {
 }
 
 TEST_F(AppDbManagerTest, GetAllP4KeysReturnsInstalledKeys) {
-  swss::MockDBConnector mock_app_db_client;
+  MockDBConnectorAdapter mock_app_db_client;
   EXPECT_CALL(mock_app_db_client, keys)
       .WillOnce(Return(std::vector<std::string>{"P4RT:TABLE:{key}"}));
 
@@ -622,7 +622,7 @@ TEST_F(AppDbManagerTest, GetAllP4KeysReturnsInstalledKeys) {
 }
 
 TEST_F(AppDbManagerTest, GetAllP4KeysDoesNotReturnUninstalledKey) {
-  swss::MockDBConnector mock_app_db_client;
+  MockDBConnectorAdapter mock_app_db_client;
   EXPECT_CALL(mock_app_db_client, keys)
       .WillOnce(Return(std::vector<std::string>{"_P4RT:TABLE:{key}"}));
 
@@ -631,7 +631,7 @@ TEST_F(AppDbManagerTest, GetAllP4KeysDoesNotReturnUninstalledKey) {
 }
 
 TEST_F(AppDbManagerTest, GetAllP4KeysIgnoresKeySet) {
-  swss::MockDBConnector mock_app_db_client;
+  MockDBConnectorAdapter mock_app_db_client;
   EXPECT_CALL(mock_app_db_client, keys)
       .WillOnce(Return(
           std::vector<std::string>{"P4RT_KEY_SET:TABLE", "P4RT:TABLE:{key}"}));
@@ -641,7 +641,7 @@ TEST_F(AppDbManagerTest, GetAllP4KeysIgnoresKeySet) {
 }
 
 TEST_F(AppDbManagerTest, GetAllP4KeysIgnoresDelSet) {
-  swss::MockDBConnector mock_app_db_client;
+  MockDBConnectorAdapter mock_app_db_client;
   EXPECT_CALL(mock_app_db_client, keys)
       .WillOnce(Return(
           std::vector<std::string>{"P4RT_DEL_SET:TABLE", "P4RT:TABLE:{key}"}));

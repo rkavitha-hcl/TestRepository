@@ -21,8 +21,8 @@
 #include "gtest/gtest.h"
 #include "gutil/status_matchers.h"
 #include "p4rt_app/p4runtime/mock_p4runtime_impl.h"
-#include "swss/mocks/mock_consumer_notifier.h"
-#include "swss/mocks/mock_db_connector.h"
+#include "p4rt_app/sonic/adapters/mock_consumer_notifier_adapter.h"
+#include "p4rt_app/sonic/adapters/mock_db_connector_adapter.h"
 #include "swss/rediscommand.h"
 
 namespace p4rt_app {
@@ -43,8 +43,8 @@ class StateVerificationEventsTest : public testing::Test {
   StateVerificationEvents state_verification_;
 
   MockP4RuntimeImpl mock_p4runtime_;
-  swss::MockConsumerNotifier mock_consumer_notifier_;
-  swss::MockDBConnector mock_db_connector_;
+  sonic::MockConsumerNotifierAdapter mock_consumer_notifier_;
+  sonic::MockDBConnectorAdapter mock_db_connector_;
 };
 
 TEST_F(StateVerificationEventsTest, GetEventAndUpdateRedisDbState) {

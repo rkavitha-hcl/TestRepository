@@ -39,13 +39,14 @@
 #include "p4rt_app/event_monitoring/state_event_monitor.h"
 #include "p4rt_app/event_monitoring/state_verification_events.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
+#include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
+#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
+#include "p4rt_app/sonic/adapters/producer_state_table_adapter.h"
 #include "p4rt_app/sonic/adapters/system_call_adapter.h"
 #include "p4rt_app/sonic/packetio_impl.h"
 #include "swss/component_state_helper.h"
 #include "swss/component_state_helper_interface.h"
-#include "swss/consumernotifier.h"
 #include "swss/dbconnector.h"
-#include "swss/producerstatetable.h"
 #include "swss/schema.h"
 
 using ::grpc::Server;
@@ -153,41 +154,53 @@ int main(int argc, char** argv) {
       swss::StateHelperManager::SystemSingleton();
 
   // Open a database connection into the SONiC AppDb.
+  swss::DBConnector app_db(APPL_DB, kRedisDbHost, kRedisDbPort, /*timeout=*/0);
   auto sonic_app_db =
-      absl::make_unique<swss::DBConnector>(APPL_DB, kRedisDbHost, kRedisDbPort,
-                                           /*timeout=*/0);
+      absl::make_unique<p4rt_app::sonic::DBConnectorAdapter>(&app_db);
 
   // Open a database connection into the SONiC AppStateDb.
-  auto sonic_app_state_db = absl::make_unique<swss::DBConnector>(
-      APPL_STATE_DB, kRedisDbHost, kRedisDbPort, /*timeout=*/0);
+  swss::DBConnector app_state_db(APPL_STATE_DB, kRedisDbHost, kRedisDbPort,
+                                 /*timeout=*/0);
+  auto sonic_app_state_db =
+      absl::make_unique<p4rt_app::sonic::DBConnectorAdapter>(&app_state_db);
 
   // Open a database connection into the SONiC CountersDb
-  auto sonic_counters_db = absl::make_unique<swss::DBConnector>(
-      COUNTERS_DB, kRedisDbHost, kRedisDbPort, /*timeout=*/0);
+  swss::DBConnector counters_db(COUNTERS_DB, kRedisDbHost, kRedisDbPort,
+                                /*timeout=*/0);
+  auto sonic_counters_db =
+      absl::make_unique<p4rt_app::sonic::DBConnectorAdapter>(&counters_db);
 
   // Create interfaces to interact with the AppDb P4RT table.
   auto app_db_table_p4rt =
-      absl::make_unique<swss::ProducerStateTable>(sonic_app_db.get(), "P4RT");
-  auto notification_channel_p4rt = absl::make_unique<swss::ConsumerNotifier>(
-      "APPL_DB_P4RT_RESPONSE_CHANNEL", sonic_app_db.get());
+      absl::make_unique<p4rt_app::sonic::ProducerStateTableAdapter>(
+          &app_db, APP_P4RT_TABLE_NAME);
+  auto notification_channel_p4rt =
+      absl::make_unique<p4rt_app::sonic::ConsumerNotifierAdapter>(
+          "APPL_DB_P4RT_RESPONSE_CHANNEL", &app_db);
 
   // Create interfaces to interact with the AppDb VRF table.
-  auto app_db_table_vrf = absl::make_unique<swss::ProducerStateTable>(
-      sonic_app_db.get(), "VRF_TABLE");
-  auto notification_channel_vrf = absl::make_unique<swss::ConsumerNotifier>(
-      "APPL_DB_VRF_TABLE_RESPONSE_CHANNEL", sonic_app_db.get());
+  auto app_db_table_vrf =
+      absl::make_unique<p4rt_app::sonic::ProducerStateTableAdapter>(
+          &app_db, APP_VRF_TABLE_NAME);
+  auto notification_channel_vrf =
+      absl::make_unique<p4rt_app::sonic::ConsumerNotifierAdapter>(
+          "APPL_DB_VRF_TABLE_RESPONSE_CHANNEL", &app_db);
 
   // Create interfaces to interact with the AppDb HASH table.
-  auto app_db_table_hash = absl::make_unique<swss::ProducerStateTable>(
-      sonic_app_db.get(), "HASH_TABLE");
-  auto notification_channel_hash = absl::make_unique<swss::ConsumerNotifier>(
-      "APPL_DB_HASH_TABLE_RESPONSE_CHANNEL", sonic_app_db.get());
+  auto app_db_table_hash =
+      absl::make_unique<p4rt_app::sonic::ProducerStateTableAdapter>(
+          &app_db, "HASH_TABLE");
+  auto notification_channel_hash =
+      absl::make_unique<p4rt_app::sonic::ConsumerNotifierAdapter>(
+          "APPL_DB_HASH_TABLE_RESPONSE_CHANNEL", &app_db);
 
   // Create interfaces to interact with the AppDb SWITCH table.
-  auto app_db_table_switch = absl::make_unique<swss::ProducerStateTable>(
-      sonic_app_db.get(), "SWITCH_TABLE");
-  auto notification_channel_switch = absl::make_unique<swss::ConsumerNotifier>(
-      "APPL_DB_SWITCH_TABLE_RESPONSE_CHANNEL", sonic_app_db.get());
+  auto app_db_table_switch =
+      absl::make_unique<p4rt_app::sonic::ProducerStateTableAdapter>(
+          &app_db, "SWITCH_TABLE");
+  auto notification_channel_switch =
+      absl::make_unique<p4rt_app::sonic::ConsumerNotifierAdapter>(
+          "APPL_DB_SWITCH_TABLE_RESPONSE_CHANNEL", &app_db);
 
   // Create PacketIoImpl for Packet I/O.
   auto packetio_impl = p4rt_app::sonic::PacketIoImpl::CreatePacketIoImpl();
@@ -230,10 +243,13 @@ int main(int argc, char** argv) {
   // Start listening for state verification events, and update StateDb for P4RT.
   swss::DBConnector state_verification_db(STATE_DB, kRedisDbHost, kRedisDbPort,
                                           /*timeout=*/0);
-  swss::ConsumerNotifier state_verification_notifier("VERIFY_STATE_REQ_CHANNEL",
-                                                     &state_verification_db);
+  p4rt_app::sonic::DBConnectorAdapter state_verification_db_adapter(
+      &state_verification_db);
+  p4rt_app::sonic::ConsumerNotifierAdapter state_verification_notifier(
+      "VERIFY_STATE_REQ_CHANNEL", &state_verification_db);
   p4rt_app::StateVerificationEvents state_verification_event_monitor(
-      p4runtime_server, state_verification_notifier, state_verification_db);
+      p4runtime_server, state_verification_notifier,
+      state_verification_db_adapter);
   state_verification_event_monitor.Start();
 
   // Start a P4 runtime server

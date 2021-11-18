@@ -81,6 +81,8 @@ cc_library(
     deps = [
         "//gutil:status",
         "//p4rt_app/p4runtime:p4runtime_impl",
+        "//p4rt_app/sonic/adapters:consumer_notifier_adapter",
+        "//p4rt_app/sonic/adapters:db_connector_adapter",
         "@com_github_google_glog//:glog",
         "@com_google_absl//absl/base:core_headers",
         "@com_google_absl//absl/status",
@@ -98,11 +100,11 @@ cc_test(
         ":state_verification_events",
         "//gutil:status_matchers",
         "//p4rt_app/p4runtime:mock_p4runtime_impl",
+        "//p4rt_app/sonic/adapters:mock_consumer_notifier_adapter",
+        "//p4rt_app/sonic/adapters:mock_db_connector_adapter",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/synchronization",
         "@com_google_googletest//:gtest_main",
         "@sonic_swss_common//:libswsscommon",
-        "@sonic_swss_common//tests/mocks:mock_consumer_notifier",
-        "@sonic_swss_common//tests/mocks:mock_db_connector",
     ],
 )

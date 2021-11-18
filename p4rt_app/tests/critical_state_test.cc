@@ -37,7 +37,6 @@
 #include "sai_p4/instantiations/google/sai_p4info.h"
 #include "swss/component_state_helper_interface.h"
 #include "swss/fakes/fake_component_state_helper.h"
-#include "swss/fakes/fake_sonic_db_table.h"
 
 namespace p4rt_app {
 namespace {

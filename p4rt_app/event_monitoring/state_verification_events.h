@@ -21,8 +21,8 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/synchronization/notification.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
-#include "swss/consumernotifierinterface.h"
-#include "swss/dbconnectorinterface.h"
+#include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
+#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
 
 namespace p4rt_app {
 
@@ -30,8 +30,8 @@ class StateVerificationEvents {
  public:
   explicit StateVerificationEvents(
       P4RuntimeImpl& p4runtime,
-      swss::ConsumerNotifierInterface& notification_channel,
-      swss::DBConnectorInterface& response_channel);
+      sonic::ConsumerNotifierAdapter& notification_channel,
+      sonic::DBConnectorAdapter& response_channel);
 
   // Waits on a notification from RedisDB to verify state for the P4RT App. If
   // the notification is for another component then we do nothing and exit
@@ -54,12 +54,12 @@ class StateVerificationEvents {
 
   // SWSS notification channel that should be listening to events on the
   // VERIFY_STATE_REQ_CHANNEL in the StateDb.
-  swss::ConsumerNotifierInterface& notification_channel_
+  sonic::ConsumerNotifierAdapter& notification_channel_
       ABSL_GUARDED_BY(event_lock_);
 
   // When updating StateDb we should be manually writing into
   // VERIFY_STATE_RESP_TABLE.
-  swss::DBConnectorInterface& response_channel_ ABSL_GUARDED_BY(event_lock_);
+  sonic::DBConnectorAdapter& response_channel_ ABSL_GUARDED_BY(event_lock_);
 
   // Event thread that can be started to continually monitor for events. Once
   // the destructor is called we can notify the thread to stop monitoring

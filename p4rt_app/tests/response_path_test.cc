@@ -33,13 +33,13 @@
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
+#include "p4rt_app/sonic/adapters/fake_sonic_db_table.h"
 #include "p4rt_app/tests/lib/app_db_entry_builder.h"
 #include "p4rt_app/tests/lib/p4runtime_component_test_fixture.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
 #include "p4rt_app/tests/lib/p4runtime_request_helpers.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
-#include "swss/fakes/fake_sonic_db_table.h"
 
 namespace p4rt_app {
 namespace {
@@ -373,7 +373,7 @@ TEST_F(ResponsePathTest, ModifyRequestFails) {
                             .SetPriority(10)
                             .AddMatchField("is_ip", "0x1");
 
-  ASSERT_OK_AND_ASSIGN(swss::SonicDbEntryMap actual_entry,
+  ASSERT_OK_AND_ASSIGN(sonic::SonicDbEntryMap actual_entry,
                        p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(
                            expected_entry.GetKey()));
 
@@ -433,7 +433,7 @@ TEST_F(ResponsePathTest, DeleteRequestFails) {
                             .SetPriority(10)
                             .AddMatchField("is_ip", "0x1");
 
-  ASSERT_OK_AND_ASSIGN(swss::SonicDbEntryMap actual_entry,
+  ASSERT_OK_AND_ASSIGN(sonic::SonicDbEntryMap actual_entry,
                        p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(
                            expected_entry.GetKey()));
 

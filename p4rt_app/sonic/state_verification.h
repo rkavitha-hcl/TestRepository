@@ -18,7 +18,7 @@
 #include <unordered_map>
 #include <vector>
 
-#include "swss/dbconnectorinterface.h"
+#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
 
 namespace p4rt_app {
 namespace sonic {
@@ -30,8 +30,8 @@ namespace sonic {
 // On success an empty vector is returned. Otherwise, the vector will contain
 // one message for every error found.
 std::vector<std::string> VerifyAppStateDbAndAppDbEntries(
-    const std::string& table_name, swss::DBConnectorInterface& app_state_db,
-    swss::DBConnectorInterface& app_db);
+    const std::string& table_name, DBConnectorAdapter& app_state_db,
+    DBConnectorAdapter& app_db);
 
 }  // namespace sonic
 }  // namespace p4rt_app

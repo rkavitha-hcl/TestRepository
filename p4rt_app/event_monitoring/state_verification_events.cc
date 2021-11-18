@@ -23,8 +23,7 @@
 #include "glog/logging.h"
 #include "gutil/status.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
-#include "swss/consumernotifierinterface.h"
-#include "swss/dbconnectorinterface.h"
+#include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
 #include "swss/rediscommand.h"
 
 namespace p4rt_app {
@@ -34,8 +33,8 @@ constexpr absl::string_view kVerificationRespTable = "VERIFY_STATE_RESP_TABLE";
 
 StateVerificationEvents::StateVerificationEvents(
     P4RuntimeImpl& p4runtime,
-    swss::ConsumerNotifierInterface& notification_channel,
-    swss::DBConnectorInterface& response_channel)
+    sonic::ConsumerNotifierAdapter& notification_channel,
+    sonic::DBConnectorAdapter& response_channel)
     : p4runtime_(p4runtime),
       notification_channel_(notification_channel),
       response_channel_(response_channel) {}

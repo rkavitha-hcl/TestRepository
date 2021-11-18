@@ -23,6 +23,7 @@
 #include "absl/strings/string_view.h"
 #include "glog/logging.h"
 #include "gutil/status.h"
+#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
 
 namespace p4rt_app {
 namespace sonic {
@@ -59,8 +60,8 @@ std::string CompareAppDbAndAppStateDbEntries(
 }  // namespace
 
 std::vector<std::string> VerifyAppStateDbAndAppDbEntries(
-    const std::string& table_name, swss::DBConnectorInterface& app_state_db,
-    swss::DBConnectorInterface& app_db) {
+    const std::string& table_name, DBConnectorAdapter& app_state_db,
+    DBConnectorAdapter& app_db) {
   std::vector<std::string> failures;
 
   // Read all keys out of the AppDb and the AppStateDb.

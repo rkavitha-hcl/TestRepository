@@ -25,9 +25,9 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "p4_pdpi/ir.pb.h"
-#include "swss/consumernotifierinterface.h"
-#include "swss/dbconnectorinterface.h"
-#include "swss/producerstatetableinterface.h"
+#include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
+#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
+#include "p4rt_app/sonic/adapters/producer_state_table_adapter.h"
 
 namespace p4rt_app {
 namespace sonic {
@@ -61,19 +61,19 @@ struct AppDbUpdates {
 // create, or remove, any VRF IDs as needed.
 absl::Status UpdateAppDb(const AppDbUpdates& updates,
                          const pdpi::IrP4Info& p4_info,
-                         swss::ProducerStateTableInterface& p4rt_table,
-                         swss::ConsumerNotifierInterface& p4rt_notification,
-                         swss::DBConnectorInterface& app_db_client,
-                         swss::DBConnectorInterface& state_db_client,
-                         swss::ProducerStateTableInterface& vrf_table,
-                         swss::ConsumerNotifierInterface& vrf_notification,
+                         ProducerStateTableAdapter& p4rt_table,
+                         ConsumerNotifierAdapter& p4rt_notification,
+                         DBConnectorAdapter& app_db_client,
+                         DBConnectorAdapter& state_db_client,
+                         ProducerStateTableAdapter& vrf_table,
+                         ConsumerNotifierAdapter& vrf_notification,
                          pdpi::IrWriteResponse* response);
 
 // Returns all P4RT keys currently installed in the AppDb. This does not include
 // any keys that are currently being handled by the lower layers (i.e. keys
 // starting with _).
 std::vector<std::string> GetAllAppDbP4TableEntryKeys(
-    swss::DBConnectorInterface& app_db_client);
+    DBConnectorAdapter& app_db_client);
 
 // The SONiC ProducerStateTables interface does not support reads so we must
 // read entries at the AppDb scope. This means any ReadTable request key should
@@ -84,8 +84,8 @@ std::vector<std::string> GetAllAppDbP4TableEntryKeys(
 //
 // NOTE: The resulting IrTableEntry will not include the "P4RT:" prefix.
 absl::StatusOr<pdpi::IrTableEntry> ReadAppDbP4TableEntry(
-    const pdpi::IrP4Info& p4info, swss::DBConnectorInterface& app_db_client,
-    swss::DBConnectorInterface& counters_db_client, const std::string& key);
+    const pdpi::IrP4Info& p4info, DBConnectorAdapter& app_db_client,
+    DBConnectorAdapter& counters_db_client, const std::string& key);
 
 }  // namespace sonic
 }  // namespace p4rt_app

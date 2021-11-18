@@ -28,6 +28,8 @@
 #include "gutil/collections.h"
 #include "gutil/status.h"
 #include "p4_pdpi/ir.pb.h"
+#include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
+#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
 #include "swss/rediscommand.h"
 #include "swss/status_code_util.h"
 #include "swss/table.h"
@@ -74,7 +76,7 @@ google::rpc::Code SwssToP4RTErrorCode(const std::string& status_str) {
 // order.
 absl::StatusOr<absl::btree_map<std::string, pdpi::IrUpdateStatus>>
 GetAppDbResponses(int expected_response_count,
-                  swss::ConsumerNotifierInterface& notification_interface) {
+                  ConsumerNotifierAdapter& notification_interface) {
   absl::btree_map<std::string, pdpi::IrUpdateStatus> key_to_status_map;
 
   // Loop through and get the expected notification responses from Orchagent,
@@ -125,8 +127,8 @@ GetAppDbResponses(int expected_response_count,
 
 // Restore APPL_DB to the last successful state.
 absl::Status RestoreApplDb(const std::string& key,
-                           swss::DBConnectorInterface& app_db_client,
-                           swss::DBConnectorInterface& state_db_client) {
+                           DBConnectorAdapter& app_db_client,
+                           DBConnectorAdapter& state_db_client) {
   // Query the APPL_STATE_DB with the same key as in APPL_DB.
   std::unordered_map<std::string, std::string> values_map =
       state_db_client.hgetall(key);
@@ -161,9 +163,8 @@ absl::Status RestoreApplDb(const std::string& key,
 
 absl::Status GetAndProcessResponseNotification(
     const std::string& table_name,
-    swss::ConsumerNotifierInterface& notification_interface,
-    swss::DBConnectorInterface& app_db_client,
-    swss::DBConnectorInterface& state_db_client,
+    ConsumerNotifierAdapter& notification_interface,
+    DBConnectorAdapter& app_db_client, DBConnectorAdapter& state_db_client,
     absl::btree_map<std::string, pdpi::IrUpdateStatus*>& key_to_status_map) {
   ASSIGN_OR_RETURN(
       auto response_status_map,
@@ -240,9 +241,9 @@ absl::Status GetAndProcessResponseNotification(
 
 absl::StatusOr<pdpi::IrUpdateStatus> GetAndProcessResponseNotification(
     const std::string& table_name,
-    swss::ConsumerNotifierInterface& notification_interface,
-    swss::DBConnectorInterface& app_db_client,
-    swss::DBConnectorInterface& state_db_client, const std::string& key) {
+    ConsumerNotifierAdapter& notification_interface,
+    DBConnectorAdapter& app_db_client, DBConnectorAdapter& state_db_client,
+    const std::string& key) {
   pdpi::IrUpdateStatus local_status;
   absl::btree_map<std::string, pdpi::IrUpdateStatus*> key_to_status_map;
   key_to_status_map[key] = &local_status;

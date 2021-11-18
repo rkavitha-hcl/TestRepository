@@ -26,6 +26,9 @@
 #include "google/rpc/code.pb.h"
 #include "gutil/status.h"
 #include "p4_pdpi/ir.pb.h"
+#include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
+#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
+#include "p4rt_app/sonic/adapters/producer_state_table_adapter.h"
 #include "p4rt_app/sonic/response_handler.h"
 #include "p4rt_app/utils/status_utility.h"
 #include "swss/rediscommand.h"
@@ -64,10 +67,9 @@ absl::StatusOr<std::string> GetVrfTableKey(const pdpi::IrTableEntry& entry) {
 }
 
 absl::StatusOr<std::string> InsertVrfTableEntry(
-    const pdpi::IrTableEntry& entry,
-    swss::ProducerStateTableInterface& vrf_table,
-    swss::ConsumerNotifierInterface& vrf_notification,
-    swss::DBConnectorInterface& app_db_client) {
+    const pdpi::IrTableEntry& entry, ProducerStateTableAdapter& vrf_table,
+    ConsumerNotifierAdapter& vrf_notification,
+    DBConnectorAdapter& app_db_client) {
   LOG(INFO) << "Insert PDPI IR entry: " << entry.ShortDebugString();
   ASSIGN_OR_RETURN(std::string key, GetVrfTableKey(entry));
 
@@ -86,9 +88,8 @@ absl::StatusOr<std::string> InsertVrfTableEntry(
 }
 
 absl::StatusOr<std::string> DeleteVrfTableEntry(
-    const pdpi::IrTableEntry& entry,
-    swss::ProducerStateTableInterface& vrf_table,
-    swss::DBConnectorInterface& app_db_client) {
+    const pdpi::IrTableEntry& entry, ProducerStateTableAdapter& vrf_table,
+    DBConnectorAdapter& app_db_client) {
   LOG(INFO) << "Delete PDPI IR entry: " << entry.ShortDebugString();
   ASSIGN_OR_RETURN(std::string key, GetVrfTableKey(entry));
 
@@ -108,14 +109,13 @@ absl::StatusOr<std::string> DeleteVrfTableEntry(
 
 }  // namespace
 
-absl::Status UpdateAppDbVrfTable(
-    p4::v1::Update::Type update_type, int rpc_index,
-    const pdpi::IrTableEntry& entry,
-    swss::ProducerStateTableInterface& vrf_table,
-    swss::ConsumerNotifierInterface& vrf_notification,
-    swss::DBConnectorInterface& app_db_client,
-    swss::DBConnectorInterface& state_db_client,
-    pdpi::IrWriteResponse& response) {
+absl::Status UpdateAppDbVrfTable(p4::v1::Update::Type update_type,
+                                 int rpc_index, const pdpi::IrTableEntry& entry,
+                                 ProducerStateTableAdapter& vrf_table,
+                                 ConsumerNotifierAdapter& vrf_notification,
+                                 DBConnectorAdapter& app_db_client,
+                                 DBConnectorAdapter& state_db_client,
+                                 pdpi::IrWriteResponse& response) {
   absl::StatusOr<std::string> update_key;
   switch (update_type) {
     case p4::v1::Update::INSERT:
@@ -149,7 +149,7 @@ absl::Status UpdateAppDbVrfTable(
 }
 
 absl::StatusOr<std::vector<pdpi::IrTableEntry>> GetAllAppDbVrfTableEntries(
-    swss::DBConnectorInterface& app_db_client) {
+    DBConnectorAdapter& app_db_client) {
   std::vector<pdpi::IrTableEntry> vrf_entries;
 
   for (const std::string& key : app_db_client.keys("*")) {

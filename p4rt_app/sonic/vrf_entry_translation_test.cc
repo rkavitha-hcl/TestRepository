@@ -23,9 +23,9 @@
 #include "gutil/status_matchers.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
-#include "swss/mocks/mock_consumer_notifier.h"
-#include "swss/mocks/mock_db_connector.h"
-#include "swss/mocks/mock_producer_state_table.h"
+#include "p4rt_app/sonic/adapters/mock_consumer_notifier_adapter.h"
+#include "p4rt_app/sonic/adapters/mock_db_connector_adapter.h"
+#include "p4rt_app/sonic/adapters/mock_producer_state_table_adapter.h"
 
 namespace p4rt_app {
 namespace sonic {
@@ -34,11 +34,9 @@ namespace {
 using ::google::protobuf::TextFormat;
 using ::gutil::EqualsProto;
 using ::gutil::IsOkAndHolds;
-using ::gutil::StatusIs;
 using ::testing::_;
 using ::testing::DoAll;
 using ::testing::Eq;
-using ::testing::HasSubstr;
 using ::testing::Return;
 using ::testing::SetArgReferee;
 using ::testing::UnorderedElementsAre;
@@ -51,10 +49,10 @@ class VrfEntryTranslationTest : public ::testing::Test {
   }
 
   const std::string vrf_table_name_ = "VRF_TABLE";
-  swss::MockProducerStateTable mock_vrf_table_;
-  swss::MockConsumerNotifier mock_vrf_notifier_;
-  swss::MockDBConnector mock_app_db_client_;
-  swss::MockDBConnector mock_state_db_client_;
+  MockProducerStateTableAdapter mock_vrf_table_;
+  MockConsumerNotifierAdapter mock_vrf_notifier_;
+  MockDBConnectorAdapter mock_app_db_client_;
+  MockDBConnectorAdapter mock_state_db_client_;
   absl::flat_hash_map<std::string, int> vrf_id_reference_count_;
 };
 
@@ -66,7 +64,7 @@ TEST_F(VrfEntryTranslationTest, InsertVrfEntry) {
                                                })pb",
                                           &table_entry));
 
-  EXPECT_CALL(mock_vrf_table_, set(Eq("vrf-1"), _, _, _)).Times(1);
+  EXPECT_CALL(mock_vrf_table_, set(Eq("vrf-1"), _)).Times(1);
   EXPECT_CALL(mock_vrf_notifier_, WaitForNotificationAndPop)
       .WillOnce(DoAll(SetArgReferee<0>("SWSS_RC_SUCCESS"),
                       SetArgReferee<1>("vrf-1"),
@@ -95,7 +93,7 @@ TEST_F(VrfEntryTranslationTest, CannotInsertDuplicateVrfEntry) {
   // exists we should not try to add a VRF entry.
   EXPECT_CALL(mock_app_db_client_, exists("VRF_TABLE:vrf-1"))
       .WillOnce(Return(true));
-  EXPECT_CALL(mock_vrf_table_, set(_, _, _, _)).Times(0);
+  EXPECT_CALL(mock_vrf_table_, set).Times(0);
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
@@ -116,7 +114,7 @@ TEST_F(VrfEntryTranslationTest, DeleteVrfEntry) {
 
   EXPECT_CALL(mock_app_db_client_, exists("VRF_TABLE:vrf-1"))
       .WillOnce(Return(true));
-  EXPECT_CALL(mock_vrf_table_, del(Eq("vrf-1"), _, _)).Times(1);
+  EXPECT_CALL(mock_vrf_table_, del(Eq("vrf-1"))).Times(1);
   EXPECT_CALL(mock_vrf_notifier_, WaitForNotificationAndPop)
       .WillOnce(DoAll(SetArgReferee<0>("SWSS_RC_SUCCESS"),
                       SetArgReferee<1>("vrf-1"),
@@ -145,7 +143,7 @@ TEST_F(VrfEntryTranslationTest, CannotDeleteMissingVrfEntry) {
   // not exist we should not try to delete it.
   EXPECT_CALL(mock_app_db_client_, exists("VRF_TABLE:vrf-1"))
       .WillOnce(Return(false));
-  EXPECT_CALL(mock_vrf_table_, del(_, _, _)).Times(0);
+  EXPECT_CALL(mock_vrf_table_, del).Times(0);
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
@@ -248,7 +246,7 @@ TEST_F(VrfEntryTranslationTest, CannotTouchSonicDefaultVrf) {
                                                })pb",
                                           &table_entry));
 
-  EXPECT_CALL(mock_vrf_table_, set(_, _, _, _)).Times(0);
+  EXPECT_CALL(mock_vrf_table_, set).Times(0);
 
   pdpi::IrWriteResponse response;
   response.add_statuses();

@@ -20,9 +20,9 @@
 #include "grpcpp/server.h"
 #include "grpcpp/server_builder.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
+#include "p4rt_app/sonic/adapters/fake_sonic_db_table.h"
 #include "p4rt_app/sonic/fake_packetio_interface.h"
 #include "swss/fakes/fake_component_state_helper.h"
-#include "swss/fakes/fake_sonic_db_table.h"
 #include "swss/fakes/fake_system_state_helper.h"
 
 namespace p4rt_app {
@@ -46,20 +46,20 @@ class P4RuntimeGrpcService {
   absl::Status VerifyState();
 
   // Accessors for AppDb tables.
-  swss::FakeSonicDbTable& GetP4rtAppDbTable();
-  swss::FakeSonicDbTable& GetPortAppDbTable();
-  swss::FakeSonicDbTable& GetVrfAppDbTable();
-  swss::FakeSonicDbTable& GetHashAppDbTable();
-  swss::FakeSonicDbTable& GetSwitchAppDbTable();
+  sonic::FakeSonicDbTable& GetP4rtAppDbTable();
+  sonic::FakeSonicDbTable& GetPortAppDbTable();
+  sonic::FakeSonicDbTable& GetVrfAppDbTable();
+  sonic::FakeSonicDbTable& GetHashAppDbTable();
+  sonic::FakeSonicDbTable& GetSwitchAppDbTable();
 
   // Accessors for AppStateDb tables.
-  swss::FakeSonicDbTable& GetP4rtAppStateDbTable();
-  swss::FakeSonicDbTable& GetVrfAppStateDbTable();
-  swss::FakeSonicDbTable& GetHashAppStateDbTable();
-  swss::FakeSonicDbTable& GetSwitchAppStateDbTable();
+  sonic::FakeSonicDbTable& GetP4rtAppStateDbTable();
+  sonic::FakeSonicDbTable& GetVrfAppStateDbTable();
+  sonic::FakeSonicDbTable& GetHashAppStateDbTable();
+  sonic::FakeSonicDbTable& GetSwitchAppStateDbTable();
 
   // Accessors for CounterDb tables.
-  swss::FakeSonicDbTable& GetP4rtCountersDbTable();
+  sonic::FakeSonicDbTable& GetP4rtCountersDbTable();
 
   // Accessor for PacketIO interface.
   sonic::FakePacketIoInterface& GetFakePacketIoInterface();
@@ -70,20 +70,20 @@ class P4RuntimeGrpcService {
 
  private:
   // Faked AppDb tables.
-  swss::FakeSonicDbTable fake_p4rt_table_;
-  swss::FakeSonicDbTable fake_vrf_table_;
-  swss::FakeSonicDbTable fake_port_table_;
-  swss::FakeSonicDbTable fake_hash_table_;
-  swss::FakeSonicDbTable fake_switch_table_;
+  sonic::FakeSonicDbTable fake_p4rt_table_;
+  sonic::FakeSonicDbTable fake_vrf_table_;
+  sonic::FakeSonicDbTable fake_port_table_;
+  sonic::FakeSonicDbTable fake_hash_table_;
+  sonic::FakeSonicDbTable fake_switch_table_;
 
   // Faked CountersDb tables.
-  swss::FakeSonicDbTable fake_p4rt_counters_table_;
+  sonic::FakeSonicDbTable fake_p4rt_counters_table_;
 
   // Faked StateDb tables.
-  swss::FakeSonicDbTable fake_p4rt_state_table_;
-  swss::FakeSonicDbTable fake_vrf_state_table_;
-  swss::FakeSonicDbTable fake_hash_state_table_;
-  swss::FakeSonicDbTable fake_switch_state_table_;
+  sonic::FakeSonicDbTable fake_p4rt_state_table_;
+  sonic::FakeSonicDbTable fake_vrf_state_table_;
+  sonic::FakeSonicDbTable fake_hash_state_table_;
+  sonic::FakeSonicDbTable fake_switch_state_table_;
 
   // Faked PacketIO interface.
   sonic::FakePacketIoInterface* fake_packetio_interface_;  // No ownership.

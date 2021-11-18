@@ -21,9 +21,9 @@
 #include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"
 #include "gutil/status_matchers.h"
+#include "p4rt_app/sonic/adapters/fake_producer_state_table_adapter.h"
+#include "p4rt_app/sonic/adapters/fake_sonic_db_table.h"
 #include "p4rt_app/utils/ir_builder.h"
-#include "swss/fakes/fake_producer_state_table.h"
-#include "swss/fakes/fake_sonic_db_table.h"
 #include "swss/json.h"
 #include "swss/json.hpp"
 
@@ -110,8 +110,9 @@ TEST(InsertAclTableDefinition, InsertsAclTableDefinition) {
           .meter_unit(p4::config::v1::MeterSpec::BYTES)
           .counter_unit(p4::config::v1::CounterSpec::BOTH)();
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
+
   ASSERT_OK(InsertAclTableDefinition(fake_db, table));
   std::vector<swss::FieldValueTuple> expected_values = {
       {"stage", "INGRESS"},
@@ -171,8 +172,8 @@ TEST(InsertAclTableDefinition, InsertsUdfMatchField) {
               R"pb(alias: "action" annotations: "@sai_action(SAI_DEFAULT)")pb"))
           .size(512)();
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   ASSERT_OK(InsertAclTableDefinition(fake_db, table));
   std::vector<swss::FieldValueTuple> expected_values = {
       {"stage", "INGRESS"},
@@ -207,8 +208,8 @@ TEST(InsertAclTableDefinition, InsertsCompositeMatchField) {
               R"pb(alias: "action" annotations: "@sai_action(SAI_DEFAULT)")pb"))
           .size(512)();
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   ASSERT_OK(InsertAclTableDefinition(fake_db, table));
   std::vector<swss::FieldValueTuple> expected_values = {
       {"stage", "INGRESS"},
@@ -251,8 +252,8 @@ TEST(InsertAclTableDefinition, InsertsCompositeUdfMatchField) {
               R"pb(alias: "action" annotations: "@sai_action(SAI_DEFAULT)")pb"))
           .size(512)();
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   ASSERT_OK(InsertAclTableDefinition(fake_db, table));
   std::vector<swss::FieldValueTuple> expected_values = {
       {"stage", "INGRESS"},
@@ -296,8 +297,8 @@ TEST(InsertAclTableDefinition, InsertsMeterUnitBytes) {
   pdpi::IrTableDefinition table =
       IrTableDefinitionBuilderWithSingleMatchAction().meter_unit(
           p4::config::v1::MeterSpec::BYTES)();
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   ASSERT_OK(InsertAclTableDefinition(fake_db, table));
   EXPECT_THAT(fake_table.ReadTableEntry("DEFINITION:ACL_TABLE"),
               IsOkAndHolds(Contains(Pair("meter/unit", "BYTES"))));
@@ -307,8 +308,8 @@ TEST(InsertAclTableDefinition, InsertsMeterUnitPackets) {
   pdpi::IrTableDefinition table =
       IrTableDefinitionBuilderWithSingleMatchAction().meter_unit(
           p4::config::v1::MeterSpec::PACKETS)();
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   ASSERT_OK(InsertAclTableDefinition(fake_db, table));
   EXPECT_THAT(fake_table.ReadTableEntry("DEFINITION:ACL_TABLE"),
               IsOkAndHolds(Contains(Pair("meter/unit", "PACKETS"))));
@@ -318,8 +319,8 @@ TEST(InsertAclTableDefinition, SkipsMeterUnitUnspecified) {
   pdpi::IrTableDefinition table =
       IrTableDefinitionBuilderWithSingleMatchAction().meter_unit(
           p4::config::v1::MeterSpec::UNSPECIFIED)();
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   ASSERT_OK(InsertAclTableDefinition(fake_db, table));
   EXPECT_THAT(fake_table.ReadTableEntry("DEFINITION:ACL_TABLE"),
               IsOkAndHolds(Not(Contains(Key("meter/unit")))));
@@ -328,8 +329,8 @@ TEST(InsertAclTableDefinition, SkipsMeterUnitUnspecified) {
 TEST(InsertAclTableDefinition, SkipsMeterUnitWithNoMeter) {
   pdpi::IrTableDefinition table =
       IrTableDefinitionBuilderWithSingleMatchAction()();
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   ASSERT_OK(InsertAclTableDefinition(fake_db, table));
   EXPECT_THAT(fake_table.ReadTableEntry("DEFINITION:ACL_TABLE"),
               IsOkAndHolds(Not(Contains(Key("meter/unit")))));
@@ -339,8 +340,8 @@ TEST(InsertAclTableDefinition, InsertsCounterUnitBytes) {
   pdpi::IrTableDefinition table =
       IrTableDefinitionBuilderWithSingleMatchAction().counter_unit(
           p4::config::v1::CounterSpec::BYTES)();
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   ASSERT_OK(InsertAclTableDefinition(fake_db, table));
   EXPECT_THAT(fake_table.ReadTableEntry("DEFINITION:ACL_TABLE"),
               IsOkAndHolds(Contains(Pair("counter/unit", "BYTES"))));
@@ -350,8 +351,8 @@ TEST(InsertAclTableDefinition, InsertsCounterUnitPackets) {
   pdpi::IrTableDefinition table =
       IrTableDefinitionBuilderWithSingleMatchAction().counter_unit(
           p4::config::v1::CounterSpec::PACKETS)();
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   ASSERT_OK(InsertAclTableDefinition(fake_db, table));
   EXPECT_THAT(fake_table.ReadTableEntry("DEFINITION:ACL_TABLE"),
               IsOkAndHolds(Contains(Pair("counter/unit", "PACKETS"))));
@@ -361,8 +362,8 @@ TEST(InsertAclTableDefinition, InsertsCounterUnitBoth) {
   pdpi::IrTableDefinition table =
       IrTableDefinitionBuilderWithSingleMatchAction().counter_unit(
           p4::config::v1::CounterSpec::BOTH)();
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   ASSERT_OK(InsertAclTableDefinition(fake_db, table));
   EXPECT_THAT(fake_table.ReadTableEntry("DEFINITION:ACL_TABLE"),
               IsOkAndHolds(Contains(Pair("counter/unit", "BOTH"))));
@@ -372,8 +373,8 @@ TEST(InsertAclTableDefinition, SkipsCounterUnitUnspecified) {
   pdpi::IrTableDefinition table =
       IrTableDefinitionBuilderWithSingleMatchAction().counter_unit(
           p4::config::v1::CounterSpec::UNSPECIFIED)();
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   ASSERT_OK(InsertAclTableDefinition(fake_db, table));
   EXPECT_THAT(fake_table.ReadTableEntry("DEFINITION:ACL_TABLE"),
               IsOkAndHolds(Not(Contains(Key("counter/unit")))));
@@ -382,8 +383,8 @@ TEST(InsertAclTableDefinition, SkipsCounterUnitUnspecified) {
 TEST(InsertAclTableDefinition, SkipsCounterUnitWithNoCounter) {
   pdpi::IrTableDefinition table =
       IrTableDefinitionBuilderWithSingleMatchAction()();
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   ASSERT_OK(InsertAclTableDefinition(fake_db, table));
   EXPECT_THAT(fake_table.ReadTableEntry("DEFINITION:ACL_TABLE"),
               IsOkAndHolds(Not(Contains(Key("counter/unit")))));
@@ -417,14 +418,14 @@ TEST(InsertAclTableDefinition, UdfComponentsAreUnordered) {
               R"pb(alias: "action" annotations: "@sai_action(SAI_DEFAULT)")pb"))
           .size(512)();
 
-  swss::FakeSonicDbTable fake_base_offset_length_table;
-  swss::FakeProducerStateTable base_offset_length_db(
+  FakeSonicDbTable fake_base_offset_length_table;
+  FakeProducerStateTableAdapter base_offset_length_db(
       "P4RT", &fake_base_offset_length_table);
   ASSERT_OK(InsertAclTableDefinition(base_offset_length_db,
                                      base_offset_length_table));
 
-  swss::FakeSonicDbTable fake_length_offset_base_table;
-  swss::FakeProducerStateTable length_offset_base_db(
+  FakeSonicDbTable fake_length_offset_base_table;
+  FakeProducerStateTableAdapter length_offset_base_db(
       "P4RT", &fake_length_offset_base_table);
   ASSERT_OK(InsertAclTableDefinition(length_offset_base_db,
                                      length_offset_base_table));
@@ -465,12 +466,13 @@ class WhitespaceTestBase : public ::testing::Test {
     google::protobuf::TextFormat::ParseFromString(
         absl::Substitute(table_template, padded_string), &padded);
 
-    swss::FakeSonicDbTable raw_string_table;
-    swss::FakeProducerStateTable raw_string_db("P4RT", &raw_string_table);
+    FakeSonicDbTable raw_string_table;
+    FakeProducerStateTableAdapter raw_string_db("P4RT", &raw_string_table);
     ASSERT_OK(InsertAclTableDefinition(raw_string_db, raw));
 
-    swss::FakeSonicDbTable padded_string_table;
-    swss::FakeProducerStateTable padded_string_db("P4RT", &padded_string_table);
+    FakeSonicDbTable padded_string_table;
+    FakeProducerStateTableAdapter padded_string_db("P4RT",
+                                                   &padded_string_table);
     ASSERT_OK(InsertAclTableDefinition(padded_string_db, padded));
 
     const std::string entry_key = "DEFINITION:ACL_TABLE";
@@ -753,8 +755,8 @@ TEST(InsertAclTableDefinition, FailsWithoutAlias) {
                   R"pb(alias: "action_une"
                        annotations: "@sai_action(SAI_DEFAULT)")pb"))();
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   EXPECT_THAT(InsertAclTableDefinition(fake_db, table),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("is missing an alias")));
@@ -772,8 +774,8 @@ TEST(InsertAclTableDefinition, FailsWithoutStage) {
           .entry_action(IrActionDefinitionBuilder().preamble(
               R"pb(alias: "action" annotations: "@sai_action(ACTION)")pb"))();
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   EXPECT_THAT(InsertAclTableDefinition(fake_db, table),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("is not an ACL table")));
@@ -786,8 +788,8 @@ TEST(InsertAclTableDefinition, FailsWithoutMatchField) {
           .entry_action(IrActionDefinitionBuilder().preamble(
               R"pb(alias: "action" annotations: "@sai_action(ACTION)")pb"))();
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   EXPECT_THAT(
       InsertAclTableDefinition(fake_db, table),
       StatusIs(absl::StatusCode::kInvalidArgument,
@@ -805,8 +807,8 @@ TEST(InsertAclTableDefinition, FailsWithoutAction) {
                            annotations: "@sai_field(MATCH)")pb",
                       pdpi::STRING)();
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   EXPECT_THAT(InsertAclTableDefinition(fake_db, table),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("ACL table requires at least one action")));
@@ -829,8 +831,8 @@ TEST(InsertAclTableDefinition, FailsWithoutSaiAction) {
                       R"pb(alias: "add_action"
                            annotations: "@sai_action(ACTION)")pb"))();
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   EXPECT_THAT(InsertAclTableDefinition(fake_db, table),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("has no SAI mapping.")));
@@ -853,8 +855,8 @@ TEST(InsertAclTableDefinition, FailsWithNonNoActionConstDefaultAction) {
                       R"pb(alias: "default_action"
                            annotations: "@sai_action(ACTION)")pb"))();
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   EXPECT_THAT(
       InsertAclTableDefinition(fake_db, table),
       StatusIs(absl::StatusCode::kInvalidArgument,
@@ -883,8 +885,8 @@ TEST(InsertAclTableDefinition, FailsWithMeteredParameter) {
                                annotations: "@sai_action_param(SAI_PARAM, RED)"
                           )pb"))();
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   EXPECT_THAT(
       InsertAclTableDefinition(fake_db, table),
       StatusIs(absl::StatusCode::kInvalidArgument,
@@ -909,14 +911,14 @@ TEST(InsertAclTableDefinition, IgnoresNoActionConstDefaultAction) {
 
   auto control_table = table;
   control_table.clear_const_default_action();
-  swss::FakeSonicDbTable fake_expected_table;
-  swss::FakeProducerStateTable fake_expected_db("P4RT", &fake_expected_table);
+  FakeSonicDbTable fake_expected_table;
+  FakeProducerStateTableAdapter fake_expected_db("P4RT", &fake_expected_table);
   EXPECT_OK(InsertAclTableDefinition(fake_expected_db, control_table));
   ASSERT_OK_AND_ASSIGN(auto expected_values, fake_expected_table.ReadTableEntry(
                                                  "DEFINITION:ACL_TABLE"));
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   EXPECT_OK(InsertAclTableDefinition(fake_db, table));
   ASSERT_OK_AND_ASSIGN(auto actual_values,
                        fake_table.ReadTableEntry("DEFINITION:ACL_TABLE"));
@@ -954,14 +956,14 @@ TEST(InsertAclTableDefinition, SkipsDefaultOnlyActions) {
                               R"pb(alias: "entry_action"
                                    annotations: "@sai_action(ACTION)")pb"))();
 
-  swss::FakeSonicDbTable fake_expected_table;
-  swss::FakeProducerStateTable fake_expected_db("P4RT", &fake_expected_table);
+  FakeSonicDbTable fake_expected_table;
+  FakeProducerStateTableAdapter fake_expected_db("P4RT", &fake_expected_table);
   EXPECT_OK(InsertAclTableDefinition(fake_expected_db, control_table));
   ASSERT_OK_AND_ASSIGN(auto expected_values, fake_expected_table.ReadTableEntry(
                                                  "DEFINITION:ACL_TABLE"));
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   EXPECT_OK(InsertAclTableDefinition(fake_db, table));
   ASSERT_OK_AND_ASSIGN(auto actual_values,
                        fake_table.ReadTableEntry("DEFINITION:ACL_TABLE"));
@@ -1112,8 +1114,8 @@ TEST_P(BadMatchFieldTest, DISABLED_ReturnsFailure) {
           .entry_action(IrActionDefinitionBuilder().preamble(
               R"pb(alias: "action" annotations: "@sai_action(ACTION)")pb"))();
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   EXPECT_THAT(InsertAclTableDefinition(fake_db, table),
               StatusIs(absl::StatusCode::kInvalidArgument, _));
 }
@@ -1152,8 +1154,8 @@ TEST_P(BadActionTest, ReturnsFailure) {
           .entry_action(
               IrActionDefinitionBuilder().preamble(GetParam().second))();
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   EXPECT_THAT(InsertAclTableDefinition(fake_db, table),
               StatusIs(absl::StatusCode::kInvalidArgument, _));
 }
@@ -1196,8 +1198,8 @@ TEST_P(BadActionParamTest, ReturnsFailure) {
                             .preamble(R"pb(alias: "Action")pb")
                             .param(GetParam().second))();
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   EXPECT_THAT(InsertAclTableDefinition(fake_db, table),
               StatusIs(absl::StatusCode::kInvalidArgument, _));
 }
@@ -1239,12 +1241,12 @@ TEST(AppDbAclTableManagerTest, Insert_ConsistentActionOrder) {
                                      .param(param2)
                                      .param(param1));
 
-  swss::FakeSonicDbTable incremental_db_table;
-  swss::FakeProducerStateTable incremental_db("P4RT", &incremental_db_table);
+  FakeSonicDbTable incremental_db_table;
+  FakeProducerStateTableAdapter incremental_db("P4RT", &incremental_db_table);
   EXPECT_OK(InsertAclTableDefinition(incremental_db, incremental_table()));
 
-  swss::FakeSonicDbTable decremental_db_table;
-  swss::FakeProducerStateTable decremental_db("P4RT", &decremental_db_table);
+  FakeSonicDbTable decremental_db_table;
+  FakeProducerStateTableAdapter decremental_db("P4RT", &decremental_db_table);
   EXPECT_OK(InsertAclTableDefinition(decremental_db, decremental_table()));
 
   ASSERT_OK_AND_ASSIGN(
@@ -1261,8 +1263,8 @@ TEST(AppDbAclTableManagerTest, Remove) {
   pdpi::IrTableDefinition table = IrTableDefinitionBuilder().preamble(
       R"pb(alias: "Table" annotations: "@sai_acl(INGRESS)")pb")();
 
-  swss::FakeSonicDbTable fake_table;
-  swss::FakeProducerStateTable fake_db("P4RT", &fake_table);
+  FakeSonicDbTable fake_table;
+  FakeProducerStateTableAdapter fake_db("P4RT", &fake_table);
   fake_table.InsertTableEntry("DEFINITION:ACL_TABLE", {{"a", "a"}});
   ASSERT_OK(RemoveAclTableDefinition(fake_db, table));
   EXPECT_THAT(fake_table.ReadTableEntry("DEFINITION:ACL_TABLE"),

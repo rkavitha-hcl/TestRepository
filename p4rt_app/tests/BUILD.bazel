@@ -41,7 +41,6 @@ cc_test(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
-        "@sonic_swss_common//tests/fakes:fake_sonic_db_table",
     ],
 )
 
@@ -85,7 +84,6 @@ cc_test(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
-        "@sonic_swss_common//tests/fakes:fake_sonic_db_table",
     ],
 )
 
@@ -113,7 +111,6 @@ cc_test(
         "@com_google_googletest//:gtest_main",
         "@sonic_swss_common//:libswsscommon",
         "@sonic_swss_common//tests/fakes:fake_component_state_helper",
-        "@sonic_swss_common//tests/fakes:fake_sonic_db_table",
     ],
 )
 
@@ -144,7 +141,6 @@ cc_test(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
-        "@sonic_swss_common//tests/fakes:fake_sonic_db_table",
     ],
 )
 
@@ -170,7 +166,6 @@ cc_test(
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf_lite",
-        "@sonic_swss_common//tests/fakes:fake_sonic_db_table",
     ],
 )
 
@@ -193,7 +188,6 @@ cc_test(
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
         "@com_google_protobuf//:protobuf",
-        "@sonic_swss_common//tests/fakes:fake_sonic_db_table",
     ],
 )
 
@@ -246,7 +240,6 @@ cc_test(
         "@com_google_absl//absl/synchronization",
         "@com_google_absl//absl/time",
         "@com_google_googletest//:gtest_main",
-        "@sonic_swss_common//tests/fakes:fake_sonic_db_table",
     ],
 )
 
@@ -270,7 +263,6 @@ cc_test(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
-        "@sonic_swss_common//tests/fakes:fake_sonic_db_table",
     ],
 )
 
@@ -284,6 +276,7 @@ cc_test(
         "//gutil:status_matchers",
         "//p4_pdpi:ir_cc_proto",
         "//p4_pdpi:p4_runtime_session",
+        "//p4rt_app/sonic/adapters:fake_sonic_db_table",
         "//p4rt_app/tests/lib:app_db_entry_builder",
         "//p4rt_app/tests/lib:p4runtime_component_test_fixture",
         "//p4rt_app/tests/lib:p4runtime_grpc_service",
@@ -298,7 +291,6 @@ cc_test(
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
-        "@sonic_swss_common//tests/fakes:fake_sonic_db_table",
     ],
 )
 
@@ -360,6 +352,5 @@ cc_test(
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest_main",
-        "@sonic_swss_common//tests/fakes:fake_sonic_db_table",
     ],
 )

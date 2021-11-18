@@ -21,9 +21,9 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "p4_pdpi/ir.h"
-#include "swss/consumernotifierinterface.h"
-#include "swss/dbconnectorinterface.h"
-#include "swss/producerstatetableinterface.h"
+#include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
+#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
+#include "p4rt_app/sonic/adapters/producer_state_table_adapter.h"
 #include "swss/table.h"
 
 namespace p4rt_app {
@@ -70,20 +70,19 @@ GenerateAppDbHashValueEntries(const pdpi::IrP4Info& ir_p4info);
 // be used in the SWITCH_TABLE later.
 absl::StatusOr<std::vector<std::string>> ProgramHashFieldTable(
     const pdpi::IrP4Info& ir_p4info,
-    swss::ProducerStateTableInterface& app_db_table_hash,
-    swss::ConsumerNotifierInterface& app_db_notifier_hash,
-    swss::DBConnectorInterface& app_db_client,
-    swss::DBConnectorInterface& state_db_client);
+    ProducerStateTableAdapter& app_db_table_hash,
+    ConsumerNotifierAdapter& app_db_notifier_hash,
+    DBConnectorAdapter& app_db_client, DBConnectorAdapter& state_db_client);
 
 // Programs the APP_DB enries (SWITCH_TABLE) with all ecmp hashing related
 // fields in the switch table, like algorithm, seed, offset and the hash field
 // object.
-absl::Status ProgramSwitchTable(
-    const pdpi::IrP4Info& ir_p4info, std::vector<std::string> hash_fields,
-    swss::ProducerStateTableInterface& app_db_table_switch,
-    swss::ConsumerNotifierInterface& app_db_notifier_switch,
-    swss::DBConnectorInterface& app_db_client,
-    swss::DBConnectorInterface& state_db_client);
+absl::Status ProgramSwitchTable(const pdpi::IrP4Info& ir_p4info,
+                                std::vector<std::string> hash_fields,
+                                ProducerStateTableAdapter& app_db_table_switch,
+                                ConsumerNotifierAdapter& app_db_notifier_switch,
+                                DBConnectorAdapter& app_db_client,
+                                DBConnectorAdapter& state_db_client);
 
 }  // namespace sonic
 }  // namespace p4rt_app

@@ -19,7 +19,7 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/status_matchers.h"
-#include "swss/mocks/mock_db_connector.h"
+#include "p4rt_app/sonic/adapters/mock_db_connector_adapter.h"
 
 namespace p4rt_app {
 namespace sonic {
@@ -34,8 +34,8 @@ using ListOfKeys = std::vector<std::string>;
 using MapOfValues = std::unordered_map<std::string, std::string>;
 
 TEST(StateVerificationTest, VerifyStateMatches) {
-  swss::MockDBConnector mock_app_state_db;
-  swss::MockDBConnector mock_app_db;
+  MockDBConnectorAdapter mock_app_state_db;
+  MockDBConnectorAdapter mock_app_db;
 
   // Read 2 keys from the AppDb and AppStateDb. Order should not matter.
   EXPECT_CALL(mock_app_db, keys)
@@ -66,8 +66,8 @@ TEST(StateVerificationTest, VerifyStateMatches) {
 }
 
 TEST(StateVerificationTest, MissingEntryInAppDbFails) {
-  swss::MockDBConnector mock_app_state_db;
-  swss::MockDBConnector mock_app_db;
+  MockDBConnectorAdapter mock_app_state_db;
+  MockDBConnectorAdapter mock_app_db;
 
   // Read only 1 key from the AppDb and 2 keys from the AppStateDb.
   EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"P4RT:key1"}));
@@ -89,8 +89,8 @@ TEST(StateVerificationTest, MissingEntryInAppDbFails) {
 }
 
 TEST(StateVerificationTest, MissingEntryInAppStateDbFails) {
-  swss::MockDBConnector mock_app_state_db;
-  swss::MockDBConnector mock_app_db;
+  MockDBConnectorAdapter mock_app_state_db;
+  MockDBConnectorAdapter mock_app_db;
 
   // Read only 2 key from the AppDb and 1 key from the AppStateDb.
   EXPECT_CALL(mock_app_db, keys)
@@ -113,8 +113,8 @@ TEST(StateVerificationTest, MissingEntryInAppStateDbFails) {
 }
 
 TEST(StateVerificationTest, MissingFieldInAppDbEntryFails) {
-  swss::MockDBConnector mock_app_state_db;
-  swss::MockDBConnector mock_app_db;
+  MockDBConnectorAdapter mock_app_state_db;
+  MockDBConnectorAdapter mock_app_db;
 
   // Read the same key from the AppDb and AppStateDb.
   EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"P4RT:key0"}));
@@ -135,8 +135,8 @@ TEST(StateVerificationTest, MissingFieldInAppDbEntryFails) {
 }
 
 TEST(StateVerificationTest, ExtraFieldInAppDbEntryFails) {
-  swss::MockDBConnector mock_app_state_db;
-  swss::MockDBConnector mock_app_db;
+  MockDBConnectorAdapter mock_app_state_db;
+  MockDBConnectorAdapter mock_app_db;
 
   // Read the same key from the AppDb and AppStateDb.
   EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"P4RT:key0"}));
@@ -157,8 +157,8 @@ TEST(StateVerificationTest, ExtraFieldInAppDbEntryFails) {
 }
 
 TEST(StateVerificationTest, MismatchFieldInEntryFails) {
-  swss::MockDBConnector mock_app_state_db;
-  swss::MockDBConnector mock_app_db;
+  MockDBConnectorAdapter mock_app_state_db;
+  MockDBConnectorAdapter mock_app_db;
 
   // Read the same key from the AppDb and AppStateDb.
   EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"P4RT:key0"}));
@@ -178,8 +178,8 @@ TEST(StateVerificationTest, MismatchFieldInEntryFails) {
 }
 
 TEST(StateVerificationTest, DifferentFieldValuesInEntryFails) {
-  swss::MockDBConnector mock_app_state_db;
-  swss::MockDBConnector mock_app_db;
+  MockDBConnectorAdapter mock_app_state_db;
+  MockDBConnectorAdapter mock_app_db;
 
   // Read the same key from the AppDb and AppStateDb.
   EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"P4RT:key0"}));
