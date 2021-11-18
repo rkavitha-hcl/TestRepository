@@ -91,6 +91,21 @@ TEST(InsertAclTableDefinition, InsertsAclTableDefinition) {
                       R"pb(id: 1
                            name: "action_param"
                            annotations: "@sai_action_param(SAI_ACTION_21)")pb"))
+          .entry_action(
+              IrActionDefinitionBuilder()
+                  .preamble(
+                      R"pb(
+                        alias: "complex_metered_action_with_param"
+                        annotations: "@sai_action(SAI_ACTION_GREEN, GREEN)"
+                        annotations: "@sai_action(SAI_ACTION_YELLOW, YELLOW)"
+                        annotations: "@sai_action(SAI_ACTION_RED, RED)"
+                      )pb")
+                  .param(
+                      R"pb(
+                        id: 1
+                        name: "action_param"
+                        annotations: "@sai_action_param(SAI_ACTION_WITH_PARAM)"
+                      )pb"))
           .size(512)
           .meter_unit(p4::config::v1::MeterSpec::BYTES)
           .counter_unit(p4::config::v1::CounterSpec::BOTH)();
@@ -127,6 +142,12 @@ TEST(InsertAclTableDefinition, InsertsAclTableDefinition) {
            [{"action": "SAI_ACTION", "packet_color": "GREEN"},
             {"action": "SAI_ACTION_21", "param": "action_param"}])JSON")
                                                .dump()},
+      {"action/complex_metered_action_with_param", nlohmann::json::parse(R"JSON(
+           [{"action": "SAI_ACTION_GREEN", "packet_color": "GREEN"},
+            {"action": "SAI_ACTION_YELLOW", "packet_color": "YELLOW"},
+            {"action": "SAI_ACTION_RED", "packet_color": "RED"},
+            {"action": "SAI_ACTION_WITH_PARAM", "param": "action_param"}])JSON")
+                                                       .dump()},
       {"size", "512"},
       {"meter/unit", "BYTES"},
       {"counter/unit", "BOTH"}};
