@@ -1102,7 +1102,7 @@ TEST_P(CpuQosTestWithoutIxia, TrafficToLoopackIpGetsMappedToCorrectQueues) {
 // Level of tolerance for packet rate verification.
 // This could be parameterized in future if this is platform
 // dependent.
-constexpr float kTolerancePercent = 3.0;
+constexpr float kTolerancePercent = 4.0;
 
 // Ixia configurations:
 // 1. Frames sent per second by Ixia.
