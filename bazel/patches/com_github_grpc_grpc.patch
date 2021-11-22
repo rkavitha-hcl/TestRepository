@@ -1,0 +1,20 @@
+From 0000000000000000000000000000000000000000 Mon Sep 17 00:00:00 2001
+From: Runming Wu <runmingwu@google.com>
+Date: Fri, 19 Nov 2021 11:33:14 -0800
+Subject: Patch fix for certain gcc version.
+
+
+diff --git a/src/core/ext/xds/xds_api.h b/src/core/ext/xds/xds_api.h
+index f521f5a66a..49371604bf 100644
+--- a/src/core/ext/xds/xds_api.h
++++ b/src/core/ext/xds/xds_api.h
+@@ -53,6 +53,7 @@ class XdsApi {
+   static const char* kEdsTypeUrl;
+
+   struct Duration {
++    Duration(){}
+     int64_t seconds = 0;
+     int32_t nanos = 0;
+     bool operator==(const Duration& other) const {
+--
+2.34.0.rc2.393.gf8c9666880-goog

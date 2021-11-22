@@ -16,9 +16,12 @@ def pins_infra_deps():
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
             name = "com_github_grpc_grpc",
-            url = "https://github.com/grpc/grpc/archive/v1.41.0.zip",
-            strip_prefix = "grpc-1.41.0",
-            sha256 = "827b33199857246cc3af99a23f8cadf46ce0191bf699e10a1239fa10dc67b495",
+            url = "https://github.com/grpc/grpc/archive/v1.42.0.zip",
+            strip_prefix = "grpc-1.42.0",
+            sha256 = "9f387689b7fdf6c003fd90ef55853107f89a2121792146770df5486f0199f400",
+            # TODO: Temporary workaround for compilation error seen in some versions of gcc.
+            patches = ["//bazel/patches:com_github_grpc_grpc.patch"],
+            patch_args = ["-p1"],
         )
     if not native.existing_rule("com_google_absl"):
         http_archive(
