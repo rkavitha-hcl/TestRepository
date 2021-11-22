@@ -1,4 +1,0 @@
-# This BUILD file is needed for bazel to label the patch file target.
-# There is no rule defined in this BUILD file.
-
-package(default_visibility = ["//visibility:public"])

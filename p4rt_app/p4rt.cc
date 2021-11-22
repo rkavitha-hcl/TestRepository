@@ -33,6 +33,7 @@
 #include "grpcpp/security/tls_credentials_options.h"
 #include "grpcpp/server.h"
 #include "grpcpp/server_builder.h"
+#include "gutil/io.h"
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4rt_app/event_monitoring/port_change_events.h"
@@ -129,15 +130,21 @@ absl::StatusOr<std::shared_ptr<ServerCredentials>> BuildServerCredentials() {
 }
 
 std::shared_ptr<grpc::experimental::AuthorizationPolicyProviderInterface>
-CreateAuthzPolicyProvider() {
-  constexpr int kAuthzRefreshIntervalSec = 5;
+CreateStaticAuthzPolicyProvider() {
+  auto policy = gutil::ReadFile(FLAGS_authorization_policy_file);
+  if (!policy.ok()) {
+    LOG(ERROR) << "Failed to read authorization config file "
+               << FLAGS_authorization_policy_file
+               << ". No authorization will be applied.";
+    return nullptr;
+  }
   grpc::Status status;
   auto provider =
-      grpc::experimental::FileWatcherAuthorizationPolicyProvider::Create(
-          FLAGS_authorization_policy_file, kAuthzRefreshIntervalSec, &status);
+      grpc::experimental::StaticDataAuthorizationPolicyProvider::Create(
+          *policy, &status);
   if (!status.ok()) {
-    LOG(ERROR) << "Failed to create authorization provider: "
-               << status.error_message();
+    LOG(ERROR) << "Failed to create authorization provider. No authorization "
+                  "will be applied.";
     return nullptr;
   }
   return provider;
@@ -289,12 +296,11 @@ int main(int argc, char** argv) {
 
   // Set authorization policy.
   if (FLAGS_authz_policy_enabled && !FLAGS_ca_certificate_file.empty()) {
-    auto provider = CreateAuthzPolicyProvider();
-    if (provider == nullptr) {
-      LOG(ERROR) << "Error in creating authz policy provider";
-      return -1;
+    auto provider = CreateStaticAuthzPolicyProvider();
+    if (provider != nullptr) {
+      builder.experimental().SetAuthorizationPolicyProvider(
+          std::move(provider));
     }
-    builder.experimental().SetAuthorizationPolicyProvider(std::move(provider));
   }
 
   builder.RegisterService(&p4runtime_server);
