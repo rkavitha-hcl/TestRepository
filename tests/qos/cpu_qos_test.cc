@@ -698,6 +698,17 @@ TEST_P(CpuQosTestWithoutIxia,
   ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
                        pdpi::CreateIrP4Info(p4info));
 
+  // Set up P4Runtime.
+  EXPECT_OK(
+      Testbed().Environment().StoreTestArtifact("p4info.textproto", p4info));
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<pdpi::P4RuntimeSession> sut_p4rt_session,
+      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(sut, p4info));
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<pdpi::P4RuntimeSession> control_p4rt_session,
+      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(control_device,
+                                                             p4info));
+
   // Set up gNMI.
   EXPECT_OK(Testbed().Environment().StoreTestArtifact("gnmi_config.json",
                                                       GetParam().gnmi_config));
@@ -716,16 +727,6 @@ TEST_P(CpuQosTestWithoutIxia,
   LOG(INFO) << "Link used to inject test packets: "
             << link_used_for_test_packets;
 
-  // Set up P4Runtime.
-  EXPECT_OK(
-      Testbed().Environment().StoreTestArtifact("p4info.textproto", p4info));
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<pdpi::P4RuntimeSession> sut_p4rt_session,
-      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(sut, p4info));
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<pdpi::P4RuntimeSession> control_p4rt_session,
-      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(control_device,
-                                                             p4info));
   // We install a RIF to make this test non-trivial, as all packets are dropped
   // by default if no RIF exists (b/190736007).
   ASSERT_OK_AND_ASSIGN(
@@ -821,6 +822,17 @@ TEST_P(CpuQosTestWithoutIxia, PerEntryAclCounterIncrementsWhenEntryIsHit) {
   ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
                        pdpi::CreateIrP4Info(p4info));
 
+  // Set up P4Runtime.
+  EXPECT_OK(
+      Testbed().Environment().StoreTestArtifact("p4info.textproto", p4info));
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<pdpi::P4RuntimeSession> sut_p4rt_session,
+      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(sut, p4info));
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<pdpi::P4RuntimeSession> control_p4rt_session,
+      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(control_device,
+                                                             p4info));
+
   // Set up gNMI.
   EXPECT_OK(Testbed().Environment().StoreTestArtifact("gnmi_config.json",
                                                       GetParam().gnmi_config));
@@ -839,16 +851,6 @@ TEST_P(CpuQosTestWithoutIxia, PerEntryAclCounterIncrementsWhenEntryIsHit) {
   LOG(INFO) << "Link used to inject test packets: "
             << link_used_for_test_packets;
 
-  // Set up P4Runtime.
-  EXPECT_OK(
-      Testbed().Environment().StoreTestArtifact("p4info.textproto", p4info));
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<pdpi::P4RuntimeSession> sut_p4rt_session,
-      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(sut, p4info));
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<pdpi::P4RuntimeSession> control_p4rt_session,
-      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(control_device,
-                                                             p4info));
   // We install a RIF to make this test non-trivial, as all packets are dropped
   // by default if no RIF exists (b/190736007).
   ASSERT_OK_AND_ASSIGN(
@@ -957,6 +959,17 @@ TEST_P(CpuQosTestWithoutIxia, TrafficToLoopackIpGetsMappedToCorrectQueues) {
   ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
                        pdpi::CreateIrP4Info(p4info));
 
+  // Set up P4Runtime.
+  EXPECT_OK(
+      Testbed().Environment().StoreTestArtifact("p4info.textproto", p4info));
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session,
+      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(sut, p4info));
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<pdpi::P4RuntimeSession> control_p4rt_session,
+      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(control_device,
+                                                             p4info));
+
   // Set up gNMI.
   EXPECT_OK(Testbed().Environment().StoreTestArtifact("gnmi_config.json",
                                                       GetParam().gnmi_config));
@@ -974,16 +987,6 @@ TEST_P(CpuQosTestWithoutIxia, TrafficToLoopackIpGetsMappedToCorrectQueues) {
   LOG(INFO) << "Link used to inject test packets: "
             << link_used_for_test_packets;
 
-  // Set up P4Runtime.
-  EXPECT_OK(
-      Testbed().Environment().StoreTestArtifact("p4info.textproto", p4info));
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session,
-      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(sut, p4info));
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<pdpi::P4RuntimeSession> control_p4rt_session,
-      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(control_device,
-                                                             p4info));
   // TODO: Unless a RIF exists at the test packet ingress port,
   // packets will be dropped. Remove this once these RIFs are set up via
   // gNMI.
