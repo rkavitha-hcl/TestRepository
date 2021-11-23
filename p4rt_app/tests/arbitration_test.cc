@@ -453,6 +453,49 @@ TEST_F(ArbitrationTest, PrimaryConnectionCanReestablishAfterBecomingBackup) {
             grpc::StatusCode::ALREADY_EXISTS);
 }
 
+TEST_F(ArbitrationTest, BackupCanReuseElectionIdWhenPrimaryDisconnects) {
+  grpc::ClientContext primary_context;
+  std::unique_ptr<P4RuntimeStream> primary =
+      stub_->StreamChannel(&primary_context);
+
+  grpc::ClientContext backup_context;
+  std::unique_ptr<P4RuntimeStream> backup =
+      stub_->StreamChannel(&backup_context);
+
+  // Send the first arbitration request, and because it's the first request it
+  // will default to the primary connection.
+  p4::v1::StreamMessageRequest primary_request;
+  primary_request.mutable_arbitration()->set_device_id(GetDeviceId());
+  *primary_request.mutable_arbitration()->mutable_election_id() =
+      GetElectionId(2);
+  ASSERT_OK_AND_ASSIGN(p4::v1::StreamMessageResponse response,
+                       SendStreamRequest(*primary, primary_request));
+  EXPECT_EQ(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  // Send the second arbitration request without an election ID which will
+  // force it to be a backup connection.
+  p4::v1::StreamMessageRequest backup_request;
+  backup_request.mutable_arbitration()->set_device_id(GetDeviceId());
+  ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*backup, backup_request));
+  EXPECT_NE(response.arbitration().status().code(), grpc::StatusCode::OK);
+
+  // Close the primary stream  disconnect.
+  primary->WritesDone();
+  EXPECT_OK(primary->Finish());
+
+  // Because the primary connection went down we expect all the backup
+  // connections to be notififed.
+  ASSERT_OK_AND_ASSIGN(response, GetStreamResponse(*backup));
+  EXPECT_EQ(response.arbitration().status().code(),
+            grpc::StatusCode::NOT_FOUND);
+
+  // The backup connection should be able to become primary reusing the same
+  // election ID as the old primary channel.
+  ASSERT_OK_AND_ASSIGN(p4::v1::StreamMessageResponse response2,
+                       SendStreamRequest(*backup, primary_request));
+  EXPECT_EQ(response2.arbitration().status().code(), grpc::StatusCode::OK);
+}
+
 TEST_F(ArbitrationTest, PrimaryMustUseElectionIdHigherThanAllPastConnections) {
   grpc::ClientContext context;
   std::unique_ptr<P4RuntimeStream> stream = stub_->StreamChannel(&context);

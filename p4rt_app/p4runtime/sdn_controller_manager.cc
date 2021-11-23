@@ -95,6 +95,7 @@ absl::optional<std::string> SdnConnection::GetRoleName() const {
 
 void SdnConnection::SendStreamMessageResponse(
     const p4::v1::StreamMessageResponse& response) {
+  VLOG(2) << "Sending response: " << response.ShortDebugString();
   if (!grpc_stream_->Write(response)) {
     LOG(ERROR) << "Could not send arbitration update response to gRPC conext '"
                << grpc_context_ << "': " << response.ShortDebugString();
@@ -380,6 +381,7 @@ void SdnControllerManager::SendArbitrationResponse(SdnConnection* connection) {
     status->set_message(
         "you are a backup connection, and NO primary connection exists.");
   }
+
   connection->SendStreamMessageResponse(response);
 }
 
