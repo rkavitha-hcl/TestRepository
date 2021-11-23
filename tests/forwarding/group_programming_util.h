@@ -15,8 +15,15 @@
 #ifndef GOOGLE_TESTS_FORWARDING_GROUP_PROGRAMMING_H_
 #define GOOGLE_TESTS_FORWARDING_GROUP_PROGRAMMING_H_
 
+#include <string>
+#include <vector>
+
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
+#include "absl/status/statusor.h"
+#include "absl/strings/string_view.h"
+#include "absl/types/span.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"

@@ -16,11 +16,10 @@
 #define GOOGLE_TESTS_FORWARDING_UTIL_H_
 
 #include <functional>
+#include <string>
 
-#include "absl/status/statusor.h"
+#include "absl/status/status.h"
 #include "absl/time/time.h"
-#include "p4/v1/p4runtime.pb.h"
-#include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
 

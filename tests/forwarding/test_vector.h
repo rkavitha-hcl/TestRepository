@@ -15,9 +15,14 @@
 #ifndef GOOGLE_TESTS_FORWARDING_TEST_VECTOR_H_
 #define GOOGLE_TESTS_FORWARDING_TEST_VECTOR_H_
 
+#include <ostream>
+#include <string>
+#include <vector>
+
 #include "absl/types/optional.h"
-#include "gtest/gtest.h"
+#include "google/protobuf/descriptor.h"
 #include "tests/forwarding/test_vector.pb.h"
+
 namespace gpins {
 
 // Needed to make gUnit produce human-readable output in open source.

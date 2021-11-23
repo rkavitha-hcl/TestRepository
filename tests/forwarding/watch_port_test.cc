@@ -14,25 +14,29 @@
 
 #include "tests/forwarding/watch_port_test.h"
 
-#include <algorithm>
-#include <cctype>
 #include <memory>
-#include <ostream>
-#include <stdexcept>
+#include <string>
+#include <thread>  // NOLINT
+#include <type_traits>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
-#include "absl/flags/flag.h"
 #include "absl/random/random.h"
-#include "absl/random/uniform_int_distribution.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/escaping.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
+#include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/collections.h"
@@ -40,17 +44,29 @@
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "lib/gnmi/gnmi_helper.h"
+#include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
+#include "p4_pdpi/packetlib/packetlib.h"
+#include "p4_pdpi/packetlib/packetlib.pb.h"
 #include "p4_pdpi/pd.h"
 #include "p4_pdpi/string_encodings/decimal_string.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
+#include "proto/gnmi/gnmi.grpc.pb.h"
+#include "sai_p4/instantiations/google/instantiations.h"
+#include "sai_p4/instantiations/google/sai_p4info.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
 #include "tests/forwarding/group_programming_util.h"
 #include "tests/forwarding/packet_test_util.h"
+#include "tests/forwarding/test_vector.pb.h"
 #include "tests/forwarding/util.h"
+#include "tests/thinkit_sanity_tests.h"
+#include "thinkit/mirror_testbed.h"
 #include "thinkit/mirror_testbed_fixture.h"
+#include "thinkit/switch.h"
+#include "thinkit/test_environment.h"
 // Tests for the watchport functionality in Action Profile Group operation.
 
 namespace gpins {
@@ -378,11 +394,11 @@ absl::Status SetInterfaceAdminState(gnmi::gNMI::StubInterface& gnmi_stub,
 }  // namespace
 
 void WatchPortTestFixture::SetUp() {
-  MirrorTestbedFixture::SetUp();
-  thinkit::MirrorTestbed& testbed = GetMirrorTestbed();
+  GetParam().testbed->SetUp();
+  thinkit::MirrorTestbed& testbed = GetParam().testbed->GetMirrorTestbed();
 
   // Push gnmi config to the sut and control switch.
-  const std::string& gnmi_config = GetGnmiConfig();
+  const std::string& gnmi_config = GetParam().gnmi_config;
   ASSERT_OK(
       testbed.Environment().StoreTestArtifact("gnmi_config.txt", gnmi_config));
   ASSERT_OK(pins_test::PushGnmiConfig(testbed.Sut(), gnmi_config));
@@ -447,6 +463,8 @@ void WatchPortTestFixture::SetUp() {
 }
 
 void WatchPortTestFixture::TearDown() {
+  thinkit::MirrorTestbedInterface& testbed = *GetParam().testbed;
+
   // Clear table entries.
   if (sut_p4_session_ != nullptr) {
     EXPECT_OK(pdpi::ClearTableEntries(sut_p4_session_.get()));
@@ -469,7 +487,16 @@ void WatchPortTestFixture::TearDown() {
           SetInterfaceAdminState(*control_gnmi_stub_, name, AdminState::kUp));
     }
   }
-  thinkit::MirrorTestbedFixture::TearDown();
+  testbed.TearDown();
+}
+
+// TODO: Parameterize over the different instantiations like
+// MiddleBlock, FBR400.
+const p4::config::v1::P4Info& WatchPortTestFixture::GetP4Info() {
+  return sai::GetP4Info(sai::Instantiation::kMiddleblock);
+}
+const pdpi::IrP4Info& WatchPortTestFixture::GetIrP4Info() {
+  return sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
 }
 
 namespace {
@@ -478,13 +505,11 @@ namespace {
 // with random weights and ensuring that all members receive some part of
 // the sent traffic.
 TEST_P(WatchPortTestFixture, VerifyBasicWcmpPacketDistribution) {
-  thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
+  thinkit::TestEnvironment& environment =
+      GetParam().testbed->GetMirrorTestbed().Environment();
   environment.SetTestCaseID("9a4c3dac-44bd-489e-9237-d396b66c85f5");
-  // Validate that we have enough ports for the test.
-  ASSERT_TRUE(GetPortIds().has_value())
-      << "Controller port ids (required) but not provided.";
-  const std::vector<int> controller_port_ids = *GetPortIds();
 
+  absl::Span<const int> controller_port_ids = GetParam().port_ids;
   const int group_size = kNumWcmpMembersForTest;
   ASSERT_OK_AND_ASSIGN(std::vector<GroupMember> members,
                        CreateGroupMembers(group_size, controller_port_ids));
@@ -561,13 +586,10 @@ TEST_P(WatchPortTestFixture, VerifyBasicWcmpPacketDistribution) {
 // Bring down/up ActionProfileGroup member and verify traffic is distributed
 // only to the up ports.
 TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
-  thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
+  thinkit::TestEnvironment& environment =
+      GetParam().testbed->GetMirrorTestbed().Environment();
   environment.SetTestCaseID("992725de-2051-49bb-928f-7b089643a9bd");
-
-  // Validate that we have enough ports for the test.
-  ASSERT_TRUE(GetPortIds().has_value())
-      << "Controller port ids (required) but not provided.";
-  const std::vector<int> controller_port_ids = *GetPortIds();
+  absl::Span<const int> controller_port_ids = GetParam().port_ids;
   const int group_size = kNumWcmpMembersForTest;
   ASSERT_OK_AND_ASSIGN(std::vector<GroupMember> members,
                        CreateGroupMembers(group_size, controller_port_ids));
@@ -677,13 +699,11 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionInCriticalState){};
 // Bring up/down the only ActionProfileGroup member and verify traffic is
 // forwarded/dropped.
 TEST_P(WatchPortTestFixture, VerifyWatchPortActionForSingleMember) {
-  thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
+  thinkit::TestEnvironment& environment =
+      GetParam().testbed->GetMirrorTestbed().Environment();
   environment.SetTestCaseID("60da7a07-1217-4d63-9716-1219d62065ff");
 
-  // Validate that we have enough ports for the test.
-  ASSERT_TRUE(GetPortIds().has_value())
-      << "Controller port ids (required) but not provided.";
-  const std::vector<int> controller_port_ids = *GetPortIds();
+  absl::Span<const int> controller_port_ids = GetParam().port_ids;
   const int group_size = 1;
   ASSERT_OK_AND_ASSIGN(std::vector<GroupMember> members,
                        CreateGroupMembers(group_size, controller_port_ids));
@@ -791,13 +811,11 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForSingleMember) {
 // Modify ActionProfileGroup member and verify traffic is distributed
 // accordingly.
 TEST_P(WatchPortTestFixture, VerifyWatchPortActionForMemberModify) {
-  thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
+  thinkit::TestEnvironment& environment =
+      GetParam().testbed->GetMirrorTestbed().Environment();
   environment.SetTestCaseID("e93160fb-be64-495b-bb4d-f06a92c51e76");
 
-  // Validate that we have enough ports for the test.
-  ASSERT_TRUE(GetPortIds().has_value())
-      << "Controller port ids (required) but not provided.";
-  const std::vector<int> controller_port_ids = *GetPortIds();
+  absl::Span<const int> controller_port_ids = GetParam().port_ids;
   const int group_size = kNumWcmpMembersForTest;
   ASSERT_OK_AND_ASSIGN(std::vector<GroupMember> members,
                        CreateGroupMembers(group_size, controller_port_ids));
@@ -905,13 +923,10 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForMemberModify) {
 // Add ActionProfileGroup member whose watch port is down (during create) and
 // verify traffic distribution when port is down/up.
 TEST_P(WatchPortTestFixture, VerifyWatchPortActionForDownPortMemberInsert) {
-  thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
+  thinkit::TestEnvironment& environment =
+      GetParam().testbed->GetMirrorTestbed().Environment();
   environment.SetTestCaseID("e54da480-d2cc-42c6-bced-0354b5ab3329");
-  // Validate that we have port ids provided for the test.
-  ASSERT_TRUE(GetPortIds().has_value())
-      << "Controller port ids (required) but not provided.";
-  const std::vector<int> controller_port_ids = *GetPortIds();
-
+  absl::Span<const int> controller_port_ids = GetParam().port_ids;
   const int input_port = controller_port_ids[kDefaultInputPortIndex];
   ASSERT_OK(SetUpInputPortForPacketReceive(*sut_p4_session_, GetIrP4Info(),
                                            input_port));

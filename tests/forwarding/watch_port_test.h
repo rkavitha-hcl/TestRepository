@@ -15,22 +15,45 @@
 #ifndef GOOGLE_TESTS_FORWARDING_WATCH_PORT_TEST_H_
 #define GOOGLE_TESTS_FORWARDING_WATCH_PORT_TEST_H_
 
+#include <functional>
+#include <memory>
+#include <optional>
+#include <string>
 #include <thread>  // NOLINT: Need threads (instead of fiber) for upstream code.
 #include <vector>
 
+#include "absl/status/status.h"
+#include "gtest/gtest.h"
+#include "p4/config/v1/p4info.pb.h"
+#include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
+#include "proto/gnmi/gnmi.grpc.pb.h"
 #include "tests/forwarding/group_programming_util.h"
 #include "tests/forwarding/packet_test_util.h"
 #include "thinkit/mirror_testbed_fixture.h"
+#include "thinkit/switch.h"
 
 namespace gpins {
 
+// Holds the common params needed for watch port test.
+struct WatchPortTestParams {
+  thinkit::MirrorTestbedInterface* testbed;
+  std::string gnmi_config;
+  // TODO: Remove port ids from here and derive from gNMI config.
+  std::vector<int> port_ids;
+};
+
 // WatchPortTestFixture for testing watch port action.
-class WatchPortTestFixture : public thinkit::MirrorTestbedFixture {
+class WatchPortTestFixture
+    : public testing::TestWithParam<WatchPortTestParams> {
  protected:
   void SetUp() override;
 
   void TearDown() override;
+
+  // Returns the P4Info used by the test, for now just Middleblock.
+  const p4::config::v1::P4Info& GetP4Info();
+  const pdpi::IrP4Info& GetIrP4Info();
 
   TestData test_data_;
   std::unique_ptr<pdpi::P4RuntimeSession> sut_p4_session_;
