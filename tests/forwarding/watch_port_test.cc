@@ -391,6 +391,15 @@ absl::Status SetInterfaceAdminState(gnmi::gNMI::StubInterface& gnmi_stub,
   return absl::OkStatus();
 }
 
+// Checks if the switch is in critical state.
+bool IsSwitchInCriticalState(gnmi::gNMI::StubInterface& gnmi_stub) {
+  auto alarms = pins_test::GetAlarms(gnmi_stub);
+  if (!alarms.ok() || !alarms->empty()) {
+    return true;
+  }
+  return false;
+}
+
 }  // namespace
 
 void WatchPortTestFixture::SetUp() {
@@ -427,6 +436,7 @@ void WatchPortTestFixture::SetUp() {
   ASSERT_OK(SetUpControlSwitch(*control_p4_session_, GetIrP4Info()));
 
   // Create GNMI stub for admin operations.
+  ASSERT_OK_AND_ASSIGN(sut_gnmi_stub_, testbed.Sut().CreateGnmiStub());
   ASSERT_OK_AND_ASSIGN(control_gnmi_stub_,
                        testbed.ControlSwitch().CreateGnmiStub());
 
@@ -464,6 +474,21 @@ void WatchPortTestFixture::SetUp() {
 
 void WatchPortTestFixture::TearDown() {
   thinkit::MirrorTestbedInterface& testbed = *GetParam().testbed;
+
+  // Reboot the switch, if Sut is in critical state.
+  if (sut_gnmi_stub_ && IsSwitchInCriticalState(*sut_gnmi_stub_)) {
+    // Grab logs on the switches before the reboot.
+    ASSERT_OK(testbed.SaveSwitchLogs("before_reboot_"));
+    LOG(INFO) << "Switch is in critical state, rebooting the switch.";
+    pins_test::TestGnoiSystemColdReboot(testbed.GetMirrorTestbed().Sut());
+    pins_test::TestGnoiSystemColdReboot(
+        testbed.GetMirrorTestbed().ControlSwitch());
+    if (receive_packet_thread_.joinable()) {
+      receive_packet_thread_.join();
+    }
+    testbed.TearDown();
+    return;
+  }
 
   // Clear table entries.
   if (sut_p4_session_ != nullptr) {
@@ -694,7 +719,117 @@ TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
 
 // TODO: Bring down APG member (when in critical state) and verify traffic is
 // distributed only to the up ports.
-TEST_P(WatchPortTestFixture, VerifyWatchPortActionInCriticalState){};
+TEST_P(WatchPortTestFixture, VerifyWatchPortActionInCriticalState) {
+  // Validate that the function to raise critical state exists to run this test.
+  if (!GetParam().set_critical_alarm.has_value()) {
+    GTEST_SKIP() << "Critical state related test skipped because set critical "
+                    "state function is not defined.";
+  }
+  thinkit::MirrorTestbed& testbed = GetParam().testbed->GetMirrorTestbed();
+  thinkit::TestEnvironment& environment = testbed.Environment();
+  environment.SetTestCaseID("964c7a38-b073-4296-85be-2bba1e33c6f9");
+
+  absl::Span<const int> controller_port_ids = GetParam().port_ids;
+  const int group_size = kNumWcmpMembersForTest;
+  ASSERT_OK_AND_ASSIGN(std::vector<GroupMember> members,
+                       CreateGroupMembers(group_size, controller_port_ids));
+
+  const int input_port = controller_port_ids[kDefaultInputPortIndex];
+  ASSERT_OK(SetUpInputPortForPacketReceive(*sut_p4_session_, GetIrP4Info(),
+                                           input_port));
+
+  // Program the required router interfaces, nexthops for wcmp group.
+  ASSERT_OK(gpins::ProgramNextHops(environment, *sut_p4_session_, GetIrP4Info(),
+                                   members));
+  ASSERT_OK(gpins::ProgramGroupWithMembers(environment, *sut_p4_session_,
+                                           GetIrP4Info(), kGroupId, members,
+                                           p4::v1::Update::INSERT));
+  // Program default routing for all packets on SUT.
+  ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, GetIrP4Info(), kVrfId,
+                                 p4::v1::Update::INSERT));
+
+  // Generate test configuration, pick any field used by hashing to vary for
+  // every packet so that it gets sent to all the members.
+  TestConfiguration test_config = {
+      .field = PacketField::kIpDst,
+      .ipv4 = true,
+      .encapped = false,
+      .inner_ipv4 = false,
+      .decap = false,
+  };
+  ASSERT_TRUE(IsValidTestConfiguration(test_config));
+
+  // Create test data entry.
+  std::string test_config_key = TestConfigurationToPayload(test_config);
+  {
+    absl::MutexLock lock(&test_data_.mutex);
+    test_data_.input_output_per_packet[test_config_key] = TestInputOutput{
+        .config = test_config,
+    };
+  }
+
+  // Select one random member of the group to bring down.
+  absl::BitGen gen;
+  const int random_member_index =
+      absl::Uniform<int>(absl::IntervalClosedOpen, gen, 0, members.size());
+  const int selected_port_id = members[random_member_index].port;
+  ASSERT_OK_AND_ASSIGN(const auto port_name_per_port_id,
+                       GetPortNamePerPortId(*control_gnmi_stub_));
+  ASSERT_OK_AND_ASSIGN(const std::string port_name,
+                       gutil::FindOrStatus(port_name_per_port_id,
+                                           absl::StrCat(selected_port_id)));
+
+  // Set the system in critical state by triggering a fake alarm in P4RT.
+  ASSERT_TRUE(GetParam().set_critical_alarm.has_value());
+  ASSERT_OK((*GetParam().set_critical_alarm)(testbed.Sut()));
+
+  // Set admin down from control switch side (since sut is in critical state and
+  // write operations are disabled) and verify watch port action kicks in.
+  ASSERT_OK(SetInterfaceAdminState(*control_gnmi_stub_, port_name,
+                                   AdminState::kDown));
+
+  // TODO: Adding watch port action causes unexpected traffic
+  // loss. Remove after the bug in OrchAgent is fixed.
+  absl::SleepFor(absl::Seconds(5));
+
+  // Clear the counters before the test.
+  test_data_.ClearReceivedPackets();
+
+  // Send 5000 packets and check for packet distribution.
+  ASSERT_OK(SendNPacketsToSut(kNumTestPackets, test_config, members,
+                              controller_port_ids, GetIrP4Info(),
+                              *control_p4_session_, environment));
+  test_data_.total_packets_sent = kNumTestPackets;
+
+  // Wait for packets from the SUT to arrive.
+  absl::SleepFor(kDurationToWaitForPackets);
+
+  // For the test configuration, check the output distribution.
+  {
+    absl::MutexLock lock(&test_data_.mutex);
+    TestInputOutput& test = test_data_.input_output_per_packet[test_config_key];
+    EXPECT_EQ(test.output.size(), test_data_.total_packets_sent)
+        << "Mismatch in expected: " << test_data_.total_packets_sent
+        << " and actual: " << test.output.size() << "packets received for "
+        << DescribeTestConfig(test_config);
+
+    ASSERT_OK(VerifyGroupMembersFromP4Read(*sut_p4_session_, GetIrP4Info(),
+                                           kGroupId, members));
+
+    // Count the received packets and create the expected_member_ports for admin
+    // down case to verify received packets.
+    ASSERT_OK_AND_ASSIGN(auto num_packets_per_port,
+                         CountNumPacketsPerPort(test.output));
+    absl::flat_hash_set<int> expected_member_ports =
+        CreateExpectedMemberPorts(members);
+    expected_member_ports.erase(selected_port_id);
+    ASSERT_OK(VerifyGroupMembersFromReceiveTraffic(num_packets_per_port,
+                                                   expected_member_ports));
+
+    PrettyPrintDistribution(test_config, test, test_data_, members,
+                            num_packets_per_port);
+  }
+};
 
 // Bring up/down the only ActionProfileGroup member and verify traffic is
 // forwarded/dropped.
