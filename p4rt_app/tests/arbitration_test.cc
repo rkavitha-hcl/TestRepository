@@ -479,7 +479,7 @@ TEST_F(ArbitrationTest, BackupCanReuseElectionIdWhenPrimaryDisconnects) {
   ASSERT_OK_AND_ASSIGN(response, SendStreamRequest(*backup, backup_request));
   EXPECT_NE(response.arbitration().status().code(), grpc::StatusCode::OK);
 
-  // Close the primary stream  disconnect.
+  // Close the primary stream to flush the connection on the P4RT service.
   primary->WritesDone();
   EXPECT_OK(primary->Finish());
 
