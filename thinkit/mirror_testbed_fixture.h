@@ -18,6 +18,7 @@
 #include <memory>
 
 #include "absl/memory/memory.h"
+#include "absl/status/status.h"
 #include "absl/strings/string_view.h"
 #include "gtest/gtest.h"
 #include "p4_pdpi/ir.pb.h"
@@ -91,6 +92,11 @@ class MirrorTestbedFixture
   // SetUp has completed.
   MirrorTestbed& GetMirrorTestbed() {
     return mirror_testbed_interface_->GetMirrorTestbed();
+  }
+
+  // TODO: This should be moved to the TestEnvironment.
+  absl::Status SaveSwitchLogs(absl::string_view save_prefix) {
+    return mirror_testbed_interface_->SaveSwitchLogs(save_prefix);
   }
 
   std::string GetGnmiConfig() { return GetParam().gnmi_config; }

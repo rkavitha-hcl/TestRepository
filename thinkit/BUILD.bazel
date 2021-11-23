@@ -102,6 +102,7 @@ cc_library(
         "//p4_pdpi:ir_cc_proto",
         "//sai_p4/instantiations/google:sai_p4info_cc",
         "@com_google_absl//absl/memory",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest",
     ],
