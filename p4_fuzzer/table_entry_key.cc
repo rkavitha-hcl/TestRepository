@@ -14,10 +14,33 @@
 #include "p4_fuzzer/table_entry_key.h"
 
 #include <algorithm>
+#include <string>
 
+#include "glog/logging.h"
+#include "google/protobuf/io/coded_stream.h"
+#include "google/protobuf/io/zero_copy_stream.h"
+#include "google/protobuf/message.h"
 #include "google/protobuf/util/message_differencer.h"
 
 namespace p4_fuzzer {
+namespace {
+
+// Deterministically serializes a given `proto` to a returned string.
+// Note: This won't necessarily be fully deterministic across builds or proto
+// changes, but hopefully it is close enough to ensure reproducability.
+std::string DeterministicallySerializeProtoToString(
+    const google::protobuf::Message& proto) {
+  std::string output_string;
+  google::protobuf::io::StringOutputStream stream(&output_string);
+  google::protobuf::io::CodedOutputStream coded_stream(&stream);
+  coded_stream.SetSerializationDeterministic(true);
+  CHECK(proto.SerializeToCodedStream(&coded_stream))  // Crash OK
+      << "Serialization of a p4::v1::FieldMatch failed. Proto was: "
+      << proto.DebugString();
+
+  return output_string;
+}
+}  // namespace
 
 using ::p4::v1::FieldMatch;
 using ::p4::v1::TableEntry;
@@ -33,6 +56,38 @@ TableEntryKey::TableEntryKey(const p4::v1::TableEntry& entry) {
             [](const FieldMatch& a, const FieldMatch& b) {
               return a.field_id() < b.field_id();
             });
+}
+
+bool TableEntryKey::operator==(const TableEntryKey& other) const {
+  // Note: this must match the implementation of hash value below.
+  if ((table_id_ != other.table_id_) || (priority_ != other.priority_) ||
+      matches_.size() != other.matches_.size()) {
+    return false;
+  }
+
+  for (int i = 0; i < matches_.size(); i++) {
+    if (!google::protobuf::util::MessageDifferencer::Equals(
+            matches_[i], other.matches_[i])) {
+      return false;
+    }
+  }
+  return true;
+}
+
+bool TableEntryKey::operator<(const TableEntryKey& other) const {
+  if (table_id_ != other.table_id_) return table_id_ < other.table_id_;
+  if (priority_ != other.priority_) return priority_ < other.priority_;
+  if (matches_.size() != other.matches_.size())
+    return matches_.size() < other.matches_.size();
+
+  for (int i = 0; i < matches_.size(); i++) {
+    if (!google::protobuf::util::MessageDifferencer::Equals(
+            matches_[i], other.matches_[i])) {
+      return DeterministicallySerializeProtoToString(matches_[i]) <
+             DeterministicallySerializeProtoToString(other.matches_[i]);
+    }
+  }
+  return false;
 }
 
 }  // namespace p4_fuzzer

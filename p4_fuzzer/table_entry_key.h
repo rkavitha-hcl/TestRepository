@@ -29,29 +29,9 @@ class TableEntryKey {
   template <typename H>
   friend H AbslHashValue(H h, const TableEntryKey& key);
 
-  bool operator==(const TableEntryKey& other) const {
-    // Note: this must match the implementation of hash value below.
-    if ((table_id_ != other.table_id_) || (priority_ != other.priority_) ||
-        matches_.size() != other.matches_.size()) {
-      return false;
-    }
+  bool operator==(const TableEntryKey& other) const;
 
-    for (int i = 0; i < matches_.size(); i++) {
-      const auto& a = matches_[i];
-      const auto& b = other.matches_[i];
-      if (a.field_id() != b.field_id() ||
-          a.exact().value() != b.exact().value() ||
-          a.ternary().value() != b.ternary().value() ||
-          a.ternary().mask() != b.ternary().mask() ||
-          a.lpm().value() != b.lpm().value() ||
-          a.lpm().prefix_len() != b.lpm().prefix_len() ||
-          a.range().low() != b.range().low() ||
-          a.range().high() != b.range().high() ||
-          a.optional().value() != b.optional().value())
-        return false;
-    }
-    return true;
-  }
+  bool operator<(const TableEntryKey& other) const;
 
  private:
   uint32_t table_id_;
