@@ -196,7 +196,7 @@ std::vector<uint32_t> GetMandatoryMatchTableIds(const FuzzerConfig& config) {
 
   for (uint32_t id : TablesUsedByFuzzer(config)) {
     const auto& table = gutil::FindOrDie(config.info.tables_by_id(), id);
-    for (auto& [match_id, match] : table.match_fields_by_id()) {
+    for (auto& [match_id, match] : Ordered(table.match_fields_by_id())) {
       if (match.match_field().match_type() ==
           p4::config::v1::MatchField::EXACT) {
         table_ids.push_back(id);
@@ -441,7 +441,7 @@ AnnotatedUpdate FuzzUpdate(absl::BitGen* gen, const FuzzerConfig& config,
 absl::StatusOr<p4::config::v1::ActionProfile> GetActionProfile(
     const pdpi::IrP4Info& ir_info, int table_id) {
   for (const auto& [id, action_profile_definition] :
-       ir_info.action_profiles_by_id()) {
+       Ordered(ir_info.action_profiles_by_id())) {
     if (action_profile_definition.has_action_profile()) {
       // Does the action profile apply to the given table?
       auto& action_profile = action_profile_definition.action_profile();
@@ -459,7 +459,7 @@ absl::StatusOr<p4::config::v1::ActionProfile> GetActionProfile(
 const std::vector<uint32_t> AllTableIds(const FuzzerConfig& config) {
   std::vector<uint32_t> table_ids;
 
-  for (auto& [table_id, table_def] : config.info.tables_by_id()) {
+  for (auto& [table_id, table_def] : Ordered(config.info.tables_by_id())) {
     table_ids.push_back(table_id);
   }
 
@@ -470,7 +470,7 @@ const std::vector<uint32_t> AllTableIds(const FuzzerConfig& config) {
 const std::vector<uint32_t> AllActionIds(const FuzzerConfig& config) {
   std::vector<uint32_t> action_ids;
 
-  for (auto& [action_id, action_def] : config.info.actions_by_id()) {
+  for (auto& [action_id, action_def] : Ordered(config.info.actions_by_id())) {
     action_ids.push_back(action_id);
   }
 
@@ -484,8 +484,8 @@ const std::vector<uint32_t> AllMatchFieldIds(const FuzzerConfig& config,
   std::vector<uint32_t> match_ids;
 
   for (auto& [match_id, match_def] :
-       gutil::FindOrDie(config.info.tables_by_id(), table_id)
-           .match_fields_by_id()) {
+       Ordered(gutil::FindOrDie(config.info.tables_by_id(), table_id)
+                   .match_fields_by_id())) {
     match_ids.push_back(match_id);
   }
 
