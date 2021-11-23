@@ -20,28 +20,34 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "glog/logging.h"
+#include "gutil/testing.h"
+#include "lib/p4rt/p4rt_programming_context.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
 #include "p4_pdpi/pd.h"
+#include "sai_p4/instantiations/google/instantiations.h"
+#include "sai_p4/instantiations/google/sai_p4info.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
 #include "thinkit/control_device.h"
 
 namespace pins_test {
 
 PacketListener::PacketListener(
-    pdpi::P4RuntimeSession* session, const pdpi::IrP4Info* ir_p4info,
+    pdpi::P4RuntimeSession* session, P4rtProgrammingContext context,
+    sai::Instantiation instantiation,
     const absl::flat_hash_map<std::string, std::string>*
         interface_port_id_to_name,
-    thinkit::PacketCallback callback)
+    thinkit::PacketCallback callback, std::function<void()> on_finish)
     : session_(session),
-      receive_packet_thread_([this, ir_p4info, interface_port_id_to_name,
+      context_(std::move(context)),
+      receive_packet_thread_([this, instantiation, interface_port_id_to_name,
                               callback = std::move(callback)]() {
         p4::v1::StreamMessageResponse pi_response;
         while (session_->StreamChannelRead(pi_response)) {
           sai::StreamMessageResponse pd_response;
-          if (!pdpi::PiStreamMessageResponseToPd(*ir_p4info, pi_response,
-                                                 &pd_response)
+          if (!pdpi::PiStreamMessageResponseToPd(
+                   sai::GetIrP4Info(instantiation), pi_response, &pd_response)
                    .ok()) {
             LOG(ERROR) << "Failed to convert PI stream message response to PD.";
             return;
@@ -59,6 +65,7 @@ PacketListener::PacketListener(
           }
           callback(port_name->second, pd_response.packet().payload());
         }
-      }) {}
+      }),
+      on_finish_(std::move(on_finish)) {}
 
 }  // namespace pins_test
