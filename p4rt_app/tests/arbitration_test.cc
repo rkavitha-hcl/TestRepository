@@ -496,7 +496,7 @@ TEST_F(ArbitrationTest, BackupCanReuseElectionIdWhenPrimaryDisconnects) {
   EXPECT_EQ(response2.arbitration().status().code(), grpc::StatusCode::OK);
 }
 
-TEST_F(ArbitrationTest, PrimaryMustUseElectionIdHigherThanAllPastConnections) {
+TEST_F(ArbitrationTest, ConnectionCannotBecomePrimaryWithLowerElectionId) {
   grpc::ClientContext context;
   std::unique_ptr<P4RuntimeStream> stream = stub_->StreamChannel(&context);
 
