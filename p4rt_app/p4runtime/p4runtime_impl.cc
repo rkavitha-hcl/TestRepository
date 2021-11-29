@@ -922,6 +922,11 @@ absl::Status P4RuntimeImpl::VerifyState() {
   }
 
   if (failures.size() > 1) {
+    // Reports a MINOR alarm to indicate state verification failure.
+    // We do not report CRITICAL alarm here because that will stop further
+    // programing.
+    component_state_.ReportComponentState(swss::ComponentState::kMinor,
+                                          absl::StrJoin(failures, "\n  "));
     return gutil::UnknownErrorBuilder() << absl::StrJoin(failures, "\n  ");
   }
   return absl::OkStatus();

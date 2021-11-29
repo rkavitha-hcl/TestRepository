@@ -65,6 +65,10 @@ TEST_F(StateVerificationTest, VerifyEntriesInP4rtAndVrfTables) {
       /*values=*/{{"action", "action0"}});
 
   EXPECT_OK(p4rt_service_.VerifyState());
+
+  // When state verification passes P4RT App should not report MINOR state.
+  EXPECT_EQ(p4rt_service_.GetComponentStateHelper().StateInfo().state,
+            swss::ComponentState::kUp);
 }
 
 TEST_F(StateVerificationTest, EntryDoesNotExistInAppDbFails) {
@@ -97,6 +101,21 @@ TEST_F(StateVerificationTest, EntryValuesAreDifferentFails) {
 
   EXPECT_THAT(p4rt_service_.VerifyState(),
               StatusIs(absl::StatusCode::kUnknown, HasSubstr("do not match")));
+}
+
+TEST_F(StateVerificationTest, StateVerificationFailureRaisesAlarm) {
+  p4rt_service_.GetP4rtAppStateDbTable().InsertTableEntry(/*key=*/"foo",
+                                                          /*values=*/{});
+  p4rt_service_.GetVrfAppStateDbTable().InsertTableEntry(/*key=*/"bar",
+                                                         /*values=*/{});
+  EXPECT_THAT(
+      p4rt_service_.VerifyState(),
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("AppDb is missing key")));
+  // Report MINOR alarm to indicate state verification failure.
+  EXPECT_EQ(p4rt_service_.GetComponentStateHelper().StateInfo().state,
+            swss::ComponentState::kMinor);
+  EXPECT_THAT(p4rt_service_.GetComponentStateHelper().StateInfo().reason,
+              HasSubstr("AppDb is missing key"));
 }
 
 }  // namespace
