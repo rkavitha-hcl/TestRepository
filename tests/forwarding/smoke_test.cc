@@ -290,5 +290,38 @@ TEST_P(SmokeTestFixture, EnsureClearTables) {
   ASSERT_OK(pdpi::CheckNoTableEntries(session2.get()));
 }
 
+// TODO: Enable the test once the bug is unblocked, indicating that
+// the functionality is in place.
+// Ensures that a GNMI Config can be pushed even with programmed flows already
+// on the switch.
+TEST_P(SmokeTestFixture, DISABLED_PushGnmiConfigWithFlows) {
+  // All tables should be clear after setup.
+  ASSERT_OK(pdpi::CheckNoTableEntries(SutP4RuntimeSession()));
+
+  const std::string gnmi_config = GetGnmiConfig();
+
+  // Pushing a Gnmi Config is OK when tables are cleared.
+  ASSERT_OK(pins_test::PushGnmiConfig(GetMirrorTestbed().Sut(), gnmi_config));
+
+  // Sets up an example table entry.
+  const sai::TableEntry pd_entry = gutil::ParseProtoOrDie<sai::TableEntry>(
+      R"pb(
+        router_interface_table_entry {
+          match { router_interface_id: "router-interface-1" }
+          action {
+            set_port_and_src_mac { port: "1" src_mac: "02:2a:10:00:00:03" }
+          }
+        }
+      )pb");
+  ASSERT_OK_AND_ASSIGN(p4::v1::TableEntry pi_entry,
+                       pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));
+
+  ASSERT_OK(pdpi::InstallPiTableEntries(SutP4RuntimeSession(), IrP4Info(),
+                                        {pi_entry}));
+
+  // Pushing the same Gnmi Config is also OK when entries are programmed.
+  ASSERT_OK(pins_test::PushGnmiConfig(GetMirrorTestbed().Sut(), gnmi_config));
+}
+
 }  // namespace
 }  // namespace gpins
