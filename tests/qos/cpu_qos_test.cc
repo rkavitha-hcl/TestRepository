@@ -100,7 +100,7 @@ constexpr absl::Duration kMaxQueueCounterUpdateTime = absl::Seconds(25);
 // assuming that the gNMI config will have been fully applied afterwards.
 // TODO: Instead of hard-coding this time, tests should dynamically
 // poll the state of the switch to ensure config has been applied.
-constexpr absl::Duration kTimeToWaitForGnmiConfigToApply = absl::Seconds(15);
+constexpr absl::Duration kTimeToWaitForGnmiConfigToApply = absl::Seconds(30);
 
 // Packet receiver thread to receive punted packets from switch over a P4
 // session. The callback is invoked serially for every packet received.
@@ -1105,7 +1105,7 @@ TEST_P(CpuQosTestWithoutIxia, TrafficToLoopackIpGetsMappedToCorrectQueues) {
 // Level of tolerance for packet rate verification.
 // This could be parameterized in future if this is platform
 // dependent.
-constexpr float kTolerancePercent = 4.0;
+constexpr float kTolerancePercent = 10.0;
 
 // Ixia configurations:
 // 1. Frames sent per second by Ixia.
