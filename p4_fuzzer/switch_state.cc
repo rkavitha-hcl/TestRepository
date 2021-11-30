@@ -93,7 +93,7 @@ std::vector<TableEntry> SwitchState::GetTableEntries(
     const uint32_t table_id) const {
   std::vector<TableEntry> result;
 
-  for (const auto& [key, entry] : Ordered(FindOrDie(tables_, table_id))) {
+  for (const auto& [key, entry] : FindOrDie(tables_, table_id)) {
     result.push_back(entry);
   }
 
@@ -239,7 +239,7 @@ std::vector<std::string> SwitchState::GetIdsForMatchField(
       FindOrDie(table_definition.match_fields_by_name(), field.match_field());
   // Loop over all table entries in this table and collect IDs.
   for (const auto& [key, entry] :
-       Ordered(FindOrDie(tables_, table_definition.preamble().id()))) {
+       FindOrDie(tables_, table_definition.preamble().id())) {
     // Find the correct match field.
     for (const auto& match : entry.match()) {
       if (match.field_id() == match_definition.match_field().id()) {

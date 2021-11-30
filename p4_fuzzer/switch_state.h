@@ -18,8 +18,8 @@
 #include <string>
 #include <unordered_map>
 
+#include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_map.h"
-#include "absl/container/node_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/types/optional.h"
 #include "glog/logging.h"
@@ -33,11 +33,11 @@ namespace p4_fuzzer {
 
 // Only a subset of the fields of TableEntry are used for equality in P4Runtime
 // (as part of the class TableEntryKey). We use an instance of TableEntryKey
-// generated from a TableEntry as the key in an absl::node_hash_map.
+// generated from a TableEntry as the key in an absl::btree_map.
 // Therefore, the class SwitchState must preserve the invariant that:
 //   forall t1, t2. table_[t1] = t2  ==> t1 = TableEntryKey(t2)
 //   TableEntryKey() here is the constructor for the class TableEntryKey.
-using TableEntries = absl::node_hash_map<TableEntryKey, p4::v1::TableEntry>;
+using TableEntries = absl::btree_map<TableEntryKey, p4::v1::TableEntry>;
 
 // Tracks the state of a switch, with methods to apply updates or query the
 // current state. The class assumes all calls are valid (e.g table_ids must all
