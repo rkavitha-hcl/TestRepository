@@ -186,7 +186,17 @@ p4::v1::WriteRequest ConstructDeleteRequest(
 // Mocks a `CheckNoEntries` call using the stub in a previously
 // mocked P4RuntimeSession.
 // Ensures that there are no table entries remaining.
-void MockCheckNoEntries(p4::v1::MockP4RuntimeStub& stub) {
+void MockCheckNoEntries(p4::v1::MockP4RuntimeStub& stub,
+                        const p4::config::v1::P4Info& p4info) {
+  // We need to return a valid p4info to get to the stage where we read tables.
+  EXPECT_CALL(stub, GetForwardingPipelineConfig)
+      .WillOnce([&](auto, auto,
+                    p4::v1::GetForwardingPipelineConfigResponse*
+                        get_pipeline_response) {
+        *get_pipeline_response->mutable_config()->mutable_p4info() = p4info;
+        return grpc::Status::OK;
+      });
+
   SetNextReadResponse(stub, {});
 }
 
@@ -222,7 +232,7 @@ void MockClearTableEntries(p4::v1::MockP4RuntimeStub& stub,
 
     // Mocks a `CheckNoEntries` call, ensuring that the tables are really
     // cleared.
-    MockCheckNoEntries(stub);
+    MockCheckNoEntries(stub, p4info);
   }
 }
 
@@ -278,7 +288,7 @@ TEST(P4RuntimeSessionTest, CreateWithP4InfoAndClearTables) {
         .Times(1);
 
     // Mocks a `CheckNoEntries` call.
-    MockCheckNoEntries(*stub);
+    MockCheckNoEntries(*stub, p4info);
   }
 
   // Mocks the first part of a P4RuntimeSession `Create` call.

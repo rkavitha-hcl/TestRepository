@@ -295,6 +295,17 @@ absl::StatusOr<p4::v1::CounterData> ReadPiCounterData(
 }
 
 absl::Status CheckNoTableEntries(P4RuntimeSession* session) {
+  ASSIGN_OR_RETURN(
+      p4::v1::GetForwardingPipelineConfigResponse response,
+      GetForwardingPipelineConfig(
+          session,
+          p4::v1::GetForwardingPipelineConfigRequest::P4INFO_AND_COOKIE));
+  // If the switch does not have a p4info, then it cannot have any table
+  // entries.
+  if (!response.has_config()) return absl::OkStatus();
+
+  // If the switch has a p4info, we read all table entries to ensure that there
+  // are none.
   ASSIGN_OR_RETURN(auto table_entries, ReadPiTableEntries(session));
   if (!table_entries.empty()) {
     return gutil::UnknownErrorBuilder()
