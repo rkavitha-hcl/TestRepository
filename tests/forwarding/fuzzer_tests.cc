@@ -158,6 +158,11 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
   thinkit::Switch& sut = mirror_testbed.Sut();
   thinkit::TestEnvironment& environment = mirror_testbed.Environment();
 
+  // Probabilities must be between 0 and 1.
+  float mutate_update_probability = GetParam().mutate_update_probability;
+  ASSERT_GE(mutate_update_probability, 0.0);
+  ASSERT_LE(mutate_update_probability, 1.0);
+
   ASSERT_OK_AND_ASSIGN(pdpi::IrP4Info info,
                        pdpi::CreateIrP4Info(GetParam().p4info));
   FuzzerConfig config = {
@@ -167,6 +172,7 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
       .tables_for_which_to_not_exceed_resource_guarantees =
           GetParam().tables_for_which_to_not_exceed_resource_guarantees,
       .role = "sdn_controller",
+      .mutate_update_probability = mutate_update_probability,
   };
 
   bool mask_known_failures = environment.MaskKnownFailures();

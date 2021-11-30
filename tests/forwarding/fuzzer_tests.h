@@ -33,6 +33,8 @@ struct FuzzerTestFixtureParams {
   thinkit::MirrorTestbedInterface* mirror_testbed;
   std::string gnmi_config;
   p4::config::v1::P4Info p4info;
+  // The probability of performing a mutation on a given table entry.
+  float mutate_update_probability = 0.1;
   // Determines which type of issues the fuzzer detects. If left out, the fuzzer
   // will test everything, respecting MaskKnownFailures(). See declaration of
   // Milestone for more details.

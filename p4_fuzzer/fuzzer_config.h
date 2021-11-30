@@ -37,6 +37,8 @@ struct FuzzerConfig {
       tables_for_which_to_not_exceed_resource_guarantees;
   // The P4RT role the fuzzer should use.
   std::string role;
+  // The probability of performing a mutation on a given table entry.
+  float mutate_update_probability;
 };
 
 }  // namespace p4_fuzzer

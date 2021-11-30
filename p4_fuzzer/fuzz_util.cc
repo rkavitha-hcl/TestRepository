@@ -55,8 +55,6 @@ constexpr int kBitsInByte = 8;
 // empirically determined to lead to big enough updates so that the test runs
 // fast, but also sometimes generates small updates, which increases coverage.
 constexpr float kAddUpdateProbability = 0.98;
-// The probability of performing a mutation on a given table entry.
-constexpr float kMutateUpdateProbability = 0.1;
 // The probability of using a wildcard for a ternary or lpm match field.
 constexpr float kFieldMatchWildcardProbability = 0.1;
 
@@ -333,7 +331,7 @@ AnnotatedUpdate FuzzUpdate(absl::BitGen* gen, const FuzzerConfig& config,
   Mutation mutation;
   bool do_mutate = false;
 
-  if (absl::Bernoulli(*gen, kMutateUpdateProbability)) {
+  if (absl::Bernoulli(*gen, config.mutate_update_probability)) {
     do_mutate = true;
     mutation = FuzzMutation(gen, config);
     switch (mutation) {
