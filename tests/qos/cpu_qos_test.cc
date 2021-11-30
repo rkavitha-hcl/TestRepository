@@ -94,7 +94,7 @@ constexpr int kFrameCheckSequenceSize = 4;
 // gNMI have to be incremented after a packet hits a queue.
 // Empirically, for PINS, queue counters currently seem to get updated every
 // 10 seconds.
-constexpr absl::Duration kMaxQueueCounterUpdateTime = absl::Seconds(20);
+constexpr absl::Duration kMaxQueueCounterUpdateTime = absl::Seconds(25);
 
 // After pushing gNMI config to a switch, the tests sleep for this duration
 // assuming that the gNMI config will have been fully applied afterwards.
