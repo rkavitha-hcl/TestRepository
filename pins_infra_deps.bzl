@@ -14,12 +14,13 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 def pins_infra_deps():
     """Sets up 3rd party workspaces needed to build PINS infrastructure."""
     if not native.existing_rule("com_github_grpc_grpc"):
-        git_repository(
+        http_archive(
             name = "com_github_grpc_grpc",
-            commit = "37dd426924bfc97ee7e94c580608c96a75fd552c",
             # TODO: Temporary workaround for compilation error seen in some versions of gcc.
             # Use https://github.com/grpc/grpc after https://github.com/grpc/grpc/pull/28196 merges.
-            remote = "https://github.com/mint570/grpc.git",
+            url = "https://github.com/mint570/grpc/archive/37dd426924bfc97ee7e94c580608c96a75fd552c.zip",
+            strip_prefix = "grpc-37dd426924bfc97ee7e94c580608c96a75fd552c",
+            sha256 = "19560744e16a5ca2f5276c4bc534ff446efbf723d35f715465c0eb1213648a06",
         )
     if not native.existing_rule("com_google_absl"):
         http_archive(
