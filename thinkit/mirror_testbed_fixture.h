@@ -48,7 +48,6 @@ struct MirrorTestbedFixtureParams {
   // Ownership transferred in MirrorTestbedFixture class.
   MirrorTestbedInterface* mirror_testbed;
   std::string gnmi_config;
-  absl::optional<std::vector<int>> port_ids;
 };
 
 // The ThinKit `MirrorTestbedFixture` class acts as a base test fixture for
@@ -100,9 +99,6 @@ class MirrorTestbedFixture
   }
 
   std::string GetGnmiConfig() { return GetParam().gnmi_config; }
-
-  // Get the list of optional port ids.
-  absl::optional<std::vector<int>> GetPortIds() { return GetParam().port_ids; }
 
   // TODO: Parameterize over the different instantiations like
   // MiddleBlock, FBR400.
