@@ -16,11 +16,16 @@
 #define GOOGLE_THINKIT_MIRROR_TESTBED_TEST_FIXTURE_H_
 
 #include <memory>
+#include <optional>
 
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "gtest/gtest.h"
+#include "gutil/status.h"
+#include "p4/config/v1/p4info.pb.h"
+#include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 #include "thinkit/mirror_testbed.h"
@@ -38,6 +43,7 @@ class MirrorTestbedInterface {
   virtual void TearDown() = 0;
 
   virtual MirrorTestbed& GetMirrorTestbed() = 0;
+
   // TODO: Move to TestEnvironment.
   virtual absl::Status SaveSwitchLogs(absl::string_view save_prefix) = 0;
 };
@@ -45,9 +51,14 @@ class MirrorTestbedInterface {
 // The Thinkit `MirrorTestbedFixtureParams` defines test parameters to
 // `MirrorTestbedFixture` class.
 struct MirrorTestbedFixtureParams {
-  // Ownership transferred in MirrorTestbedFixture class.
+  // Ownership of the MirrorTestbedInterface will be transferred to the
+  // MirrorTestbedFixture class.
   MirrorTestbedInterface* mirror_testbed;
+
+  // To enable testing of different platforms we pass the gNMI config and P4Info
+  // as arguments to the MirrorTestbedFixture.
   std::string gnmi_config;
+  p4::config::v1::P4Info p4_info;
 };
 
 // The ThinKit `MirrorTestbedFixture` class acts as a base test fixture for
@@ -98,15 +109,24 @@ class MirrorTestbedFixture
     return mirror_testbed_interface_->SaveSwitchLogs(save_prefix);
   }
 
-  std::string GetGnmiConfig() { return GetParam().gnmi_config; }
+  const std::string& GetGnmiConfig() const { return GetParam().gnmi_config; }
 
-  // TODO: Parameterize over the different instantiations like
-  // MiddleBlock, FBR400.
-  const p4::config::v1::P4Info& GetP4Info() {
-    return sai::GetP4Info(sai::Instantiation::kMiddleblock);
-  }
-  const pdpi::IrP4Info& GetIrP4Info() {
-    return sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
+  const p4::config::v1::P4Info& GetP4Info() const { return GetParam().p4_info; }
+
+  const pdpi::IrP4Info& GetIrP4Info() const {
+    // WARNING: the pdpi::IrP4Info will only be created once, and therefore it
+    // will be created against the current P4Info in this test fixture. It is
+    // unlikely that the P4Info will change because we do not open up the
+    // P4Info to the derived test fixtures. However, we also do not
+    // guarantee that the P4Info cannot be changed.
+    static const pdpi::IrP4Info* const kIrP4Info = [] {
+      absl::StatusOr<pdpi::IrP4Info> ir_p4_info =
+          pdpi::CreateIrP4Info(GetParam().p4_info);
+      CHECK(ir_p4_info.ok())  // Crash OK: Tests would be hard to debug without.
+          << "Failed to translate the P4Info parameter into an IrP4Info.";
+      return new pdpi::IrP4Info(std::move(ir_p4_info.value()));
+    }();
+    return *kIrP4Info;
   }
 
  private:
