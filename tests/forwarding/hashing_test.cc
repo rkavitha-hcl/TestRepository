@@ -421,16 +421,9 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
               for (int idx = 0;
                    idx < GetNumberOfPackets(config) + kNumExtraPackets; idx++) {
                 // Rate limit to 500 packets per second.
-                // TODO: Limit to 100 pps until the cpu queue
-                // assignment issue is fixed.
-                int punt_rate_limit_pps = 500;
-                if (testbed.Environment().MaskKnownFailures()) {
-                  punt_rate_limit_pps = 100;
-                }
                 auto now = absl::Now();
                 auto earliest_send_time =
-                    start +
-                    (total_packets * absl::Seconds(1) / punt_rate_limit_pps);
+                    start + (total_packets * absl::Seconds(1) / 500);
                 if (earliest_send_time > now) {
                   absl::SleepFor(earliest_send_time - now);
                 }

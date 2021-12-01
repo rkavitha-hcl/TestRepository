@@ -287,14 +287,7 @@ absl::Status SendNPacketsToSut(int num_packets,
   const absl::Time start_time = absl::Now();
   for (int i = 0; i < num_packets; i++) {
     // Rate limit to 500 packets per second.
-    // TODO: Limit to 100 pps until the cpu queue
-    // assignment issue is fixed.
-    int punt_rate_limit_pps = 500;
-    if (test_environment.MaskKnownFailures()) {
-      punt_rate_limit_pps = 100;
-    }
-    auto earliest_send_time =
-        start_time + (i * absl::Seconds(1) / punt_rate_limit_pps);
+    auto earliest_send_time = start_time + (i * absl::Seconds(1) / 500);
     absl::SleepFor(earliest_send_time - absl::Now());
 
     // Vary the port on which to send the packet if the hash field selected is
