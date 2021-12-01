@@ -724,6 +724,40 @@ absl::StatusOr<std::vector<std::string>> GetAlarms(
   return ParseAlarms(alarm_json->dump());
 }
 
+absl::StatusOr<gnmi::GetResponse> GetAllSystemProcesses(
+    gnmi::gNMI::StubInterface& gnmi_stub) {
+  ASSIGN_OR_RETURN(
+      gnmi::GetRequest request,
+      BuildGnmiGetRequest("system/processes", gnmi::GetRequest::STATE));
+  LOG(INFO) << "Sending GET request: " << request.ShortDebugString();
+  gnmi::GetResponse response;
+  grpc::ClientContext context;
+  grpc::Status status = gnmi_stub.Get(&context, request, &response);
+  if (!status.ok()) {
+    return gutil::GrpcStatusToAbslStatus(status);
+  }
+
+  LOG(INFO) << "Received GET response: " << response.ShortDebugString();
+  return response;
+}
+
+absl::StatusOr<gnmi::GetResponse> GetSystemMemory(
+    gnmi::gNMI::StubInterface& gnmi_stub) {
+  ASSIGN_OR_RETURN(
+      gnmi::GetRequest request,
+      BuildGnmiGetRequest("system/memory", gnmi::GetRequest::STATE));
+  LOG(INFO) << "Sending GET request: " << request.ShortDebugString();
+  gnmi::GetResponse response;
+  grpc::ClientContext context;
+  grpc::Status status = gnmi_stub.Get(&context, request, &response);
+  if (!status.ok()) {
+    return gutil::GrpcStatusToAbslStatus(status);
+  }
+
+  LOG(INFO) << "Received GET response: " << response.ShortDebugString();
+  return response;
+}
+
 absl::string_view StripQuotes(absl::string_view string) {
   return absl::StripPrefix(absl::StripSuffix(string, "\""), "\"");
 }

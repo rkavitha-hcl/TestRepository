@@ -153,6 +153,14 @@ absl::StatusOr<OperStatus> GetInterfaceOperStatusOverGnmi(
 absl::StatusOr<absl::flat_hash_map<std::string, std::string>>
 GetAllInterfaceNameToPortId(gnmi::gNMI::StubInterface& stub);
 
+// Gets all system process id over gNMI.
+absl::StatusOr<gnmi::GetResponse> GetAllSystemProcesses(
+    gnmi::gNMI::StubInterface& gnmi_stub);
+
+// Gets system memory usage over gNMI.
+absl::StatusOr<gnmi::GetResponse> GetSystemMemory(
+    gnmi::gNMI::StubInterface& gnmi_stub);
+
 // Parses the alarms JSON array returned from a gNMI Get request to
 // "openconfig-system:system/alarms/alarm". Returns the list of alarms.
 absl::StatusOr<std::vector<std::string>> ParseAlarms(

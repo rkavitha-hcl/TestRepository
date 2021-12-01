@@ -358,6 +358,38 @@ TEST(GetAlarms, NormalInput) {
           "[telemetry:telemetry CRITICAL] Software Error ERROR: Go Panic")));
 }
 
+TEST(GetAllSystemProcesses, FailedRPCReturnsError) {
+  gnmi::MockgNMIStub stub;
+  EXPECT_CALL(stub, Get(_,
+                        EqualsProto(gutil::ParseProtoOrDie<gnmi::GetRequest>(
+                            R"pb(prefix { origin: "openconfig" }
+                                 path {
+                                   elem { name: "system" }
+                                   elem { name: "processes" }
+                                 }
+                                 type: STATE)pb")),
+                        _))
+      .WillOnce(Return(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "")));
+  EXPECT_THAT(GetAllSystemProcesses(stub),
+              StatusIs(absl::StatusCode::kDeadlineExceeded));
+}
+
+TEST(GetSystemMemory, FailedRPCReturnsError) {
+  gnmi::MockgNMIStub stub;
+  EXPECT_CALL(stub, Get(_,
+                        EqualsProto(gutil::ParseProtoOrDie<gnmi::GetRequest>(
+                            R"pb(prefix { origin: "openconfig" }
+                                 path {
+                                   elem { name: "system" }
+                                   elem { name: "memory" }
+                                 }
+                                 type: STATE)pb")),
+                        _))
+      .WillOnce(Return(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "")));
+  EXPECT_THAT(GetSystemMemory(stub),
+              StatusIs(absl::StatusCode::kDeadlineExceeded));
+}
+
 TEST(StripQuotes, VariousInputs) {
   EXPECT_EQ(StripQuotes(R"("test")"), R"(test)");
   EXPECT_EQ(StripQuotes(R"("test)"), R"(test)");
