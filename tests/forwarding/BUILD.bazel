@@ -260,6 +260,26 @@ cc_test(
     ],
 )
 
+cc_library(
+    name = "l3_admit_test",
+    testonly = True,
+    srcs = ["l3_admit_test.cc"],
+    hdrs = ["l3_admit_test.h"],
+    deps = [
+        "//gutil:status_matchers",
+        "//lib/gnmi:gnmi_helper",
+        "//p4_pdpi:ir_cc_proto",
+        "//p4_pdpi:p4_runtime_session",
+        "//sai_p4/instantiations/google:instantiations",
+        "//sai_p4/instantiations/google:sai_p4info_cc",
+        "//thinkit:mirror_testbed_fixture",
+        "@com_github_google_glog//:glog",
+        "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+        "@com_google_googletest//:gtest",
+    ],
+    alwayslink = True,
+)
+
 cmd_diff_test(
     name = "test_vector_test",
     actual_cmd = "$(execpath :test_vector_test_runner)",
