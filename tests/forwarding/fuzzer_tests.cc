@@ -80,12 +80,9 @@ constexpr absl::Duration kTestTimeout = absl::Hours(1);
 bool IsMaskedResource(absl::string_view table_name) {
   // TODO: acl_pre_ingress_table has a resource limit
   // problem.
-  // TODO: ipv4_table and ipv6_table have resource problems
-  // stemming from the fuzzer creating too many VRFs. See also
-  // b/181968931.
   // TODO: wcmp_group_table has a resource limit problem.
-  return table_name == "acl_pre_ingress_table" || table_name == "ipv4_table" ||
-         table_name == "ipv6_table" || table_name == "wcmp_group_table";
+  return table_name == "acl_pre_ingress_table" ||
+         table_name == "wcmp_group_table";
 }
 
 class TestEnvironment : public testing::Environment {
