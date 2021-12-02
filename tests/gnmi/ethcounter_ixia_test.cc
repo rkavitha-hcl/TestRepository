@@ -1374,7 +1374,7 @@ TEST_P(ExampleIxiaTestFixture, TestIPv6Pkts) {
 
   // Connect to TestTracker for test status
   generic_testbed->Environment().SetTestCaseID(
-      "3f3859b8-7602-479c-a2ad-ab964ded694b");
+      "bc678972-061a-4992-ae42-e215c776aa0a");
 
   // Hook up to GNMI
   ASSERT_OK_AND_ASSIGN(auto gnmi_stub, generic_testbed->Sut().CreateGnmiStub());
