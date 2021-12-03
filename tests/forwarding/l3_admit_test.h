@@ -21,6 +21,7 @@
 #include "p4_pdpi/p4_runtime_session.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
+#include "tests/lib/packet_in_helper.h"
 #include "thinkit/mirror_testbed_fixture.h"
 
 namespace gpins {
@@ -28,7 +29,6 @@ namespace gpins {
 class L3AdmitTestFixture : public thinkit::MirrorTestbedFixture {
  protected:
   void SetUp() override;
-  void TearDown() override;
 
   // This test runs on a mirror testbed setup so we open a P4RT connection to
   // both switches.

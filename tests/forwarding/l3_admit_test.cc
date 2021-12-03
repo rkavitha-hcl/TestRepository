@@ -13,14 +13,18 @@
 // limitations under the License.
 #include "tests/forwarding/l3_admit_test.h"
 
+#include <memory>
+
 #include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "gutil/status_matchers.h"
 #include "lib/gnmi/gnmi_helper.h"
 #include "p4_pdpi/p4_runtime_session.h"
+#include "tests/lib/packet_in_helper.h"
 #include "thinkit/mirror_testbed_fixture.h"
 
 namespace gpins {
+
 void L3AdmitTestFixture::SetUp() {
   thinkit::MirrorTestbedFixture::SetUp();
 
@@ -39,13 +43,16 @@ void L3AdmitTestFixture::SetUp() {
                            GetMirrorTestbed().ControlSwitch(), GetP4Info()));
 }
 
-void L3AdmitTestFixture::TearDown() {
-  thinkit::MirrorTestbedFixture::TearDown();
-}
-
 TEST_P(L3AdmitTestFixture, L3PacketsAreRoutedWhenMacAddressIsInMyStation) {
   LOG(INFO) << "Starting test.";
-  LOG(INFO) << GetP4Info().DebugString();
+
+  // PacketIO handlers for both the SUT and control switch.
+  std::unique_ptr<PacketInHelper> packetio_sut =
+      std::make_unique<PacketInHelper>(p4rt_sut_switch_session_.get(),
+                                       PacketInHelper::NoFilter);
+  std::unique_ptr<PacketInHelper> packetio_control =
+      std::make_unique<PacketInHelper>(p4rt_control_switch_session_.get(),
+                                       PacketInHelper::NoFilter);
 }
 
 }  // namespace gpins
