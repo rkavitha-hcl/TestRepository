@@ -1187,6 +1187,11 @@ TEST_P(CpuQosTestWithIxia, TestCPUQueueAssignmentAndQueueRateLimit) {
 
   thinkit::Switch &sut = generic_testbed->Sut();
 
+  // Set up P4Runtime session.
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> sut_p4_session,
+                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+                           generic_testbed->Sut(), GetParam().p4info));
+
   // Push GNMI config.
   ASSERT_OK(pins_test::PushGnmiConfig(sut, GetParam().gnmi_config));
 
@@ -1286,11 +1291,6 @@ TEST_P(CpuQosTestWithIxia, TestCPUQueueAssignmentAndQueueRateLimit) {
 
   ASSERT_OK(pins_test::ixia::SetDestIPv4(traffic_ref, dest_ip.ToString(),
                                          *generic_testbed));
-
-  // Set up P4Runtime session.
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> sut_p4_session,
-                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-                           generic_testbed->Sut(), GetParam().p4info));
 
   // Listen for punted packets from the SUT.
   PacketReceiveInfo packet_receive_info;
@@ -1452,6 +1452,11 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
 
   thinkit::Switch &sut = generic_testbed->Sut();
 
+  // Set up P4Runtime session.
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> sut_p4_session,
+                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+                           generic_testbed->Sut(), GetParam().p4info));
+
   // Push GNMI config.
   ASSERT_OK(pins_test::PushGnmiConfig(sut, GetParam().gnmi_config));
 
@@ -1552,11 +1557,6 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
 
   ASSERT_OK(pins_test::ixia::SetDestIPv4(traffic_ref, dest_ip.ToString(),
                                          *generic_testbed));
-
-  // Set up P4Runtime session.
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> sut_p4_session,
-                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-                           generic_testbed->Sut(), GetParam().p4info));
 
   // Listen for punted packets from the SUT.
   PacketReceiveInfo packet_receive_info;
