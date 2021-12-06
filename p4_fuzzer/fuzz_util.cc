@@ -968,7 +968,6 @@ absl::StatusOr<TableEntry> FuzzValidTableEntry(absl::BitGen* gen,
                                                const FuzzerConfig& config,
                                                const SwitchState& switch_state,
                                                const uint32_t table_id) {
-  TableEntry entry;
   return FuzzValidTableEntry(
       gen, config, switch_state,
       gutil::FindOrDie(config.info.tables_by_id(), table_id));
