@@ -929,12 +929,6 @@ absl::StatusOr<TableEntry> FuzzValidTableEntry(
       continue;
     }
 
-    // TODO: in_port causes the switch to return non-parsable
-    // status, skipping it for now.
-    if (match_field_info.match_field().name() == "in_port") {
-      continue;
-    }
-
     auto match = FuzzFieldMatch(gen, config, switch_state, match_field_info);
     if (match.ok()) {
       *table_entry.add_match() = *match;
