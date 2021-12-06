@@ -915,9 +915,10 @@ absl::StatusOr<TableEntry> FuzzValidTableEntry(
                        });
     if (deprecated) continue;
 
-    // If the field can have wildcards, this may generate a wildcard match.
-    // That's illegal according to P4RT spec, because wilcards must be
-    // represented as the absence of that match.
+    // If the field can have wildcards, we generate a wildcard match with
+    // probability `kFieldMatchWildcardProbability`.
+    // In the P4RT spec, wildcards are represented as the absence of a match
+    // field.
     bool can_have_wildcard = match_field_info.match_field().match_type() ==
                                  p4::config::v1::MatchField::TERNARY ||
                              match_field_info.match_field().match_type() ==
@@ -933,7 +934,7 @@ absl::StatusOr<TableEntry> FuzzValidTableEntry(
     if (match.ok()) {
       *table_entry.add_match() = *match;
     } else if (can_have_wildcard) {
-      // Skip this match since there is no valid one for it.
+      // Skip this match generation since a wildcard is valid.
       continue;
     } else {
       return match.status();
