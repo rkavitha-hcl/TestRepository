@@ -547,7 +547,7 @@ TEST_F(GNMIThinkitInterfaceUtilityTest,
 TEST_F(GNMIThinkitInterfaceUtilityTest,
        TestGetExpectedPortInfoForBreakoutModeMixedBreakoutModeSuccess) {
   const std::string port = "Ethernet0";
-  absl::string_view breakout_mode = "1x200G+2x100G";
+  absl::string_view breakout_mode = "1x200G(4)+2x100G(4)";
 
   auto breakout_info =
       pins_test::GetExpectedPortInfoForBreakoutMode(port, breakout_mode);
@@ -561,7 +561,7 @@ TEST_F(
     GNMIThinkitInterfaceUtilityTest,
     TestGetExpectedPortInfoForBreakoutModeAlternatedMixedBreakoutModeSuccess) {
   const std::string port = "Ethernet0";
-  absl::string_view breakout_mode = "2x100G+1x200G";
+  absl::string_view breakout_mode = "2x100G(4)+1x200G(4)";
   auto breakout_info =
       pins_test::GetExpectedPortInfoForBreakoutMode(port, breakout_mode);
   ASSERT_OK(breakout_info.status());
@@ -630,7 +630,7 @@ TEST_F(GNMIThinkitInterfaceUtilityTest,
 TEST_F(GNMIThinkitInterfaceUtilityTest,
        TestGetExpectedPortInfoForBreakoutModeInvalidBreakoutModeFailure) {
   const std::string port = "Ethernet0";
-  absl::string_view breakout_mode = "3x200G+2x100G";
+  absl::string_view breakout_mode = "3x200G(4)+2x100G(4)";
 
   EXPECT_THAT(
       pins_test::GetExpectedPortInfoForBreakoutMode(port, breakout_mode),
@@ -896,7 +896,7 @@ TEST_F(GNMIThinkitInterfaceUtilityTest,
 TEST_F(GNMIThinkitInterfaceUtilityTest,
        TestGetBreakoutModeConfigFromStringMixedBreakoutModeSuccess) {
   const std::string port_index = "1";
-  const std::string breakout_mode = "1x200G+2x100G";
+  const std::string breakout_mode = "1x200G(4)+2x100G(4)";
   gnmi::SetRequest req, expected_breakout_config;
   const std::string expected_breakout_config_str = R"pb(
     prefix { origin: "openconfig" }

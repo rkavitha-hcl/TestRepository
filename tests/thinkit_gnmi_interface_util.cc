@@ -105,8 +105,8 @@ absl::StatusOr<std::vector<std::string>> GetSupportedBreakoutModesForPort(
   if (breakout_type == BreakoutType::kChannelized) {
     for (const auto& mode : modes) {
       // A breakout mode is a channelized mode if it is either a mixed mode (eg.
-      // 1x200G+2x100G) or it results in more than one number of interfaces
-      // (eg. 2x200G).
+      // 1x200G(4)+2x100G(4)) or it results in more than one number of
+      // interfaces (eg. 2x200G).
       auto num_breakouts_str = mode.substr(0, mode.find('x'));
       int num_breakouts;
       if (!absl::SimpleAtoi(num_breakouts_str, &num_breakouts)) {
@@ -226,8 +226,8 @@ GetExpectedPortInfoForBreakoutMode(const std::string& port,
   }
 
   // For a mixed breakout mode, get "+" separated breakout groups.
-  // Eg. For a mixed breakout mode of "2x100G + 1x200G"; modes = {2x100G,
-  // 1x200G}
+  // Eg. For a mixed breakout mode of "2x100G(4) + 1x200G(4)"; modes =
+  // {2x100G(4), 1x200G(4)}
   std::vector<std::string> modes = absl::StrSplit(breakout_mode, '+');
   // Get maximum physical channels in a breakout group which is max
   // lanes per physical port/number of groups in a breakout mode.
@@ -258,9 +258,9 @@ GetExpectedPortInfoForBreakoutMode(const std::string& port,
 
     // For each resulting interface, construct the front panel interface name
     // using offset from the parent port. For a breakout mode of Ethernet0 =>
-    // 2x100G+1x200G, the max channels per group would be 4 (8 max lanes per
-    // port/2 groups). Hence, breakout mode 2x100G (numBreakouts=2) would have
-    // an offset of 2 and 1x200G(numBreakouts=1) would have an offset of 1
+    // 2x100(4)G+1x200G(4), the max channels per group would be 4 (8 max lanes
+    // per port/2 groups). Hence, breakout mode 2x100G (numBreakouts=2) would
+    // have an offset of 2 and 1x200G(numBreakouts=1) would have an offset of 1
     // leading to interfaces Ethernet0, Ethernet2 for mode 2x100G and
     // Ethernet4 for mode 1x200G.
     for (int i = 0; i < num_breakouts; i++) {
@@ -328,8 +328,8 @@ absl::Status GetBreakoutModeConfigFromString(
                                            port_index, "]/port/breakout-mode");
   // Get breakout groups corresponding to breakout mode.
   // For a mixed breakout mode, get "+" separated breakout groups.
-  // Eg. For a mixed breakout mode of "2x100G + 1x200G"; modes = {2x100G,
-  // 1x200G}
+  // Eg. For a mixed breakout mode of "2x100G(4) + 1x200G(4)"; modes =
+  // {2x100G(4), 1x200G(4)}
   std::vector<std::string> modes = absl::StrSplit(breakout_mode, '+');
   std::vector<std::string> group_configs;
   auto max_channels_in_group = kMaxPortLanes / modes.size();
@@ -342,7 +342,8 @@ absl::Status GetBreakoutModeConfigFromString(
              << "Failed to convert string (" << num_breakouts_str
              << ") to integer";
     }
-    auto breakout_speed = mode.substr(mode.find('x') + 1);
+    auto xpos = mode.find('x');
+    auto breakout_speed = mode.substr(xpos + 1, mode.find('(') - xpos - 1);
     auto num_physical_channels = max_channels_in_group / num_breakouts;
     auto group_config = absl::Substitute(
         R"pb({
