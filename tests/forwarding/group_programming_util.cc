@@ -265,21 +265,6 @@ absl::Status VerifyGroupMembersFromP4Read(
   return absl::OkStatus();
 }
 
-// Verifies the actual members inferred from receive traffic match the
-// expected members.
-absl::Status VerifyGroupMembersFromReceiveTraffic(
-    const absl::flat_hash_map<int, int>& actual_packets_received_per_port,
-    const absl::flat_hash_set<int>& expected_member_ports) {
-  // Check we only saw expected ports.
-  for (const auto& [port, packets] : actual_packets_received_per_port) {
-    bool is_member_port = expected_member_ports.contains(port);
-    if (!is_member_port) {
-      return gutil::UnknownErrorBuilder() << "Unexpected port: " << port;
-    }
-  }
-  return absl::OkStatus();
-}
-
 absl::StatusOr<std::vector<int>> GenerateNRandomWeights(int n,
                                                         int total_weight) {
   absl::BitGen gen;

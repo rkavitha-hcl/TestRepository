@@ -68,6 +68,12 @@ ABSL_FLAG(bool, ignore_router_solicitation_packets, true,
 namespace gpins {
 namespace {
 
+using ::testing::UnorderedPointwise;
+
+MATCHER(KeyEq, "") {
+  return ::testing::get<0>(arg).first == ::testing::get<1>(arg);
+}
+
 constexpr absl::Duration kDurationToWaitForPacketsFromSut = absl::Seconds(30);
 
 std::vector<PacketField> AllFields() {
@@ -502,8 +508,6 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
                                pdpi::DecimalStringToUint32(output.port()));
           num_packets_per_port[out_port] += 1;
         }
-        ASSERT_OK(VerifyGroupMembersFromReceiveTraffic(num_packets_per_port,
-                                                       expected_ports));
 
         LOG(INFO) << "Results for " << DescribeTestConfig(config) << ":";
         LOG(INFO) << "- received " << test.output.size() << " packets";
@@ -513,6 +517,11 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
                                           !PacketsShouldBeHashed(config));
 
         if (PacketsShouldBeHashed(config)) {
+          // Verifies the actual members inferred from receive traffic matches
+          // the expected members.
+          ASSERT_THAT(num_packets_per_port,
+                      UnorderedPointwise(KeyEq(), expected_ports));
+
           double total_weight = 0;
           for (const auto& member : members) {
             total_weight += member.weight;

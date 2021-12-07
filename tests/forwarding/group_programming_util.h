@@ -72,13 +72,6 @@ absl::Status VerifyGroupMembersFromP4Read(
     pdpi::P4RuntimeSession& p4_session, const pdpi::IrP4Info& ir_p4info,
     absl::string_view group_id, absl::Span<const GroupMember> expected_members);
 
-// Verifies the actual members inferred from receive traffic matches the
-// expected members.
-// actual_ports is a map of the number of packets received(value) per port(key).
-absl::Status VerifyGroupMembersFromReceiveTraffic(
-    const absl::flat_hash_map<int, int>& actual_packets_received_per_port,
-    const absl::flat_hash_set<int>& expected_member_ports);
-
 // Generates N random weights that add up to total_weight, with at least 1 in
 // each bucket.
 absl::StatusOr<std::vector<int>> GenerateNRandomWeights(int n,

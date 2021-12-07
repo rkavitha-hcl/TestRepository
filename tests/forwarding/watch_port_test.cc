@@ -74,6 +74,13 @@
 namespace gpins {
 
 namespace {
+
+using ::testing::UnorderedPointwise;
+
+MATCHER(KeyEq, "") {
+  return ::testing::get<0>(arg).first == ::testing::get<1>(arg);
+}
+
 // Admin down/up state used for interfaces.
 enum class AdminState {
   kDown,
@@ -630,8 +637,11 @@ TEST_P(WatchPortTestFixture, VerifyBasicWcmpPacketDistribution) {
 
     ASSERT_OK(VerifyGroupMembersFromP4Read(*sut_p4_session_, GetIrP4Info(),
                                            kGroupId, members));
-    ASSERT_OK(VerifyGroupMembersFromReceiveTraffic(num_packets_per_port,
-                                                   expected_member_ports));
+
+    // Verifies the actual members inferred from receive traffic matches the
+    // expected members.
+    ASSERT_THAT(num_packets_per_port,
+                UnorderedPointwise(KeyEq(), expected_member_ports));
     PrettyPrintDistribution(test_config, test, test_data_, members,
                             num_packets_per_port);
   }
@@ -738,8 +748,10 @@ TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
 
       ASSERT_OK(VerifyGroupMembersFromP4Read(*sut_p4_session_, GetIrP4Info(),
                                              kGroupId, members));
-      ASSERT_OK(VerifyGroupMembersFromReceiveTraffic(num_packets_per_port,
-                                                     expected_member_ports));
+      // Verifies the actual members inferred from receive traffic matches the
+      // expected members.
+      ASSERT_THAT(num_packets_per_port,
+                  UnorderedPointwise(KeyEq(), expected_member_ports));
       PrettyPrintDistribution(test_config, test, test_data_, members,
                               num_packets_per_port);
     }
@@ -852,9 +864,11 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionInCriticalState) {
     absl::flat_hash_set<int> expected_member_ports =
         CreateExpectedMemberPorts(members);
     expected_member_ports.erase(selected_port_id);
-    ASSERT_OK(VerifyGroupMembersFromReceiveTraffic(num_packets_per_port,
-                                                   expected_member_ports));
 
+    // Verifies the actual members inferred from receive traffic matches the
+    // expected members.
+    ASSERT_THAT(num_packets_per_port,
+                UnorderedPointwise(KeyEq(), expected_member_ports));
     PrettyPrintDistribution(test_config, test, test_data_, members,
                             num_packets_per_port);
   }
@@ -952,6 +966,7 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForSingleMember) {
             << "Expected all packets to be lost for single member group watch "
                "port down action, but received "
             << test.output.size() << " actual packets";
+        expected_member_ports.erase(single_member_port_id);
       } else {
         expected_member_ports.insert(single_member_port_id);
         EXPECT_EQ(test.output.size(), test_data_.total_packets_sent)
@@ -964,8 +979,11 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForSingleMember) {
 
       ASSERT_OK(VerifyGroupMembersFromP4Read(*sut_p4_session_, GetIrP4Info(),
                                              kGroupId, members));
-      ASSERT_OK(VerifyGroupMembersFromReceiveTraffic(num_packets_per_port,
-                                                     expected_member_ports));
+
+      // Verifies the actual members inferred from receive traffic matches the
+      // expected members.
+      ASSERT_THAT(num_packets_per_port,
+                  UnorderedPointwise(KeyEq(), expected_member_ports));
       PrettyPrintDistribution(test_config, test, test_data_, members,
                               num_packets_per_port);
     }
@@ -1070,8 +1088,11 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForMemberModify) {
 
     ASSERT_OK(VerifyGroupMembersFromP4Read(*sut_p4_session_, GetIrP4Info(),
                                            kGroupId, members));
-    ASSERT_OK(VerifyGroupMembersFromReceiveTraffic(num_packets_per_port,
-                                                   expected_member_ports));
+
+    // Verifies the actual members inferred from receive traffic matches the
+    // expected members.
+    ASSERT_THAT(num_packets_per_port,
+                UnorderedPointwise(KeyEq(), expected_member_ports));
     PrettyPrintDistribution(test_config, test, test_data_, members,
                             num_packets_per_port);
   }
@@ -1185,8 +1206,10 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForDownPortMemberInsert) {
 
       ASSERT_OK(VerifyGroupMembersFromP4Read(*sut_p4_session_, GetIrP4Info(),
                                              kGroupId, members));
-      ASSERT_OK(VerifyGroupMembersFromReceiveTraffic(num_packets_per_port,
-                                                     expected_member_ports));
+      // Verifies the actual members inferred from receive traffic matches the
+      // expected members.
+      ASSERT_THAT(num_packets_per_port,
+                  UnorderedPointwise(KeyEq(), expected_member_ports));
       PrettyPrintDistribution(test_config, test, test_data_, members,
                               num_packets_per_port);
     }
