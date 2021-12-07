@@ -187,32 +187,33 @@ TEST(SwitchStateTest, CheckStateSummaryNoMax) {
     ASSERT_OK(state.ApplyUpdate(update));
   }
 
-  ASSERT_THAT(
-      state.SwitchStateSummary(),
-      testing::StrEq("State(\n"
-                     " current size    max size    table_name\n"
-                     "           13         N/A    total number of flows\n"
-                     "            1        1024    id_test_table\n"
-                     "            1        1024    exact_table\n"
-                     "            1        1024    ternary_table\n"
-                     "            1        1024    lpm1_table\n"
-                     "            1        1024    lpm2_table\n"
-                     "            1        1024    wcmp_table\n"
-                     "            0        1024    wcmp_table.total_weight\n"
-                     "            0         N/A    wcmp_table.total_actions\n"
-                     "            0           0    wcmp_table.max_weight\n"
-                     "            1        1024    count_and_meter_table\n"
-                     "            1        1024    wcmp2_table\n"
-                     "            0        1024    wcmp2_table.total_weight\n"
-                     "            0         N/A    wcmp2_table.total_actions\n"
-                     "            0           0    wcmp2_table.max_weight\n"
-                     "            1        1024    optional_table\n"
-                     "            1        1024    referred_table\n"
-                     "            1        1024    referring_table\n"
-                     "            1        1024    referring2_table\n"
-                     "            1        1024    no_action_table\n"
-                     " * marks tables where max size > current size.\n"
-                     ")"));
+  ASSERT_THAT(state.SwitchStateSummary(),
+              testing::StrEq(
+                  "State(\n"
+                  " current size    max size    table_name\n"
+                  "           14         N/A    total number of flows\n"
+                  "            1        1024    id_test_table\n"
+                  "            1        1024    exact_table\n"
+                  "            1        1024    ternary_table\n"
+                  "            1        1024    lpm1_table\n"
+                  "            1        1024    lpm2_table\n"
+                  "            1        1024    wcmp_table\n"
+                  "            0        1024    wcmp_table.total_weight\n"
+                  "            0         N/A    wcmp_table.total_actions\n"
+                  "            0           0    wcmp_table.max_weight\n"
+                  "            1        1024    count_and_meter_table\n"
+                  "            1        1024    wcmp2_table\n"
+                  "            0        1024    wcmp2_table.total_weight\n"
+                  "            0         N/A    wcmp2_table.total_actions\n"
+                  "            0           0    wcmp2_table.max_weight\n"
+                  "            1        1024    optional_table\n"
+                  "            1        1024    referred_table\n"
+                  "            1        1024    referring_table\n"
+                  "            1        1024    referring2_table\n"
+                  "            1        1024    no_action_table\n"
+                  "            1        1024    referring_to_referring2_table\n"
+                  " * marks tables where max size > current size.\n"
+                  ")"));
 }
 
 TEST(SwitchStateTest, CheckStateSummaryWithMax) {
@@ -252,32 +253,33 @@ TEST(SwitchStateTest, CheckStateSummaryWithMax) {
     ASSERT_OK(state.ApplyUpdate(update));
   }
 
-  ASSERT_THAT(
-      state.SwitchStateSummary(),
-      testing::StrEq("State(\n"
-                     " current size    max size    table_name\n"
-                     "         1025         N/A    total number of flows\n"
-                     "            0        1024    id_test_table\n"
-                     "            0        1024    exact_table\n"
-                     "            0        1024    ternary_table\n"
-                     "            0        1024    lpm1_table\n"
-                     "            0        1024    lpm2_table\n"
-                     "         1025        1024    wcmp_table*\n"
-                     "        10250        1024    wcmp_table.total_weight*\n"
-                     "         1025         N/A    wcmp_table.total_actions\n"
-                     "           10           0    wcmp_table.max_weight*\n"
-                     "            0        1024    count_and_meter_table\n"
-                     "            0        1024    wcmp2_table\n"
-                     "            0        1024    wcmp2_table.total_weight\n"
-                     "            0         N/A    wcmp2_table.total_actions\n"
-                     "            0           0    wcmp2_table.max_weight\n"
-                     "            0        1024    optional_table\n"
-                     "            0        1024    referred_table\n"
-                     "            0        1024    referring_table\n"
-                     "            0        1024    referring2_table\n"
-                     "            0        1024    no_action_table\n"
-                     " * marks tables where max size > current size.\n"
-                     ")"));
+  ASSERT_THAT(state.SwitchStateSummary(),
+              testing::StrEq(
+                  "State(\n"
+                  " current size    max size    table_name\n"
+                  "         1025         N/A    total number of flows\n"
+                  "            0        1024    id_test_table\n"
+                  "            0        1024    exact_table\n"
+                  "            0        1024    ternary_table\n"
+                  "            0        1024    lpm1_table\n"
+                  "            0        1024    lpm2_table\n"
+                  "         1025        1024    wcmp_table*\n"
+                  "        10250        1024    wcmp_table.total_weight*\n"
+                  "         1025         N/A    wcmp_table.total_actions\n"
+                  "           10           0    wcmp_table.max_weight*\n"
+                  "            0        1024    count_and_meter_table\n"
+                  "            0        1024    wcmp2_table\n"
+                  "            0        1024    wcmp2_table.total_weight\n"
+                  "            0         N/A    wcmp2_table.total_actions\n"
+                  "            0           0    wcmp2_table.max_weight\n"
+                  "            0        1024    optional_table\n"
+                  "            0        1024    referred_table\n"
+                  "            0        1024    referring_table\n"
+                  "            0        1024    referring2_table\n"
+                  "            0        1024    no_action_table\n"
+                  "            0        1024    referring_to_referring2_table\n"
+                  " * marks tables where max size > current size.\n"
+                  ")"));
 }
 
 }  // namespace

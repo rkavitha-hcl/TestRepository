@@ -229,6 +229,19 @@ message NoActionTableEntry {
   bytes controller_metadata = 8;
 }
 
+message ReferringToReferring2TableEntry {
+  message Match {
+    // Refers to 'referring2_table.referring_id'.
+    string referring2_table_id = 1; // exact match / Format::STRING
+  }
+  Match match = 1;
+  message Action {
+    DoThing4Action do_thing_4 = 1;
+  }
+  Action action = 2;
+  bytes controller_metadata = 8;
+}
+
 
 // -- Actions ------------------------------------------------------------------
 
@@ -284,6 +297,7 @@ message TableEntry {
     ReferringTableEntry referring_table_entry = 11;
     Referring2TableEntry referring2_table_entry = 12;
     NoActionTableEntry no_action_table_entry = 13;
+    ReferringToReferring2TableEntry referring_to_referring2_table_entry = 14;
   }
 }
 

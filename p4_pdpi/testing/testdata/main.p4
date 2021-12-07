@@ -273,6 +273,21 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
     }
   }
 
+  // Table that refers to referring2_table.
+  @id(14)
+  table referring_to_referring2_table {
+      key = {
+          meta.str : exact @id(1) @name("referring2_table_id")
+          @refers_to(referring2_table, referring_id);
+      }
+      actions = {
+        @proto_id(1) do_thing_4;
+        @defaultonly NoAction();
+      }
+      const default_action = NoAction();
+  }
+
+
   apply {
     id_test_table.apply();
     exact_table.apply();
@@ -287,6 +302,7 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
     referring_table.apply();
     referring2_table.apply();
     no_action_table.apply();
+    referring_to_referring2_table.apply();
   }
 }
 
