@@ -310,4 +310,11 @@ absl::Status SortTableEntries(const IrP4Info& info,
   return absl::OkStatus();
 }
 
+absl::StatusOr<std::vector<p4::v1::TableEntry>> GetEntriesUnreachableFromRoots(
+    absl::Span<const p4::v1::TableEntry> entries,
+    std::function<absl::StatusOr<bool>(p4::v1::TableEntry)> is_root_entry,
+    const IrP4Info& ir_p4info) {
+  return absl::UnimplementedError("Not implemented.");
+}
+
 }  // namespace pdpi
