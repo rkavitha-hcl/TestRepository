@@ -9,8 +9,7 @@
 @id(ACL_COPY_ACTION_ID)
 @sai_action(SAI_PACKET_ACTION_COPY)
 action copy(inout standard_metadata_t standard_metadata) {
-  clone3(CloneType.I2E, COPY_TO_CPU_SESSION_ID,
-         {standard_metadata.ingress_port});
+  clone(CloneType.I2E, COPY_TO_CPU_SESSION_ID);
 }
 
 // Copy the packet to the CPU. The original packet is dropped.

@@ -25,7 +25,7 @@ control acl_wbb_ingress(in headers_t headers,
   @sai_action(SAI_PACKET_ACTION_COPY)
   action acl_wbb_ingress_copy() {
     acl_wbb_ingress_meter.read(local_metadata.color);
-    clone3(CloneType.I2E, COPY_TO_CPU_SESSION_ID, {});
+    clone(CloneType.I2E, COPY_TO_CPU_SESSION_ID);
     acl_wbb_ingress_counter.count();
   }
 
@@ -34,7 +34,7 @@ control acl_wbb_ingress(in headers_t headers,
   @sai_action(SAI_PACKET_ACTION_TRAP)
   action acl_wbb_ingress_trap() {
     acl_wbb_ingress_meter.read(local_metadata.color);
-    clone3(CloneType.I2E, COPY_TO_CPU_SESSION_ID, {});
+    clone(CloneType.I2E, COPY_TO_CPU_SESSION_ID);
     mark_to_drop(standard_metadata);
     acl_wbb_ingress_counter.count();
   }

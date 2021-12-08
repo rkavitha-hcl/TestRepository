@@ -101,10 +101,10 @@ def pins_infra_deps():
     if not native.existing_rule("com_github_p4lang_p4c"):
         http_archive(
             name = "com_github_p4lang_p4c",
-            # Newest commit on main on 2020-09-10.
-            url = "https://github.com/p4lang/p4c/archive/557b77f8c41fc5ee1158710eda1073d84f5acf53.zip",
-            strip_prefix = "p4c-557b77f8c41fc5ee1158710eda1073d84f5acf53",
-            sha256 = "c0b39fe2a3f394a87ff8fd055df4b5f1d19790bfa27a6cff68f484380746363e",
+            # Newest commit on main on 2021-12-07.
+            url = "https://github.com/p4lang/p4c/archive/37cd30ee9dc79c65b057a1aa168b961d7aba4701.zip",
+            strip_prefix = "p4c-37cd30ee9dc79c65b057a1aa168b961d7aba4701",
+            sha256 = "788fd5278d0580a7a0bf50a52231bbea79741a5ea82c5a9c9d256df6b02c1eb1",
         )
     if not native.existing_rule("com_github_p4lang_p4runtime"):
         # We frequently need bleeding-edge, unreleased version of P4Runtime, so we use a commit
