@@ -78,11 +78,8 @@ constexpr absl::Duration kEndOfTestBuffer = absl::Minutes(5);
 constexpr absl::Duration kTestTimeout = absl::Hours(1);
 
 bool IsMaskedResource(absl::string_view table_name) {
-  // TODO: acl_pre_ingress_table has a resource limit
-  // problem.
   // TODO: wcmp_group_table has a resource limit problem.
-  return table_name == "acl_pre_ingress_table" ||
-         table_name == "wcmp_group_table";
+  return table_name == "wcmp_group_table";
 }
 
 class TestEnvironment : public testing::Environment {
