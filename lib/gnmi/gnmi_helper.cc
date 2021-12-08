@@ -34,6 +34,7 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
+#include "github.com/openconfig/gnoi/types/types.pb.h"
 #include "glog/logging.h"
 #include "google/protobuf/map.h"
 #include "grpcpp/impl/codegen/client_context.h"
@@ -142,6 +143,17 @@ gnmi::Path ConvertOCStringToPath(absl::string_view oc_path) {
     }
   }
   return path;
+}
+
+gnoi::types::Path GnmiToGnoiPath(gnmi::Path path) {
+  gnoi::types::Path gnoi_path;
+  gnoi_path.set_origin(std::move(*path.mutable_origin()));
+  for (gnmi::PathElem& element : *path.mutable_elem()) {
+    gnoi::types::PathElem& gnoi_element = *gnoi_path.add_elem();
+    gnoi_element.set_name(std::move(*element.mutable_name()));
+    *gnoi_element.mutable_key() = std::move(*element.mutable_key());
+  }
+  return gnoi_path;
 }
 
 absl::StatusOr<gnmi::SetRequest> BuildGnmiSetRequest(

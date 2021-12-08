@@ -144,6 +144,26 @@ TEST(OCStringToPath, OCStringToPathTestCase3) {
       )pb"));
 }
 
+TEST(GnmiToGnoiPath, ConversionWorks) {
+  EXPECT_THAT(GnmiToGnoiPath(
+                  ConvertOCStringToPath("interfaces/interface[name=ethernet0]/"
+                                        "config/mtu/ic[name=1/1]/value")),
+              EqualsProto(R"pb(
+                elem { name: "interfaces" }
+                elem {
+                  name: "interface"
+                  key { key: "name" value: "ethernet0" }
+                }
+                elem { name: "config" }
+                elem { name: "mtu" }
+                elem {
+                  name: "ic"
+                  key { key: "name" value: "1/1" }
+                }
+                elem { name: "value" }
+              )pb"));
+}
+
 TEST(ParseAlarms, NoAlarms) {
   EXPECT_THAT(ParseAlarms("[]"), IsOkAndHolds(IsEmpty()));
 }
