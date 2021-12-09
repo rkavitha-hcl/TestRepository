@@ -245,6 +245,47 @@ cc_library(
     alwayslink = True,
 )
 
+cc_library(
+    name = "hash_config_test",
+    testonly = True,
+    srcs = ["hash_config_test.cc"],
+    hdrs = ["hash_config_test.h"],
+    deps = [
+        ":group_programming_util",
+        ":packet_test_util",
+        ":util",
+        "//gutil:status_matchers",
+        "//gutil:testing",
+        "//lib/gnmi:gnmi_helper",
+        "//lib/validator:validator_lib",
+        "//p4_pdpi:ir_cc_proto",
+        "//p4_pdpi:p4_runtime_session",
+        "//p4_pdpi:pd",
+        "//p4_pdpi/netaddr:mac_address",
+        "//p4_pdpi/packetlib:packetlib_cc_proto",
+        "//p4_pdpi/string_encodings:decimal_string",
+        "//sai_p4/instantiations/google:sai_pd_cc_proto",
+        "//tests:thinkit_sanity_tests",
+        "//thinkit:mirror_testbed_fixture",
+        "//thinkit:test_environment",
+        "@com_github_gnoi//system:system_cc_proto",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+        "@com_google_absl//absl/base:core_headers",
+        "@com_google_absl//absl/container:btree",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:node_hash_map",
+        "@com_google_absl//absl/flags:flag",
+        "@com_google_absl//absl/functional:bind_front",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/synchronization",
+        "@com_google_absl//absl/types:span",
+        "@com_google_googletest//:gtest",
+        "@com_googlesource_code_re2//:re2",
+    ],
+    alwayslink = True,
+)
+
 # go/golden-test-with-coverage
 cc_test(
     name = "test_vector_test_runner",
