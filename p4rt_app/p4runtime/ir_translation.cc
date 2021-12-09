@@ -95,7 +95,7 @@ absl::Status TranslateActionSet(const TranslateTableEntryOptions& options,
     RETURN_IF_ERROR(
         TranslateAction(options, table_def, *action.mutable_action()));
 
-    if (!action.watch_port().empty()) {
+    if (options.translate_port_ids && !action.watch_port().empty()) {
       ASSIGN_OR_RETURN(*action.mutable_watch_port(),
                        TranslatePort(options.direction, options.port_map,
                                      action.watch_port()));
