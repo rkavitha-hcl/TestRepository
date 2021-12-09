@@ -136,6 +136,10 @@ void FuzzerTestFixture::TearDown() {
       ADD_FAILURE()
           << "Failed to clear entries from switch (now attempting reboot): "
           << switch_cleared;
+
+      // Save the logs before rebooting to help with debug.
+      EXPECT_OK(GetParam().mirror_testbed->SaveSwitchLogs(
+          /*save_prefix=*/"failed_to_clear_sut_state_"));
       pins_test::TestGnoiSystemColdReboot(sut);
     }
   }
