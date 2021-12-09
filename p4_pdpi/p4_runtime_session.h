@@ -89,6 +89,10 @@ class P4RuntimeSession {
   // particular requirements, this is likely the function you want to use.
   // Specifically, creates a session, clears all tables, and pushes the given
   // P4Info via RECONCILE_AND_COMMIT.
+  //
+  // DEPRECATED IN FAVOR OF pins_test::ConfigureSwitchAndReturnP4RuntimeSession.
+  ABSL_DEPRECATED(
+      "Use pins_test::ConfigureSwitchAndReturnP4RuntimeSession instead")
   static absl::StatusOr<std::unique_ptr<P4RuntimeSession>>
   CreateWithP4InfoAndClearTables(
       thinkit::Switch& thinkit_switch, const p4::config::v1::P4Info& p4info,
