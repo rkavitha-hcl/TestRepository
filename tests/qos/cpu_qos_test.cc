@@ -720,6 +720,12 @@ TEST_P(CpuQosTestWithoutIxia,
   LOG(INFO) << "Sleeping " << kTimeToWaitForGnmiConfigToApply
             << " to wait for config to be applied/links to come up.";
   absl::SleepFor(kTimeToWaitForGnmiConfigToApply);
+  ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
+      sut, GetParam().gnmi_config,
+      /*timeout=*/kTimeToWaitForGnmiConfigToApply));
+  ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
+      control_device, GetParam().gnmi_config,
+      /*timeout=*/kTimeToWaitForGnmiConfigToApply));
 
   // Pick a link to be used for packet injection.
   ASSERT_OK_AND_ASSIGN(SutToControlLink link_used_for_test_packets,
@@ -844,6 +850,12 @@ TEST_P(CpuQosTestWithoutIxia, PerEntryAclCounterIncrementsWhenEntryIsHit) {
   LOG(INFO) << "Sleeping " << kTimeToWaitForGnmiConfigToApply
             << " to wait for config to be applied/links to come up.";
   absl::SleepFor(kTimeToWaitForGnmiConfigToApply);
+  ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
+      sut, GetParam().gnmi_config,
+      /*timeout=*/kTimeToWaitForGnmiConfigToApply));
+  ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
+      control_device, GetParam().gnmi_config,
+      /*timeout=*/kTimeToWaitForGnmiConfigToApply));
 
   // Pick a link to be used for packet injection.
   ASSERT_OK_AND_ASSIGN(SutToControlLink link_used_for_test_packets,
@@ -980,6 +992,12 @@ TEST_P(CpuQosTestWithoutIxia, TrafficToLoopackIpGetsMappedToCorrectQueues) {
   LOG(INFO) << "Sleeping " << kTimeToWaitForGnmiConfigToApply
             << " to wait for config to be applied/links to come up.";
   absl::SleepFor(kTimeToWaitForGnmiConfigToApply);
+  ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
+      sut, GetParam().gnmi_config,
+      /*timeout=*/kTimeToWaitForGnmiConfigToApply));
+  ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
+      control_device, GetParam().gnmi_config,
+      /*timeout=*/kTimeToWaitForGnmiConfigToApply));
 
   // Pick a link to be used for packet injection.
   ASSERT_OK_AND_ASSIGN(SutToControlLink link_used_for_test_packets,
@@ -1221,6 +1239,9 @@ TEST_P(CpuQosTestWithIxia, TestCPUQueueAssignmentAndQueueRateLimit) {
   LOG(INFO) << "Sleeping " << kTimeToWaitForGnmiConfigToApply
             << " to wait for config to be applied/links to come up.";
   absl::SleepFor(kTimeToWaitForGnmiConfigToApply);
+  ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
+      sut, GetParam().gnmi_config,
+      /*timeout=*/kTimeToWaitForGnmiConfigToApply));
 
   ASSERT_OK_AND_ASSIGN(std::vector<IxiaLink> ready_links,
                        GetReadyIxiaLinks(*generic_testbed, *gnmi_stub));
@@ -1486,6 +1507,9 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
   LOG(INFO) << "Sleeping " << kTimeToWaitForGnmiConfigToApply
             << " to wait for config to be applied/links to come up.";
   absl::SleepFor(kTimeToWaitForGnmiConfigToApply);
+  ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
+      sut, GetParam().gnmi_config,
+      /*timeout=*/kTimeToWaitForGnmiConfigToApply));
 
   ASSERT_OK_AND_ASSIGN(std::vector<IxiaLink> ready_links,
                        GetReadyIxiaLinks(*generic_testbed, *gnmi_stub));
