@@ -30,7 +30,7 @@ class MtuRoutingTestFixture : public thinkit::GenericTestbedFixture {
                                       absl::string_view ingress_port,
                                       absl::string_view test_packet_str);
 
-  InterfaceLink source_link_, destination_link_;
+  InterfacePair source_interface_, destination_interface_;
   int sut_source_port_id_, sut_destination_port_id_;
   std::unique_ptr<thinkit::GenericTestbed> testbed_;
   std::unique_ptr<gnmi::gNMI::StubInterface> stub_;

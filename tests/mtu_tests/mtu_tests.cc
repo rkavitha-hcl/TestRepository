@@ -99,30 +99,34 @@ void MtuRoutingTestFixture::SetUp() {
                })pb");
 
   ASSERT_OK_AND_ASSIGN(testbed_, GetTestbedWithRequirements(requirements));
-  std::vector<InterfaceLink> control_links =
-      FromTestbed(GetAllControlLinks, *testbed_);
+
+  absl::flat_hash_map<std::string, thinkit::InterfaceInfo> sut_interface_info =
+      testbed_->GetSutInterfaceInfo();
+  std::vector<InterfacePair> control_interfaces =
+      GetAllControlInterfaces(sut_interface_info);
   ASSERT_OK_AND_ASSIGN(stub_, testbed_->Sut().CreateGnmiStub());
   ASSERT_OK_AND_ASSIGN(auto port_id_by_interface,
                        GetAllInterfaceNameToPortId(*stub_));
 
-  // Set the `source_link_` to the first SUT control link.
-  source_link_ = control_links[0];
-  ASSERT_OK_AND_ASSIGN(
-      std::string source_port_id_value,
-      gutil::FindOrStatus(port_id_by_interface, source_link_.sut_interface));
+  // Set the `source_interface` to the first SUT control interface.
+  source_interface_ = control_interfaces[0];
+  ASSERT_OK_AND_ASSIGN(std::string source_port_id_value,
+                       gutil::FindOrStatus(port_id_by_interface,
+                                           source_interface_.sut_interface));
   ASSERT_TRUE(absl::SimpleAtoi(source_port_id_value, &sut_source_port_id_));
 
-  // Set the `destination_link_` to the second SUT control link.
-  destination_link_ = control_links[1];
-  ASSERT_OK_AND_ASSIGN(std::string destination_port_id_value,
-                       gutil::FindOrStatus(port_id_by_interface,
-                                           destination_link_.sut_interface));
+  // Set the `destination_interface` to the second SUT control interface.
+  destination_interface_ = control_interfaces[1];
+  ASSERT_OK_AND_ASSIGN(
+      std::string destination_port_id_value,
+      gutil::FindOrStatus(port_id_by_interface,
+                          destination_interface_.sut_interface));
   ASSERT_TRUE(
       absl::SimpleAtoi(destination_port_id_value, &sut_destination_port_id_));
 
-  LOG(INFO) << "Source port: " << source_link_.sut_interface
+  LOG(INFO) << "Source port: " << source_interface_.sut_interface
             << " port id: " << sut_source_port_id_;
-  LOG(INFO) << "Destination port: " << destination_link_.sut_interface
+  LOG(INFO) << "Destination port: " << destination_interface_.sut_interface
             << " port id: " << sut_destination_port_id_;
 
   ASSERT_OK_AND_ASSIGN(
@@ -216,7 +220,7 @@ TEST_P(MtuRoutingTestFixture, MtuTest) {
   testbed_->Environment().SetTestCaseID("cfb97855-fe79-494a-aef2-92821aef3b1f");
   // Get original mtu on port under test on SUT.
   std::string if_state_path = absl::StrCat(
-      "interfaces/interface[name=", destination_link_.sut_interface,
+      "interfaces/interface[name=", destination_interface_.sut_interface,
       "]/state/mtu");
   ASSERT_OK_AND_ASSIGN(
       std::string state_path_response,
@@ -227,7 +231,7 @@ TEST_P(MtuRoutingTestFixture, MtuTest) {
   // Configure test mtu values on port under test on SUT.
   for (const auto& [mtu, payload_length] : *kMtuPacketPayloadMap) {
     // Set mtu.
-    SetPortMtu(stub_.get(), destination_link_.sut_interface,
+    SetPortMtu(stub_.get(), destination_interface_.sut_interface,
                std::to_string(mtu));
 // Send packets of size > mtu and expect them to be dropped by port
 // under test.
@@ -245,8 +249,8 @@ TEST_P(MtuRoutingTestFixture, MtuTest) {
       ASSERT_OK_AND_ASSIGN(
           auto pkts,
           SendTraffic(/*num_pkts*/ 10,
-                      /*egress_port*/ source_link_.peer_interface,
-                      /*ingress_port*/ destination_link_.peer_interface,
+                      /*egress_port*/ source_interface_.peer_interface,
+                      /*ingress_port*/ destination_interface_.peer_interface,
                       test_packet));
       EXPECT_EQ(pkts.received, 0);
     }
@@ -257,15 +261,15 @@ TEST_P(MtuRoutingTestFixture, MtuTest) {
     ASSERT_OK_AND_ASSIGN(
         auto pkts,
         SendTraffic(/*num_pkts*/ 50,
-                    /*egress_port*/ source_link_.peer_interface,
-                    /*ingress_port*/ destination_link_.peer_interface,
+                    /*egress_port*/ source_interface_.peer_interface,
+                    /*ingress_port*/ destination_interface_.peer_interface,
                     test_packet));
     EXPECT_EQ(pkts.received, 50);
 #endif
   }
 
   // Restore original mtu values on port under test on SUT.
-  SetPortMtu(stub_.get(), destination_link_.sut_interface,
+  SetPortMtu(stub_.get(), destination_interface_.sut_interface,
              std::to_string(orig_mtu));
 }
 }  // namespace

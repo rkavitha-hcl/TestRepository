@@ -71,28 +71,28 @@ const auto& GetSutInterfaceInfo() {
   return *kSutInterfaceInfo;
 }
 
-TEST(GenericTestbedUtils, GetAllControlLinks) {
-  EXPECT_THAT(GetAllControlLinks(GetSutInterfaceInfo()),
-              UnorderedElementsAre(InterfaceLink{.sut_interface = "Ethernet16",
+TEST(GenericTestbedUtils, GetAllControlInterfaces) {
+  EXPECT_THAT(GetAllControlInterfaces(GetSutInterfaceInfo()),
+              UnorderedElementsAre(InterfacePair{.sut_interface = "Ethernet16",
                                                  .peer_interface = "eth-1/1"}));
 }
 
 TEST(GenericTestbedUtils, GetSutInterfacesFromAllControlInterfaces) {
-  EXPECT_THAT(GetSutInterfaces(GetAllControlLinks(GetSutInterfaceInfo())),
+  EXPECT_THAT(GetSutInterfaces(GetAllControlInterfaces(GetSutInterfaceInfo())),
               UnorderedElementsAre("Ethernet16"));
 }
 
 TEST(GenericTestbedUtils, GetPeerInterfacesFromAllControlInterfaces) {
-  EXPECT_THAT(GetPeerInterfaces(GetAllControlLinks(GetSutInterfaceInfo())),
+  EXPECT_THAT(GetPeerInterfaces(GetAllControlInterfaces(GetSutInterfaceInfo())),
               UnorderedElementsAre("eth-1/1"));
 }
 
-TEST(GenericTestbedUtils, GetAllTrafficGeneratorLinks) {
-  EXPECT_THAT(GetAllTrafficGeneratorLinks(GetSutInterfaceInfo()),
+TEST(GenericTestbedUtils, GetAllTrafficGeneratorInterfaces) {
+  EXPECT_THAT(GetAllTrafficGeneratorInterfaces(GetSutInterfaceInfo()),
               UnorderedElementsAre(
-                  InterfaceLink{.sut_interface = "Ethernet24",
+                  InterfacePair{.sut_interface = "Ethernet24",
                                 .peer_interface = "ixia.google.com/1/1"},
-                  InterfaceLink{.sut_interface = "Ethernet32",
+                  InterfacePair{.sut_interface = "Ethernet32",
                                 .peer_interface = "ixia.google.com/1/2"}));
 }
 
@@ -203,7 +203,7 @@ TEST(GenericTestbedUtils, GetUpInterfaces) {
                                                 "Ethernet24")));
 }
 
-TEST(GenericTestbedUtils, GetUpInterfaceLinks) {
+TEST(GenericTestbedUtils, GetUpInterfacePairs) {
   thinkit::MockGenericTestbed testbed;
   EXPECT_CALL(testbed, GetSutInterfaceInfo())
       .WillOnce(Return(GetSutInterfaceInfo()));
@@ -243,11 +243,11 @@ TEST(GenericTestbedUtils, GetUpInterfaceLinks) {
             return std::move(gnmi_stub);
           });
 
-  // GetAllTrafficGeneratorLinks will return Ethernet24 and Ethernet32, but
+  // GetAllTrafficGeneratorInterfaces will return Ethernet24 and Ethernet32, but
   // since Ethernet32 is down, it shouldn't be present.
-  EXPECT_THAT(GetUpLinks(GetAllTrafficGeneratorLinks, testbed),
+  EXPECT_THAT(GetUpInterfacePairs(GetAllTrafficGeneratorInterfaces, testbed),
               IsOkAndHolds(UnorderedElementsAre(
-                  InterfaceLink{.sut_interface = "Ethernet24",
+                  InterfacePair{.sut_interface = "Ethernet24",
                                 .peer_interface = "ixia.google.com/1/1"})));
 }
 
