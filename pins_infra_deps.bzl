@@ -18,9 +18,9 @@ def pins_infra_deps():
             name = "com_github_grpc_grpc",
             # TODO: Temporary workaround for compilation error seen in some versions of gcc.
             # Use https://github.com/grpc/grpc after https://github.com/grpc/grpc/pull/28196 merges.
-            url = "https://github.com/mint570/grpc/archive/37dd426924bfc97ee7e94c580608c96a75fd552c.zip",
-            strip_prefix = "grpc-37dd426924bfc97ee7e94c580608c96a75fd552c",
-            sha256 = "19560744e16a5ca2f5276c4bc534ff446efbf723d35f715465c0eb1213648a06",
+            url = "https://github.com/mint570/grpc/archive/fdfe557a1ec51cfe8d1b3e2e62163a54dd43b5ad.zip",
+            strip_prefix = "grpc-fdfe557a1ec51cfe8d1b3e2e62163a54dd43b5ad",
+            sha256 = "749e1fe3e213f272a455cbde7e7cd4e9255dfb65be3b540f973dd93b8bb37d78",
         )
     if not native.existing_rule("com_google_absl"):
         http_archive(
