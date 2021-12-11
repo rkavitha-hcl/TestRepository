@@ -23,6 +23,7 @@
 #include "absl/base/internal/endian.h"
 #include "absl/random/distributions.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "google/protobuf/repeated_field.h"
 #include "gutil/collections.h"
@@ -947,7 +948,8 @@ absl::StatusOr<TableEntry> FuzzValidTableEntry(
                    FuzzAction(gen, config, switch_state, ir_table_info));
 
   // Set cookie and priority.
-  table_entry.set_controller_metadata(FuzzUint64(gen, /*bits=*/64));
+  table_entry.set_metadata(
+      absl::StrCat("cookie: ", FuzzUint64(gen, /*bits=*/64)));
   if (ir_table_info.requires_priority()) {
     table_entry.set_priority(FuzzUint64(gen, /*bits=*/16));
   }
