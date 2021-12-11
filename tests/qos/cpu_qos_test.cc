@@ -883,7 +883,7 @@ TEST_P(CpuQosTestWithoutIxia, PerEntryAclCounterIncrementsWhenEntryIsHit) {
                            priority: 1
                            match {
                              is_ipv6 { value: "0x1" }
-                             ttl { value: "0xff" mask: "0xff" }
+                             ip_protocol { value: "0xfd" mask: "0xff" }
                            }
                            action { acl_drop {} }
                          }
@@ -919,11 +919,12 @@ TEST_P(CpuQosTestWithoutIxia, PerEntryAclCounterIncrementsWhenEntryIsHit) {
             ipv6_destination: "2001:db8:0:12::2"
           }
         }
-        payload: "IPv6 packet with TTL 0xff (255)."
+        payload: "IPv6 packet with next header 0xfd (253)."
       )pb"));
   // The ACL entry should match the test packet.
-  ASSERT_EQ(test_packet.headers().at(1).ipv6_header().hop_limit(),
-            pd_acl_entry.acl_ingress_table_entry().match().ttl().value());
+  ASSERT_EQ(
+      test_packet.headers().at(1).ipv6_header().next_header(),
+      pd_acl_entry.acl_ingress_table_entry().match().ip_protocol().value());
   ASSERT_OK(packetlib::PadPacketToMinimumSize(test_packet));
   ASSERT_OK(packetlib::UpdateAllComputedFields(test_packet));
   ASSERT_OK_AND_ASSIGN(const std::string raw_packet,
