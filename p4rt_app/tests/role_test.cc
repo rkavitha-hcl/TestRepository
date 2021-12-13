@@ -160,7 +160,7 @@ TEST_F(RoleTest, DISABLED_RolesEnforceReadWriteOnTables) {
                                  acl_ingress_table_entry {
                                    match { is_ip { value: "0x1" } }
                                    priority: 10
-                                   action { copy { qos_queue: "0x1" } }
+                                   action { acl_copy { qos_queue: "0x1" } }
                                  }
                                }
                              }
@@ -244,7 +244,7 @@ TEST_F(RoleTest, DefaultRoleCanWriteAndReadAnyTable) {
                                  acl_ingress_table_entry {
                                    match { is_ip { value: "0x1" } }
                                    priority: 10
-                                   action { copy { qos_queue: "0x1" } }
+                                   action { acl_copy { qos_queue: "0x1" } }
                                  }
                                }
                              }

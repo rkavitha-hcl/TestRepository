@@ -358,7 +358,7 @@ TEST_F(ResponsePathTest, ModifyRequestFails) {
                                  acl_ingress_table_entry {
                                    match { is_ip { value: "0x1" } }
                                    priority: 10
-                                   action { forward {} }
+                                   action { acl_forward {} }
                                  }
                                }
                              }
@@ -382,20 +382,21 @@ TEST_F(ResponsePathTest, ModifyRequestFails) {
       expected_entry.GetKey(), "SWSS_RC_INVALID_PARAM", "my error message");
 
   // Try to modify the existing request, and fail as intended..
-  ASSERT_OK_AND_ASSIGN(request, test_lib::PdWriteRequestToPi(
-                                    R"pb(
-                                      updates {
-                                        type: MODIFY
-                                        table_entry {
-                                          acl_ingress_table_entry {
-                                            match { is_ip { value: "0x1" } }
-                                            priority: 10
-                                            action { copy { qos_queue: "0x3" } }
-                                          }
-                                        }
-                                      }
-                                    )pb",
-                                    ir_p4_info_));
+  ASSERT_OK_AND_ASSIGN(request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: MODIFY
+                               table_entry {
+                                 acl_ingress_table_entry {
+                                   match { is_ip { value: "0x1" } }
+                                   priority: 10
+                                   action { acl_copy { qos_queue: "0x3" } }
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
 
   EXPECT_THAT(
       pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
@@ -418,7 +419,7 @@ TEST_F(ResponsePathTest, DeleteRequestFails) {
                                  acl_ingress_table_entry {
                                    match { is_ip { value: "0x1" } }
                                    priority: 10
-                                   action { copy { qos_queue: "0x1" } }
+                                   action { acl_copy { qos_queue: "0x1" } }
                                  }
                                }
                              }
@@ -442,20 +443,21 @@ TEST_F(ResponsePathTest, DeleteRequestFails) {
       expected_entry.GetKey(), "SWSS_RC_INVALID_PARAM", "my error message");
 
   // Try to delete the existing request, and fail as intended..
-  ASSERT_OK_AND_ASSIGN(request, test_lib::PdWriteRequestToPi(
-                                    R"pb(
-                                      updates {
-                                        type: DELETE
-                                        table_entry {
-                                          acl_ingress_table_entry {
-                                            match { is_ip { value: "0x1" } }
-                                            priority: 10
-                                            action { copy { qos_queue: "0x1" } }
-                                          }
-                                        }
-                                      }
-                                    )pb",
-                                    ir_p4_info_));
+  ASSERT_OK_AND_ASSIGN(request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: DELETE
+                               table_entry {
+                                 acl_ingress_table_entry {
+                                   match { is_ip { value: "0x1" } }
+                                   priority: 10
+                                   action { acl_copy { qos_queue: "0x1" } }
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
 
   EXPECT_THAT(
       pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),

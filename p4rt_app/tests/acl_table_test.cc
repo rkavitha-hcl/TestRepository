@@ -66,7 +66,7 @@ TEST_F(AclTableTest, ReadCounters) {
                                  acl_ingress_table_entry {
                                    match { is_ip { value: "0x1" } }
                                    priority: 10
-                                   action { copy { qos_queue: "0x1" } }
+                                   action { acl_copy { qos_queue: "0x1" } }
                                  }
                                }
                              }
@@ -106,7 +106,7 @@ TEST_F(AclTableTest, ReadMeters) {
                 acl_ingress_table_entry {
                   match { is_ip { value: "0x1" } }
                   priority: 10
-                  action { copy { qos_queue: "0x1" } }
+                  action { acl_copy { qos_queue: "0x1" } }
                   meter_config { bytes_per_second: 123 burst_bytes: 456 }
                 }
               }

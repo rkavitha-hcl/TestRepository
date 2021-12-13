@@ -43,7 +43,7 @@ TEST_P(SmokeTestFixture, ModifyWorks) {
             acl_ingress_table_entry {
               match { is_ip { value: "0x1" } }
               priority: 10
-              action { copy { qos_queue: "0x1" } }
+              action { acl_copy { qos_queue: "0x1" } }
             }
           }
         }
@@ -61,7 +61,7 @@ TEST_P(SmokeTestFixture, ModifyWorks) {
             acl_ingress_table_entry {
               match { is_ip { value: "0x1" } }
               priority: 10
-              action { forward {} }
+              action { acl_forward {} }
             }
           }
         }
@@ -147,7 +147,7 @@ TEST_P(SmokeTestFixture, DISABLED_Bug181149419) {
         )pb");
     pd_entry.mutable_acl_ingress_table_entry()
         ->mutable_action()
-        ->mutable_mirror()
+        ->mutable_acl_mirror()
         ->set_mirror_session_id(absl::StrCat("session-", i));
     pd_entry.mutable_acl_ingress_table_entry()
         ->mutable_match()

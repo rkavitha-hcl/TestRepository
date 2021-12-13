@@ -29,7 +29,7 @@ control acl_ingress(in headers_t headers,
   // Copy the packet to the CPU, and forward the original packet.
   @id(ACL_INGRESS_COPY_ACTION_ID)
   @sai_action(SAI_PACKET_ACTION_COPY)
-  action copy(@sai_action_param(QOS_QUEUE) @id(1) qos_queue_t qos_queue) {
+  action acl_copy(@sai_action_param(QOS_QUEUE) @id(1) qos_queue_t qos_queue) {
     clone(CloneType.I2E, COPY_TO_CPU_SESSION_ID);
     acl_ingress_counter.count();
   }
@@ -38,7 +38,7 @@ control acl_ingress(in headers_t headers,
   @id(ACL_INGRESS_TRAP_ACTION_ID)
   @sai_action(SAI_PACKET_ACTION_TRAP)
   action acl_trap(@sai_action_param(QOS_QUEUE) @id(1) qos_queue_t qos_queue) {
-    copy(qos_queue);
+    acl_copy(qos_queue);
     mark_to_drop(standard_metadata);
   }
 
@@ -47,14 +47,14 @@ control acl_ingress(in headers_t headers,
   // action.
   @id(ACL_INGRESS_FORWARD_ACTION_ID)
   @sai_action(SAI_PACKET_ACTION_FORWARD)
-  action forward() {
+  action acl_forward() {
     acl_ingress_meter.read(local_metadata.color);
     acl_ingress_counter.count();
   }
 
   @id(ACL_INGRESS_MIRROR_ACTION_ID)
   @sai_action(SAI_PACKET_ACTION_FORWARD)
-  action mirror(@sai_action_param(SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_INGRESS)
+  action acl_mirror(@sai_action_param(SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_INGRESS)
                 @id(1) @refers_to(mirror_session_table, mirror_session_id)
                 mirror_session_id_t mirror_session_id) {
     local_metadata.mirror_session_id_valid = true;
@@ -141,10 +141,10 @@ control acl_ingress(in headers_t headers,
     }
     actions = {
       // TODO: add action to set color to yellow
-      @proto_id(1) copy();
+      @proto_id(1) acl_copy();
       @proto_id(2) acl_trap();
-      @proto_id(3) forward();
-      @proto_id(4) mirror();
+      @proto_id(3) acl_forward();
+      @proto_id(4) acl_mirror();
       @proto_id(5) acl_drop(standard_metadata);
       @defaultonly NoAction;
     }

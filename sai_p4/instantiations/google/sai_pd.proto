@@ -233,10 +233,10 @@ message AclIngressTableEntry {
   Match match = 1;
   message Action {
     oneof action {
-      CopyAction copy = 1;
+      AclCopyAction acl_copy = 1;
       AclTrapAction acl_trap = 2;
-      ForwardAction forward = 3;
-      MirrorAction mirror = 4;
+      AclForwardAction acl_forward = 3;
+      AclMirrorAction acl_mirror = 4;
       AclDropAction acl_drop = 5;
     }
   }
@@ -408,7 +408,7 @@ message SetVrfAction {
   string vrf_id = 1;  // Format::STRING
 }
 
-message CopyAction {
+message AclCopyAction {
   string qos_queue = 1;  // Format::STRING
 }
 
@@ -416,9 +416,9 @@ message AclTrapAction {
   string qos_queue = 1;  // Format::STRING
 }
 
-message ForwardAction {}
+message AclForwardAction {}
 
-message MirrorAction {
+message AclMirrorAction {
   // Refers to 'mirror_session_table.mirror_session_id'.
   string mirror_session_id = 1;  // Format::STRING
 }
