@@ -33,6 +33,7 @@
 #include "absl/random/random.h"
 #include "absl/strings/match.h"
 #include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "glog/logging.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.pb.h"
@@ -69,10 +70,17 @@ bool IsReferring(
         references);
 
 template <typename T>
-const T& UniformFromVector(absl::BitGen* gen, const std::vector<T>& vec) {
-  CHECK(!vec.empty());
-  int index = absl::Uniform<int>(*gen, /*lo=*/0, /*hi=*/vec.size());
-  return vec[index];
+const T& UniformFromSpan(absl::BitGen* gen, absl::Span<const T> span) {
+  CHECK(!span.empty());
+  int index = absl::Uniform<int>(*gen, /*lo=*/0, /*hi=*/span.size());
+  return span[index];
+}
+
+// Implicit conversion to Span does not seem to work correctly for templated
+// code.
+template <typename T>
+const T& UniformFromSpan(absl::BitGen* gen, const std::vector<T>& vec) {
+  return UniformFromSpan(gen, absl::MakeConstSpan(vec));
 }
 
 // Gets the action profile corresponding to the given table from the IrP4Info.

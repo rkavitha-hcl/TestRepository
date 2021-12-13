@@ -19,6 +19,7 @@
 #include <string>
 
 #include "absl/algorithm/container.h"
+#include "absl/container/btree_set.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
@@ -230,9 +231,9 @@ std::string SwitchState::SwitchStateSummary() const {
       "current size", "max size", GetNumTableEntries(), "N/A", res);
 }
 
-std::vector<std::string> SwitchState::GetIdsForMatchField(
+absl::btree_set<std::string> SwitchState::GetIdsForMatchField(
     const pdpi::IrMatchFieldReference& field) const {
-  std::vector<std::string> result;
+  absl::btree_set<std::string> result;
   const auto& table_definition =
       FindOrDie(ir_p4info_.tables_by_name(), field.table());
   const auto& match_definition =
@@ -243,7 +244,7 @@ std::vector<std::string> SwitchState::GetIdsForMatchField(
     // Find the correct match field.
     for (const auto& match : entry.match()) {
       if (match.field_id() == match_definition.match_field().id()) {
-        result.push_back(match.exact().value());
+        result.insert(match.exact().value());
         break;
       }
     }

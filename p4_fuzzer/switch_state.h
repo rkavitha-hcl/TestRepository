@@ -19,6 +19,7 @@
 #include <unordered_map>
 
 #include "absl/container/btree_map.h"
+#include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/types/optional.h"
@@ -90,7 +91,7 @@ class SwitchState {
   std::string SwitchStateSummary() const;
 
   // Returns the set of used IDs for a given IrMatchFieldReference.
-  std::vector<std::string> GetIdsForMatchField(
+  absl::btree_set<std::string> GetIdsForMatchField(
       const pdpi::IrMatchFieldReference& field) const;
 
   pdpi::IrP4Info GetIrP4Info() const { return ir_p4info_; }

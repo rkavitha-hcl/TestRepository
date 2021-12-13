@@ -16,11 +16,14 @@
 #include <algorithm>
 #include <cstdint>
 #include <functional>
+#include <iterator>
 #include <limits>
+#include <vector>
 
 #include "absl/algorithm/container.h"
 #include "absl/base/casts.h"
 #include "absl/base/internal/endian.h"
+#include "absl/container/btree_set.h"
 #include "absl/random/distributions.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -94,7 +97,7 @@ bool IsReferring(
 namespace {
 
 std::string FuzzPort(absl::BitGen* gen, const FuzzerConfig& config) {
-  return UniformFromVector(gen, config.ports);
+  return UniformFromSpan(gen, config.ports);
 }
 
 inline int DivideRoundedUp(const unsigned int n, const unsigned int d) {
@@ -378,7 +381,7 @@ AnnotatedUpdate FuzzUpdate(absl::BitGen* gen, const FuzzerConfig& config,
 
   switch (type) {
     case Update::INSERT: {
-      const int table_id = UniformFromVector(gen, table_ids);
+      const int table_id = UniformFromSpan(gen, table_ids);
 
       // This might (with low probability) generate an entry that already
       // exists leading to a duplicate insert. This is fine, this update is just
@@ -398,7 +401,7 @@ AnnotatedUpdate FuzzUpdate(absl::BitGen* gen, const FuzzerConfig& config,
     case Update::MODIFY: {
       const int table_id = FuzzNonEmptyTableId(gen, config, switch_state);
       TableEntry table_entry =
-          UniformFromVector(gen, switch_state.GetTableEntries(table_id));
+          UniformFromSpan(gen, switch_state.GetTableEntries(table_id));
       FuzzNonKeyFields(gen, config, switch_state, &table_entry);
       *update.mutable_entity()->mutable_table_entry() = table_entry;
       break;
@@ -410,7 +413,7 @@ AnnotatedUpdate FuzzUpdate(absl::BitGen* gen, const FuzzerConfig& config,
       // just invalid (and it is the oracle's job to know what the switch is
       // supposed to do with this).
       TableEntry table_entry =
-          UniformFromVector(gen, switch_state.GetTableEntries(table_id));
+          UniformFromSpan(gen, switch_state.GetTableEntries(table_id));
       FuzzNonKeyFields(gen, config, switch_state, &table_entry);
       *update.mutable_entity()->mutable_table_entry() = table_entry;
       break;
@@ -503,7 +506,7 @@ std::string FuzzRandomId(absl::BitGen* gen) {
 
 // Randomly generates a table id.
 int FuzzTableId(absl::BitGen* gen, const FuzzerConfig& config) {
-  return UniformFromVector(gen, TablesUsedByFuzzer(config));
+  return UniformFromSpan(gen, TablesUsedByFuzzer(config));
 }
 
 Mutation FuzzMutation(absl::BitGen* gen, const FuzzerConfig& config) {
@@ -614,7 +617,7 @@ absl::StatusOr<std::string> FuzzValue(
 
   // A qos queue: pick any valid qos queue randomly.
   if (IsQosQueue(type_name)) {
-    return UniformFromVector(gen, config.qos_queues);
+    return UniformFromSpan(gen, config.qos_queues);
   }
 
   // A neighbor ID (not referring to anything): Pick a random IPv6 address.
@@ -633,28 +636,30 @@ absl::StatusOr<std::string> FuzzValue(
 
   // An ID that refers to another match field: pick any ID that already exists
   // for that match field.
-  // TODO: This appears to never generate a value, specifically
-  // because GetIdsForMatchField seems to never return anything.
   if (!references.empty()) {
-    std::vector<std::string> possible_values =
+    absl::btree_set<std::string> possible_values =
         switch_state.GetIdsForMatchField(references[0]);
-    for (int i = 1; i < references.size() && !possible_values.empty(); i++) {
-      std::vector<std::string> ith_reference_values =
-          switch_state.GetIdsForMatchField(references[i]);
-      std::vector<std::string> remaining_possible_values;
-      for (const std::string& value : possible_values) {
-        if (std::find(ith_reference_values.begin(), ith_reference_values.end(),
-                      value) != ith_reference_values.end()) {
-          remaining_possible_values.push_back(value);
-        }
-      }
-      possible_values = std::move(remaining_possible_values);
+    // Intersect the sets of possible values to ones existing in every table
+    // that this field references.
+    for (int i = 1; i < references.size(); i++) {
+      // If there are no possible IDs left, set intersections will be
+      // idempotent.
+      if (possible_values.empty()) break;
+
+      absl::btree_set<std::string> intersection;
+      absl::c_set_intersection(
+          possible_values, switch_state.GetIdsForMatchField(references[i]),
+          std::inserter(intersection, intersection.begin()));
+      possible_values = std::move(intersection);
     }
     if (possible_values.empty()) {
       return gutil::InvalidArgumentErrorBuilder()
              << "Could not find value, no IDs yet for some referenced fields.";
     }
-    return UniformFromVector(gen, possible_values);
+
+    std::vector<std::string> value_vector(possible_values.begin(),
+                                          possible_values.end());
+    return UniformFromSpan(gen, value_vector);
   }
 
   // Some other value: Normally fuzz bits randomly.
@@ -693,7 +698,7 @@ p4::v1::FieldMatch FuzzLpmFieldMatch(absl::BitGen* gen,
 
   int prefix_len;
   if (bits >= kBitsInByte && absl::Bernoulli(*gen, 0.2)) {
-    prefix_len = UniformFromVector(gen, likely_bits);
+    prefix_len = UniformFromSpan(gen, likely_bits);
   } else {
     // Don't generate /0, since we don't want wildcards
     prefix_len = absl::Uniform(*gen, 1, bits + 1);
