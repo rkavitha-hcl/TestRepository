@@ -937,9 +937,6 @@ absl::StatusOr<TableEntry> FuzzValidTableEntry(
     auto match = FuzzFieldMatch(gen, config, switch_state, match_field_info);
     if (match.ok()) {
       *table_entry.add_match() = *match;
-    } else if (can_have_wildcard) {
-      // Skip this match generation since a wildcard is valid.
-      continue;
     } else {
       return match.status();
     }
