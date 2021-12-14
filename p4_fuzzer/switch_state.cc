@@ -17,6 +17,7 @@
 #include <iterator>
 #include <set>
 #include <string>
+#include <vector>
 
 #include "absl/algorithm/container.h"
 #include "absl/container/btree_set.h"
@@ -72,10 +73,10 @@ int64_t SwitchState::GetNumTableEntries() const {
 
 const std::vector<uint32_t> SwitchState::AllTableIds() const {
   std::vector<uint32_t> table_ids;
-
   for (auto& [key, table] : ir_p4info_.tables_by_id()) {
     table_ids.push_back(key);
   }
+  // absl::c_sort(table_ids);
 
   return table_ids;
 }

@@ -17,6 +17,7 @@
 #include <string>
 
 #include "absl/random/distributions.h"
+#include "absl/random/random.h"
 #include "absl/random/seed_sequences.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -166,6 +167,42 @@ TEST(FuzzUtilTest, FuzzWriteRequestAreReproducible) {
   }
 }
 
+TEST(FuzzUtilTest, FuzzWriteRequestAreReproducibleWithState) {
+  FuzzerTestState fuzzer_state = ConstructStandardFuzzerTestState();
+
+  absl::BitGen init_gen;
+  // Generate some random table entries:
+  for (int i = 0; i < 10; ++i) {
+    auto request = FuzzWriteRequest(&init_gen, fuzzer_state.config,
+                                    fuzzer_state.switch_state);
+    for (auto update : request.updates()) {
+      // If an update is not successfully added to the state, we ignore it.
+      fuzzer_state.switch_state.ApplyUpdate(update.pi()).IgnoreError();
+    }
+  }
+
+  LOG(INFO) << "State size = "
+            << fuzzer_state.switch_state.GetNumTableEntries();
+
+  // Use the same sequence seed for both generators.
+  absl::SeedSeq seed;
+  absl::BitGen gen_0(seed);
+  absl::BitGen gen_1(seed);
+
+  // TODO: If we could randomize the ordering of maps for the info in the
+  // second config, we could check that the fuzzer is deterministic regardless.
+  auto fuzzer_config2 = fuzzer_state.config;
+
+  // Create 20 instances (of, in expectation, ~50 updates each), and verify that
+  // they are identical.
+  for (int i = 0; i < 20; ++i) {
+    ASSERT_THAT(FuzzWriteRequest(&gen_0, fuzzer_state.config,
+                                 fuzzer_state.switch_state),
+                EqualsProto(FuzzWriteRequest(&gen_1, fuzzer_config2,
+                                             fuzzer_state.switch_state)));
+  }
+}
+
 // Test that FuzzActionProfileActionSet correctly generates an ActionProfile
 // Action Set of acceptable weights and size (derived from max_group_size and
 // kActionProfileActionSetMaxCardinality).
@@ -182,8 +219,9 @@ TEST(FuzzActionProfileActionSetTest,
       GetActionProfileImplementingTable(fuzzer_state.config.info,
                                         table_definition));
   for (int i = 0; i < 1000; ++i) {
-    // Tests a broad enough band of max weights to give us interesting coverage
-    // while being narrow enough to likely catch issues when they happen.
+    // Tests a broad enough band of max weights to give us interesting
+    // coverage while being narrow enough to likely catch issues when they
+    // happen.
     int max_group_size = absl::Uniform<int>(
         fuzzer_state.gen, kActionProfileActionSetMaxCardinality,
         kGroupSizeArbitraryUpperBound);
@@ -244,8 +282,8 @@ TEST(FuzzActionProfileActionSetTest, HandlesZeroMaxGroupSizeCorrectly) {
   }
 }
 
-// Test that FuzzActionProfileActionSet correctly handles a request with low max
-// group size (in particular, lower than the max number of actions).
+// Test that FuzzActionProfileActionSet correctly handles a request with low
+// max group size (in particular, lower than the max number of actions).
 TEST(FuzzActionProfileActionSetTest, HandlesLowMaxGroupSizeCorrectly) {
   FuzzerTestState fuzzer_state = ConstructStandardFuzzerTestState();
   ASSERT_OK_AND_ASSIGN(const pdpi::IrTableDefinition& table_definition,
@@ -284,8 +322,8 @@ TEST(FuzzUtilTest, FuzzWriteRequestRespectMaxBatchSize) {
   FuzzerTestState fuzzer_state = ConstructStandardFuzzerTestState();
 
   // Create 200 instances of, in expectation, ~50 updates each without the
-  // max_batch_size parameter and verify that they all have batches smaller than
-  // max_batch_size.
+  // max_batch_size parameter and verify that they all have batches smaller
+  // than max_batch_size.
   for (int i = 0; i < 200; ++i) {
     int max_batch_size = absl::Uniform<int>(fuzzer_state.gen, 0, 50);
     EXPECT_LE(FuzzWriteRequest(&fuzzer_state.gen, fuzzer_state.config,
