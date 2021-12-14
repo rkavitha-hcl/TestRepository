@@ -2,6 +2,7 @@
 
 #include <memory>
 #include <string>
+#include <utility>
 
 #include "absl/status/status.h"
 #include "absl/time/time.h"
@@ -13,6 +14,8 @@
 
 namespace pins_test {
 namespace {
+
+constexpr absl::Duration kGnmiTimeoutDefault = absl::Minutes(3);
 
 absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>>
 CreateP4RuntimeSessionAndClearExistingState(
@@ -59,7 +62,7 @@ ConfigureSwitchAndReturnP4RuntimeSession(
 
   RETURN_IF_ERROR(PushGnmiAndWaitForConvergence(thinkit_switch,
                                                 gnmi_config, /*gnmi_timeout=*/
-                                                absl::Minutes(1)));
+                                                kGnmiTimeoutDefault));
   RETURN_IF_ERROR(
       SetForwardingPipelineConfigAndAssureClearedTables(session.get(), p4info));
   return session;
@@ -75,10 +78,40 @@ ConfigureSwitchAndReturnP4RuntimeSessionWithoutP4InfoPush(
       std::unique_ptr<pdpi::P4RuntimeSession> session,
       CreateP4RuntimeSessionAndClearExistingState(thinkit_switch, metadata));
 
-  RETURN_IF_ERROR(PushGnmiAndWaitForConvergence(thinkit_switch,
-                                                gnmi_config, /*gnmi_timeout=*/
-                                                absl::Minutes(1)));
+  RETURN_IF_ERROR(PushGnmiAndWaitForConvergence(thinkit_switch, gnmi_config,
+                                                kGnmiTimeoutDefault));
   return session;
+}
+
+absl::StatusOr<std::pair<std::unique_ptr<pdpi::P4RuntimeSession>,
+                         std::unique_ptr<pdpi::P4RuntimeSession>>>
+ConfigureSwitchPairAndReturnP4RuntimeSessionPair(
+    thinkit::Switch& thinkit_switch1, thinkit::Switch& thinkit_switch2,
+    const std::string& gnmi_config, const p4::config::v1::P4Info& p4info,
+    const pdpi::P4RuntimeSessionOptionalArgs& metadata) {
+  // Since the gNMI Config push relies on tables being cleared, we construct the
+  // P4RuntimeSessions and clear the tables first.
+  ASSIGN_OR_RETURN(
+      std::unique_ptr<pdpi::P4RuntimeSession> session1,
+      CreateP4RuntimeSessionAndClearExistingState(thinkit_switch1, metadata));
+  ASSIGN_OR_RETURN(
+      std::unique_ptr<pdpi::P4RuntimeSession> session2,
+      CreateP4RuntimeSessionAndClearExistingState(thinkit_switch2, metadata));
+
+  // Push the gNMI configs to both switches before waiting for convergence.
+  RETURN_IF_ERROR(PushGnmiConfig(thinkit_switch1, gnmi_config));
+  RETURN_IF_ERROR(PushGnmiConfig(thinkit_switch2, gnmi_config));
+
+  RETURN_IF_ERROR(WaitForGnmiPortIdConvergence(thinkit_switch1, gnmi_config,
+                                               kGnmiTimeoutDefault));
+  RETURN_IF_ERROR(WaitForGnmiPortIdConvergence(thinkit_switch2, gnmi_config,
+                                               kGnmiTimeoutDefault));
+
+  RETURN_IF_ERROR(SetForwardingPipelineConfigAndAssureClearedTables(
+      session1.get(), p4info));
+  RETURN_IF_ERROR(SetForwardingPipelineConfigAndAssureClearedTables(
+      session2.get(), p4info));
+  return std::make_pair(std::move(session1), std::move(session2));
 }
 
 }  // namespace pins_test

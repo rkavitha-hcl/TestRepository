@@ -263,9 +263,6 @@ void MockConfigureSwitchAndReturnP4RuntimeSession(
     const p4::config::v1::P4Info& p4info_returned_by_get_forwarding_pipeline,
     const p4::config::v1::P4Info* p4info_used_to_set_forwarding_pipeline,
     const pdpi::P4RuntimeSessionOptionalArgs& metadata) {
-  const std::string gnmi_config =
-      OpenConfigInterface("config", port_name, port_id);
-
   // The stub that will be returned when CreateP4RuntimeStub is called on
   // mock_switch.
   auto stub = absl::make_unique<p4::v1::MockP4RuntimeStub>();
@@ -299,7 +296,7 @@ void MockConfigureSwitchAndReturnP4RuntimeSession(
 
     // Mocks a `WaitForGnmiPortIdConvergence` call.
     MockGnmiConvergence(*mock_gnmi_stub_converge, port_name, port_id,
-                        /*gnmi_timeout=*/absl::Minutes(1));
+                        /*gnmi_timeout=*/absl::Minutes(3));
 
     // When there is a P4Info to set, we mock a `SetForwardingPipelineConfig`
     // call and a `CheckNoEntries` call.
@@ -338,18 +335,6 @@ void MockConfigureSwitchAndReturnP4RuntimeSession(
     EXPECT_CALL(mock_switch, CreateGnmiStub)
         .WillOnce(Return(ByMove(std::move(mock_gnmi_stub_converge))));
   }
-
-  // The main function call through which everything else should happen.
-  if (p4info_used_to_set_forwarding_pipeline != nullptr) {
-    ASSERT_OK_AND_ASSIGN(
-        auto session, ConfigureSwitchAndReturnP4RuntimeSession(
-                          mock_switch, gnmi_config,
-                          *p4info_used_to_set_forwarding_pipeline, metadata));
-  } else {
-    ASSERT_OK_AND_ASSIGN(
-        auto session, ConfigureSwitchAndReturnP4RuntimeSessionWithoutP4InfoPush(
-                          mock_switch, gnmi_config, metadata));
-  }
 }
 
 // Tests that ConfigureSwitchAndReturnP4RuntimeSession works when given a
@@ -362,10 +347,17 @@ TEST(TestHelperLibTest,
   const std::string port_name = "Ethernet0";
   const std::string port_id = "1";
 
+  const std::string gnmi_config =
+      OpenConfigInterface("config", port_name, port_id);
+
   MockConfigureSwitchAndReturnP4RuntimeSession(
       mock_switch, port_name, port_id,
       /*p4info_returned_by_get_forwarding_pipeline=*/p4info,
       /*p4info_used_to_set_forwarding_pipeline=*/&p4info, metadata);
+
+  ASSERT_OK_AND_ASSIGN(auto session,
+                       ConfigureSwitchAndReturnP4RuntimeSession(
+                           mock_switch, gnmi_config, p4info, metadata));
 }
 
 // Tests that ConfigureSwitchAndReturnP4RuntimeSession works without a P4Info.
@@ -377,10 +369,45 @@ TEST(TestHelperLibTest,
   const std::string port_name = "Ethernet0";
   const std::string port_id = "1";
 
+  const std::string gnmi_config =
+      OpenConfigInterface("config", port_name, port_id);
+
   MockConfigureSwitchAndReturnP4RuntimeSession(
       mock_switch, port_name, port_id,
       /*p4info_returned_by_get_forwarding_pipeline=*/p4info,
       /*p4info_used_to_set_forwarding_pipeline=*/nullptr, metadata);
+
+  ASSERT_OK_AND_ASSIGN(
+      auto session, ConfigureSwitchAndReturnP4RuntimeSessionWithoutP4InfoPush(
+                        mock_switch, gnmi_config, metadata));
+}
+
+TEST(TestHelperLibTest, ConfigureSwitchPairAndReturnP4RuntimeSessionPair) {
+  const p4::config::v1::P4Info& p4info = pdpi::GetTestP4Info();
+  const pdpi::P4RuntimeSessionOptionalArgs metadata;
+  thinkit::MockSwitch mock_switch1;
+  thinkit::MockSwitch mock_switch2;
+  const std::string port_name = "Ethernet0";
+  const std::string port_id = "1";
+
+  const std::string gnmi_config =
+      OpenConfigInterface("config", port_name, port_id);
+
+  // Mock two configurings, skipping the final call.
+  MockConfigureSwitchAndReturnP4RuntimeSession(
+      mock_switch1, port_name, port_id,
+      /*p4info_returned_by_get_forwarding_pipeline=*/p4info,
+      /*p4info_used_to_set_forwarding_pipeline=*/&p4info, metadata);
+  MockConfigureSwitchAndReturnP4RuntimeSession(
+      mock_switch2, port_name, port_id,
+      /*p4info_returned_by_get_forwarding_pipeline=*/p4info,
+      /*p4info_used_to_set_forwarding_pipeline=*/&p4info, metadata);
+
+  // Mock the final call.
+  ASSERT_OK_AND_ASSIGN(
+      (auto [session1, session2]),
+      ConfigureSwitchPairAndReturnP4RuntimeSessionPair(
+          mock_switch1, mock_switch2, gnmi_config, p4info, metadata));
 }
 
 }  // namespace
