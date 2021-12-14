@@ -28,6 +28,7 @@
 #include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
@@ -37,6 +38,7 @@
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "lib/basic_traffic/basic_p4rt_util.h"
+#include "lib/basic_traffic/basic_traffic.h"
 #include "lib/gnmi/gnmi_helper.h"
 #include "lib/utils/generic_testbed_utils.h"
 #include "p4/v1/p4runtime.pb.h"
@@ -105,36 +107,33 @@ TEST_P(PacketForwardingTestFixture, PacketForwardingTest) {
                })pb");
 
   ASSERT_OK_AND_ASSIGN(auto testbed, GetTestbedWithRequirements(requirements));
-  absl::flat_hash_map<std::string, thinkit::InterfaceInfo> sut_interface_info =
-      testbed->GetSutInterfaceInfo();
-  std::vector<InterfacePair> control_interfaces =
-      GetAllControlInterfaces(sut_interface_info);
+  std::vector<InterfaceLink> control_links =
+      FromTestbed(GetAllControlLinks, *testbed);
 
   ASSERT_OK_AND_ASSIGN(auto stub, testbed->Sut().CreateGnmiStub());
   ASSERT_OK_AND_ASSIGN(auto port_id_by_interface,
                        GetAllInterfaceNameToPortId(*stub));
 
-  // Set the `source_interface` to the first SUT control interface.
-  const InterfacePair& source_interface = control_interfaces[0];
-  ASSERT_OK_AND_ASSIGN(std::string source_port_id_value,
-                       gutil::FindOrStatus(port_id_by_interface,
-                                           source_interface.sut_interface));
+  // Set the `source_link` to the first SUT control link.
+  const InterfaceLink& source_link = control_links[0];
+  ASSERT_OK_AND_ASSIGN(
+      std::string source_port_id_value,
+      gutil::FindOrStatus(port_id_by_interface, source_link.sut_interface));
   int source_port_id;
   ASSERT_TRUE(absl::SimpleAtoi(source_port_id_value, &source_port_id));
 
-  // Set the `destination_interface` to the second SUT control interface.
-  const InterfacePair& destination_interface = control_interfaces[1];
-  ASSERT_OK_AND_ASSIGN(
-      std::string destination_port_id_value,
-      gutil::FindOrStatus(port_id_by_interface,
-                          destination_interface.sut_interface));
+  // Set the `destination_link` to the second SUT control link.
+  const InterfaceLink& destination_link = control_links[1];
+  ASSERT_OK_AND_ASSIGN(std::string destination_port_id_value,
+                       gutil::FindOrStatus(port_id_by_interface,
+                                           destination_link.sut_interface));
   int destination_port_id;
   ASSERT_TRUE(
       absl::SimpleAtoi(destination_port_id_value, &destination_port_id));
 
-  LOG(INFO) << "Source port: " << source_interface.sut_interface
+  LOG(INFO) << "Source port: " << source_link.sut_interface
             << " port id: " << source_port_id;
-  LOG(INFO) << "Destination port: " << destination_interface.sut_interface
+  LOG(INFO) << "Destination port: " << destination_link.sut_interface
             << " port id: " << destination_port_id;
 
   ASSERT_OK_AND_ASSIGN(
@@ -160,25 +159,60 @@ TEST_P(PacketForwardingTestFixture, PacketForwardingTest) {
         auto finalizer,
         testbed.get()->ControlDevice().CollectPackets(
             [&](absl::string_view interface, absl::string_view packet) {
-              if (interface == destination_interface.peer_interface) {
+              if (interface == destination_link.peer_interface) {
                 absl::MutexLock lock(&mutex);
                 received_packets.push_back(std::string(packet));
               }
             }));
 
-    LOG(INFO) << "Sending Packet to " << source_interface.peer_interface;
+    LOG(INFO) << "Sending Packet to " << source_link.peer_interface;
     LOG(INFO) << "Test packet data: " << test_packet.DebugString();
 
     for (int i = 0; i < kPacketsToSend; i++) {
       // Send packet to SUT.
-      ASSERT_OK(testbed->ControlDevice().SendPacket(
-          source_interface.peer_interface, test_packet_data))
+      ASSERT_OK(testbed->ControlDevice().SendPacket(source_link.peer_interface,
+                                                    test_packet_data))
           << "failed to inject the packet.";
       LOG(INFO) << "SendPacket completed";
     }
     absl::SleepFor(absl::Seconds(30));
   }
   EXPECT_EQ(received_packets.size(), kPacketsToSend);
+}
+
+TEST_P(PacketForwardingTestFixture, AllPortsPacketForwardingTest) {
+  thinkit::TestRequirements requirements =
+      gutil::ParseProtoOrDie<thinkit::TestRequirements>(
+          R"pb(interface_requirements {
+                 count: 2
+                 interface_mode: CONTROL_INTERFACE
+               })pb");
+
+  ASSERT_OK_AND_ASSIGN(auto testbed, GetTestbedWithRequirements(requirements));
+  std::vector<std::string> sut_interfaces =
+      GetSutInterfaces(FromTestbed(GetAllControlLinks, *testbed));
+
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
+      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+          testbed->Sut(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+
+  const auto test_packet =
+      gutil::ParseProtoOrDie<packetlib::Packet>(kTestPacket);
+  ASSERT_OK_AND_ASSIGN(
+      auto statistics,
+      basic_traffic::SendTraffic(*testbed, p4_session.get(),
+                                 basic_traffic::AllToAll(sut_interfaces),
+                                 {test_packet}, absl::Minutes(5)));
+  for (const basic_traffic::TrafficStatistic& statistic : statistics) {
+    LOG(INFO) << statistic.interfaces.ingress_interface << " -> "
+              << statistic.interfaces.egress_interface << "\n"
+              << statistic.packet.DebugString() << "\n"
+              << ": Packets sent: " << statistic.packets_sent
+              << ", Packets received: " << statistic.packets_received;
+    EXPECT_EQ(statistic.packets_sent, statistic.packets_received);
+    EXPECT_EQ(statistic.packets_routed_incorrectly, 0);
+  }
 }
 
 }  // namespace
