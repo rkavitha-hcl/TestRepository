@@ -516,6 +516,10 @@ tables {
     annotations: "@proto_id(5)"
   }
   action_refs {
+    id: 16777625
+    annotations: "@proto_id(99)"
+  }
+  action_refs {
     id: 21257015
     annotations: "@defaultonly"
     scope: DEFAULT_ONLY
@@ -875,6 +879,24 @@ actions {
     name: "ingress.acl_ingress.acl_trap"
     alias: "acl_trap"
     annotations: "@sai_action(SAI_PACKET_ACTION_TRAP)"
+  }
+  params {
+    id: 1
+    name: "qos_queue"
+    annotations: "@sai_action_param(QOS_QUEUE)"
+    type_name {
+      name: "qos_queue_t"
+    }
+  }
+}
+actions {
+  preamble {
+    id: 16777625
+    name: "ingress.acl_ingress.acl_experimental_trap"
+    alias: "acl_experimental_trap"
+    annotations: "@sai_action(SAI_PACKET_ACTION_FORWARD , SAI_PACKET_COLOR_GREEN)"
+    annotations: "@sai_action(SAI_PACKET_ACTION_DROP , SAI_PACKET_COLOR_YELLOW)"
+    annotations: "@sai_action(SAI_PACKET_ACTION_DROP , SAI_PACKET_COLOR_RED)"
   }
   params {
     id: 1

@@ -238,6 +238,7 @@ message AclIngressTableEntry {
       AclForwardAction acl_forward = 3;
       AclMirrorAction acl_mirror = 4;
       AclDropAction acl_drop = 5;
+      AclExperimentalTrapAction acl_experimental_trap = 99;
     }
   }
   Action action = 2;
@@ -428,6 +429,10 @@ message AclWbbIngressCopyAction {}
 message AclWbbIngressTrapAction {}
 
 message AclDropAction {}
+
+message AclExperimentalTrapAction {
+  string qos_queue = 1;  // Format::STRING
+}
 
 message NoAction {}
 

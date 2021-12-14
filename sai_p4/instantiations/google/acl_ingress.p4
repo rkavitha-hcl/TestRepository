@@ -42,6 +42,19 @@ control acl_ingress(in headers_t headers,
     mark_to_drop(standard_metadata);
   }
 
+  // An experimental, metered version of `acl_trap`.
+  // TODO: Remove this action and meter the existing `acl_trap`
+  // action.
+  @id(ACL_INGRESS_EXPERIMENTAL_TRAP_ACTION_ID)
+  @sai_action(SAI_PACKET_ACTION_FORWARD, SAI_PACKET_COLOR_GREEN)
+  @sai_action(SAI_PACKET_ACTION_DROP, SAI_PACKET_COLOR_YELLOW)
+  @sai_action(SAI_PACKET_ACTION_DROP, SAI_PACKET_COLOR_RED)
+  action acl_experimental_trap(@sai_action_param(QOS_QUEUE) @id(1) qos_queue_t qos_queue) {
+    acl_ingress_meter.read(local_metadata.color);
+    // TODO: model metering by branching on color.
+    acl_trap(qos_queue);
+  }
+
   // Forward the packet normally (i.e., perform no action). This is useful as
   // the default action, and to specify a meter but not otherwise perform any
   // action.
@@ -146,6 +159,7 @@ control acl_ingress(in headers_t headers,
       @proto_id(3) acl_forward();
       @proto_id(4) acl_mirror();
       @proto_id(5) acl_drop(standard_metadata);
+      @proto_id(99) acl_experimental_trap();
       @defaultonly NoAction;
     }
     const default_action = NoAction;

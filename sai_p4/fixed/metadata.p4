@@ -73,7 +73,11 @@ typedef bit<ROUTE_METADATA_BITWIDTH> route_metadata_t;
 
 // -- Meters -------------------------------------------------------------------
 
-enum MeterColor_t { GREEN, YELLOW, RED };
+enum bit<2> MeterColor_t {
+  GREEN = 0,
+  YELLOW = 1,
+  RED = 2
+};
 
 // -- Per Packet State ---------------------------------------------------------
 
@@ -124,7 +128,6 @@ struct local_metadata_t {
   bit<8> mirroring_ttl;
   @field_list(PreservedFieldList.CLONE_I2E)
   bit<8> mirroring_tos;
-  // TODO: consider modeling metering beyond control plane API.
   MeterColor_t color;
   // We consistently use local_metadata.ingress_port instead of
   // standard_metadata.ingress_port in the P4 tables to ensure that the P4Info
