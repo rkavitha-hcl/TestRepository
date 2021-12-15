@@ -24,8 +24,8 @@
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/pd.h"
-#include "p4_pdpi/testing/main_p4_pd.pb.h"
 #include "p4_pdpi/testing/test_helper.h"
+#include "p4_pdpi/testing/union_main_p4_pd.pb.h"
 
 using ::p4::config::v1::P4Info;
 
@@ -1580,6 +1580,16 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                           match { ipv6: "::ff22" ipv4: "16.36.50.82" }
                         })pb"),
                       INPUT_IS_VALID);
+
+  RunPdTableEntryTest(info, "unsupported field in pd",
+                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
+                        optional_table_entry {
+                          match {
+                            mac { value: "00:11:22:33:44:55" }
+                            ipv4 { value: "16.36.50.82" }
+                          }
+                        })pb"),
+                      INPUT_IS_INVALID);
 }
 
 static void RunPdTestsOnlyKey(const pdpi::IrP4Info info) {

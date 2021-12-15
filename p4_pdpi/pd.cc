@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
@@ -1303,11 +1304,25 @@ absl::Status IrWriteRpcStatusToPd(const IrWriteRpcStatus &ir_write_status,
 static absl::Status PdMatchEntryToIr(const IrTableDefinition &ir_table_info,
                                      const google::protobuf::Message &pd_match,
                                      IrTableEntry *ir_table_entry) {
+  // Verify that there are no matches in PD that are not supported by the P4Info
+  // provided. This could happen since if a P4Info that is a superset of P4Infos
+  // for different roles is used to generate the PD, but a role
+  // specific P4Info is passed in to PDPI.
+
   std::vector<std::pair<uint64_t, std::string>> matches;
+  absl::flat_hash_set<std::string> match_set;
   for (const auto &[id, match_field] : ir_table_info.match_fields_by_id()) {
     matches.push_back({id, match_field.match_field().name()});
+    match_set.insert(match_field.match_field().name());
   }
+
   std::vector<std::string> invalid_reasons;
+  for (const auto &field : GetAllFieldNames(pd_match)) {
+    if (!match_set.contains(field)) {
+      invalid_reasons.push_back(GenerateFormattedError(
+          MatchFieldName(field), "Match field does not exist in the P4Info."));
+    }
+  }
   std::sort(matches.begin(), matches.end());
   for (const auto &[_, pd_match_name] : matches) {
     std::vector<std::string> invalid_match_reasons;

@@ -211,6 +211,9 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
           meta.ipv4 : optional @id(2) @format(IPV4_ADDRESS) @name("ipv4");
           meta.ipv6 : optional @id(1) @format(IPV6_ADDRESS) @name("ipv6");
           meta.str : optional @id(3) @name("str");
+          #ifdef PDPI_EXTRA_MATCH_FIELD
+          meta.mac : optional @id(4) @name("mac");
+          #endif
       }
       actions = {
         @proto_id(1) do_thing_1;

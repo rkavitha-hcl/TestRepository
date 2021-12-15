@@ -4026,6 +4026,24 @@ match {
 
 
 =========================================================================
+unsupported field in pd
+=========================================================================
+
+--- PD (Input):
+optional_table_entry {
+  match {
+    ipv4 {
+      value: "16.36.50.82"
+    }
+    mac {
+      value: "00:11:22:33:44:55"
+    }
+  }
+}
+
+--- PD is invalid/unsupported:
+INVALID_ARGUMENT: Table entry for 'optional_table' is invalid: Match field 'mac' is invalid: Match field does not exist in the P4Info.
+=========================================================================
 missing matches with key_only=true
 =========================================================================
 
