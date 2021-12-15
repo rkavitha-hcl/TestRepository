@@ -22,6 +22,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
@@ -159,10 +160,16 @@ TEST_P(PacketForwardingTestFixture, PacketForwardingTest) {
         auto finalizer,
         testbed.get()->ControlDevice().CollectPackets(
             [&](absl::string_view interface, absl::string_view packet) {
-              if (interface == destination_link.peer_interface) {
-                absl::MutexLock lock(&mutex);
-                received_packets.push_back(std::string(packet));
+              if (interface != destination_link.peer_interface) {
+                return;
               }
+              packetlib::Packet parsed_packet = packetlib::ParsePacket(packet);
+              if (!absl::StrContains(parsed_packet.payload(),
+                                     "Basic L3 test packet")) {
+                return;
+              }
+              absl::MutexLock lock(&mutex);
+              received_packets.push_back(std::string(packet));
             }));
 
     LOG(INFO) << "Sending Packet to " << source_link.peer_interface;
