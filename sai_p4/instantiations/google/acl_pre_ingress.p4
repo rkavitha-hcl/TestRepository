@@ -42,9 +42,6 @@ control acl_pre_ingress(in headers_t headers,
     // Forbid unsupported combinations of IP_TYPE fields.
     is_ipv4::mask != 0 -> (is_ipv4 == 1);
     is_ipv6::mask != 0 -> (is_ipv6 == 1);
-    // Reserve high priorities for switch-internal use.
-    // TODO: Remove once inband workaround is obsolete.
-    ::priority < 0x7fffffff;
   ")
   table acl_pre_ingress_table {
     key = {
