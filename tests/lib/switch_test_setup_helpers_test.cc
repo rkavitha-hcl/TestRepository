@@ -35,7 +35,6 @@ constexpr uint32_t kActionId = 16777217;
 
 // Any constant is fine here.
 constexpr uint32_t kDeviceId = 100;
-constexpr char kChassisName[] = "some_name";
 
 // This is the only action that will work everywhere.
 constexpr p4::v1::SetForwardingPipelineConfigRequest::Action
@@ -325,11 +324,12 @@ void MockConfigureSwitchAndReturnP4RuntimeSession(
     // Mocks the first part of a `PushGnmiConfig` call.
     EXPECT_CALL(mock_switch, CreateGnmiStub)
         .WillOnce(Return(ByMove(std::move(mock_gnmi_stub_push))));
-    // Required so that the reference below is not to a temporary, local
-    // variable.
-    const std::string string_chassis_name = kChassisName;
+
+    // Required so that the reference below is not to a local variable.
+    static const std::string* const kChassisNameString =
+        new std::string("some_chassis_name");
     EXPECT_CALL(mock_switch, ChassisName)
-        .WillOnce(ReturnRef(string_chassis_name));
+        .WillOnce(ReturnRef(*kChassisNameString));
 
     // Mocks the first part of a `WaitForGnmiPortIdConvergence`
     EXPECT_CALL(mock_switch, CreateGnmiStub)
