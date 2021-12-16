@@ -377,7 +377,7 @@ void TestGnoiSystemColdReboot(thinkit::Switch& sut,
   // Wait for system to become unreachable via ping - as that's the last thing
   // that goes down.
   while (absl::Now() < (start_time + kColdRebootWaitForDownTime)) {
-    if (Pingable(sut) != absl::OkStatus()) {
+    if (Pingable(sut, absl::Seconds(1)) != absl::OkStatus()) {
       system_down = true;
       break;
     }
