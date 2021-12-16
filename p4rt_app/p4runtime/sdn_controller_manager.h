@@ -93,13 +93,6 @@ class SdnControllerManager {
       ABSL_LOCKS_EXCLUDED(lock_);
 
  private:
-  // Goes through the current list of active connections for a role and compares
-  // their election ID values with the current primary election ID. If a new
-  // primary ID is found it will return true. Otherwise it will return false.
-  bool UpdatePrimaryConnectionState(
-      const absl::optional<std::string>& role_name)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(lock_);
-
   // Goes through the current list of active connections, and returns if one of
   // them is currently the primary.
   bool PrimaryConnectionExists(const absl::optional<std::string>& role_name)
