@@ -518,8 +518,7 @@ Mutation FuzzMutation(absl::BitGen* gen, const FuzzerConfig& config) {
     }
   }
 
-  return static_cast<Mutation>(
-      valid_indexes[Uniform<int>(*gen, 0, valid_indexes.size())]);
+  return static_cast<Mutation>(UniformFromSpan(gen, valid_indexes));
 }
 
 pdpi::IrActionReference ChooseNonDefaultActionRef(
@@ -531,7 +530,7 @@ pdpi::IrActionReference ChooseNonDefaultActionRef(
     refs.push_back(action_ref);
   }
 
-  return refs[absl::Uniform(*gen, 0u, refs.size())];
+  return UniformFromSpan(gen, refs);
 }
 
 std::string SetUnusedBitsToZero(int used_bits, std::string data) {
