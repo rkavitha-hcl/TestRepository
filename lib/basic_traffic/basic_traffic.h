@@ -68,7 +68,7 @@ struct TrafficStatistic {
 // Options for the `SendTraffic` function.
 struct SendTrafficOptions {
   // The approximate `packets_per_second` rate to send traffic at.
-  int packets_per_second = 100;
+  int packets_per_second = 10;
 
   // The instantiation to be used to get a `P4Info`.
   sai::Instantiation instantiation = sai::Instantiation::kMiddleblock;
