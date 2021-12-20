@@ -46,7 +46,7 @@ control acl_ingress(in headers_t headers,
   // TODO: Remove this action and meter the existing `acl_trap`
   // action.
   @id(ACL_INGRESS_EXPERIMENTAL_TRAP_ACTION_ID)
-  @sai_action(SAI_PACKET_ACTION_FORWARD, SAI_PACKET_COLOR_GREEN)
+  @sai_action(SAI_PACKET_ACTION_TRAP, SAI_PACKET_COLOR_GREEN)
   @sai_action(SAI_PACKET_ACTION_DROP, SAI_PACKET_COLOR_YELLOW)
   @sai_action(SAI_PACKET_ACTION_DROP, SAI_PACKET_COLOR_RED)
   action acl_experimental_trap(@sai_action_param(QOS_QUEUE) @id(1) qos_queue_t qos_queue) {
