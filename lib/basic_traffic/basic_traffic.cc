@@ -183,7 +183,9 @@ PrecomputePackets(
           "10.0.%d.%d", egress_port_id / 256, egress_port_id % 256));
       // Maintain the same payload size while adding the `key`, using \0.
       packet.set_payload(absl::StrCat(
-          key, std::string(packet.payload().size() - key.size(), '\0')));
+          key,
+          std::string(std::max<int>(0, packet.payload().size() - key.size()),
+                      '\0')));
 
       // Serialize the modified copy.
       RETURN_IF_ERROR(PadPacketToMinimumSize(packet).status());

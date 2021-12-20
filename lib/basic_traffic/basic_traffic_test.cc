@@ -738,31 +738,33 @@ TEST(BasicTraffic, SendTrafficTracksIncorrectlyRoutedPackets) {
   EXPECT_CALL(mock_generic_testbed, ControlDevice())
       .WillRepeatedly(ReturnRef(mock_control_device));
 
-  auto packet = gutil::ParseProtoOrDie<packetlib::Packet>(R"pb(
-    headers {
-      ethernet_header {
-        ethernet_destination: "02:03:04:05:06:07"
-        ethernet_source: "00:01:02:03:04:05"
-        ethertype: "0x0800"
-      }
-    }
-    headers {
-      ipv4_header {
-        version: "0x4"
-        ihl: "0x5"
-        dscp: "0x03"
-        ecn: "0x0"
-        identification: "0x0000"
-        flags: "0x0"
-        fragment_offset: "0x0000"
-        ttl: "0x20"
-        protocol: "0x11"
-        ipv4_source: "1.2.3.4"
-        ipv4_destination: "1.2.3.4"
-      }
-    }
-    headers { udp_header { source_port: "0x0000" destination_port: "0x0000" } }
-    payload: "Basic L3 test packet")pb");
+  auto packet =
+      gutil::ParseProtoOrDie<packetlib::Packet>(R"pb(
+        headers {
+          ethernet_header {
+            ethernet_destination: "02:03:04:05:06:07"
+            ethernet_source: "00:01:02:03:04:05"
+            ethertype: "0x0800"
+          }
+        }
+        headers {
+          ipv4_header {
+            version: "0x4"
+            ihl: "0x5"
+            dscp: "0x03"
+            ecn: "0x0"
+            identification: "0x0000"
+            flags: "0x0"
+            fragment_offset: "0x0000"
+            ttl: "0x20"
+            protocol: "0x11"
+            ipv4_source: "1.2.3.4"
+            ipv4_destination: "1.2.3.4"
+          }
+        }
+        headers {
+          udp_header { source_port: "0x0000" destination_port: "0x0000" }
+        })pb");
   ASSERT_OK_AND_ASSIGN(
       std::vector<TrafficStatistic> statistics,
       SendTraffic(mock_generic_testbed, /*session=*/nullptr,
