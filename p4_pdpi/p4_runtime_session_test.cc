@@ -314,7 +314,7 @@ struct P4SessionWithMockStub {
 // Creates a `P4RuntimeSession` based on a mocked `P4RuntimeStub`. Useful for
 // testing methods/free functions of/on `P4RuntimeSession`.
 absl::StatusOr<P4SessionWithMockStub> MakeP4SessionWithMockStub(
-    P4RuntimeSessionOptionalArgs metadata = P4RuntimeSessionOptionalArgs()) {
+    P4RuntimeSessionOptionalArgs metadata) {
   // No leak: P4RuntimeSession will take ownerhsip.
   auto* mock_p4rt_stub = new testing::NiceMock<p4::v1::MockP4RuntimeStub>();
   MockP4RuntimeSessionCreate(*mock_p4rt_stub, metadata);
@@ -329,9 +329,11 @@ absl::StatusOr<P4SessionWithMockStub> MakeP4SessionWithMockStub(
 }
 
 TEST(ReadPiCounterDataTest, ReturnsNotFoundWhenNoEntriesPresent) {
+  const P4RuntimeSessionOptionalArgs metadata;
+
   // Get mock.
   ASSERT_OK_AND_ASSIGN((auto [p4rt_session, mock_p4rt_stub]),
-                       MakeP4SessionWithMockStub());
+                       MakeP4SessionWithMockStub(metadata));
 
   // Mock that no table entries are installed on the switch.
   SetDefaultReadResponse(mock_p4rt_stub, {});
@@ -344,9 +346,11 @@ TEST(ReadPiCounterDataTest, ReturnsNotFoundWhenNoEntriesPresent) {
 }
 
 TEST(ReadPiCounterDataTest, ReturnsNotFoundWhenNoMatchingEntryPresent) {
+  const P4RuntimeSessionOptionalArgs metadata;
+
   // Get mock.
   ASSERT_OK_AND_ASSIGN((auto [p4rt_session, mock_p4rt_stub]),
-                       MakeP4SessionWithMockStub());
+                       MakeP4SessionWithMockStub(metadata));
 
   // Mock that a table entry is installed on the switch.
   const p4::v1::TableEntry entry = ConstructTableEntry();
@@ -375,9 +379,11 @@ TEST(ReadPiCounterDataTest, ReturnsNotFoundWhenNoMatchingEntryPresent) {
 }
 
 TEST(ReadPiCounterDataTest, ReturnsCorrectCounterForSignature) {
+  const P4RuntimeSessionOptionalArgs metadata;
+
   // Get mock.
   ASSERT_OK_AND_ASSIGN((auto [p4rt_session, mock_p4rt_stub]),
-                       MakeP4SessionWithMockStub());
+                       MakeP4SessionWithMockStub(metadata));
 
   // Mock that two table entries in the same table are installed on the switch.
   ASSERT_OK_AND_ASSIGN(const auto counter_data1,
@@ -423,7 +429,7 @@ TEST(SetForwardingPipelineConfigTest, BothVersionsProduceSameRequest) {
 
   // Get mock.
   ASSERT_OK_AND_ASSIGN((auto [p4rt_session, mock_p4rt_stub]),
-                       MakeP4SessionWithMockStub());
+                       MakeP4SessionWithMockStub(metadata));
 
   // Mocks two `SetForwardingPipelineConfig` calls without a `p4_device_config`.
   EXPECT_CALL(mock_p4rt_stub,
