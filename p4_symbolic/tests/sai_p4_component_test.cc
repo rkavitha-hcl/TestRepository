@@ -39,7 +39,6 @@ namespace p4_symbolic {
 namespace {
 
 using ::gutil::ParseProtoOrDie;
-using ::p4::config::v1::P4Info;
 using ::testing::Eq;
 using ::testing::Not;
 
@@ -101,11 +100,10 @@ class P4SymbolicComponentTest : public testing::Test {
 };
 
 absl::StatusOr<std::string> GenerateSmtForSaiPiplelineWithSimpleEntries() {
-  const auto instantiation = sai::Instantiation::kMiddleblock;
-  const auto platform = sai::NonstandardPlatform::kP4Symbolic;
-  const P4Info p4info = sai::GetNonstandardP4Info(instantiation, platform);
+  const auto config = sai::GetNonstandardForwardingPipelineConfig(
+      sai::Instantiation::kMiddleblock, sai::NonstandardPlatform::kP4Symbolic);
   ASSIGN_OR_RETURN(const pdpi::IrP4Info ir_p4info,
-                   pdpi::CreateIrP4Info(p4info));
+                   pdpi::CreateIrP4Info(config.p4info()));
   auto pd_entries = ParseProtoOrDie<sai::TableEntries>(kTableEntries);
   std::vector<p4::v1::TableEntry> pi_entries;
   for (auto& pd_entry : pd_entries.entries()) {
@@ -117,7 +115,7 @@ absl::StatusOr<std::string> GenerateSmtForSaiPiplelineWithSimpleEntries() {
   Z3Context(/*renew=*/true);
 
   ASSIGN_OR_RETURN(std::unique_ptr<symbolic::SolverState> solver,
-                   EvaluateSaiPipeline(instantiation, pi_entries));
+                   EvaluateSaiPipeline(config, pi_entries));
 
   return solver->solver->to_smt2();
 }
@@ -139,15 +137,12 @@ TEST_F(P4SymbolicComponentTest, ConstraintGenerationIsDeterministicForSai) {
 TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
   // Some constants.
   thinkit::TestEnvironment& env = Environment();
-  const auto instantiation = sai::Instantiation::kMiddleblock;
-  const auto platform = sai::NonstandardPlatform::kP4Symbolic;
-  const P4Info p4info = sai::GetNonstandardP4Info(instantiation, platform);
+  const auto config = sai::GetNonstandardForwardingPipelineConfig(
+      sai::Instantiation::kMiddleblock, sai::NonstandardPlatform::kP4Symbolic);
   ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
-                       pdpi::CreateIrP4Info(p4info));
-  const std::string p4_config =
-      sai::GetNonstandardP4Config(instantiation, platform);
+                       pdpi::CreateIrP4Info(config.p4info()));
   EXPECT_OK(env.StoreTestArtifact("ir_p4info.textproto", ir_p4info));
-  EXPECT_OK(env.StoreTestArtifact("p4_config.json", p4_config));
+  EXPECT_OK(env.StoreTestArtifact("p4_config.json", config.p4_device_config()));
 
   // Prepare hard-coded table entries.
   auto pd_entries = ParseProtoOrDie<sai::TableEntries>(kTableEntries);
@@ -159,8 +154,9 @@ TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
   }
 
   // Symbolically evaluate program.
-  ASSERT_OK_AND_ASSIGN(symbolic::Dataplane dataplane,
-                       ParseToIr(p4_config, ir_p4info, pi_entries));
+  ASSERT_OK_AND_ASSIGN(
+      symbolic::Dataplane dataplane,
+      ParseToIr(config.p4_device_config(), ir_p4info, pi_entries));
   std::vector<int> ports = {0, 1, 2};
   LOG(INFO) << "building model (this may take a while) ...";
   absl::Time start_time = absl::Now();

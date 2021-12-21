@@ -26,16 +26,17 @@
 #include "p4_symbolic/sai/sai.h"
 #include "p4_symbolic/symbolic/symbolic.h"
 #include "sai_p4/instantiations/google/instantiations.h"
+#include "sai_p4/instantiations/google/sai_nonstandard_platforms.h"
 
 namespace p4_symbolic {
 namespace {
 
 TEST(GetSaiFields, CanGetIngressAndEgressFieldsForAllInstantiations) {
-  std::vector<p4::v1::TableEntry> entries;
-  std::vector<int> ports;
   for (auto instantiation : sai::AllInstantiations()) {
-    ASSERT_OK_AND_ASSIGN(auto state,
-                         EvaluateSaiPipeline(instantiation, entries, ports));
+    const auto config = sai::GetNonstandardForwardingPipelineConfig(
+        instantiation, sai::NonstandardPlatform::kP4Symbolic);
+    ASSERT_OK_AND_ASSIGN(
+        auto state, EvaluateSaiPipeline(config, /*entries=*/{}, /*ports=*/{}));
     for (auto& headers :
          {state->context.ingress_headers, state->context.egress_headers}) {
       EXPECT_OK(GetSaiFields(headers).status());
