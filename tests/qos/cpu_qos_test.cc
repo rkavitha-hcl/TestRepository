@@ -271,6 +271,7 @@ absl::StatusOr<p4::v1::TableEntry> SetUpPuntToCPUWithRateLimit(
   // TODO (b/204954722): Remove after bug is fixed.
   RETURN_IF_ERROR(pdpi::ClearTableEntries(&p4_session));
 
+  // TODO (b/203545459): Fix P4 meter action after bug is addressed.
   auto acl_entry = gutil::ParseProtoOrDie<sai::TableEntry>(absl::Substitute(
       R"pb(
         acl_ingress_table_entry {
@@ -280,7 +281,7 @@ absl::StatusOr<p4::v1::TableEntry> SetUpPuntToCPUWithRateLimit(
             src_ip { value: "$1" mask: "255.255.255.255" }
             dst_ip { value: "$2" mask: "255.255.255.255" }
           }
-          action { acl_trap { qos_queue: "$3" } }
+          action { acl_experimental_trap { qos_queue: "$3" } }
           priority: 1
           meter_config { bytes_per_second: $4 burst_bytes: $5 }
         }
@@ -1463,9 +1464,6 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
   // Set test case ID.
   generic_testbed->Environment().SetTestCaseID(
       "6638a3a0-1955-435f-a034-17ab4bdec60d");
-
-  // TODO: Skip test till known failure is fixed.
-  GTEST_SKIP() << "Skipping till b/203545459 is fixed";
 
   ASSERT_OK(generic_testbed->Environment().StoreTestArtifact(
       "gnmi_config.txt", GetParam().gnmi_config));
