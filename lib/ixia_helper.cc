@@ -355,7 +355,7 @@ absl::Status StartTraffic(absl::Span<const std::string> trefs,
     return absl::InternalError("bad state");
   std::string state = temp.substr(ixstate + 8, ixquote - ixstate - 8);
   LOG(INFO) << "state is " << state;
-  if (!(state == "started" || state == "startedWaitingForStat"))
+  if (!(state == "started" || state == "startedWaitingForStats"))
     return absl::InternalError(absl::StrFormat("unexpected state: %s", state));
   return absl::OkStatus();
 }
