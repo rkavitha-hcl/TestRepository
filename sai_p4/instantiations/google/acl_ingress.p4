@@ -93,7 +93,10 @@ control acl_ingress(in headers_t headers,
     arp_tpa::mask != 0 -> ether_type == 0x0806;
 #endif
     // Only allow icmp_type for ICMP packets
-    icmpv6_type::mask != 0 -> ((is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1) && ip_protocol == 58);
+#ifdef SAI_INSTANTIATION_FABRIC_BORDER_ROUTER
+    icmp_type::mask != 0 -> ip_protocol == 1;
+#endif
+    icmpv6_type::mask != 0 -> ip_protocol == 58;
     // Forbid illegal combinations of IP_TYPE fields.
     is_ip::mask != 0 -> (is_ipv4::mask == 0 && is_ipv6::mask == 0);
     is_ipv4::mask != 0 -> (is_ip::mask == 0 && is_ipv6::mask == 0);
@@ -134,6 +137,10 @@ control acl_ingress(in headers_t headers,
       // Field for v4 IP protocol and v6 next header.
       ip_protocol : ternary @name("ip_protocol") @id(13)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_IP_PROTOCOL);
+#ifdef SAI_INSTANTIATION_FABRIC_BORDER_ROUTER
+      headers.icmp.type : ternary @name("icmp_type") @id(19)
+          @sai_field(SAI_ACL_TABLE_ATTR_FIELD_ICMP_TYPE);
+#endif
       headers.icmp.type : ternary @name("icmpv6_type") @id(14)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_ICMPV6_TYPE);
       local_metadata.l4_dst_port : ternary @name("l4_dst_port") @id(15)
