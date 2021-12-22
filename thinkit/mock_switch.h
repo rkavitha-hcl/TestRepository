@@ -23,6 +23,7 @@
 #include "diag/diag.grpc.pb.h"
 #include "factory_reset/factory_reset.grpc.pb.h"
 #include "gmock/gmock.h"
+#include "os/os.grpc.pb.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
 #include "system/system.grpc.pb.h"
@@ -50,6 +51,8 @@ class MockSwitch : public Switch {
   MOCK_METHOD(absl::StatusOr<std::unique_ptr<
                   gnoi::certificate::CertificateManagement::StubInterface>>,
               CreateGnoiCertificateStub, (), (override));
+  MOCK_METHOD(absl::StatusOr<std::unique_ptr<gnoi::os::OS::StubInterface>>,
+              CreateGnoiOsStub, (), (override));
 };
 
 }  // namespace thinkit

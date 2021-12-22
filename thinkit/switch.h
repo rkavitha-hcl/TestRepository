@@ -23,6 +23,7 @@
 #include "cert/cert.grpc.pb.h"
 #include "diag/diag.grpc.pb.h"
 #include "factory_reset/factory_reset.grpc.pb.h"
+#include "os/os.grpc.pb.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
 #include "system/system.grpc.pb.h"
@@ -67,6 +68,10 @@ class Switch {
   virtual absl::StatusOr<
       std::unique_ptr<gnoi::certificate::CertificateManagement::StubInterface>>
   CreateGnoiCertificateStub() = 0;
+
+  // Creates and returns a stub to the gNOI OS service.
+  virtual absl::StatusOr<std::unique_ptr<gnoi::os::OS::StubInterface>>
+  CreateGnoiOsStub() = 0;
 };
 
 }  // namespace thinkit
