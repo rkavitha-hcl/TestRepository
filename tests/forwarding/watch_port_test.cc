@@ -486,9 +486,12 @@ void WatchPortTestFixture::SetUp() {
       ASSERT_OK(pdpi::PiStreamMessageResponseToPd(GetIrP4Info(), pi_response,
                                                   &pd_response))
           << " PacketIn PI to PD failed: ";
-      ASSERT_TRUE(pd_response.has_packet())
-          << " Received unexpected stream message for packet in: "
-          << pd_response.DebugString();
+      if (!pd_response.has_packet()) {
+        LOG(WARNING)
+            << " Received unexpected stream message (expected packet in): "
+            << pd_response.DebugString();
+        continue;
+      }
       absl::string_view raw_packet = pd_response.packet().payload();
       gpins::Packet packet;
       packet.set_port(pd_response.packet().metadata().ingress_port());
@@ -517,11 +520,13 @@ void WatchPortTestFixture::TearDown() {
     ASSERT_OK(testbed.SaveSwitchLogs("before_reboot_"));
     LOG(INFO) << "Switch is in critical state, rebooting the switch.";
     pins_test::TestGnoiSystemColdReboot(testbed.GetMirrorTestbed().Sut());
-    pins_test::TestGnoiSystemColdReboot(
-        testbed.GetMirrorTestbed().ControlSwitch());
+    control_p4_session_->TryCancel();
     if (receive_packet_thread_.joinable()) {
       receive_packet_thread_.join();
     }
+    pins_test::TestGnoiSystemColdReboot(
+        testbed.GetMirrorTestbed().ControlSwitch());
+
     testbed.TearDown();
     return;
   }
