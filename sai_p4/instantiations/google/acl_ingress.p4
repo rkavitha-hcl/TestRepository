@@ -28,15 +28,23 @@ control acl_ingress(in headers_t headers,
 
   // Copy the packet to the CPU, and forward the original packet.
   @id(ACL_INGRESS_COPY_ACTION_ID)
-  @sai_action(SAI_PACKET_ACTION_COPY)
+  @sai_action(SAI_PACKET_ACTION_COPY, SAI_PACKET_COLOR_GREEN)
+  @sai_action(SAI_PACKET_ACTION_FORWARD, SAI_PACKET_COLOR_YELLOW)
+  @sai_action(SAI_PACKET_ACTION_FORWARD, SAI_PACKET_COLOR_RED)
   action acl_copy(@sai_action_param(QOS_QUEUE) @id(1) qos_queue_t qos_queue) {
-    clone(CloneType.I2E, COPY_TO_CPU_SESSION_ID);
     acl_ingress_counter.count();
+    acl_ingress_meter.read(local_metadata.color);
+
+    // We model the behavior for GREEN packes only below.
+    // TODO: Branch on color and model behavior for all colors.
+    clone(CloneType.I2E, COPY_TO_CPU_SESSION_ID);
   }
 
   // Copy the packet to the CPU. The original packet is dropped.
   @id(ACL_INGRESS_TRAP_ACTION_ID)
-  @sai_action(SAI_PACKET_ACTION_TRAP)
+  @sai_action(SAI_PACKET_ACTION_TRAP, SAI_PACKET_COLOR_GREEN)
+  @sai_action(SAI_PACKET_ACTION_DROP, SAI_PACKET_COLOR_YELLOW)
+  @sai_action(SAI_PACKET_ACTION_DROP, SAI_PACKET_COLOR_RED)
   action acl_trap(@sai_action_param(QOS_QUEUE) @id(1) qos_queue_t qos_queue) {
     acl_copy(qos_queue);
     mark_to_drop(standard_metadata);
@@ -59,20 +67,32 @@ control acl_ingress(in headers_t headers,
   // the default action, and to specify a meter but not otherwise perform any
   // action.
   @id(ACL_INGRESS_FORWARD_ACTION_ID)
-  @sai_action(SAI_PACKET_ACTION_FORWARD)
+  @sai_action(SAI_PACKET_ACTION_FORWARD, SAI_PACKET_COLOR_GREEN)
+  @sai_action(SAI_PACKET_ACTION_DROP, SAI_PACKET_COLOR_YELLOW)
+  @sai_action(SAI_PACKET_ACTION_DROP, SAI_PACKET_COLOR_RED)
   action acl_forward() {
-    acl_ingress_meter.read(local_metadata.color);
     acl_ingress_counter.count();
+    acl_ingress_meter.read(local_metadata.color);
+    // We model the behavior for GREEN packes only here.
+    // TODO: Branch on color and model behavior for all colors.
   }
 
   @id(ACL_INGRESS_MIRROR_ACTION_ID)
-  @sai_action(SAI_PACKET_ACTION_FORWARD)
-  action acl_mirror(@sai_action_param(SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_INGRESS)
-                @id(1) @refers_to(mirror_session_table, mirror_session_id)
-                mirror_session_id_t mirror_session_id) {
+  @sai_action(SAI_PACKET_ACTION_FORWARD, SAI_PACKET_COLOR_GREEN)
+  @sai_action(SAI_PACKET_ACTION_DROP, SAI_PACKET_COLOR_YELLOW)
+  @sai_action(SAI_PACKET_ACTION_DROP, SAI_PACKET_COLOR_RED)
+  action acl_mirror(
+      @id(1)
+      @refers_to(mirror_session_table, mirror_session_id)
+      @sai_action_param(SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_INGRESS)
+      mirror_session_id_t mirror_session_id) {
+    acl_ingress_counter.count();
+    acl_ingress_meter.read(local_metadata.color);
+
+    // We model the behavior for GREEN packes only below.
+    // TODO: Branch on color and model behavior for all colors.
     local_metadata.mirror_session_id_valid = true;
     local_metadata.mirror_session_id_value = mirror_session_id;
-    acl_ingress_counter.count();
   }
 
   @p4runtime_role(P4RUNTIME_ROLE_SDN_CONTROLLER)

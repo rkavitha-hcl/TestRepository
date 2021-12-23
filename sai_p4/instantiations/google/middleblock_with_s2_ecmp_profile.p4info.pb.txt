@@ -804,7 +804,9 @@ actions {
     id: 16777473
     name: "ingress.acl_ingress.acl_copy"
     alias: "acl_copy"
-    annotations: "@sai_action(SAI_PACKET_ACTION_COPY)"
+    annotations: "@sai_action(SAI_PACKET_ACTION_COPY , SAI_PACKET_COLOR_GREEN)"
+    annotations: "@sai_action(SAI_PACKET_ACTION_FORWARD , SAI_PACKET_COLOR_YELLOW)"
+    annotations: "@sai_action(SAI_PACKET_ACTION_FORWARD , SAI_PACKET_COLOR_RED)"
   }
   params {
     id: 1
@@ -820,7 +822,9 @@ actions {
     id: 16777474
     name: "ingress.acl_ingress.acl_trap"
     alias: "acl_trap"
-    annotations: "@sai_action(SAI_PACKET_ACTION_TRAP)"
+    annotations: "@sai_action(SAI_PACKET_ACTION_TRAP , SAI_PACKET_COLOR_GREEN)"
+    annotations: "@sai_action(SAI_PACKET_ACTION_DROP , SAI_PACKET_COLOR_YELLOW)"
+    annotations: "@sai_action(SAI_PACKET_ACTION_DROP , SAI_PACKET_COLOR_RED)"
   }
   params {
     id: 1
@@ -854,7 +858,9 @@ actions {
     id: 16777475
     name: "ingress.acl_ingress.acl_forward"
     alias: "acl_forward"
-    annotations: "@sai_action(SAI_PACKET_ACTION_FORWARD)"
+    annotations: "@sai_action(SAI_PACKET_ACTION_FORWARD , SAI_PACKET_COLOR_GREEN)"
+    annotations: "@sai_action(SAI_PACKET_ACTION_DROP , SAI_PACKET_COLOR_YELLOW)"
+    annotations: "@sai_action(SAI_PACKET_ACTION_DROP , SAI_PACKET_COLOR_RED)"
   }
 }
 actions {
@@ -862,13 +868,15 @@ actions {
     id: 16777476
     name: "ingress.acl_ingress.acl_mirror"
     alias: "acl_mirror"
-    annotations: "@sai_action(SAI_PACKET_ACTION_FORWARD)"
+    annotations: "@sai_action(SAI_PACKET_ACTION_FORWARD , SAI_PACKET_COLOR_GREEN)"
+    annotations: "@sai_action(SAI_PACKET_ACTION_DROP , SAI_PACKET_COLOR_YELLOW)"
+    annotations: "@sai_action(SAI_PACKET_ACTION_DROP , SAI_PACKET_COLOR_RED)"
   }
   params {
     id: 1
     name: "mirror_session_id"
-    annotations: "@sai_action_param(SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_INGRESS)"
     annotations: "@refers_to(mirror_session_table , mirror_session_id)"
+    annotations: "@sai_action_param(SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_INGRESS)"
     type_name {
       name: "mirror_session_id_t"
     }
