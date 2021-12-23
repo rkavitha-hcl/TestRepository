@@ -590,53 +590,9 @@ GetAllInterfaceNameToPortId(gnmi::gNMI::StubInterface& stub) {
     return absl::InternalError(
         absl::StrCat("Invalid response: ", response.DebugString()));
   }
-
-  const auto response_json = nlohmann::json::parse(
-      response.notification(0).update(0).val().json_ietf_val());
-  const auto oc_intf_json =
-      response_json.find("openconfig-interfaces:interfaces");
-  if (oc_intf_json == response_json.end()) {
-    return absl::NotFoundError(
-        absl::StrCat("'openconfig-interfaces:interfaces' not found: ",
-                     response_json.dump()));
-  }
-  const auto oc_intf_list_json = oc_intf_json->find("interface");
-  if (oc_intf_list_json == oc_intf_json->end()) {
-    return absl::NotFoundError(
-        absl::StrCat("'interface' not found: ", oc_intf_json->dump()));
-  }
-
-  absl::flat_hash_map<std::string, std::string> interface_name_to_port_id;
-  for (auto const& element : oc_intf_list_json->items()) {
-    const auto element_name_json = element.value().find("name");
-    if (element_name_json == element.value().end()) {
-      return absl::NotFoundError(
-          absl::StrCat("'name' not found: ", element.value().dump()));
-    }
-    std::string name = element_name_json->get<std::string>();
-
-    // Ignore the interfaces that is not EthernetXX. For example: bond0,
-    // Loopback0, etc.
-    if (!absl::StartsWith(name, "Ethernet")) {
-      LOG(INFO) << "Skipping " << name << ".";
-      continue;
-    }
-
-    const auto element_interface_state_json = element.value().find("state");
-    if (element_interface_state_json == element.value().end()) {
-      return absl::NotFoundError(
-          absl::StrCat("'state' not found: ", element.value().dump()));
-    }
-
-    const auto element_id_json =
-        element_interface_state_json->find("openconfig-p4rt:id");
-    if (element_id_json == element_interface_state_json->end()) {
-      return absl::NotFoundError(absl::StrCat(
-          "'openconfig-p4rt:id' not found: ", element.value().dump()));
-    }
-    interface_name_to_port_id[name] = absl::StrCat(element_id_json->get<int>());
-  }
-  return interface_name_to_port_id;
+  return GetPortNameToIdMapFromJsonString(
+      response.notification(0).update(0).val().json_ietf_val(),
+      /*field_type=*/"state");
 }
 
 absl::StatusOr<std::vector<std::string>> ParseAlarms(

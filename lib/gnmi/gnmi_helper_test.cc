@@ -594,15 +594,13 @@ TEST(GetInterfacePortIdMap, PortIdNotFoundInState) {
                  update {
                    path { elem { name: "interfaces" } }
                    val {
-                     json_ietf_val: "{\"openconfig-interfaces:interfaces\":{\"interface\":[{\"name\":\"CPU\"},{\"name\":\"Ethernet0\",\"state\":{\"name\":\"Ethernet0\"}}]}}"
+                     json_ietf_val: "{\"openconfig-interfaces:interfaces\":{\"interface\":[{\"name\":\"CPU\",\"state\":{\"name\":\"CPU\"}},{\"name\":\"Ethernet0\",\"state\":{\"name\":\"Ethernet0\"}}]}}"
                    }
                  }
                })pb")),
       Return(grpc::Status::OK)));
 
-  EXPECT_THAT(GetAllInterfaceNameToPortId(stub),
-              StatusIs(absl::StatusCode::kNotFound,
-                       HasSubstr("'openconfig-p4rt:id' not found")));
+  EXPECT_THAT(GetAllInterfaceNameToPortId(stub), IsOkAndHolds(IsEmpty()));
 }
 
 TEST(GetInterfacePortIdMap, InterfaceStateNotFound) {
