@@ -729,8 +729,6 @@ TEST_P(ExampleIxiaTestFixture, TestInFcsErrors) {
   // the traffic started.
   absl::SleepFor(absl::Seconds(35));
 
-  ASSERT_OK(ixia::StopTraffic(tref, *generic_testbed));
-
   // Re-read the same counters via GNMI from the SUT
   ASSERT_OK_AND_ASSIGN(auto final_counters,
                        ReadCounters(sut_interface, gnmi_stub.get()));
@@ -971,21 +969,11 @@ TEST_P(ExampleIxiaTestFixture, TestIPv4Pkts) {
   // absl::SleepFor(absl::Seconds(120));
   ASSERT_OK(ixia::StartTraffic(full_tref, ixref, *generic_testbed));
 
-  // Wait until 10 seconds after the traffic started
+  // Wait until 10 (traffic) + 25 (stats update) seconds after
+  // the traffic started.
   absl::Time t1;
   t1 = absl::Now();
-
-  absl::Time t2;
-  while (1) {
-    t2 = absl::Now();
-    if (t2 >= t1 + absl::Seconds(10)) break;
-    absl::SleepFor(absl::Milliseconds(100));
-  }
-
-  LOG(INFO) << "Time at stop is " << t2;
-  LOG(INFO) << "Delta is " << t2 - t1;
-
-  ASSERT_OK(ixia::StopTraffic(full_tref, *generic_testbed));
+  absl::SleepFor(absl::Seconds(35));
 
   // Re-read the same counters via GNMI from the SUT
   ASSERT_OK_AND_ASSIGN(auto final_in_counters,
@@ -994,10 +982,10 @@ TEST_P(ExampleIxiaTestFixture, TestIPv4Pkts) {
                        ReadCounters(sut_out_interface, gnmi_stub.get()));
 
   // Check the time again
-  absl::Time t3 = absl::Now();
-  LOG(INFO) << "Time after statistics read is " << t3;
-  LOG(INFO) << "Delta is " << t3 - t1;
-  uint64_t seconds = ((t3 - t1) / absl::Seconds(1)) + 1;
+  absl::Time t2 = absl::Now();
+  LOG(INFO) << "Time after statistics read is " << t2;
+  LOG(INFO) << "Delta is " << t2 - t1;
+  uint64_t seconds = absl::ToInt64Seconds(t2 - t1);
 
   // Display the final counters
   LOG(INFO) << "\n\nTestIPv4Pkts:\n\n"
@@ -1032,7 +1020,7 @@ TEST_P(ExampleIxiaTestFixture, TestIPv4Pkts) {
   EXPECT_GE(delta_out.out_octets, delta_out.out_pkts * kMtu - 10000);
   EXPECT_LE(delta_out.out_octets, delta_out.out_pkts * kMtu + 10000);
   EXPECT_LE(delta_out.out_unicast_pkts, delta_out.out_pkts + 10);
-  EXPECT_LE(delta_out.out_multicast_pkts, 5);
+  EXPECT_LE(delta_out.out_multicast_pkts, 10);
   EXPECT_EQ(delta_out.out_broadcast_pkts, 0);
   EXPECT_EQ(delta_out.out_errors, 0);
   EXPECT_EQ(delta_out.out_discards, 0);
@@ -1287,7 +1275,7 @@ TEST_P(ExampleIxiaTestFixture, TestOutDiscards) {
   absl::Time t3 = absl::Now();
   LOG(INFO) << "Time after statistics read is " << t3;
   LOG(INFO) << "Delta is " << t3 - t1;
-  uint64_t seconds = ((t3 - t1) / absl::Seconds(1)) + 1;
+  uint64_t seconds = absl::ToInt64Seconds(t2 - t1);
 
   // Display the final counters
   LOG(INFO) << "\n\nTestOutDiscards:\n\n"
@@ -1546,21 +1534,11 @@ TEST_P(ExampleIxiaTestFixture, TestIPv6Pkts) {
   // absl::SleepFor(absl::Seconds(15));
   ASSERT_OK(ixia::StartTraffic(full_tref, ixref, *generic_testbed));
 
-  // Wait until 10 seconds after the traffic started
+  // Wait until 10 (traffic) + 25 (stats update) seconds after
+  // the traffic started.
   absl::Time t1;
   t1 = absl::Now();
-
-  absl::Time t2;
-  while (1) {
-    t2 = absl::Now();
-    if (t2 >= t1 + absl::Seconds(10)) break;
-    absl::SleepFor(absl::Milliseconds(100));
-  }
-
-  LOG(INFO) << "Time at stop is " << t2;
-  LOG(INFO) << "Delta is " << t2 - t1;
-
-  ASSERT_OK(ixia::StopTraffic(full_tref, *generic_testbed));
+  absl::SleepFor(absl::Seconds(35));
 
   // Re-read the same counters via GNMI from the SUT
   ASSERT_OK_AND_ASSIGN(auto final_in_counters,
@@ -1569,10 +1547,10 @@ TEST_P(ExampleIxiaTestFixture, TestIPv6Pkts) {
                        ReadCounters(sut_out_interface, gnmi_stub.get()));
 
   // Check the time again
-  absl::Time t3 = absl::Now();
-  LOG(INFO) << "Time after statistics read is " << t3;
-  LOG(INFO) << "Delta is " << t3 - t1;
-  uint64_t seconds = ((t3 - t1) / absl::Seconds(1)) + 1;
+  absl::Time t2 = absl::Now();
+  LOG(INFO) << "Time after statistics read is " << t2;
+  LOG(INFO) << "Delta is " << t2 - t1;
+  uint64_t seconds = absl::ToInt64Seconds(t2 - t1);
 
   // Display the final counters
   LOG(INFO) << "\n\nTestIPv6Pkts:\n\n"
@@ -1608,7 +1586,7 @@ TEST_P(ExampleIxiaTestFixture, TestIPv6Pkts) {
   EXPECT_GE(delta_out.out_octets, delta_out.out_pkts * kMtu - 10000);
   EXPECT_LE(delta_out.out_unicast_pkts, delta_out.out_pkts + 10);
   EXPECT_GE(delta_out.out_unicast_pkts, delta_out.out_pkts - 10);
-  EXPECT_LE(delta_out.out_multicast_pkts, 5);
+  EXPECT_LE(delta_out.out_multicast_pkts, 10);
   EXPECT_EQ(delta_out.out_broadcast_pkts, 0);
   EXPECT_EQ(delta_out.out_errors, 0);
   EXPECT_EQ(delta_out.out_discards, 0);
@@ -1831,7 +1809,7 @@ TEST_P(ExampleIxiaTestFixture, TestCPUOutDiscards) {
   absl::Time t3 = absl::Now();
   LOG(INFO) << "Time after statistics read is " << t3;
   LOG(INFO) << "Delta is " << t3 - t1;
-  uint64_t seconds = ((t3 - t1) / absl::Seconds(1)) + 1;
+  uint64_t seconds = absl::ToInt64Seconds(t2 - t1);
 
   // Display the final counters
   LOG(INFO) << "\n\nTestCPUOutDiscards:\n\n"

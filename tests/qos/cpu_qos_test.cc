@@ -1377,8 +1377,6 @@ TEST_P(CpuQosTestWithIxia, TestCPUQueueAssignmentAndQueueRateLimit) {
     // Wait for Traffic to be sent.
     absl::SleepFor(kTrafficDuration);
 
-    ASSERT_OK(pins_test::ixia::StopTraffic(traffic_ref, *generic_testbed));
-
     static constexpr absl::Duration kPollInterval = absl::Seconds(5);
     static constexpr absl::Duration kTotalTime = absl::Seconds(30);
     static const int kIterations = kTotalTime / kPollInterval;
@@ -1652,8 +1650,6 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
 
     // Wait for Traffic to be sent.
     absl::SleepFor(kTrafficDuration);
-
-    ASSERT_OK(pins_test::ixia::StopTraffic(traffic_ref, *generic_testbed));
 
     // Check for counters every 5 seconds upto 30 seconds till the fetched gNMI
     // queue counter stats match packets and bytes sent by Ixia.
