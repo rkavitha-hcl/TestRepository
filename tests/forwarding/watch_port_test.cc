@@ -96,6 +96,10 @@ constexpr absl::string_view kGroupId = "group-1";
 // Vrf used in the test.
 constexpr absl::string_view kVrfId = "vrf-1";
 
+// TODO: Adding watch port up action causes unexpected traffic
+// loss. Remove after the bug in OrchAgent is fixed.
+constexpr absl::Duration kWatchPortActionDelay = absl::Seconds(30);
+
 // Time to wait after which received packets are processed.
 constexpr absl::Duration kDurationToWaitForPackets = absl::Seconds(5);
 
@@ -713,11 +717,9 @@ TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
                                              absl::StrCat(selected_port_id)));
     ASSERT_OK(
         SetInterfaceAdminState(*control_gnmi_stub_, port_name, operation));
-
-    // TODO: Adding watch port up action causes unexpected traffic
-    // loss. Remove after the bug in OrchAgent is fixed.
-    absl::SleepFor(absl::Seconds(5));
-
+    if (environment.MaskKnownFailures()) {
+      absl::SleepFor(kWatchPortActionDelay);
+    }
     // Clear the counters before the test.
     test_data_.ClearReceivedPackets();
 
@@ -763,7 +765,7 @@ TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
   }
 }
 
-// TODO: Bring down APG member (when in critical state) and verify traffic is
+// Bring down APG member (when in critical state) and verify traffic is
 // distributed only to the up ports.
 TEST_P(WatchPortTestFixture, VerifyWatchPortActionInCriticalState) {
   // Validate that the function to raise critical state exists to run this test.
@@ -833,11 +835,9 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionInCriticalState) {
   // write operations are disabled) and verify watch port action kicks in.
   ASSERT_OK(SetInterfaceAdminState(*control_gnmi_stub_, port_name,
                                    AdminState::kDown));
-
-  // TODO: Adding watch port action causes unexpected traffic
-  // loss. Remove after the bug in OrchAgent is fixed.
-  absl::SleepFor(absl::Seconds(5));
-
+  if (environment.MaskKnownFailures()) {
+    absl::SleepFor(kWatchPortActionDelay);
+  }
   // Clear the counters before the test.
   test_data_.ClearReceivedPackets();
 
@@ -942,13 +942,11 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForSingleMember) {
                             absl::StrCat(single_member_port_id)));
     ASSERT_OK(
         SetInterfaceAdminState(*control_gnmi_stub_, port_name, operation));
-
+    if (environment.MaskKnownFailures()) {
+      absl::SleepFor(kWatchPortActionDelay);
+    }
     // Clear the counters before the test.
     test_data_.ClearReceivedPackets();
-
-    // TODO: Adding watch port up action causes unexpected traffic
-    // loss. Remove after the bug in OrchAgent is fixed.
-    absl::SleepFor(absl::Seconds(5));
 
     // Send 5000 packets and check for packet distribution.
     ASSERT_OK(SendNPacketsToSut(kNumTestPackets, test_config, members,
@@ -1062,11 +1060,9 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForMemberModify) {
   // Bring the down member watch port up.
   ASSERT_OK(SetInterfaceAdminState(*control_gnmi_stub_, selected_port_name,
                                    AdminState::kUp));
-
-  // TODO: Adding watch port up action causes unexpected traffic
-  // loss. Remove after the bug in OrchAgent is fixed.
-  absl::SleepFor(absl::Seconds(5));
-
+  if (environment.MaskKnownFailures()) {
+    absl::SleepFor(kWatchPortActionDelay);
+  }
   // Send 5000 packets and check for packet distribution.
   ASSERT_OK(SendNPacketsToSut(kNumTestPackets, test_config, members,
                               controller_port_ids, GetIrP4Info(),
@@ -1172,13 +1168,12 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForDownPortMemberInsert) {
     // Down operation is a no-op here since the port is already down.
     ASSERT_OK(SetInterfaceAdminState(*control_gnmi_stub_, selected_port_name,
                                      operation));
+    if (environment.MaskKnownFailures()) {
+      absl::SleepFor(kWatchPortActionDelay);
+    }
 
     // Clear the counters before the test.
     test_data_.ClearReceivedPackets();
-
-    // TODO: Adding watch port up action causes unexpected traffic
-    // loss. Remove after the bug in OrchAgent is fixed.
-    absl::SleepFor(absl::Seconds(5));
 
     // Send 5000 packets and check for packet distribution.
     ASSERT_OK(SendNPacketsToSut(kNumTestPackets, test_config, members,
