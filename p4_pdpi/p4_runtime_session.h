@@ -274,7 +274,8 @@ absl::Status SetForwardingPipelineConfig(
 absl::StatusOr<p4::v1::GetForwardingPipelineConfigResponse>
 GetForwardingPipelineConfig(
     P4RuntimeSession* session,
-    p4::v1::GetForwardingPipelineConfigRequest::ResponseType type);
+    p4::v1::GetForwardingPipelineConfigRequest::ResponseType type =
+        p4::v1::GetForwardingPipelineConfigRequest::ALL);
 
 }  // namespace pdpi
 #endif  // GOOGLE_P4_PDPI_P4_RUNTIME_SESSION_H_
