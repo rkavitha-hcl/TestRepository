@@ -179,6 +179,12 @@ absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession* const p4_session) {
                   match {}                                  # Wildcard match.
                   action { acl_trap { qos_queue: "0x1" } }  # Action: punt.
                   priority: 1                               # Highest priority.
+                  # TODO: Remove once GPINs V13 is
+                  # deprecated; only needed for backwards compatibility.
+                  meter_config {
+                    bytes_per_second: 987654321  # ~ 1 GB
+                    burst_bytes: 987654321       # ~ 1 GB
+                  }
                 }
               )pb")));
   return pdpi::InstallPiTableEntry(p4_session, punt_all_pi_entry);
