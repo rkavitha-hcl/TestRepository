@@ -45,9 +45,10 @@ P4RuntimeImpl DummyP4RuntimeImpl() {
   sonic::FakeSonicDbTable fake_db_table;
 
   // Dummy redis DB clients.
-  auto app_db_client = std::make_unique<sonic::FakeDBConnectorAdapter>();
-  auto app_state_db_client = std::make_unique<sonic::FakeDBConnectorAdapter>();
-  auto counter_db_client = std::make_unique<sonic::FakeDBConnectorAdapter>();
+  auto app_db_client = std::make_unique<sonic::FakeDBConnectorAdapter>(":");
+  auto app_state_db_client =
+      std::make_unique<sonic::FakeDBConnectorAdapter>(":");
+  auto counter_db_client = std::make_unique<sonic::FakeDBConnectorAdapter>(":");
 
   // Dummy producer state tables.
   auto app_db_p4rt_table =

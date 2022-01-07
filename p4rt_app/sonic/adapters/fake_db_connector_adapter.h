@@ -34,7 +34,7 @@ namespace sonic {
 // in a redis DB (e.g. AppDb, ConfigDb, AsicDb, etc.).
 class FakeDBConnectorAdapter final : public DBConnectorAdapter {
  public:
-  FakeDBConnectorAdapter() = default;
+  explicit FakeDBConnectorAdapter(const std::string& delimiter);
 
   // Not copyable or moveable.
   FakeDBConnectorAdapter(const FakeDBConnectorAdapter&) = delete;
@@ -62,6 +62,10 @@ class FakeDBConnectorAdapter final : public DBConnectorAdapter {
   // val: faked table holding all installed entries.
   absl::flat_hash_map<std::string, FakeSonicDbTable*>
       sonic_db_tables_;  // No ownership.
+
+  // Depending on the SONiC table being faked we can deliminate the table/key
+  // with either a ':' or a '|'.
+  std::string delimiter_;
 };
 
 }  // namespace sonic
