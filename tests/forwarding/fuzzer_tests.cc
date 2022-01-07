@@ -43,6 +43,7 @@
 #include "p4_pdpi/sequencing.h"
 #include "sai_p4/fixed/roles.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
+#include "tests/lib/switch_test_setup_helpers.h"
 #include "tests/thinkit_sanity_tests.h"
 #include "thinkit/mirror_testbed_fixture.h"
 #include "thinkit/test_environment.h"
@@ -175,15 +176,10 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
 
   bool mask_known_failures = environment.MaskKnownFailures();
 
-  // Push the gnmi configuration.
-  ASSERT_OK(pins_test::PushGnmiConfig(sut, GetParam().gnmi_config));
-  ASSERT_OK(pins_test::PushGnmiConfig(mirror_testbed.ControlSwitch(),
-                                      GetParam().gnmi_config));
-
-  // Initialize connection and clear switch state.
+  // Initialize connection, clear switch state, and push the gnmi configuration.
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> session,
-                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-                           sut, GetParam().p4info));
+                       pins_test::ConfigureSwitchAndReturnP4RuntimeSession(
+                           sut, GetParam().gnmi_config, GetParam().p4info));
 
   absl::BitGen gen;
 
