@@ -113,6 +113,34 @@ GetPortNameToIdMapFromJsonString(const std::string& json_string,
   return interface_name_to_port_id;
 }
 
+std::string ForceP4rtDeviceId(const std::string& gnmi_config,
+                              const std::string& device_id) {
+  LOG(INFO) << "Forcing P4RT Device ID to be '" << device_id << "'.";
+
+  // Parse the current gnmi config into a JSON object.
+  nlohmann::basic_json<> json;
+  if (!gnmi_config.empty()) json = json::parse(gnmi_config);
+
+  // Verify the OpenConfig components list exists.
+  auto oc_component_list = json.find("openconfig-platform:components");
+  if (oc_component_list == json.end()) return json.dump();
+
+  // And that it has a list of components.
+  auto component_list = oc_component_list->find("component");
+  if (component_list == oc_component_list->end()) return json.dump();
+
+  // The Device ID should always be written to integrated_circuit0. If this
+  // component doesn't exist then we will not update the device ID.
+  for (nlohmann::basic_json<>& component : *component_list) {
+    if (component["name"] == "integrated_circuit0") {
+      component["integrated-circuit"]["config"]["openconfig-p4rt:node-id"] =
+          device_id;
+    }
+  }
+
+  return json.dump();
+}
+
 }  // namespace
 
 // This API generates gNMI path from OC path string.
@@ -284,7 +312,9 @@ absl::Status PushGnmiConfig(gnmi::gNMI::StubInterface& stub,
 absl::Status PushGnmiConfig(thinkit::Switch& chassis,
                             const std::string& gnmi_config) {
   ASSIGN_OR_RETURN(auto stub, chassis.CreateGnmiStub());
-  return pins_test::PushGnmiConfig(*stub, chassis.ChassisName(), gnmi_config);
+  return pins_test::PushGnmiConfig(
+      *stub, chassis.ChassisName(),
+      ForceP4rtDeviceId(gnmi_config, absl::StrCat(chassis.DeviceId())));
 }
 
 absl::Status WaitForGnmiPortIdConvergence(gnmi::gNMI::StubInterface& stub,
