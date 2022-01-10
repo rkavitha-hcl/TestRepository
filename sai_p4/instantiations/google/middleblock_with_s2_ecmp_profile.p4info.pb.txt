@@ -868,9 +868,7 @@ actions {
     id: 16777476
     name: "ingress.acl_ingress.acl_mirror"
     alias: "acl_mirror"
-    annotations: "@sai_action(SAI_PACKET_ACTION_FORWARD , SAI_PACKET_COLOR_GREEN)"
-    annotations: "@sai_action(SAI_PACKET_ACTION_DROP , SAI_PACKET_COLOR_YELLOW)"
-    annotations: "@sai_action(SAI_PACKET_ACTION_DROP , SAI_PACKET_COLOR_RED)"
+    annotations: "@sai_action(SAI_PACKET_ACTION_FORWARD)"
   }
   params {
     id: 1

@@ -78,19 +78,13 @@ control acl_ingress(in headers_t headers,
   }
 
   @id(ACL_INGRESS_MIRROR_ACTION_ID)
-  @sai_action(SAI_PACKET_ACTION_FORWARD, SAI_PACKET_COLOR_GREEN)
-  @sai_action(SAI_PACKET_ACTION_DROP, SAI_PACKET_COLOR_YELLOW)
-  @sai_action(SAI_PACKET_ACTION_DROP, SAI_PACKET_COLOR_RED)
+  @sai_action(SAI_PACKET_ACTION_FORWARD)
   action acl_mirror(
       @id(1)
       @refers_to(mirror_session_table, mirror_session_id)
       @sai_action_param(SAI_ACL_ENTRY_ATTR_ACTION_MIRROR_INGRESS)
       mirror_session_id_t mirror_session_id) {
     acl_ingress_counter.count();
-    acl_ingress_meter.read(local_metadata.color);
-
-    // We model the behavior for GREEN packes only below.
-    // TODO: Branch on color and model behavior for all colors.
     local_metadata.mirror_session_id_valid = true;
     local_metadata.mirror_session_id_value = mirror_session_id;
   }
