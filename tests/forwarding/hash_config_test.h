@@ -113,7 +113,11 @@ class HashConfigTest : public thinkit::MirrorTestbedFixture {
   }
 
  protected:
-  // Set of port IDS to has to.
+  // Set of interfaces to hash against. There is a 1:1 mapping of interfaces_ to
+  // port_ids_, but we don't care about the mapping in the test.
+  std::vector<std::string> interfaces_;
+
+  // Set of port IDs to hash against.
   absl::btree_set<int> port_ids_;
 
   // Test data from the original config.

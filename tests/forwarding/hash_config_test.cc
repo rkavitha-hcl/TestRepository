@@ -269,13 +269,16 @@ void InitializeTestbed(thinkit::MirrorTestbed& testbed,
   ASSERT_OK(WaitForGnmiPortIdConvergence(testbed.ControlSwitch(), gnmi_config,
                                          /*timeout=*/absl::Minutes(3)));
 
-  // Ensure all the ports are up before testing.
+  // Give time for all the ports to come up before testing.
   ASSERT_OK_AND_ASSIGN(auto gnmi_stub, testbed.Sut().CreateGnmiStub());
-  ASSERT_OK(CheckAllInterfaceOperStateOverGnmi(
+  auto all_interfaces_up_status = CheckAllInterfaceOperStateOverGnmi(
       *gnmi_stub, /*interface_oper_state=*/"UP",
       /*skip_non_ethernet_interfaces=*/false,
-      /*timeout=*/absl::Minutes(3)))
-      << "Ports failed to come up during test initialization.";
+      /*timeout=*/absl::Minutes(3));
+  if (!all_interfaces_up_status.ok()) {
+    LOG(WARNING) << "Some ports are down at the start of the test. Continuing "
+                 << "with only the UP ports. " << all_interfaces_up_status;
+  }
 
   // Setup control switch P4 state.
   ASSERT_OK_AND_ASSIGN(
@@ -389,14 +392,22 @@ void RegexModifyP4Info(p4::config::v1::P4Info& p4info, absl::string_view regex,
 
 // Retrieve the current known port IDs from the switch. Must use numerical port
 // id names.
-void GetPortIds(thinkit::Switch& target, absl::btree_set<int>& port_ids) {
+void GetPortIds(thinkit::Switch& target, std::vector<std::string>& interfaces,
+                absl::btree_set<int>& port_ids) {
   ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, target.CreateGnmiStub());
-  ASSERT_OK_AND_ASSIGN(auto interface_map,
+  ASSERT_OK_AND_ASSIGN(const auto interface_id_map,
                        GetAllInterfaceNameToPortId(*sut_gnmi_stub));
-  for (const auto& [interface_name, port_id_name] : interface_map) {
+  ASSERT_OK_AND_ASSIGN(const auto up_interfaces,
+                       GetUpInterfacesOverGnmi(*sut_gnmi_stub));
+
+  for (const auto& interface_name : up_interfaces) {
     int port_id;
-    ASSERT_TRUE(absl::SimpleAtoi(port_id_name, &port_id));
+    ASSERT_THAT(interface_id_map,
+                testing::Contains(testing::Key(interface_name)));
+    ASSERT_TRUE(
+        absl::SimpleAtoi(interface_id_map.at(interface_name), &port_id));
     port_ids.insert(port_id);
+    interfaces.push_back(interface_name);
   }
 }
 
@@ -434,7 +445,9 @@ void HashConfigTest::SetUp() {
   ASSERT_NO_FATAL_FAILURE(
       InitializeTestbed(GetMirrorTestbed(), GetGnmiConfig(), GetP4Info()));
 
-  ASSERT_NO_FATAL_FAILURE(GetPortIds(GetMirrorTestbed().Sut(), port_ids_));
+  ASSERT_NO_FATAL_FAILURE(
+      GetPortIds(GetMirrorTestbed().Sut(), interfaces_, port_ids_));
+  LOG(INFO) << "Using ports: [" << absl::StrJoin(port_ids_, ", ") << "]";
   ASSERT_GE(port_ids_.size(), kMinimumMembersForTest);
 
   ASSERT_NO_FATAL_FAILURE(InitializeOriginalP4InfoTestDataIfNeeded());
@@ -477,13 +490,15 @@ void HashConfigTest::RebootSut() {
   ASSERT_OK(PushGnmiConfig(sut, GetGnmiConfig()))
       << "Failed to push config after reboot.";
 
+  ASSERT_OK(
+      WaitForGnmiPortIdConvergence(GetMirrorTestbed().Sut(), GetGnmiConfig(),
+                                   /*timeout=*/reboot_deadline - absl::Now()));
   ASSERT_OK_AND_ASSIGN(auto gnmi_stub, sut.CreateGnmiStub());
-
-  ASSERT_OK(CheckAllInterfaceOperStateOverGnmi(
-      *gnmi_stub, /*interface_oper_state=*/"UP",
-      /*skip_non_ethernet_interfaces=*/false,
+  ASSERT_OK(CheckInterfaceOperStateOverGnmi(
+      *gnmi_stub, /*interface_oper_state=*/"UP", interfaces_,
       /*timeout=*/reboot_deadline - absl::Now()))
-      << "Switch failed to reboot and come up after " << kRebootTimeout;
+      << "Switch ports failed to come up after reboot within "
+      << kRebootTimeout;
 
   // Wait for P4Runtime to be reachable.
   absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>> status_or_p4_session;
