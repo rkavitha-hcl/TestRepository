@@ -27,12 +27,14 @@
 #include "glog/logging.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/text_format.h"
+#include "grpc/impl/codegen/grpc_types.h"
 #include "grpcpp/security/authorization_policy_provider.h"
 #include "grpcpp/security/server_credentials.h"
 #include "grpcpp/security/tls_certificate_provider.h"
 #include "grpcpp/security/tls_credentials_options.h"
 #include "grpcpp/server.h"
 #include "grpcpp/server_builder.h"
+#include "grpcpp/support/channel_arguments.h"
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4rt_app/event_monitoring/port_change_events.h"
@@ -298,6 +300,9 @@ int main(int argc, char** argv) {
   }
 
   builder.RegisterService(&p4runtime_server);
+
+  // Disable max ping strikes behavior to allow more frequent KA.
+  builder.AddChannelArgument(GRPC_ARG_HTTP2_MAX_PING_STRIKES, 0);
 
   std::unique_ptr<Server> server(builder.BuildAndStart());
   LOG(INFO) << "Server listening on " << server_addr << ".";
