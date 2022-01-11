@@ -20,6 +20,7 @@ namespace pins_test {
 namespace {
 
 using ::testing::_;
+using ::testing::AnyNumber;
 using ::testing::ByMove;
 using ::testing::EqualsProto;
 using ::testing::InSequence;
@@ -274,6 +275,11 @@ void MockConfigureSwitchAndReturnP4RuntimeSession(
   ASSERT_NE(mock_gnmi_stub_push, nullptr);
   ASSERT_NE(mock_gnmi_stub_converge, nullptr);
 
+  // DeviceId may get called multiple times. The only important point is that it
+  // always returns the same device id.
+  ON_CALL(mock_switch, DeviceId).WillByDefault(Return(kDeviceId));
+  EXPECT_CALL(mock_switch, DeviceId).Times(AnyNumber());
+
   {
     InSequence s;
     // Mocks a P4RuntimeSession `Create` call.
@@ -319,7 +325,6 @@ void MockConfigureSwitchAndReturnP4RuntimeSession(
     // Mocks the first part of a P4RuntimeSession `Create` call.
     EXPECT_CALL(mock_switch, CreateP4RuntimeStub())
         .WillOnce(Return(ByMove(std::move(stub))));
-    EXPECT_CALL(mock_switch, DeviceId).WillOnce(Return(kDeviceId));
 
     // Mocks the first part of a `PushGnmiConfig` call.
     EXPECT_CALL(mock_switch, CreateGnmiStub)
@@ -350,7 +355,6 @@ TEST(TestHelperLibTest,
   const std::string gnmi_config =
       OpenConfigInterface("config", port_name, port_id);
 
-  EXPECT_CALL(mock_switch, DeviceId).WillOnce(Return(123456));
   MockConfigureSwitchAndReturnP4RuntimeSession(
       mock_switch, port_name, port_id,
       /*p4info_returned_by_get_forwarding_pipeline=*/p4info,
@@ -373,7 +377,6 @@ TEST(TestHelperLibTest,
   const std::string gnmi_config =
       OpenConfigInterface("config", port_name, port_id);
 
-  EXPECT_CALL(mock_switch, DeviceId).WillOnce(Return(123456));
   MockConfigureSwitchAndReturnP4RuntimeSession(
       mock_switch, port_name, port_id,
       /*p4info_returned_by_get_forwarding_pipeline=*/p4info,
@@ -396,12 +399,10 @@ TEST(TestHelperLibTest, ConfigureSwitchPairAndReturnP4RuntimeSessionPair) {
       OpenConfigInterface("config", port_name, port_id);
 
   // Mock two configurings, skipping the final call.
-  EXPECT_CALL(mock_switch1, DeviceId).WillOnce(Return(10005));
   MockConfigureSwitchAndReturnP4RuntimeSession(
       mock_switch1, port_name, port_id,
       /*p4info_returned_by_get_forwarding_pipeline=*/p4info,
       /*p4info_used_to_set_forwarding_pipeline=*/&p4info, metadata);
-  EXPECT_CALL(mock_switch2, DeviceId).WillOnce(Return(10006));
   MockConfigureSwitchAndReturnP4RuntimeSession(
       mock_switch2, port_name, port_id,
       /*p4info_returned_by_get_forwarding_pipeline=*/p4info,
