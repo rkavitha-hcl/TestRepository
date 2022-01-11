@@ -88,8 +88,7 @@ P4RuntimeImpl DummyP4RuntimeImpl() {
       std::move(notify_vrf_table), std::move(app_db_hash_table),
       std::move(notify_hash_table), std::move(app_db_switch_table),
       std::move(notify_switch_table), std::move(packet_io),
-      component_state_helper, system_state_helper, /*use_genetlink=*/false,
-      /*translate_port_ids=*/true);
+      component_state_helper, system_state_helper, P4RuntimeImplOptions{});
 }
 
 TEST(GrpcBehaviorTest,

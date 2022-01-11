@@ -223,8 +223,9 @@ int main(int argc, char** argv) {
       std::move(notification_channel_vrf), std::move(app_db_table_hash),
       std::move(notification_channel_hash), std::move(app_db_table_switch),
       std::move(notification_channel_switch), std::move(packetio_impl),
-      component_state_singleton, system_state_singleton, FLAGS_use_genetlink,
-      FLAGS_use_port_ids);
+      component_state_singleton, system_state_singleton,
+      p4rt_app::P4RuntimeImplOptions{.use_genetlink = FLAGS_use_genetlink,
+                                     .translate_port_ids = FLAGS_use_port_ids});
 
   // Create a server to listen on the unix socket port.
   std::thread internal_server_thread;

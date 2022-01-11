@@ -32,6 +32,7 @@
 #include "gutil/status_matchers.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
 
 namespace p4rt_app {
@@ -79,7 +80,7 @@ class ArbitrationTest : public testing::Test {
   int GetDeviceId() const { return 183807201; }
 
   test_lib::P4RuntimeGrpcService p4rt_service_ =
-      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+      test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
   std::unique_ptr<p4::v1::P4Runtime::Stub> stub_;
 };
 

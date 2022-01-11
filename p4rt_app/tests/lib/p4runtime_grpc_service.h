@@ -28,14 +28,9 @@
 namespace p4rt_app {
 namespace test_lib {
 
-struct P4RuntimeGrpcServiceOptions {
-  bool use_genetlink = false;
-  bool translate_port_ids = true;
-};
-
 class P4RuntimeGrpcService {
  public:
-  explicit P4RuntimeGrpcService(const P4RuntimeGrpcServiceOptions& options);
+  explicit P4RuntimeGrpcService(const P4RuntimeImplOptions& options);
   ~P4RuntimeGrpcService();
 
   int GrpcPort() const;

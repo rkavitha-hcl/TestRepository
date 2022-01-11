@@ -352,8 +352,8 @@ P4RuntimeImpl::P4RuntimeImpl(
     std::unique_ptr<sonic::ConsumerNotifierAdapter> app_db_notifier_switch,
     std::unique_ptr<sonic::PacketIoInterface> packetio_impl,
     swss::ComponentStateHelperInterface& component_state,
-    swss::SystemStateHelperInterface& system_state, bool use_genetlink,
-    bool translate_port_ids)
+    swss::SystemStateHelperInterface& system_state,
+    const P4RuntimeImplOptions& p4rt_options)
     : app_db_client_(std::move(app_db_client)),
       app_state_db_client_(std::move(app_state_db_client)),
       counter_db_client_(std::move(counter_db_client)),
@@ -368,14 +368,14 @@ P4RuntimeImpl::P4RuntimeImpl(
       packetio_impl_(std::move(packetio_impl)),
       component_state_(component_state),
       system_state_(system_state),
-      translate_port_ids_(translate_port_ids) {
+      translate_port_ids_(p4rt_options.translate_port_ids) {
   absl::optional<std::string> init_failure;
 
   // Start the controller manager.
   controller_manager_ = absl::make_unique<SdnControllerManager>();
 
   // Spawn the receiver thread to receive In packets.
-  auto status_or = StartReceive(use_genetlink);
+  auto status_or = StartReceive(p4rt_options.use_genetlink);
   if (status_or.ok()) {
     receive_thread_ = std::move(*status_or);
   } else {

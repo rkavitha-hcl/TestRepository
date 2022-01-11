@@ -43,6 +43,7 @@
 #include "p4_pdpi/p4_runtime_session.h"
 #include "p4_pdpi/pd.h"
 #include "p4_pdpi/string_encodings/hex_string.h"
+#include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "p4rt_app/sonic/fake_packetio_interface.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
 #include "sai_p4/instantiations/google/instantiations.h"
@@ -108,7 +109,7 @@ class FakePacketIoTest : public testing::Test {
   }
 
   test_lib::P4RuntimeGrpcService p4rt_service_ =
-      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+      test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
 };
 
@@ -298,7 +299,7 @@ class PacketIoUsingPortNameTest : public testing::Test {
   }
 
   test_lib::P4RuntimeGrpcService p4rt_service_ = test_lib::P4RuntimeGrpcService(
-      test_lib::P4RuntimeGrpcServiceOptions{.translate_port_ids = false});
+      P4RuntimeImplOptions{.translate_port_ids = false});
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
 };
 

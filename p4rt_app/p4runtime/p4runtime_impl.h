@@ -43,6 +43,11 @@
 
 namespace p4rt_app {
 
+struct P4RuntimeImplOptions {
+  bool use_genetlink = false;
+  bool translate_port_ids = true;
+};
+
 class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
  public:
   // TODO: find way to group arguments so we don't have to pass so
@@ -61,8 +66,8 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
       std::unique_ptr<sonic::ConsumerNotifierAdapter> app_db_notifier_switch,
       std::unique_ptr<sonic::PacketIoInterface> packetio_impl,
       swss::ComponentStateHelperInterface& component_state,
-      swss::SystemStateHelperInterface& system_state, bool use_genetlink,
-      bool translate_port_ids);
+      swss::SystemStateHelperInterface& system_state,
+      const P4RuntimeImplOptions& p4rt_options);
   ~P4RuntimeImpl() override = default;
 
   // Determines the type of write request (e.g. table entry, direct counter

@@ -28,6 +28,7 @@
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
+#include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "p4rt_app/tests/lib/p4runtime_component_test_fixture.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
 #include "p4rt_app/tests/lib/p4runtime_request_helpers.h"
@@ -62,7 +63,7 @@ class PortNameAndIdTest : public testing::Test {
 
 TEST_F(PortNameAndIdTest, AddAThenDeletePortTranslation) {
   test_lib::P4RuntimeGrpcService p4rt_service =
-      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+      test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
 
   EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
   EXPECT_OK(p4rt_service.RemovePortTranslation("Ethernet0"));
@@ -70,7 +71,7 @@ TEST_F(PortNameAndIdTest, AddAThenDeletePortTranslation) {
 
 TEST_F(PortNameAndIdTest, AllowDuplicatePortTranslations) {
   test_lib::P4RuntimeGrpcService p4rt_service =
-      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+      test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
 
   EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
   EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
@@ -78,7 +79,7 @@ TEST_F(PortNameAndIdTest, AllowDuplicatePortTranslations) {
 
 TEST_F(PortNameAndIdTest, CannotReusePortTranslationsValues) {
   test_lib::P4RuntimeGrpcService p4rt_service =
-      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+      test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
 
   EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
 
@@ -91,7 +92,7 @@ TEST_F(PortNameAndIdTest, CannotReusePortTranslationsValues) {
 
 TEST_F(PortNameAndIdTest, CannotAddPortTranslationWithEmptyValues) {
   test_lib::P4RuntimeGrpcService p4rt_service =
-      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+      test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
 
   EXPECT_THAT(p4rt_service.AddPortTranslation("", "1"),
               StatusIs(absl::StatusCode::kInvalidArgument));
@@ -101,14 +102,14 @@ TEST_F(PortNameAndIdTest, CannotAddPortTranslationWithEmptyValues) {
 
 TEST_F(PortNameAndIdTest, RemovingNonExistantPortTranslationPasses) {
   test_lib::P4RuntimeGrpcService p4rt_service =
-      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+      test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
 
   EXPECT_OK(p4rt_service.RemovePortTranslation("Ethernet0"));
 }
 
 TEST_F(PortNameAndIdTest, CannotRemovePortTranslationWithEmptyValues) {
   test_lib::P4RuntimeGrpcService p4rt_service =
-      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+      test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
 
   EXPECT_THAT(p4rt_service.RemovePortTranslation(""),
               StatusIs(absl::StatusCode::kInvalidArgument));
@@ -118,7 +119,7 @@ TEST_F(PortNameAndIdTest, ExpectingName) {
   // Start the P4RT server to accept port names, and configure a ethernet port
   // to NOT have an ID field.
   test_lib::P4RuntimeGrpcService p4rt_service = test_lib::P4RuntimeGrpcService(
-      test_lib::P4RuntimeGrpcServiceOptions{.translate_port_ids = false});
+      P4RuntimeImplOptions{.translate_port_ids = false});
 
   // Connect to the P4RT server and push a P4Info file.
   ASSERT_OK_AND_ASSIGN(auto p4rt_session, StartP4rtSession(p4rt_service));
@@ -155,7 +156,7 @@ TEST_F(PortNameAndIdTest, ExpectingIdGetId) {
   // Start the P4RT server to accept port IDs, and configure a ethernet port
   // with an ID field.
   test_lib::P4RuntimeGrpcService p4rt_service = test_lib::P4RuntimeGrpcService(
-      test_lib::P4RuntimeGrpcServiceOptions{.translate_port_ids = true});
+      P4RuntimeImplOptions{.translate_port_ids = true});
   ASSERT_OK(p4rt_service.AddPortTranslation("Ethernet0", "1"));
 
   // Connect to the P4RT server and push a P4Info file.
@@ -193,7 +194,7 @@ TEST_F(PortNameAndIdTest, ExpectingIdGetName) {
   // Start the P4RT server to accept port IDs, and configure a ethernet port
   // with an ID field.
   test_lib::P4RuntimeGrpcService p4rt_service = test_lib::P4RuntimeGrpcService(
-      test_lib::P4RuntimeGrpcServiceOptions{.translate_port_ids = true});
+      P4RuntimeImplOptions{.translate_port_ids = true});
   ASSERT_OK(p4rt_service.AddPortTranslation("Ethernet0", "1"));
 
   // Connect to the P4RT server and push a P4Info file.

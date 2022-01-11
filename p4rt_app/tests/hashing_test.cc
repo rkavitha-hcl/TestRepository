@@ -31,6 +31,7 @@
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
+#include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
@@ -53,7 +54,7 @@ using EcmpHashingTest = testing::TestWithParam<sai::Instantiation>;
 TEST_P(EcmpHashingTest, MustConfigureEcmpHashing) {
   // Start the P4RT service
   test_lib::P4RuntimeGrpcService p4rt_service =
-      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+      test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
 
   // Create a P4RT session, and connect.
   std::string address = absl::StrCat("localhost:", p4rt_service.GrpcPort());
@@ -110,7 +111,7 @@ using LagHashingTest = testing::TestWithParam<sai::Instantiation>;
 TEST_P(LagHashingTest, DISABLED_MustConfigureLagHashing) {
   // Start the P4RT service
   test_lib::P4RuntimeGrpcService p4rt_service =
-      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+      test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
 
   // Create a P4RT session, and connect.
   std::string address = absl::StrCat("localhost:", p4rt_service.GrpcPort());
@@ -209,7 +210,7 @@ class HashingTest : public testing::Test {
   )pb";
 
   test_lib::P4RuntimeGrpcService p4rt_service_ =
-      test_lib::P4RuntimeGrpcService(test_lib::P4RuntimeGrpcServiceOptions{});
+      test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
 };
 

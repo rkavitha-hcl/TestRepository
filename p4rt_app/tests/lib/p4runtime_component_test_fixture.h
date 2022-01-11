@@ -22,6 +22,7 @@
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
+#include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
@@ -45,7 +46,7 @@ class P4RuntimeComponentTestFixture : public testing::Test {
 
   // Bring up a fake P4Runtime gRPC server to run tests against.
   P4RuntimeGrpcService p4rt_service_ =
-      P4RuntimeGrpcService(P4RuntimeGrpcServiceOptions{});
+      P4RuntimeGrpcService(P4RuntimeImplOptions{});
 
   // The P4RT gRPC client session tests will use to connect to the fake
   // P4Runtime server.
