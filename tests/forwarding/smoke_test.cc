@@ -21,6 +21,7 @@
 #include "gutil/proto_matchers.h"
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
+#include "lib/gnmi/gnmi_helper.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
@@ -29,8 +30,13 @@
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
 #include "tests/forwarding/test_data.h"
 
-namespace gpins {
+namespace pins_test {
 namespace {
+
+TEST_P(SmokeTestFixture, SessionsAreNonNull) {
+  ASSERT_NE(&GetSutP4RuntimeSession(), nullptr);
+  ASSERT_NE(&GetControlP4RuntimeSession(), nullptr);
+}
 
 TEST_P(SmokeTestFixture, ModifyWorks) {
   GetMirrorTestbed().Environment().SetTestCaseID(
@@ -49,9 +55,9 @@ TEST_P(SmokeTestFixture, ModifyWorks) {
         }
       )pb");
   ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest pi_insert,
-                       pdpi::PdWriteRequestToPi(IrP4Info(), pd_insert));
-  ASSERT_OK(
-      pdpi::SetMetadataAndSendPiWriteRequest(SutP4RuntimeSession(), pi_insert));
+                       pdpi::PdWriteRequestToPi(GetIrP4Info(), pd_insert));
+  ASSERT_OK(pdpi::SetMetadataAndSendPiWriteRequest(&GetSutP4RuntimeSession(),
+                                                   pi_insert));
 
   const sai::WriteRequest pd_modify = gutil::ParseProtoOrDie<sai::WriteRequest>(
       R"pb(
@@ -67,12 +73,12 @@ TEST_P(SmokeTestFixture, ModifyWorks) {
         }
       )pb");
   ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest pi_modify,
-                       pdpi::PdWriteRequestToPi(IrP4Info(), pd_modify));
-  ASSERT_OK(
-      pdpi::SetMetadataAndSendPiWriteRequest(SutP4RuntimeSession(), pi_modify));
+                       pdpi::PdWriteRequestToPi(GetIrP4Info(), pd_modify));
+  ASSERT_OK(pdpi::SetMetadataAndSendPiWriteRequest(&GetSutP4RuntimeSession(),
+                                                   pi_modify));
 
   // This used to fail with a read error, see b/185508142.
-  ASSERT_OK(pdpi::ClearTableEntries(SutP4RuntimeSession()));
+  ASSERT_OK(pdpi::ClearTableEntries(&GetSutP4RuntimeSession()));
 }
 
 // TODO: Enable once the bug is fixed.
@@ -103,8 +109,8 @@ TEST_P(SmokeTestFixture, DISABLED_Bug181149419) {
         ->set_mirror_session_id(absl::StrCat("session-", i));
 
     ASSERT_OK_AND_ASSIGN(const p4::v1::TableEntry pi_entry,
-                         pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));
-    EXPECT_OK(pdpi::InstallPiTableEntry(SutP4RuntimeSession(), pi_entry));
+                         pdpi::PdTableEntryToPi(GetIrP4Info(), pd_entry));
+    EXPECT_OK(pdpi::InstallPiTableEntry(&GetSutP4RuntimeSession(), pi_entry));
   }
   // Adding one entry above the limit will fail.
   {
@@ -127,9 +133,9 @@ TEST_P(SmokeTestFixture, DISABLED_Bug181149419) {
         )pb");
 
     ASSERT_OK_AND_ASSIGN(const p4::v1::TableEntry pi_entry,
-                         pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));
+                         pdpi::PdTableEntryToPi(GetIrP4Info(), pd_entry));
     EXPECT_FALSE(
-        pdpi::InstallPiTableEntry(SutP4RuntimeSession(), pi_entry).ok());
+        pdpi::InstallPiTableEntry(&GetSutP4RuntimeSession(), pi_entry).ok());
   }
   // Adding ACL entries that use the 8 mirrors should all succeed.
   for (int i = 0; i < 8; i++) {
@@ -155,8 +161,8 @@ TEST_P(SmokeTestFixture, DISABLED_Bug181149419) {
         ->set_value(absl::StrCat("10.0.0.", i));
 
     ASSERT_OK_AND_ASSIGN(const p4::v1::TableEntry pi_entry,
-                         pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));
-    ASSERT_OK(pdpi::InstallPiTableEntry(SutP4RuntimeSession(), pi_entry));
+                         pdpi::PdTableEntryToPi(GetIrP4Info(), pd_entry));
+    ASSERT_OK(pdpi::InstallPiTableEntry(&GetSutP4RuntimeSession(), pi_entry));
   }
 }
 
@@ -174,8 +180,8 @@ TEST_P(SmokeTestFixture, InsertTableEntry) {
       )pb");
 
   ASSERT_OK_AND_ASSIGN(const p4::v1::TableEntry pi_entry,
-                       pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));
-  ASSERT_OK(pdpi::InstallPiTableEntry(SutP4RuntimeSession(), pi_entry));
+                       pdpi::PdTableEntryToPi(GetIrP4Info(), pd_entry));
+  ASSERT_OK(pdpi::InstallPiTableEntry(&GetSutP4RuntimeSession(), pi_entry));
 }
 
 TEST_P(SmokeTestFixture, InsertTableEntryWithRandomCharacterId) {
@@ -192,10 +198,10 @@ TEST_P(SmokeTestFixture, InsertTableEntryWithRandomCharacterId) {
       )pb");
 
   ASSERT_OK_AND_ASSIGN(const p4::v1::TableEntry pi_entry,
-                       pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));
-  ASSERT_OK(pdpi::InstallPiTableEntry(SutP4RuntimeSession(), pi_entry));
+                       pdpi::PdTableEntryToPi(GetIrP4Info(), pd_entry));
+  ASSERT_OK(pdpi::InstallPiTableEntry(&GetSutP4RuntimeSession(), pi_entry));
   ASSERT_OK_AND_ASSIGN(auto entries,
-                       pdpi::ReadPiTableEntries(SutP4RuntimeSession()));
+                       pdpi::ReadPiTableEntries(&GetSutP4RuntimeSession()));
   ASSERT_EQ(entries.size(), 1);
   ASSERT_THAT(entries[0], gutil::EqualsProto(pi_entry));
 }
@@ -203,8 +209,8 @@ TEST_P(SmokeTestFixture, InsertTableEntryWithRandomCharacterId) {
 TEST_P(SmokeTestFixture, InsertAndReadTableEntries) {
   GetMirrorTestbed().Environment().SetTestCaseID(
       "8bdacde4-b261-4242-b65d-462c828a427d");
-  pdpi::P4RuntimeSession* session = SutP4RuntimeSession();
-  const pdpi::IrP4Info& ir_p4info = IrP4Info();
+  pdpi::P4RuntimeSession& session = GetSutP4RuntimeSession();
+  const pdpi::IrP4Info& ir_p4info = GetIrP4Info();
   std::vector<sai::TableEntry> write_pd_entries =
       sai_pd::CreateUpTo255GenericTableEntries(3);
 
@@ -223,13 +229,13 @@ TEST_P(SmokeTestFixture, InsertAndReadTableEntries) {
     write_pi_entries.push_back(std::move(pi_entry));
   }
 
-  ASSERT_OK(pdpi::InstallPiTableEntries(session, ir_p4info, write_pi_entries));
+  ASSERT_OK(pdpi::InstallPiTableEntries(&session, ir_p4info, write_pi_entries));
 
   p4::v1::ReadRequest read_request;
   read_request.add_entities()->mutable_table_entry();
   ASSERT_OK_AND_ASSIGN(
       p4::v1::ReadResponse read_response,
-      pdpi::SetMetadataAndSendPiReadRequest(session, read_request));
+      pdpi::SetMetadataAndSendPiReadRequest(&session, read_request));
 
   for (const auto& entity : read_response.entities()) {
     ASSERT_OK(test_environment.AppendToTestArtifact(
@@ -256,7 +262,7 @@ TEST_P(SmokeTestFixture, EnsureClearTables) {
   // Sets up initial session.
   ASSERT_OK_AND_ASSIGN(auto session,
                        pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-                           GetMirrorTestbed().Sut(), P4Info()));
+                           GetMirrorTestbed().Sut(), GetP4Info()));
   // The table should be clear after setup.
   ASSERT_OK(pdpi::CheckNoTableEntries(session.get()));
 
@@ -271,19 +277,21 @@ TEST_P(SmokeTestFixture, EnsureClearTables) {
         }
       )pb");
   ASSERT_OK_AND_ASSIGN(p4::v1::TableEntry pi_entry,
-                       pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));
+                       pdpi::PdTableEntryToPi(GetIrP4Info(), pd_entry));
 
-  ASSERT_OK(pdpi::InstallPiTableEntries(session.get(), IrP4Info(), {pi_entry}));
+  ASSERT_OK(
+      pdpi::InstallPiTableEntries(session.get(), GetIrP4Info(), {pi_entry}));
 
   ASSERT_OK(pdpi::ClearTableEntries(session.get()));
   // The table should be clear after clearing.
   ASSERT_OK(pdpi::CheckNoTableEntries(session.get()));
 
-  ASSERT_OK(pdpi::InstallPiTableEntries(session.get(), IrP4Info(), {pi_entry}));
+  ASSERT_OK(
+      pdpi::InstallPiTableEntries(session.get(), GetIrP4Info(), {pi_entry}));
 
   ASSERT_OK_AND_ASSIGN(auto session2,
                        pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-                           GetMirrorTestbed().Sut(), P4Info()));
+                           GetMirrorTestbed().Sut(), GetP4Info()));
 
   // The table should be clear for both sessions after setting up a new session.
   ASSERT_OK(pdpi::CheckNoTableEntries(session.get()));
@@ -296,7 +304,7 @@ TEST_P(SmokeTestFixture, EnsureClearTables) {
 // on the switch.
 TEST_P(SmokeTestFixture, DISABLED_PushGnmiConfigWithFlows) {
   // All tables should be clear after setup.
-  ASSERT_OK(pdpi::CheckNoTableEntries(SutP4RuntimeSession()));
+  ASSERT_OK(pdpi::CheckNoTableEntries(&GetSutP4RuntimeSession()));
 
   const std::string gnmi_config = GetGnmiConfig();
 
@@ -314,14 +322,14 @@ TEST_P(SmokeTestFixture, DISABLED_PushGnmiConfigWithFlows) {
         }
       )pb");
   ASSERT_OK_AND_ASSIGN(p4::v1::TableEntry pi_entry,
-                       pdpi::PdTableEntryToPi(IrP4Info(), pd_entry));
+                       pdpi::PdTableEntryToPi(GetIrP4Info(), pd_entry));
 
-  ASSERT_OK(pdpi::InstallPiTableEntries(SutP4RuntimeSession(), IrP4Info(),
-                                        {pi_entry}));
+  ASSERT_OK(pdpi::InstallPiTableEntries(&GetSutP4RuntimeSession(),
+                                        GetIrP4Info(), {pi_entry}));
 
   // Pushing the same Gnmi Config is also OK when entries are programmed.
   ASSERT_OK(pins_test::PushGnmiConfig(GetMirrorTestbed().Sut(), gnmi_config));
 }
 
 }  // namespace
-}  // namespace gpins
+}  // namespace pins_test

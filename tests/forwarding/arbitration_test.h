@@ -28,12 +28,13 @@
 #include "gutil/status.h"
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
+#include "lib/gnmi/gnmi_helper.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
-#include "tests/forwarding/p4_blackbox_fixture.h"
+#include "thinkit/mirror_testbed_fixture.h"
 #include "thinkit/test_environment.h"
 
 namespace gpins {
