@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "p4rt_app/p4runtime/p4runtime_impl.h"
+#include "p4rt_app/p4runtime/packetio_helpers.h"
 
 #include <utility>
 

@@ -51,6 +51,7 @@ cc_library(
     deps = [
         ":ir_translation",
         ":p4info_verification",
+        ":packetio_helpers",
         ":sdn_controller_manager",
         "//gutil:collections",
         "//gutil:status",
@@ -106,12 +107,33 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "packetio_helpers",
+    srcs = ["packetio_helpers.cc"],
+    hdrs = ["packetio_helpers.h"],
+    deps = [
+        ":ir_translation",
+        "//gutil:status",
+        "//p4_pdpi:ir",
+        "//p4_pdpi:ir_cc_proto",
+        "//p4_pdpi/utils:ir",
+        "//p4rt_app/sonic:packetio_impl",
+        "//p4rt_app/sonic:packetio_interface",
+        "//sai_p4/fixed:p4_ids",
+        "@boost//:bimap",
+        "@boost//:graph",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
 cc_test(
-    name = "p4runtime_impl_test",
-    srcs = ["p4runtime_impl_test.cc"],
+    name = "packetio_helpers_test",
+    srcs = ["packetio_helpers_test.cc"],
     deps = [
         ":p4info_verification",
-        ":p4runtime_impl",
+        ":packetio_helpers",
         "//gutil:proto_matchers",
         "//gutil:status_matchers",
         "//p4_pdpi/utils:ir",
