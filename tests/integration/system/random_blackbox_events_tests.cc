@@ -84,6 +84,8 @@ TEST_P(RandomBlackboxEventsTest, ControlPlaneWithTrafficWithoutValidation) {
                                       count: 2
                                       interface_mode: CONTROL_INTERFACE
                                     })pb")));
+  testbed->Environment().SetTestCaseID("491b3f60-1369-4099-9385-da5dd44a087d");
+
   ASSERT_OK_AND_ASSIGN(
       auto p4rt_session,
       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
