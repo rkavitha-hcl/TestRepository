@@ -688,9 +688,11 @@ absl::StatusOr<std::vector<std::string>> GetAlarms(
   LOG(INFO) << "Sending GET request: " << request.ShortDebugString();
   gnmi::GetResponse response;
   grpc::ClientContext context;
-  grpc::Status status = gnmi_stub.Get(&context, request, &response);
+  absl::Status status = gutil::GrpcStatusToAbslStatus(
+      gnmi_stub.Get(&context, request, &response));
   if (!status.ok()) {
-    return gutil::GrpcStatusToAbslStatus(status);
+    LOG(WARNING) << "GET request failed with: " << status;
+    return status;
   }
 
   LOG(INFO) << "Received GET response: " << response.ShortDebugString();
