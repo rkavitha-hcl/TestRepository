@@ -19,6 +19,7 @@
 #include "absl/strings/str_join.h"
 #include "absl/types/optional.h"
 #include "glog/logging.h"
+#include "gutil/status.h"
 #include "p4/v1/p4runtime.pb.h"
 
 namespace p4rt_app {
@@ -385,7 +386,7 @@ void SdnControllerManager::SendArbitrationResponse(SdnConnection* connection) {
   connection->SendStreamMessageResponse(response);
 }
 
-bool SdnControllerManager::SendStreamMessageToPrimary(
+absl::Status SdnControllerManager::SendStreamMessageToPrimary(
     const absl::optional<std::string>& role_name,
     const p4::v1::StreamMessageResponse& response) {
   absl::MutexLock l(&lock_);
@@ -395,9 +396,14 @@ bool SdnControllerManager::SendStreamMessageToPrimary(
       election_id_past_by_role_[role_name];
 
   // If there is no election ID set, then there is no primary connection.
-  if (!election_id_past_for_role.has_value()) return false;
+  if (!election_id_past_for_role.has_value()) {
+    LOG(WARNING) << "Cannot send stream message response because there is not "
+                 << "a primary connection: " << response.DebugString();
+    return gutil::NotFoundErrorBuilder()
+           << "Primary connection has not been established.";
+  }
 
-  // Otherwise find the primary connection.
+  // Otherwise try to find an active primary connection.
   SdnConnection* primary_connection = nullptr;
   for (const auto& connection : connections_) {
     if (connection->GetRoleName() == role_name &&
@@ -407,15 +413,14 @@ bool SdnControllerManager::SendStreamMessageToPrimary(
   }
 
   if (primary_connection == nullptr) {
-    LOG(ERROR) << "Found an election ID '"
-               << PrettyPrintElectionId(election_id_past_for_role)
-               << "' for the primary connection, but could not find the "
-               << "connection itself?";
-    return false;
+    LOG(WARNING) << "Cannot send stream message response because there is no "
+                 << "active primary connection: " << response.DebugString();
+    return gutil::NotFoundErrorBuilder()
+           << "Could not find active primary connection.";
   }
 
   primary_connection->SendStreamMessageResponse(response);
-  return true;
+  return absl::OkStatus();
 }
 
 }  // namespace p4rt_app

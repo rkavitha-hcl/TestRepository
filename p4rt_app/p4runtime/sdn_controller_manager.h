@@ -18,6 +18,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/numeric/int128.h"
+#include "absl/status/status.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 
@@ -88,9 +89,9 @@ class SdnControllerManager {
   grpc::Status AllowRequest(
       const p4::v1::SetForwardingPipelineConfigRequest& request) const;
 
-  bool SendStreamMessageToPrimary(const absl::optional<std::string>& role_name,
-                                  const p4::v1::StreamMessageResponse& response)
-      ABSL_LOCKS_EXCLUDED(lock_);
+  absl::Status SendStreamMessageToPrimary(
+      const absl::optional<std::string>& role_name,
+      const p4::v1::StreamMessageResponse& response) ABSL_LOCKS_EXCLUDED(lock_);
 
  private:
   // Goes through the current list of active connections, and returns if one of

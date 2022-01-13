@@ -84,6 +84,7 @@ cc_library(
         "@com_github_p4lang_p4_constraints//p4_constraints/backend:interpreter",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
@@ -197,6 +198,7 @@ cc_library(
     srcs = ["sdn_controller_manager.cc"],
     hdrs = ["sdn_controller_manager.h"],
     deps = [
+        "//gutil:status",
         "@com_github_google_glog//:glog",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",

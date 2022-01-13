@@ -38,6 +38,7 @@
 #include "gutil/collections.h"
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
+#include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_constraints/backend/interpreter.h"
 #include "p4_pdpi/ir.h"
@@ -543,38 +544,30 @@ grpc::Status P4RuntimeImpl::StreamChannel(
           break;
         }
         case p4::v1::StreamMessageRequest::kPacket: {
-          // Returns with an error if the write request was not received from a
-          // primary connection
-          bool is_primary = controller_manager_
-                                ->AllowRequest(sdn_connection->GetRoleName(),
-                                               sdn_connection->GetElectionId())
-                                .ok();
-          if (!is_primary) {
-            sdn_connection->SendStreamMessageResponse(GenerateErrorResponse(
-                gutil::PermissionDeniedErrorBuilder()
-                    << "Cannot process request. Only the primary connection "
-                       "can send PacketOuts.",
-                request.packet()));
-          } else {
-            if (!ir_p4info_.has_value()) {
-              sdn_connection->SendStreamMessageResponse(GenerateErrorResponse(
-                  gutil::FailedPreconditionErrorBuilder()
-                  << "Cannot send packet out. Switch has no "
-                     "ForwardingPipelineConfig."));
-            } else {
-              auto status =
-                  SendPacketOut(ir_p4info_.value(), translate_port_ids_,
-                                port_translation_map_, packetio_impl_.get(),
-                                request.packet());
-              if (!status.ok()) {
-                // Get the primary streamchannel and write into the stream.
-                controller_manager_->SendStreamMessageToPrimary(
-                    sdn_connection->GetRoleName(),
-                    GenerateErrorResponse(gutil::StatusBuilder(status)
-                                              << "Failed to send packet out.",
-                                          request.packet()));
-              }
+          if (controller_manager_
+                  ->AllowRequest(sdn_connection->GetRoleName(),
+                                 sdn_connection->GetElectionId())
+                  .ok()) {
+            // If we're the primary connection we can try to handle the
+            // PacketOut request.
+            absl::Status packet_out_status =
+                HandlePacketOutRequest(request.packet());
+            if (!packet_out_status.ok()) {
+              LOG(WARNING) << "Could not handle PacketOut request: "
+                           << packet_out_status;
+              sdn_connection->SendStreamMessageResponse(
+                  GenerateErrorResponse(packet_out_status, request.packet()));
             }
+          } else {
+            // Otherwise, if it's not the primary connection trying to send a
+            // message so we return a PERMISSION_DENIED error.
+            LOG(WARNING) << "Non-primary controller '" << context->peer()
+                         << "' is trying to send PacketOut requests.";
+            sdn_connection->SendStreamMessageResponse(
+                GenerateErrorResponse(gutil::PermissionDeniedErrorBuilder()
+                                          << "Only the primary connection can "
+                                             "send PacketOut requests.",
+                                      request.packet()));
           }
           break;
         }
@@ -865,6 +858,16 @@ absl::Status P4RuntimeImpl::VerifyState() {
   return absl::OkStatus();
 }
 
+absl::Status P4RuntimeImpl::HandlePacketOutRequest(
+    const p4::v1::PacketOut& packet_out) {
+  if (!ir_p4info_.has_value()) {
+    return gutil::FailedPreconditionErrorBuilder()
+           << "Switch has not configured the forwarding pipeline.";
+  }
+  return SendPacketOut(*ir_p4info_, translate_port_ids_, port_translation_map_,
+                       packetio_impl_.get(), packet_out);
+}
+
 absl::Status P4RuntimeImpl::ApplyForwardingPipelineConfig(
     const pdpi::IrP4Info& ir_p4info) {
   // Setup definitions for each each P4 ACL table.
@@ -955,9 +958,8 @@ absl::StatusOr<std::thread> P4RuntimeImpl::StartReceive(
     *response.mutable_packet() = packet_in;
     *response.mutable_packet()->mutable_payload() = payload;
     // Get the primary streamchannel and write into the stream.
-    controller_manager_->SendStreamMessageToPrimary(
+    return controller_manager_->SendStreamMessageToPrimary(
         P4RUNTIME_ROLE_SDN_CONTROLLER, response);
-    return absl::OkStatus();
   };
 
   absl::MutexLock l(&server_state_lock_);

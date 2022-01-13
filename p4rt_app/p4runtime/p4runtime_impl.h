@@ -27,6 +27,7 @@
 #include "grpcpp/grpcpp.h"
 #include "grpcpp/server_context.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
+#include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
 #include "p4_pdpi/ir.h"
 #include "p4rt_app/p4runtime/sdn_controller_manager.h"
@@ -141,6 +142,9 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
   // Uses, the key of the inserted entry to match the response
   // and restore if needed.
   pdpi::IrUpdateStatus GetAndProcessResponse(absl::string_view key);
+
+  absl::Status HandlePacketOutRequest(const p4::v1::PacketOut& packet_out)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(server_state_lock_);
 
   absl::Status ApplyForwardingPipelineConfig(const pdpi::IrP4Info& ir_p4info)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(server_state_lock_);
