@@ -672,5 +672,30 @@ TEST_F(ArbitrationTest, CannotSendRequestsAfterDisconnecting) {
             grpc::StatusCode::PERMISSION_DENIED);
 }
 
+TEST_F(ArbitrationTest, SendingAnInvalidPacketWillNotCloseTheStream) {
+  grpc::ClientContext stream0_context;
+  std::unique_ptr<P4RuntimeStream> stream0 =
+      stub_->StreamChannel(&stream0_context);
+
+  // Send an empty request.
+  p4::v1::StreamMessageResponse stream_response;
+  p4::v1::StreamMessageRequest stream_request;
+  ASSERT_OK_AND_ASSIGN(stream_response,
+                       SendStreamRequest(*stream0, stream_request));
+
+  // Results in an error response, but will not close the stream.
+  EXPECT_EQ(stream_response.error().canonical_code(),
+            grpc::StatusCode::UNIMPLEMENTED);
+
+  // So when we send the correct  arbitration request it is accepted.
+  stream_request.mutable_arbitration()->set_device_id(GetDeviceId());
+  *stream_request.mutable_arbitration()->mutable_election_id() =
+      GetElectionId(1);
+  ASSERT_OK_AND_ASSIGN(stream_response,
+                       SendStreamRequest(*stream0, stream_request));
+  EXPECT_EQ(stream_response.arbitration().status().code(),
+            grpc::StatusCode::OK);
+}
+
 }  // namespace
 }  // namespace p4rt_app

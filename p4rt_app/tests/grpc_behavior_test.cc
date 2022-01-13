@@ -132,8 +132,9 @@ TEST(GrpcBehaviorTest,
     LOG(WARNING) << dummy_response.DebugString();
   }
 
-  EXPECT_EQ(client_stream->Finish().error_code(),
-            grpc::StatusCode::UNAVAILABLE);
+  grpc::Status status = client_stream->Finish();
+  LOG(INFO) << "Client status: " << status.error_message();
+  EXPECT_EQ(status.error_code(), grpc::StatusCode::UNAVAILABLE);
 }
 
 }  // namespace

@@ -512,8 +512,15 @@ grpc::Status P4RuntimeImpl::StreamChannel(
 #ifdef __EXCEPTIONS
   try {
 #endif
+    if (context == nullptr) {
+      LOG(WARNING) << "StreamChannel context is a nullptr.";
+      return grpc::Status(grpc::StatusCode::INVALID_ARGUMENT,
+                          "Context cannot be nullptr.");
+    }
+
     // We create a unique SDN connection object for every active connection.
     auto sdn_connection = absl::make_unique<SdnConnection>(context, stream);
+    LOG(INFO) << "StreamChannel is open with peer '" << context->peer() << "'.";
 
     // While the connection is active we can receive and send requests.
     p4::v1::StreamMessageRequest request;
@@ -522,14 +529,14 @@ grpc::Status P4RuntimeImpl::StreamChannel(
 
       switch (request.update_case()) {
         case p4::v1::StreamMessageRequest::kArbitration: {
-          LOG(INFO) << "Received arbitration request: "
-                    << request.ShortDebugString();
+          LOG(INFO) << "Received arbitration request from '" << context->peer()
+                    << "': " << request.ShortDebugString();
 
           auto status = controller_manager_->HandleArbitrationUpdate(
               request.arbitration(), sdn_connection.get());
           if (!status.ok()) {
-            LOG(WARNING) << "Failed arbitration request: "
-                         << status.error_message();
+            LOG(WARNING) << "Failed arbitration request for '"
+                         << context->peer() << "': " << status.error_message();
             controller_manager_->Disconnect(sdn_connection.get());
             return status;
           }
@@ -571,20 +578,27 @@ grpc::Status P4RuntimeImpl::StreamChannel(
           }
           break;
         }
-        case p4::v1::StreamMessageRequest::kDigestAck:
-        case p4::v1::StreamMessageRequest::kOther:
         default:
+          LOG(WARNING) << "Stream Channel '" << context->peer()
+                       << "' has sent a request that was unhandled: "
+                       << request.DebugString();
           sdn_connection->SendStreamMessageResponse(
               GenerateErrorResponse(gutil::UnimplementedErrorBuilder()
                                     << "Stream update type is not supported."));
-          LOG(ERROR) << "Received unhandled stream channel message: "
-                     << request.DebugString();
       }
     }
 
+    // Disconnect the controller from the list of available connections, and
+    // inform any other connections about arbitration changes.
     {
       absl::MutexLock l(&server_state_lock_);
       controller_manager_->Disconnect(sdn_connection.get());
+    }
+
+    LOG(INFO) << "Closing stream to peer '" << context->peer() << "'.";
+    if (context->IsCancelled()) {
+      LOG(WARNING)
+          << "Stream was canceled and the peer may not have been informed.";
     }
     return grpc::Status::OK;
 #ifdef __EXCEPTIONS
