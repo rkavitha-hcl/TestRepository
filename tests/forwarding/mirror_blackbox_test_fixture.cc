@@ -13,13 +13,10 @@ void MirrorBlackboxTestFixture::SetUp() {
   // Initialize the connection, clear table entries, and push GNMI
   // configuration for the SUT and Control switch.
   ASSERT_OK_AND_ASSIGN(
-      auto session_pair,
+      std::tie(sut_p4rt_session_, control_switch_p4rt_session_),
       pins_test::ConfigureSwitchPairAndReturnP4RuntimeSessionPair(
           GetMirrorTestbed().Sut(), GetMirrorTestbed().ControlSwitch(),
           GetGnmiConfig(), GetP4Info()));
-
-  sut_p4rt_session_ = std::move(session_pair.first);
-  control_switch_p4rt_session_ = std::move(session_pair.second);
 }
 
 void MirrorBlackboxTestFixture::TearDown() {
