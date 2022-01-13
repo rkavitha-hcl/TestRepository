@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include <algorithm>
 #include <memory>
 #include <vector>
 
@@ -39,15 +40,16 @@ DEFINE_string(hostname, "", "Hostname of the server to connect.");
 DEFINE_string(ca_cert_file, "", "CA certificate file");
 DEFINE_string(server_key_file, "", "Server key file");
 DEFINE_string(server_cert_file, "", "Server certificate file");
+// server_address should have format of <IP_address>:9559 if not unix socket
+DEFINE_string(server_address, "unix:/sock/p4rt.sock",
+              "The address of the server to connect to");
+DEFINE_int32(max_silent_time, 0, "Max silent time in second");
 
 namespace p4rt_app {
 namespace {
 
 using ::testing::IsEmpty;
 using ::testing::Test;
-
-constexpr absl::string_view kServerIpAddress = "127.0.0.1:9559";
-constexpr absl::string_view kServerUnixDomainSocket = "unix:/sock/p4rt.sock";
 
 static constexpr absl::string_view router_interface = R"pb(
   updates {
@@ -173,11 +175,11 @@ class P4rtRouteTest : public Test {
 
   void SetUp() override {
     std::unique_ptr<::p4::v1::P4Runtime::Stub> stub;
-    // Create connection to P4RT server.
+
+    LOG(INFO) << "Opening P4RT connection to: " << FLAGS_server_address;
     if (FLAGS_insecure) {
-      stub =
-          pdpi::CreateP4RuntimeStub(std::string(kServerUnixDomainSocket),
-                                    grpc::experimental::LocalCredentials(UDS));
+      stub = pdpi::CreateP4RuntimeStub(FLAGS_server_address,
+                                       grpc::InsecureChannelCredentials());
     } else {
       ASSERT_THAT(FLAGS_hostname, Not(IsEmpty()))
           << "Hostname should be provided for secure connection.";
@@ -198,7 +200,7 @@ class P4rtRouteTest : public Test {
       grpc::ChannelArguments args = pdpi::GrpcChannelArgumentsForP4rt();
       args.SetString(GRPC_SSL_TARGET_NAME_OVERRIDE_ARG, FLAGS_hostname);
       stub = ::p4::v1::P4Runtime::NewStub(grpc::CreateCustomChannel(
-          std::string(kServerIpAddress), grpc::SslCredentials(ssl_opts), args));
+          FLAGS_server_address, grpc::SslCredentials(ssl_opts), args));
     }
     absl::uint128 election_id = absl::MakeUint128(
         (FLAGS_election_id == -1 ? absl::ToUnixSeconds(absl::Now())
@@ -243,7 +245,8 @@ class P4rtRouteTest : public Test {
 
   absl::Status SendBatchRequest(absl::string_view iptable_entry,
                                 absl::string_view update_type,
-                                uint32_t number_batches, uint32_t batch_size) {
+                                uint32_t number_batches, uint32_t batch_size,
+                                uint32_t max_silent_time) {
     uint32_t ip_prefix = 0x14000000;
     uint32_t subnet0, subnet1, subnet2, subnet3;
     for (uint32_t i = 0; i < number_batches; i++) {
@@ -275,6 +278,11 @@ class P4rtRouteTest : public Test {
       // Send a batch of requests to the server.
       RETURN_IF_ERROR(
           pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
+
+      // Below is to introduce some silent time between batches, if needed
+      if (max_silent_time > 0) {
+        absl::SleepFor(absl::Seconds(std::max(5 * (i + 1), max_silent_time)));
+      }
     }
     return absl::OkStatus();
   }
@@ -289,7 +297,7 @@ class P4rtRouteTest : public Test {
 TEST_F(P4rtRouteTest, ProgramIp4RouteEntries) {
   auto start = absl::Now();
   auto status = SendBatchRequest(ip4table_entry, "INSERT", FLAGS_number_batches,
-                                 FLAGS_batch_size);
+                                 FLAGS_batch_size, FLAGS_max_silent_time);
   auto delta_time = absl::Now() - start;
   if (status.ok()) {
     // Send to stdout so that callers can parse the output.
@@ -300,7 +308,7 @@ TEST_F(P4rtRouteTest, ProgramIp4RouteEntries) {
 
   // Delete all batches, no matter the create passed or failed.
   status.Update(SendBatchRequest(ip4table_entry, "DELETE", FLAGS_number_batches,
-                                 FLAGS_batch_size));
+                                 FLAGS_batch_size, 0));
   EXPECT_OK(status) << "Failed to delete batch request";
 }
 
