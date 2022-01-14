@@ -23,6 +23,7 @@
 #include "google/protobuf/repeated_field.h"
 #include "grpcpp/client_context.h"
 #include "grpcpp/security/credentials.h"
+#include "grpcpp/support/status.h"
 #include "gtest/gtest.h"
 #include "gutil/proto_matchers.h"
 #include "gutil/status.h"
@@ -44,6 +45,12 @@ using ::gutil::StatusIs;
 using ::p4::v1::GetForwardingPipelineConfigResponse;
 using ::p4::v1::SetForwardingPipelineConfigRequest;
 using ::p4::v1::SetForwardingPipelineConfigResponse;
+using ::testing::IsEmpty;
+using ::testing::Not;
+
+MATCHER_P(GrpcStatusIs, status_code, "") {
+  return arg.error_code() == status_code;
+}
 
 class ForwardingPipelineConfigTest : public testing::Test {
  protected:
@@ -57,10 +64,104 @@ class ForwardingPipelineConfigTest : public testing::Test {
                                                       /*device_id=*/183807201));
   }
 
+  // SetForwardingPipelineConfig will reject any flow that doesn't have an
+  // expected 'device ID', 'role', or 'election ID'. Since this information is
+  // irrelevant to these test we use a helper function to simplify setup.
+  SetForwardingPipelineConfigRequest GetBasicForwardingRequest() {
+    SetForwardingPipelineConfigRequest request;
+    request.set_device_id(p4rt_session_->DeviceId());
+    request.set_role(p4rt_session_->Role());
+    *request.mutable_election_id() = p4rt_session_->ElectionId();
+    return request;
+  }
+
   test_lib::P4RuntimeGrpcService p4rt_service_ =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
 };
+
+TEST_F(ForwardingPipelineConfigTest, VerifyWillNotUpdateAppDbState) {
+  // By using the "middleblock" config we expect the ACL table definitionss to
+  // be written into the AppDb during a config push.
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::VERIFY);
+  *request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+
+  // However, since we're only verifying the config we should not see anything
+  // being written to the AppDb tables.
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  EXPECT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(&context, request,
+                                                              &response));
+  EXPECT_THAT(p4rt_service_.GetP4rtAppDbTable().GetAllKeys(), IsEmpty());
+}
+
+TEST_F(ForwardingPipelineConfigTest, VerifyFailsWhenNoConfigIsSet) {
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::VERIFY);
+
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  EXPECT_THAT(p4rt_session_->Stub().SetForwardingPipelineConfig(
+                  &context, request, &response),
+              GrpcStatusIs(grpc::StatusCode::INVALID_ARGUMENT));
+}
+
+TEST_F(ForwardingPipelineConfigTest, VerifyAndCommitWillUpdateAppDbState) {
+  // By using the "middleblock" config we expect the ACL table definitionss to
+  // be written into the AppDb during a config push.
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT);
+  *request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+
+  // Since we're both verifying and committing the config we expect to see
+  // changes to the AppDb tables.
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  EXPECT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(&context, request,
+                                                              &response));
+  EXPECT_THAT(p4rt_service_.GetP4rtAppDbTable().GetAllKeys(), Not(IsEmpty()));
+}
+
+TEST_F(ForwardingPipelineConfigTest, VerifyAndCommitFailsWhenNoConfigIsSet) {
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT);
+
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  EXPECT_THAT(p4rt_session_->Stub().SetForwardingPipelineConfig(
+                  &context, request, &response),
+              GrpcStatusIs(grpc::StatusCode::INVALID_ARGUMENT));
+}
+
+TEST_F(ForwardingPipelineConfigTest,
+       VerifyAndCommitCannotClearForwardingState) {
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT);
+  *request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+
+  // For the first config push we expect everything to pass since the switch is
+  // in a clean state.
+  {
+    SetForwardingPipelineConfigResponse response;
+    grpc::ClientContext context;
+    ASSERT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(
+        &context, request, &response));
+  }
+
+  // This is not expected P4Runtime behavior. We simply haven't implemented it
+  // today, and currently have no plans to.
+  {
+    SetForwardingPipelineConfigResponse response;
+    grpc::ClientContext context;
+    EXPECT_THAT(p4rt_session_->Stub().SetForwardingPipelineConfig(
+                    &context, request, &response),
+                GrpcStatusIs(grpc::StatusCode::UNIMPLEMENTED));
+  }
+}
 
 TEST_F(ForwardingPipelineConfigTest, SetForwardingPipelineConfig) {
   EXPECT_OK(pdpi::SetForwardingPipelineConfig(

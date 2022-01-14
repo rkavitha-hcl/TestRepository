@@ -17,6 +17,7 @@
 #define GOOGLE_P4RT_APP_P4RUNTIME_P4RUNTIME_IMPL_H_
 
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "absl/memory/memory.h"
@@ -26,6 +27,8 @@
 #include "boost/bimap.hpp"
 #include "grpcpp/grpcpp.h"
 #include "grpcpp/server_context.h"
+#include "grpcpp/support/status.h"
+#include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
@@ -137,16 +140,47 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
   P4RuntimeImpl(const P4RuntimeImpl&) = delete;
   P4RuntimeImpl& operator=(const P4RuntimeImpl&) = delete;
 
-  // Get and process response from the notification channel,
-  // if on error, restore the APPL_DB to the last good state.
-  // Uses, the key of the inserted entry to match the response
-  // and restore if needed.
+  // Get and process response from the notification channel, if on error,
+  // restore the APPL_DB to the last good state. Uses, the key of the inserted
+  // entry to match the response and restore if needed.
   pdpi::IrUpdateStatus GetAndProcessResponse(absl::string_view key);
 
   absl::Status HandlePacketOutRequest(const p4::v1::PacketOut& packet_out)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(server_state_lock_);
 
-  absl::Status ApplyForwardingPipelineConfig(const pdpi::IrP4Info& ir_p4info)
+  // Verify that the target can realize the given config. Will not modify the
+  // forwarding state in the target.
+  //
+  // Returns an error if the config is not provided of if the provided config
+  // cannot be realized.
+  grpc::Status VerifyPipelineConfig(
+      const p4::v1::SetForwardingPipelineConfigRequest& request) const;
+
+  // Verify and realize the given config. Today we DO NOT support clearing any
+  // forwarding state, and we will return a failure if a config has already been
+  // applied.
+  //
+  // Returns an error if the config is not provided of if the provided config
+  // cannot be realized.
+  grpc::Status VerifyAndCommitPipelineConfig(
+      const p4::v1::SetForwardingPipelineConfigRequest& request)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(server_state_lock_);
+
+  // Verify and realize the given config. Today we DO NOT support changing the
+  // P4Info in any way, and we will return a failure if we detect any changes.
+  // However, new configs can be pushed multiple times so long as the P4Info
+  // remains the same.
+  //
+  // Returns an error if the config is not provided, or if the existing
+  // forwarding state cannot be preserved for the given config by the target.
+  grpc::Status ReconcileAndCommitPipelineConfig(
+      const p4::v1::SetForwardingPipelineConfigRequest& request)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(server_state_lock_);
+
+  // Writes the necessary updates from the pipeline config into the AppDb
+  // tables. These configurations (e.g. ACLs, hashing, etc.) are needed before
+  // we can start accepting write requests.
+  absl::Status ConfigureAppDbTables(const pdpi::IrP4Info& ir_p4info)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(server_state_lock_);
 
   // Defines the callback lambda function to be invoked for receive packets
