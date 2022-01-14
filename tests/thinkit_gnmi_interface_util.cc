@@ -15,6 +15,7 @@
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
@@ -33,17 +34,17 @@ namespace {
 
 using ::nlohmann::json;
 
-}  // namespace
-
-void StripSymbolFromString(std::string& str, const char symbol) {
+void StripSymbolFromString(std::string& str, char symbol) {
   str.erase(remove(str.begin(), str.end(), symbol), str.end());
 }
 
-std::string ConstructSupportedBreakoutMode(std::string& num_breakouts,
-                                           std::string& breakout_speed) {
-  StripSymbolFromString(num_breakouts, ' ');
-  StripSymbolFromString(breakout_speed, ' ');
-  return absl::StrCat(num_breakouts, "x", breakout_speed);
+}  // namespace
+
+std::string ConstructSupportedBreakoutMode(absl::string_view num_breakouts,
+                                           absl::string_view breakout_speed) {
+  std::string breakout_mode = absl::StrCat(num_breakouts, "x", breakout_speed);
+  StripSymbolFromString(breakout_mode, ' ');
+  return breakout_mode;
 }
 
 absl::StatusOr<std::vector<std::string>> GetSupportedBreakoutModesForPort(
@@ -332,7 +333,8 @@ absl::StatusOr<absl::flat_hash_map<std::string, pins_test::PortBreakoutInfo>>
 GetBreakoutStateInfoForPort(gnmi::gNMI::StubInterface* sut_gnmi_stub,
                             const std::string& port,
                             absl::string_view breakout_mode) {
-  ASSIGN_OR_RETURN(auto port_info,
+  absl::flat_hash_map<std::string, pins_test::PortBreakoutInfo> port_info;
+  ASSIGN_OR_RETURN(port_info,
                    GetExpectedPortInfoForBreakoutMode(port, breakout_mode));
   for (auto& p : port_info) {
     auto if_state_path = absl::StrCat("interfaces/interface[name=", p.first,
@@ -498,12 +500,11 @@ absl::Status GetBreakoutModeConfigFromString(
 }
 
 std::vector<std::string> GetNonExistingPortsAfterBreakout(
-    absl::flat_hash_map<std::string, PortBreakoutInfo>& orig_port_info,
-    absl::flat_hash_map<std::string, PortBreakoutInfo>& new_port_info,
+    const absl::flat_hash_map<std::string, PortBreakoutInfo>& orig_port_info,
+    const absl::flat_hash_map<std::string, PortBreakoutInfo>& new_port_info,
     bool expected_success) {
   std::vector<std::string> nonExistingPortList;
-  absl::flat_hash_map<std::string, PortBreakoutInfo>*orig_map = &orig_port_info,
-                                   *new_map = &new_port_info;
+  const auto *orig_map = &orig_port_info, *new_map = &new_port_info;
   if (!expected_success) {
     orig_map = &new_port_info;
     new_map = &orig_port_info;
@@ -518,8 +519,9 @@ std::vector<std::string> GetNonExistingPortsAfterBreakout(
 
 absl::Status ValidateBreakoutState(
     gnmi::gNMI::StubInterface* sut_gnmi_stub,
-    absl::flat_hash_map<std::string, PortBreakoutInfo>& expected_port_info,
-    std::vector<std::string>& non_existing_ports_list) {
+    const absl::flat_hash_map<std::string, PortBreakoutInfo>&
+        expected_port_info,
+    const std::vector<std::string>& non_existing_ports_list) {
   if (expected_port_info.empty()) {
     return gutil::InternalErrorBuilder().LogError()
            << "Expected port info map is empty";
