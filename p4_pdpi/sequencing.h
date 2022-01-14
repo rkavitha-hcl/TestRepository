@@ -18,6 +18,7 @@
 #include <functional>
 #include <vector>
 
+#include "absl/functional/function_ref.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/span.h"
@@ -56,7 +57,8 @@ absl::Status SortTableEntries(const IrP4Info& info,
 // graph is computed based on `ir_p4info`.
 absl::StatusOr<std::vector<p4::v1::TableEntry>> GetEntriesUnreachableFromRoots(
     absl::Span<const p4::v1::TableEntry> entries,
-    std::function<absl::StatusOr<bool>(p4::v1::TableEntry)> is_root_entry,
+    absl::FunctionRef<absl::StatusOr<bool>(const p4::v1::TableEntry&)>
+        is_root_entry,
     const IrP4Info& ir_p4info);
 
 }  // namespace pdpi
