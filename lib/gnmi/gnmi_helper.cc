@@ -30,6 +30,7 @@
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/strip.h"
+#include "absl/strings/substitute.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
@@ -142,6 +143,36 @@ std::string ForceP4rtDeviceId(const std::string& gnmi_config,
 }
 
 }  // namespace
+
+std::string GnmiFieldTypeToString(GnmiFieldType field_type) {
+  switch (field_type) {
+    case GnmiFieldType::kConfig:
+      return "config";
+    case GnmiFieldType::kState:
+      return "state";
+  }
+  LOG(DFATAL) << "invalid GnmiFieldType: " << static_cast<int>(field_type);
+  return "";
+}
+
+std::string OpenConfigWithInterfaces(
+    GnmiFieldType field_type,
+    absl::Span<const OpenConfigInterfaceDescription> interfaces) {
+  using json = nlohmann::json;
+  std::vector<json> port_configs;
+  for (const auto& interface : interfaces) {
+    port_configs.push_back({{"name", interface.port_name},
+                            {GnmiFieldTypeToString(field_type),
+                             {{"openconfig-p4rt:id", interface.port_id}}}});
+  }
+  json open_config{
+      {"openconfig-interfaces:interfaces", {{"interface", port_configs}}}};
+  return open_config.dump();
+}
+
+std::string EmptyOpenConfig() {
+  return OpenConfigWithInterfaces(GnmiFieldType::kConfig, /*interfaces=*/{});
+}
 
 // This API generates gNMI path from OC path string.
 // Example1:

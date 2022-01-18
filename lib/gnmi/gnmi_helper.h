@@ -47,6 +47,28 @@ enum class OperStatus {
   kTesting,
 };
 
+enum class GnmiFieldType {
+  kConfig,
+  kState,
+};
+
+// Describes a single interface in a gNMI config.
+struct OpenConfigInterfaceDescription {
+  absl::string_view port_name;
+  int port_id;
+};
+
+std::string GnmiFieldTypeToString(GnmiFieldType field_type);
+
+// Generates an OpenConfig JSON string using the given list of `interfaces` to
+// define interfaces of the given `field_type`.
+std::string OpenConfigWithInterfaces(
+    GnmiFieldType field_type,
+    absl::Span<const OpenConfigInterfaceDescription> interfaces);
+
+// Generates a valid, empty OpenConfig JSON string.
+std::string EmptyOpenConfig();
+
 // Builds gNMI Set Request for a given OC path, set type and set value.
 // The path should be in the following format below.
 // "interfaces/interface[Ethernet0]/config/mtu".
