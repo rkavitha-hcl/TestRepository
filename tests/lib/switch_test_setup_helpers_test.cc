@@ -5,6 +5,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "gmock/gmock.h"
 #include "grpcpp/test/mock_stream.h"
 #include "gtest/gtest.h"
@@ -198,38 +199,19 @@ void MockGnmiPush(gnmi::MockgNMIStub& mock_gnmi_stub) {
   EXPECT_CALL(mock_gnmi_stub, Set).WillOnce(Return(grpc::Status::OK));
 }
 
-// Generates an OpenConfig JSON string with the interface and p4rt port ID.
-std::string OpenConfigInterface(absl::string_view field_type,
-                                absl::string_view port_name,
-                                absl::string_view port_id) {
-  return absl::Substitute(R"(
-    {
-      "openconfig-interfaces:interfaces":{
-        "interface" : [
-          {
-            "name" : "$0",
-            "$1" : {
-              "openconfig-p4rt:id" : $2
-            }
-          }
-        ]
-      }
-    })",
-                          port_name, field_type, port_id);
-}
-
-// Mocks a successful `WaitForGnmiPortIdConvergence` call where the port given
-// by `port_name` and `port_id` has converged.
-void MockGnmiConvergence(gnmi::MockgNMIStub& mock_gnmi_stub,
-                         absl::string_view port_name, absl::string_view port_id,
-                         const absl::Duration& gnmi_timeout) {
+// Mocks a successful `WaitForGnmiPortIdConvergence` call where the ports given
+// by `interfaces` have converged.
+void MockGnmiConvergence(
+    gnmi::MockgNMIStub& mock_gnmi_stub,
+    absl::Span<const OpenConfigInterfaceDescription> interfaces,
+    const absl::Duration& gnmi_timeout) {
   EXPECT_CALL(mock_gnmi_stub, Get)
       .WillOnce([=](auto, auto, gnmi::GetResponse* response) {
         *response->add_notification()
              ->add_update()
              ->mutable_val()
              ->mutable_json_ietf_val() =
-            OpenConfigInterface("state", port_name, port_id);
+            OpenConfigWithInterfaces(GnmiFieldType::kState, interfaces);
         return grpc::Status::OK;
       });
 }
@@ -258,8 +240,8 @@ ConstructForwardingPipelineConfigRequest(
 // to be one), pushes a gNMI config, converges, and pushes a new p4info, if one
 // is given.
 void MockConfigureSwitchAndReturnP4RuntimeSession(
-    thinkit::MockSwitch& mock_switch, absl::string_view port_name,
-    absl::string_view port_id,
+    thinkit::MockSwitch& mock_switch,
+    absl::Span<const OpenConfigInterfaceDescription> interfaces,
     const p4::config::v1::P4Info& p4info_returned_by_get_forwarding_pipeline,
     const p4::config::v1::P4Info* p4info_used_to_set_forwarding_pipeline,
     const pdpi::P4RuntimeSessionOptionalArgs& metadata) {
@@ -272,13 +254,18 @@ void MockConfigureSwitchAndReturnP4RuntimeSession(
   // mock_switch.
   auto mock_gnmi_stub_push = absl::make_unique<gnmi::MockgNMIStub>();
   auto mock_gnmi_stub_converge = absl::make_unique<gnmi::MockgNMIStub>();
-  ASSERT_NE(mock_gnmi_stub_push, nullptr);
-  ASSERT_NE(mock_gnmi_stub_converge, nullptr);
 
-  // DeviceId may get called multiple times. The only important point is that it
-  // always returns the same device id.
+  // DeviceId and ChassisName may get called multiple times. The only important
+  // point is that they always return the same response.
   ON_CALL(mock_switch, DeviceId).WillByDefault(Return(kDeviceId));
   EXPECT_CALL(mock_switch, DeviceId).Times(AnyNumber());
+
+  // Required so that the reference below is not to a local variable.
+  static const std::string* const kChassisNameString =
+      new std::string("some_chassis_name");
+  ON_CALL(mock_switch, ChassisName)
+      .WillByDefault(ReturnRef(*kChassisNameString));
+  EXPECT_CALL(mock_switch, ChassisName).Times(AnyNumber());
 
   {
     InSequence s;
@@ -300,7 +287,7 @@ void MockConfigureSwitchAndReturnP4RuntimeSession(
     MockGnmiPush(*mock_gnmi_stub_push);
 
     // Mocks a `WaitForGnmiPortIdConvergence` call.
-    MockGnmiConvergence(*mock_gnmi_stub_converge, port_name, port_id,
+    MockGnmiConvergence(*mock_gnmi_stub_converge, interfaces,
                         /*gnmi_timeout=*/absl::Minutes(3));
 
     // When there is a P4Info to set, we mock a `SetForwardingPipelineConfig`
@@ -330,12 +317,6 @@ void MockConfigureSwitchAndReturnP4RuntimeSession(
     EXPECT_CALL(mock_switch, CreateGnmiStub)
         .WillOnce(Return(ByMove(std::move(mock_gnmi_stub_push))));
 
-    // Required so that the reference below is not to a local variable.
-    static const std::string* const kChassisNameString =
-        new std::string("some_chassis_name");
-    EXPECT_CALL(mock_switch, ChassisName)
-        .WillOnce(ReturnRef(*kChassisNameString));
-
     // Mocks the first part of a `WaitForGnmiPortIdConvergence`
     EXPECT_CALL(mock_switch, CreateGnmiStub)
         .WillOnce(Return(ByMove(std::move(mock_gnmi_stub_converge))));
@@ -349,14 +330,15 @@ TEST(TestHelperLibTest,
   const p4::config::v1::P4Info& p4info = pdpi::GetTestP4Info();
   const pdpi::P4RuntimeSessionOptionalArgs metadata;
   thinkit::MockSwitch mock_switch;
-  const std::string port_name = "Ethernet0";
-  const std::string port_id = "1";
+  OpenConfigInterfaceDescription interface {
+    .port_name = "Ethernet0", .port_id = 1,
+  };
 
-  const std::string gnmi_config =
-      OpenConfigInterface("config", port_name, port_id);
+  const std::string gnmi_config = OpenConfigWithInterfaces(
+      GnmiFieldType::kConfig, /*interfaces=*/{interface});
 
   MockConfigureSwitchAndReturnP4RuntimeSession(
-      mock_switch, port_name, port_id,
+      mock_switch, /*interfaces=*/{interface},
       /*p4info_returned_by_get_forwarding_pipeline=*/p4info,
       /*p4info_used_to_set_forwarding_pipeline=*/&p4info, metadata);
 
@@ -371,14 +353,15 @@ TEST(TestHelperLibTest,
   const p4::config::v1::P4Info& p4info = pdpi::GetTestP4Info();
   const pdpi::P4RuntimeSessionOptionalArgs metadata;
   thinkit::MockSwitch mock_switch;
-  const std::string port_name = "Ethernet0";
-  const std::string port_id = "1";
+  OpenConfigInterfaceDescription interface {
+    .port_name = "Ethernet0", .port_id = 1,
+  };
 
-  const std::string gnmi_config =
-      OpenConfigInterface("config", port_name, port_id);
+  const std::string gnmi_config = OpenConfigWithInterfaces(
+      GnmiFieldType::kConfig, /*interfaces=*/{interface});
 
   MockConfigureSwitchAndReturnP4RuntimeSession(
-      mock_switch, port_name, port_id,
+      mock_switch, /*interfaces=*/{interface},
       /*p4info_returned_by_get_forwarding_pipeline=*/p4info,
       /*p4info_used_to_set_forwarding_pipeline=*/nullptr, metadata);
 
@@ -392,19 +375,20 @@ TEST(TestHelperLibTest, ConfigureSwitchPairAndReturnP4RuntimeSessionPair) {
   const pdpi::P4RuntimeSessionOptionalArgs metadata;
   thinkit::MockSwitch mock_switch1;
   thinkit::MockSwitch mock_switch2;
-  const std::string port_name = "Ethernet0";
-  const std::string port_id = "1";
+  OpenConfigInterfaceDescription interface {
+    .port_name = "Ethernet0", .port_id = 1,
+  };
 
-  const std::string gnmi_config =
-      OpenConfigInterface("config", port_name, port_id);
+  const std::string gnmi_config = OpenConfigWithInterfaces(
+      GnmiFieldType::kConfig, /*interfaces=*/{interface});
 
   // Mock two configurings, skipping the final call.
   MockConfigureSwitchAndReturnP4RuntimeSession(
-      mock_switch1, port_name, port_id,
+      mock_switch1, /*interfaces=*/{interface},
       /*p4info_returned_by_get_forwarding_pipeline=*/p4info,
       /*p4info_used_to_set_forwarding_pipeline=*/&p4info, metadata);
   MockConfigureSwitchAndReturnP4RuntimeSession(
-      mock_switch2, port_name, port_id,
+      mock_switch2, /*interfaces=*/{interface},
       /*p4info_returned_by_get_forwarding_pipeline=*/p4info,
       /*p4info_used_to_set_forwarding_pipeline=*/&p4info, metadata);
 
