@@ -5,7 +5,6 @@
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
-#include "absl/types/span.h"
 #include "gmock/gmock.h"
 #include "grpcpp/test/mock_stream.h"
 #include "gtest/gtest.h"
@@ -203,7 +202,7 @@ void MockGnmiPush(gnmi::MockgNMIStub& mock_gnmi_stub) {
 // by `interfaces` have converged.
 void MockGnmiConvergence(
     gnmi::MockgNMIStub& mock_gnmi_stub,
-    absl::Span<const OpenConfigInterfaceDescription> interfaces,
+    const std::vector<OpenConfigInterfaceDescription>& interfaces,
     const absl::Duration& gnmi_timeout) {
   EXPECT_CALL(mock_gnmi_stub, Get)
       .WillOnce([=](auto, auto, gnmi::GetResponse* response) {
@@ -241,7 +240,7 @@ ConstructForwardingPipelineConfigRequest(
 // is given.
 void MockConfigureSwitchAndReturnP4RuntimeSession(
     thinkit::MockSwitch& mock_switch,
-    absl::Span<const OpenConfigInterfaceDescription> interfaces,
+    const std::vector<OpenConfigInterfaceDescription>& interfaces,
     const p4::config::v1::P4Info& p4info_returned_by_get_forwarding_pipeline,
     const p4::config::v1::P4Info* p4info_used_to_set_forwarding_pipeline,
     const pdpi::P4RuntimeSessionOptionalArgs& metadata) {
