@@ -411,19 +411,189 @@ TEST_F(ReconcileAndCommitTest, FailsIfAModifiedConfigIsPushed) {
               GrpcStatusIs(grpc::StatusCode::UNIMPLEMENTED));
 }
 
-TEST_F(ForwardingPipelineConfigTest, GetForwardingPipelineConfig) {
-  const p4::config::v1::P4Info p4_info =
-      sai::GetP4Info(sai::Instantiation::kMiddleblock);
-  ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-      p4rt_session_.get(),
-      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT, p4_info));
-  ASSERT_OK_AND_ASSIGN(
-      GetForwardingPipelineConfigResponse response,
-      pdpi::GetForwardingPipelineConfig(
-          p4rt_session_.get(), GetForwardingPipelineConfigRequest::ALL));
+using GetForwardingConfigTest = ForwardingPipelineConfigTest;
 
-  // Ensure the P4Info we read back matches what we set.
-  EXPECT_THAT(response.config().p4info(), EqualsProto(p4_info));
+TEST_F(GetForwardingConfigTest, ReturnsNothingIfConfigHasNotBeenSet) {
+  GetForwardingPipelineConfigRequest get_request;
+  get_request.set_device_id(p4rt_session_->DeviceId());
+  get_request.set_response_type(GetForwardingPipelineConfigRequest::ALL);
+
+  GetForwardingPipelineConfigResponse get_response;
+  grpc::ClientContext get_context;
+  EXPECT_OK(p4rt_session_->Stub().GetForwardingPipelineConfig(
+      &get_context, get_request, &get_response));
+  EXPECT_THAT(get_response.config(),
+              EqualsProto(p4::v1::ForwardingPipelineConfig{}));
+}
+
+TEST_F(GetForwardingConfigTest, CanReadBackAllTheConfig) {
+  auto set_request = GetBasicForwardingRequest();
+  set_request.set_action(
+      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT);
+  set_request.mutable_config()->mutable_cookie()->set_cookie(123);
+  *set_request.mutable_config()->mutable_p4_device_config() = "abc";
+  *set_request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+
+  // Read back all parts of the forwarding config.
+  GetForwardingPipelineConfigRequest get_request;
+  get_request.set_device_id(p4rt_session_->DeviceId());
+  get_request.set_response_type(GetForwardingPipelineConfigRequest::ALL);
+
+  SetForwardingPipelineConfigResponse set_response;
+  grpc::ClientContext set_context;
+  ASSERT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(
+      &set_context, set_request, &set_response));
+
+  GetForwardingPipelineConfigResponse get_response;
+  grpc::ClientContext get_context;
+  EXPECT_OK(p4rt_session_->Stub().GetForwardingPipelineConfig(
+      &get_context, get_request, &get_response));
+  EXPECT_THAT(get_response.config(), EqualsProto(set_request.config()));
+}
+
+TEST_F(GetForwardingConfigTest, CanReadBackCookieOnly) {
+  auto set_request = GetBasicForwardingRequest();
+  set_request.set_action(
+      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT);
+  set_request.mutable_config()->mutable_cookie()->set_cookie(123);
+  *set_request.mutable_config()->mutable_p4_device_config() = "abc";
+  *set_request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+
+  // Read back just the cookie value.
+  GetForwardingPipelineConfigRequest get_request;
+  get_request.set_device_id(p4rt_session_->DeviceId());
+  get_request.set_response_type(
+      GetForwardingPipelineConfigRequest::COOKIE_ONLY);
+
+  // Expect to see just the cookie being set.
+  p4::v1::ForwardingPipelineConfig expected_config;
+  expected_config.mutable_cookie()->set_cookie(123);
+
+  SetForwardingPipelineConfigResponse set_response;
+  grpc::ClientContext set_context;
+  ASSERT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(
+      &set_context, set_request, &set_response));
+
+  GetForwardingPipelineConfigResponse get_response;
+  grpc::ClientContext get_context;
+  EXPECT_OK(p4rt_session_->Stub().GetForwardingPipelineConfig(
+      &get_context, get_request, &get_response));
+  EXPECT_THAT(get_response.config(), EqualsProto(expected_config));
+}
+
+TEST_F(GetForwardingConfigTest, CanReadBackP4InfoAndCookie) {
+  auto set_request = GetBasicForwardingRequest();
+  set_request.set_action(
+      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT);
+  set_request.mutable_config()->mutable_cookie()->set_cookie(123);
+  *set_request.mutable_config()->mutable_p4_device_config() = "abc";
+  *set_request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+
+  // Read back just the p4info and the cookie values.
+  GetForwardingPipelineConfigRequest get_request;
+  get_request.set_device_id(p4rt_session_->DeviceId());
+  get_request.set_response_type(
+      GetForwardingPipelineConfigRequest::P4INFO_AND_COOKIE);
+
+  // Expect to see just the cookie and the p4info being set.
+  p4::v1::ForwardingPipelineConfig expected_config;
+  *expected_config.mutable_cookie() = set_request.config().cookie();
+  *expected_config.mutable_p4info() = set_request.config().p4info();
+
+  SetForwardingPipelineConfigResponse set_response;
+  grpc::ClientContext set_context;
+  ASSERT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(
+      &set_context, set_request, &set_response));
+
+  GetForwardingPipelineConfigResponse get_response;
+  grpc::ClientContext get_context;
+  EXPECT_OK(p4rt_session_->Stub().GetForwardingPipelineConfig(
+      &get_context, get_request, &get_response));
+  EXPECT_THAT(get_response.config(), EqualsProto(expected_config));
+}
+
+TEST_F(GetForwardingConfigTest, CanReadBackDeviceConfigAndCookie) {
+  auto set_request = GetBasicForwardingRequest();
+  set_request.set_action(
+      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT);
+  set_request.mutable_config()->mutable_cookie()->set_cookie(123);
+  *set_request.mutable_config()->mutable_p4_device_config() = "abc";
+  *set_request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+
+  // Read back just the device config and the cookie values.
+  GetForwardingPipelineConfigRequest get_request;
+  get_request.set_device_id(p4rt_session_->DeviceId());
+  get_request.set_response_type(
+      GetForwardingPipelineConfigRequest::DEVICE_CONFIG_AND_COOKIE);
+
+  // Expect to see just the device config and the cookie set.
+  p4::v1::ForwardingPipelineConfig expected_config;
+  *expected_config.mutable_cookie() = set_request.config().cookie();
+  *expected_config.mutable_p4_device_config() =
+      set_request.config().p4_device_config();
+
+  SetForwardingPipelineConfigResponse set_response;
+  grpc::ClientContext set_context;
+  ASSERT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(
+      &set_context, set_request, &set_response));
+
+  GetForwardingPipelineConfigResponse get_response;
+  grpc::ClientContext get_context;
+  EXPECT_OK(p4rt_session_->Stub().GetForwardingPipelineConfig(
+      &get_context, get_request, &get_response));
+  EXPECT_THAT(get_response.config(), EqualsProto(expected_config));
+}
+
+TEST_F(GetForwardingConfigTest, CanUpdateTheConfigAndReadItBack) {
+  auto set_request = GetBasicForwardingRequest();
+  set_request.set_action(
+      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT);
+  set_request.mutable_config()->mutable_cookie()->set_cookie(123);
+  *set_request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+
+  // Set the forwarding pipeline.
+  {
+    SetForwardingPipelineConfigResponse set_response;
+    grpc::ClientContext set_context;
+    ASSERT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(
+        &set_context, set_request, &set_response));
+  }
+
+  // Verify we can read the same forwarding config back.
+  {
+    GetForwardingPipelineConfigRequest get_request;
+    get_request.set_device_id(p4rt_session_->DeviceId());
+    GetForwardingPipelineConfigResponse get_response;
+    grpc::ClientContext get_context;
+    EXPECT_OK(p4rt_session_->Stub().GetForwardingPipelineConfig(
+        &get_context, get_request, &get_response));
+    EXPECT_THAT(get_response.config(), EqualsProto(set_request.config()));
+  }
+
+  // Update the forwarding config's cookie, and reset it.
+  set_request.mutable_config()->mutable_cookie()->set_cookie(456);
+  {
+    SetForwardingPipelineConfigResponse set_response;
+    grpc::ClientContext set_context;
+    ASSERT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(
+        &set_context, set_request, &set_response));
+  }
+
+  // Verify we can read back the new forwarding config.
+  {
+    GetForwardingPipelineConfigRequest get_request;
+    get_request.set_device_id(p4rt_session_->DeviceId());
+    GetForwardingPipelineConfigResponse get_response;
+    grpc::ClientContext get_context;
+    EXPECT_OK(p4rt_session_->Stub().GetForwardingPipelineConfig(
+        &get_context, get_request, &get_response));
+    EXPECT_THAT(get_response.config(), EqualsProto(set_request.config()));
+  }
 }
 
 TEST_F(ForwardingPipelineConfigTest,

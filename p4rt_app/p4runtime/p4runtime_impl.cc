@@ -717,18 +717,46 @@ grpc::Status P4RuntimeImpl::GetForwardingPipelineConfig(
 #ifdef __EXCEPTIONS
   try {
 #endif
-    if (ir_p4info_.has_value()) {
-      switch (request->response_type()) {
-        case p4::v1::GetForwardingPipelineConfigRequest::COOKIE_ONLY:
-          *response->mutable_config()->mutable_cookie() =
-              forwarding_pipeline_config_.value().cookie();
-          break;
-        default:
-          *response->mutable_config() = forwarding_pipeline_config_.value();
-          break;
-      }
+
+    // If we have not set the forwarding pipeline. Then we don't return
+    // anything on a get request.
+    if (!forwarding_pipeline_config_.has_value()) {
+      return grpc::Status(grpc::StatusCode::OK, "");
     }
-    return grpc::Status(grpc::StatusCode::OK, "");
+
+    // Otherwise only return what the caller asks for.
+    switch (request->response_type()) {
+      case p4::v1::GetForwardingPipelineConfigRequest::ALL:
+        *response->mutable_config() = *forwarding_pipeline_config_;
+        break;
+      case p4::v1::GetForwardingPipelineConfigRequest::COOKIE_ONLY:
+        *response->mutable_config()->mutable_cookie() =
+            forwarding_pipeline_config_->cookie();
+        break;
+      case p4::v1::GetForwardingPipelineConfigRequest::P4INFO_AND_COOKIE:
+        *response->mutable_config()->mutable_p4info() =
+            forwarding_pipeline_config_->p4info();
+        *response->mutable_config()->mutable_cookie() =
+            forwarding_pipeline_config_->cookie();
+        break;
+      case p4::v1::GetForwardingPipelineConfigRequest::DEVICE_CONFIG_AND_COOKIE:
+        *response->mutable_config()->mutable_p4_device_config() =
+            forwarding_pipeline_config_->p4_device_config();
+        *response->mutable_config()->mutable_cookie() =
+            forwarding_pipeline_config_->cookie();
+        break;
+      default:
+        const std::string& response_type_name =
+            p4::v1::GetForwardingPipelineConfigRequest::ResponseType_Name(
+                request->response_type());
+        LOG(WARNING) << "Unknown get forwarding config request type: "
+                     << response_type_name;
+        return grpc::Status(
+            grpc::StatusCode::UNIMPLEMENTED,
+            absl::StrFormat("No support provided for request type '%s'.",
+                            response_type_name));
+    }
+
 #ifdef __EXCEPTIONS
   } catch (const std::exception& e) {
     return EnterCriticalState(
@@ -740,6 +768,8 @@ grpc::Status P4RuntimeImpl::GetForwardingPipelineConfig(
         component_state_);
   }
 #endif
+
+  return grpc::Status(grpc::StatusCode::OK, "");
 }
 
 absl::Status P4RuntimeImpl::AddPortTranslation(const std::string& port_name,
