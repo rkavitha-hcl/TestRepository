@@ -271,6 +271,7 @@ message AclPreIngressTableEntry {
     Ternary dst_ipv6 = 6;  // ternary match / Format::IPV6
     Ternary dscp = 7;      // ternary match / Format::HEX_STRING / 6 bits
     Optional in_port = 8;  // optional match / Format::STRING
+    Ternary dst_mac = 9;   // ternary match / Format::MAC
   }
   Match match = 1;
   message Action {
