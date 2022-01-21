@@ -51,8 +51,8 @@ absl::Status SetForwardingPipelineConfigAndAssureClearedTables(
 
 absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>>
 ConfigureSwitchAndReturnP4RuntimeSession(
-    thinkit::Switch& thinkit_switch, const std::string& gnmi_config,
-    const p4::config::v1::P4Info& p4info,
+    thinkit::Switch& thinkit_switch, std::optional<std::string> gnmi_config,
+    std::optional<p4::config::v1::P4Info> p4info,
     const pdpi::P4RuntimeSessionOptionalArgs& metadata) {
   // Since the gNMI Config push relies on tables being cleared, we construct a
   // P4RuntimeSession and clear the tables first.
@@ -60,26 +60,17 @@ ConfigureSwitchAndReturnP4RuntimeSession(
       std::unique_ptr<pdpi::P4RuntimeSession> session,
       CreateP4RuntimeSessionAndClearExistingState(thinkit_switch, metadata));
 
-  RETURN_IF_ERROR(PushGnmiAndWaitForConvergence(thinkit_switch,
-                                                gnmi_config, /*gnmi_timeout=*/
-                                                kGnmiTimeoutDefault));
-  RETURN_IF_ERROR(
-      SetForwardingPipelineConfigAndAssureClearedTables(session.get(), p4info));
-  return session;
-}
+  if (gnmi_config.has_value()) {
+    RETURN_IF_ERROR(
+        PushGnmiAndWaitForConvergence(thinkit_switch, *gnmi_config,
+                                      /*gnmi_timeout=*/kGnmiTimeoutDefault));
+  }
 
-absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>>
-ConfigureSwitchAndReturnP4RuntimeSessionWithoutP4InfoPush(
-    thinkit::Switch& thinkit_switch, const std::string& gnmi_config,
-    const pdpi::P4RuntimeSessionOptionalArgs& metadata) {
-  // Since the gNMI Config push relies on tables being cleared, we construct a
-  // P4RuntimeSession and clear the tables first.
-  ASSIGN_OR_RETURN(
-      std::unique_ptr<pdpi::P4RuntimeSession> session,
-      CreateP4RuntimeSessionAndClearExistingState(thinkit_switch, metadata));
+  if (p4info.has_value()) {
+    RETURN_IF_ERROR(SetForwardingPipelineConfigAndAssureClearedTables(
+        session.get(), *p4info));
+  }
 
-  RETURN_IF_ERROR(PushGnmiAndWaitForConvergence(thinkit_switch, gnmi_config,
-                                                kGnmiTimeoutDefault));
   return session;
 }
 
@@ -87,7 +78,8 @@ absl::StatusOr<std::pair<std::unique_ptr<pdpi::P4RuntimeSession>,
                          std::unique_ptr<pdpi::P4RuntimeSession>>>
 ConfigureSwitchPairAndReturnP4RuntimeSessionPair(
     thinkit::Switch& thinkit_switch1, thinkit::Switch& thinkit_switch2,
-    const std::string& gnmi_config, const p4::config::v1::P4Info& p4info,
+    std::optional<std::string> gnmi_config,
+    std::optional<p4::config::v1::P4Info> p4info,
     const pdpi::P4RuntimeSessionOptionalArgs& metadata) {
   // Since the gNMI Config push relies on tables being cleared, we construct the
   // P4RuntimeSessions and clear the tables first.
@@ -98,19 +90,23 @@ ConfigureSwitchPairAndReturnP4RuntimeSessionPair(
       std::unique_ptr<pdpi::P4RuntimeSession> session2,
       CreateP4RuntimeSessionAndClearExistingState(thinkit_switch2, metadata));
 
-  // Push the gNMI configs to both switches before waiting for convergence.
-  RETURN_IF_ERROR(PushGnmiConfig(thinkit_switch1, gnmi_config));
-  RETURN_IF_ERROR(PushGnmiConfig(thinkit_switch2, gnmi_config));
+  if (gnmi_config.has_value()) {
+    // Push the gNMI configs to both switches before waiting for convergence.
+    RETURN_IF_ERROR(PushGnmiConfig(thinkit_switch1, *gnmi_config));
+    RETURN_IF_ERROR(PushGnmiConfig(thinkit_switch2, *gnmi_config));
+    RETURN_IF_ERROR(WaitForGnmiPortIdConvergence(thinkit_switch1, *gnmi_config,
+                                                 kGnmiTimeoutDefault));
+    RETURN_IF_ERROR(WaitForGnmiPortIdConvergence(thinkit_switch2, *gnmi_config,
+                                                 kGnmiTimeoutDefault));
+  }
 
-  RETURN_IF_ERROR(WaitForGnmiPortIdConvergence(thinkit_switch1, gnmi_config,
-                                               kGnmiTimeoutDefault));
-  RETURN_IF_ERROR(WaitForGnmiPortIdConvergence(thinkit_switch2, gnmi_config,
-                                               kGnmiTimeoutDefault));
+  if (p4info.has_value()) {
+    RETURN_IF_ERROR(SetForwardingPipelineConfigAndAssureClearedTables(
+        session1.get(), *p4info));
+    RETURN_IF_ERROR(SetForwardingPipelineConfigAndAssureClearedTables(
+        session2.get(), *p4info));
+  }
 
-  RETURN_IF_ERROR(SetForwardingPipelineConfigAndAssureClearedTables(
-      session1.get(), p4info));
-  RETURN_IF_ERROR(SetForwardingPipelineConfigAndAssureClearedTables(
-      session2.get(), p4info));
   return std::make_pair(std::move(session1), std::move(session2));
 }
 
