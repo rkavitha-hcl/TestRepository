@@ -271,7 +271,6 @@ absl::StatusOr<p4::v1::TableEntry> SetUpPuntToCPUWithRateLimit(
   // TODO (b/204954722): Remove after bug is fixed.
   RETURN_IF_ERROR(pdpi::ClearTableEntries(&p4_session));
 
-  // TODO (b/203545459): Fix P4 meter action after bug is addressed.
   auto acl_entry = gutil::ParseProtoOrDie<sai::TableEntry>(absl::Substitute(
       R"pb(
         acl_ingress_table_entry {
@@ -281,7 +280,7 @@ absl::StatusOr<p4::v1::TableEntry> SetUpPuntToCPUWithRateLimit(
             src_ip { value: "$1" mask: "255.255.255.255" }
             dst_ip { value: "$2" mask: "255.255.255.255" }
           }
-          action { acl_experimental_trap { qos_queue: "$3" } }
+          action { acl_trap { qos_queue: "$3" } }
           priority: 1
           meter_config { bytes_per_second: $4 burst_bytes: $5 }
         }
