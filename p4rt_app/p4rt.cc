@@ -55,6 +55,18 @@ using ::grpc::Server;
 using ::grpc::ServerBuilder;
 using ::grpc::ServerCredentials;
 
+// By default the P4RT App will run on TCP port 9559. Which is the IANA port
+// reserved for P4Runtime.
+// https://www.iana.org/assignments/service-names-port-numbers/service-names-port-numbers.xhtml?search=9559
+DEFINE_int32(p4rt_grpc_port, 9559, "gRPC port for the P4Runtime Server");
+
+// Optionally, the P4RT App can be run on a unix socket, but the connection will
+// be insecure.
+DEFINE_string(
+    p4rt_unix_socket, "/sock/p4rt.sock",
+    "Unix socket file for internal insecure connections. Disabled if empty.");
+
+// Runtime flags to configure any server credentials for secure conections.
 DEFINE_bool(use_insecure_server_credentials, false, "Insecure gRPC.");
 DEFINE_string(ca_certificate_file, "",
               "CA root certificate file, in PEM format. If set, p4rt will "
@@ -68,16 +80,20 @@ DEFINE_bool(
     "is false and mTLS is configured.");
 DEFINE_string(authorization_policy_file, "/keys/authorization_policy.json",
               "File name of the JSON authorization policy file.");
+
+// P4Runtime options:
 DEFINE_bool(use_genetlink, false,
             "Enable Generic Netlink model for Packet Receive");
 DEFINE_bool(use_port_ids, false,
             "Controller will use Port ID values configured over gNMI instead "
             "of the SONiC interface names.");
-DEFINE_int32(p4rt_grpc_port, 9559, "gRPC port for the P4Runtime Server");
-DEFINE_string(
-    p4rt_unix_socket, "/sock/p4rt.sock",
-    "Unix socket file for internal insecure connections. Disabled if empty.");
+DEFINE_string(save_forwarding_config_file,
+              "/etc/sonic/p4rt_forwarding_config.pb.txt",
+              "Saves the forwarding pipeline config to a file so it can be "
+              "reloaded after reboot.");
 
+// We expect to run in the SONiC enviornment so the RedisDb connections are
+// fixed, and connot be set by a flag.
 constexpr char kRedisDbHost[] = "localhost";
 constexpr int kRedisDbPort = 6379;
 
@@ -215,6 +231,17 @@ int main(int argc, char** argv) {
   // Wait for PortInitDone to be done.
   p4rt_app::sonic::WaitForPortInitDone(*sonic_app_db);
 
+  // Configure the P4RT options.
+  p4rt_app::P4RuntimeImplOptions p4rt_options{
+      .use_genetlink = FLAGS_use_genetlink,
+      .translate_port_ids = FLAGS_use_port_ids,
+  };
+
+  std::string save_forwarding_config_file = FLAGS_save_forwarding_config_file;
+  if (!save_forwarding_config_file.empty()) {
+    p4rt_options.forwarding_config_full_path = save_forwarding_config_file;
+  }
+
   // Create the P4RT server.
   p4rt_app::P4RuntimeImpl p4runtime_server(
       std::move(sonic_app_db), std::move(sonic_app_state_db),
@@ -223,9 +250,7 @@ int main(int argc, char** argv) {
       std::move(notification_channel_vrf), std::move(app_db_table_hash),
       std::move(notification_channel_hash), std::move(app_db_table_switch),
       std::move(notification_channel_switch), std::move(packetio_impl),
-      component_state_singleton, system_state_singleton,
-      p4rt_app::P4RuntimeImplOptions{.use_genetlink = FLAGS_use_genetlink,
-                                     .translate_port_ids = FLAGS_use_port_ids});
+      component_state_singleton, system_state_singleton, p4rt_options);
 
   // Create a server to listen on the unix socket port.
   std::thread internal_server_thread;
