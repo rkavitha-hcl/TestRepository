@@ -324,8 +324,7 @@ absl::Status ClearTableEntries(P4RuntimeSession* session) {
   ASSIGN_OR_RETURN(
       p4::v1::GetForwardingPipelineConfigResponse response,
       GetForwardingPipelineConfig(
-          session,
-          p4::v1::GetForwardingPipelineConfigRequest::P4INFO_AND_COOKIE));
+          session, p4::v1::GetForwardingPipelineConfigRequest::ALL));
 
   // If no p4info has been pushed to the switch, then it cannot have any table
   // entries to clear. Furthermore, reading table entries (i.e. part of the
