@@ -54,6 +54,7 @@ cc_library(
         ":packetio_helpers",
         ":sdn_controller_manager",
         "//gutil:collections",
+        "//gutil:proto",
         "//gutil:status",
         "//p4_pdpi:ir",
         "//p4_pdpi:ir_cc_proto",

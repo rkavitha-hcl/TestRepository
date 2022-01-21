@@ -18,6 +18,8 @@
 #include <utility>
 
 #include "absl/memory/memory.h"
+#include "absl/random/distributions.h"
+#include "absl/random/random.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "glog/logging.h"
@@ -48,6 +50,11 @@ P4RuntimeGrpcService::P4RuntimeGrpcService(
   const std::string kHashTableName = "HASH_TABLE";
   const std::string kSwitchTableName = "SWITCH_TABLE";
   const std::string kCountersTableName = "COUNTERS";
+
+  // Choose a random gRPC port. While not strictly necessary each test brings up
+  // a new gRPC service, and randomly choosing a TCP port will minimize issues.
+  absl::BitGen gen;
+  grpc_port_ = absl::Uniform<int>(gen, 49152, 65535);
 
   // Connect SONiC AppDB tables with their equivelant AppStateDB tables.
   fake_p4rt_table_ = sonic::FakeSonicDbTable(&fake_p4rt_state_table_);
@@ -150,7 +157,7 @@ P4RuntimeGrpcService::~P4RuntimeGrpcService() {
   if (server_) server_->Shutdown();
 }
 
-int P4RuntimeGrpcService::GrpcPort() const { return 9999; }
+int P4RuntimeGrpcService::GrpcPort() const { return grpc_port_; }
 
 absl::Status P4RuntimeGrpcService::AddPortTranslation(
     const std::string& port_name, const std::string& port_id) {

@@ -11,7 +11,9 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include <cstdlib>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 
@@ -25,6 +27,7 @@
 #include "grpcpp/security/credentials.h"
 #include "grpcpp/support/status.h"
 #include "gtest/gtest.h"
+#include "gutil/proto.h"
 #include "gutil/proto_matchers.h"
 #include "gutil/status.h"
 #include "gutil/status_matchers.h"
@@ -41,7 +44,10 @@
 namespace p4rt_app {
 namespace {
 
+using ::gutil::EqualsProto;
+using ::gutil::IsOkAndHolds;
 using ::gutil::StatusIs;
+using ::p4::v1::GetForwardingPipelineConfigRequest;
 using ::p4::v1::GetForwardingPipelineConfigResponse;
 using ::p4::v1::SetForwardingPipelineConfigRequest;
 using ::p4::v1::SetForwardingPipelineConfigResponse;
@@ -52,16 +58,72 @@ MATCHER_P(GrpcStatusIs, status_code, "") {
   return arg.error_code() == status_code;
 }
 
+// Get a writeable directory where bazel tests can save output files to.
+// https://docs.bazel.build/versions/main/test-encyclopedia.html#initial-conditions
+absl::StatusOr<std::string> GetTestTmpDir() {
+  char* test_tmpdir = std::getenv("TEST_TMPDIR");
+  if (test_tmpdir == nullptr) {
+    return gutil::InternalErrorBuilder()
+           << "Could not find enviornment variable $TEST_TMPDIR. Is this a "
+              "bazel test run?";
+  }
+  return test_tmpdir;
+}
+
 class ForwardingPipelineConfigTest : public testing::Test {
  protected:
   void SetUp() override {
-    std::string address = absl::StrCat("localhost:", p4rt_service_.GrpcPort());
+    // Configure the P4RT session to save the P4Info to a file.
+    ASSERT_OK_AND_ASSIGN(std::string test_tmpdir, GetTestTmpDir());
+    config_save_path_ = absl::StrCat(test_tmpdir, "/forwarding_config.pb.txt");
+
+    // The config file should not exist before running a test. We expect all
+    // tests to cleanup their state.
+    ASSERT_NE(GetSavedConfig().status(), absl::OkStatus());
+
+    ASSERT_OK(ResetGrpcServerAndClient());
+  }
+
+  void TearDown() override {
+    // If a test created a config file we try to clean it up at teardown.
+    if (GetSavedConfig().status().ok() &&
+        std::remove(config_save_path_->c_str()) != 0) {
+      FAIL() << "Could not remove file: " << *config_save_path_;
+    }
+  }
+
+  absl::Status ResetGrpcServerAndClient() {
+    // The P4RT service will wait for the client to close before stopping.
+    // Therefore, we need to close the client connection first if it exists.
+    if (p4rt_session_ != nullptr) RETURN_IF_ERROR(p4rt_session_->Finish());
+
+    // Restart a new P4RT service.
+    p4rt_service_ =
+        std::make_unique<test_lib::P4RuntimeGrpcService>(P4RuntimeImplOptions{
+            .forwarding_config_full_path = config_save_path_,
+        });
+
+    // Reset the P4RT client.
+    std::string address = absl::StrCat("localhost:", p4rt_service_->GrpcPort());
     LOG(INFO) << "Opening P4RT connection to " << address << ".";
     auto stub =
         pdpi::CreateP4RuntimeStub(address, grpc::InsecureChannelCredentials());
-    ASSERT_OK_AND_ASSIGN(
-        p4rt_session_, pdpi::P4RuntimeSession::Create(std::move(stub),
-                                                      /*device_id=*/183807201));
+    ASSIGN_OR_RETURN(p4rt_session_,
+                     pdpi::P4RuntimeSession::Create(std::move(stub),
+                                                    /*device_id=*/183807201));
+
+    return absl::OkStatus();
+  }
+
+  absl::StatusOr<p4::v1::ForwardingPipelineConfig> GetSavedConfig() {
+    if (!config_save_path_.has_value()) {
+      return gutil::FailedPreconditionErrorBuilder()
+             << "Save path is not set for the config.";
+    }
+
+    p4::v1::ForwardingPipelineConfig config;
+    RETURN_IF_ERROR(gutil::ReadProtoFromFile(*config_save_path_, &config));
+    return config;
   }
 
   // SetForwardingPipelineConfig will reject any flow that doesn't have an
@@ -75,12 +137,19 @@ class ForwardingPipelineConfigTest : public testing::Test {
     return request;
   }
 
-  test_lib::P4RuntimeGrpcService p4rt_service_ =
-      test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
+  // File path for where the forwarding config is saved.
+  std::optional<std::string> config_save_path_;
+
+  // A fake P4RT gRPC service to run tests against.
+  std::unique_ptr<test_lib::P4RuntimeGrpcService> p4rt_service_;
+
+  // A gRPC client session to send and receive gRPC calls.
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
 };
 
-TEST_F(ForwardingPipelineConfigTest, VerifyWillNotUpdateAppDbState) {
+using VerifyTest = ForwardingPipelineConfigTest;
+
+TEST_F(VerifyTest, DoesNotUpdateAppDbState) {
   // By using the "middleblock" config we expect the ACL table definitionss to
   // be written into the AppDb during a config push.
   auto request = GetBasicForwardingRequest();
@@ -94,10 +163,10 @@ TEST_F(ForwardingPipelineConfigTest, VerifyWillNotUpdateAppDbState) {
   grpc::ClientContext context;
   EXPECT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(&context, request,
                                                               &response));
-  EXPECT_THAT(p4rt_service_.GetP4rtAppDbTable().GetAllKeys(), IsEmpty());
+  EXPECT_THAT(p4rt_service_->GetP4rtAppDbTable().GetAllKeys(), IsEmpty());
 }
 
-TEST_F(ForwardingPipelineConfigTest, VerifyFailsWhenNoConfigIsSet) {
+TEST_F(VerifyTest, FailsWhenNoConfigIsSet) {
   auto request = GetBasicForwardingRequest();
   request.set_action(SetForwardingPipelineConfigRequest::VERIFY);
 
@@ -108,7 +177,37 @@ TEST_F(ForwardingPipelineConfigTest, VerifyFailsWhenNoConfigIsSet) {
               GrpcStatusIs(grpc::StatusCode::INVALID_ARGUMENT));
 }
 
-TEST_F(ForwardingPipelineConfigTest, VerifyAndCommitWillUpdateAppDbState) {
+using VerifyAndSaveTest = ForwardingPipelineConfigTest;
+
+TEST_F(VerifyAndSaveTest, WritesConfigToAFile) {
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_SAVE);
+  *request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  EXPECT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(&context, request,
+                                                              &response));
+
+  // We should see the forwarding config saved to the file.
+  EXPECT_THAT(GetSavedConfig(), IsOkAndHolds(EqualsProto(request.config())));
+}
+
+TEST_F(VerifyAndSaveTest, FailsWhenNoConfigIsSet) {
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_SAVE);
+
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  EXPECT_THAT(p4rt_session_->Stub().SetForwardingPipelineConfig(
+                  &context, request, &response),
+              GrpcStatusIs(grpc::StatusCode::INVALID_ARGUMENT));
+}
+
+using VerifyAndCommitTest = ForwardingPipelineConfigTest;
+
+TEST_F(VerifyAndCommitTest, UpdatesAppDbState) {
   // By using the "middleblock" config we expect the ACL table definitionss to
   // be written into the AppDb during a config push.
   auto request = GetBasicForwardingRequest();
@@ -122,10 +221,10 @@ TEST_F(ForwardingPipelineConfigTest, VerifyAndCommitWillUpdateAppDbState) {
   grpc::ClientContext context;
   EXPECT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(&context, request,
                                                               &response));
-  EXPECT_THAT(p4rt_service_.GetP4rtAppDbTable().GetAllKeys(), Not(IsEmpty()));
+  EXPECT_THAT(p4rt_service_->GetP4rtAppDbTable().GetAllKeys(), Not(IsEmpty()));
 }
 
-TEST_F(ForwardingPipelineConfigTest, VerifyAndCommitFailsWhenNoConfigIsSet) {
+TEST_F(VerifyAndCommitTest, FailsWhenNoConfigIsSet) {
   auto request = GetBasicForwardingRequest();
   request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT);
 
@@ -136,8 +235,9 @@ TEST_F(ForwardingPipelineConfigTest, VerifyAndCommitFailsWhenNoConfigIsSet) {
               GrpcStatusIs(grpc::StatusCode::INVALID_ARGUMENT));
 }
 
-TEST_F(ForwardingPipelineConfigTest,
-       VerifyAndCommitCannotClearForwardingState) {
+// This is not expected P4Runtime behavior. We simply haven't implemented it
+// today, and currently have no plans to.
+TEST_F(VerifyAndCommitTest, CannotClearForwardingState) {
   auto request = GetBasicForwardingRequest();
   request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT);
   *request.mutable_config()->mutable_p4info() =
@@ -152,8 +252,8 @@ TEST_F(ForwardingPipelineConfigTest,
         &context, request, &response));
   }
 
-  // This is not expected P4Runtime behavior. We simply haven't implemented it
-  // today, and currently have no plans to.
+  // Because we don't support it today we fail when trying to push the same
+  // config a second time.
   {
     SetForwardingPipelineConfigResponse response;
     grpc::ClientContext context;
@@ -163,11 +263,152 @@ TEST_F(ForwardingPipelineConfigTest,
   }
 }
 
-TEST_F(ForwardingPipelineConfigTest, SetForwardingPipelineConfig) {
-  EXPECT_OK(pdpi::SetForwardingPipelineConfig(
-      p4rt_session_.get(),
-      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-      sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+using CommitTest = ForwardingPipelineConfigTest;
+
+TEST_F(CommitTest, LoadsLastSavedConfig) {
+  // First we'll verify and save the config.
+  SetForwardingPipelineConfigRequest save_request = GetBasicForwardingRequest();
+  save_request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_SAVE);
+  *save_request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+
+  // Then we'll load the saved config with the COMMIT action.
+  SetForwardingPipelineConfigRequest load_request = GetBasicForwardingRequest();
+  load_request.set_action(SetForwardingPipelineConfigRequest::COMMIT);
+
+  // Finally we'll verify we can read back the saved request.
+  GetForwardingPipelineConfigRequest get_request;
+  get_request.set_device_id(p4rt_session_->DeviceId());
+
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext save_context;
+  ASSERT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(
+      &save_context, save_request, &response));
+
+  grpc::ClientContext load_context;
+  ASSERT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(
+      &load_context, load_request, &response));
+
+  GetForwardingPipelineConfigResponse get_response;
+  grpc::ClientContext get_context;
+  EXPECT_OK(p4rt_session_->Stub().GetForwardingPipelineConfig(
+      &get_context, get_request, &get_response));
+  EXPECT_THAT(get_response.config(), EqualsProto(save_request.config()));
+}
+
+TEST_F(CommitTest, FailsIfNoConfigHasBeenSaved) {
+  // If the file exists before this test for any reason then this test is
+  // pointless.
+  ASSERT_EQ(GetSavedConfig().status().code(),
+            absl::StatusCode::kInvalidArgument)
+      << "This test requires the config file to not be saved before running.";
+
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::COMMIT);
+
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  EXPECT_THAT(p4rt_session_->Stub().SetForwardingPipelineConfig(
+                  &context, request, &response),
+              GrpcStatusIs(grpc::StatusCode::INVALID_ARGUMENT));
+}
+
+TEST_F(CommitTest, FailsIfAConfigIsSet) {
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::COMMIT);
+  *request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  EXPECT_THAT(p4rt_session_->Stub().SetForwardingPipelineConfig(
+                  &context, request, &response),
+              GrpcStatusIs(grpc::StatusCode::INVALID_ARGUMENT));
+}
+
+using ReconcileAndCommitTest = ForwardingPipelineConfigTest;
+
+TEST_F(ReconcileAndCommitTest, SetForwardingPipelineConfig) {
+  SetForwardingPipelineConfigRequest commit_request =
+      GetBasicForwardingRequest();
+  commit_request.set_action(
+      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT);
+  *commit_request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+
+  GetForwardingPipelineConfigRequest get_request;
+  get_request.set_device_id(p4rt_session_->DeviceId());
+
+  SetForwardingPipelineConfigResponse commit_response;
+  grpc::ClientContext commit_context;
+  EXPECT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(
+      &commit_context, commit_request, &commit_response));
+
+  GetForwardingPipelineConfigResponse get_response;
+  grpc::ClientContext get_context;
+  EXPECT_OK(p4rt_session_->Stub().GetForwardingPipelineConfig(
+      &get_context, get_request, &get_response));
+  EXPECT_THAT(get_response.config(), EqualsProto(commit_request.config()));
+}
+
+TEST_F(ReconcileAndCommitTest, WritesConfigToAFile) {
+  SetForwardingPipelineConfigRequest request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT);
+  *request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  ASSERT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(&context, request,
+                                                              &response));
+
+  EXPECT_THAT(GetSavedConfig(), IsOkAndHolds(EqualsProto(request.config())));
+}
+
+TEST_F(ReconcileAndCommitTest, FailsWhenNoConfigIsSet) {
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT);
+
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  EXPECT_THAT(p4rt_session_->Stub().SetForwardingPipelineConfig(
+                  &context, request, &response),
+              GrpcStatusIs(grpc::StatusCode::INVALID_ARGUMENT));
+}
+
+TEST_F(ReconcileAndCommitTest, SetDuplicateForwardingPipelineConfig) {
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT);
+  *request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  ASSERT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(&context, request,
+                                                              &response));
+
+  grpc::ClientContext duplicate_context;
+  EXPECT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(
+      &duplicate_context, request, &response));
+}
+
+TEST_F(ReconcileAndCommitTest, FailsIfAModifiedConfigIsPushed) {
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT);
+  *request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  ASSERT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(&context, request,
+                                                              &response));
+
+  // Remove the last table from the P4Info, and try pushing again.
+  request.mutable_config()->mutable_p4info()->mutable_tables()->RemoveLast();
+  grpc::ClientContext modify_context;
+  EXPECT_THAT(p4rt_session_->Stub().SetForwardingPipelineConfig(
+                  &modify_context, request, &response),
+              GrpcStatusIs(grpc::StatusCode::UNIMPLEMENTED));
 }
 
 TEST_F(ForwardingPipelineConfigTest, GetForwardingPipelineConfig) {
@@ -176,53 +417,13 @@ TEST_F(ForwardingPipelineConfigTest, GetForwardingPipelineConfig) {
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
       p4rt_session_.get(),
       SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT, p4_info));
-  ASSERT_OK_AND_ASSIGN(GetForwardingPipelineConfigResponse response,
-                       pdpi::GetForwardingPipelineConfig(
-                           p4rt_session_.get(),
-                           p4::v1::GetForwardingPipelineConfigRequest::ALL));
+  ASSERT_OK_AND_ASSIGN(
+      GetForwardingPipelineConfigResponse response,
+      pdpi::GetForwardingPipelineConfig(
+          p4rt_session_.get(), GetForwardingPipelineConfigRequest::ALL));
 
   // Ensure the P4Info we read back matches what we set.
-  EXPECT_THAT(response.config().p4info(), gutil::EqualsProto(p4_info));
-}
-
-TEST_F(ForwardingPipelineConfigTest, SetDuplicateForwardingPipelineConfig) {
-  auto p4_info = sai::GetP4Info(sai::Instantiation::kMiddleblock);
-  EXPECT_OK(pdpi::SetForwardingPipelineConfig(
-      p4rt_session_.get(),
-      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT, p4_info));
-  EXPECT_OK(pdpi::SetForwardingPipelineConfig(
-      p4rt_session_.get(),
-      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT, p4_info));
-}
-
-TEST_F(ForwardingPipelineConfigTest, FailVerifyAndSave) {
-  pdpi::P4RuntimeSession* session = p4rt_session_.get();
-  SetForwardingPipelineConfigRequest request;
-  request.set_device_id(session->DeviceId());
-  request.set_role(session->Role());
-  *request.mutable_election_id() = session->ElectionId();
-  request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_SAVE);
-
-  SetForwardingPipelineConfigResponse response;
-  grpc::ClientContext context;
-  EXPECT_THAT(
-      gutil::GrpcStatusToAbslStatus(session->Stub().SetForwardingPipelineConfig(
-          &context, request, &response)),
-      gutil::StatusIs(absl::StatusCode::kUnimplemented));
-}
-
-TEST_F(ForwardingPipelineConfigTest, ModifyConfig) {
-  auto p4_info = sai::GetP4Info(sai::Instantiation::kMiddleblock);
-  EXPECT_OK(pdpi::SetForwardingPipelineConfig(
-      p4rt_session_.get(),
-      SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT, p4_info));
-  p4_info.mutable_tables()->RemoveLast();
-  EXPECT_THAT(
-      pdpi::SetForwardingPipelineConfig(
-          p4rt_session_.get(),
-          SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT, p4_info),
-      gutil::StatusIs(absl::StatusCode::kUnimplemented,
-                      testing::HasSubstr("deleted: ")));
+  EXPECT_THAT(response.config().p4info(), EqualsProto(p4_info));
 }
 
 TEST_F(ForwardingPipelineConfigTest,
@@ -232,7 +433,7 @@ TEST_F(ForwardingPipelineConfigTest,
 
   // Generate error from the OrchAgent layer when programming the PRE_INGRESS
   // ACL table.
-  p4rt_service_.GetP4rtAppDbTable().SetResponseForKey(
+  p4rt_service_->GetP4rtAppDbTable().SetResponseForKey(
       "DEFINITION:ACL_ACL_PRE_INGRESS_TABLE", "SWSS_RC_INVALID_PARAM",
       "my error message");
   ASSERT_THAT(pdpi::SetForwardingPipelineConfig(
@@ -243,24 +444,35 @@ TEST_F(ForwardingPipelineConfigTest,
 
   // Because we failed to program the forwarding pipeline config we should not
   // be able to write to the table.
-  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
-                       test_lib::PdWriteRequestToPi(
-                           R"pb(
-                             updates {
-                               type: INSERT
-                               table_entry {
-                                 acl_pre_ingress_table_entry {
-                                   match {}
-                                   priority: 2000
-                                   action { set_vrf { vrf_id: "20" } }
-                                 }
-                               }
-                             }
-                           )pb",
-                           ir_p4_info));
+  p4::v1::WriteRequest request;
   EXPECT_THAT(
       pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
       StatusIs(absl::StatusCode::kInternal));
+}
+
+TEST_F(ForwardingPipelineConfigTest,
+       CannotSendWriteRequestsWhenANewCofigIsSavedButNotApplied) {
+  // Commit a valid forwarding config.
+  ASSERT_OK(pdpi::SetForwardingPipelineConfig(
+      p4rt_session_.get(),
+      SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT,
+      sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+
+  // Sanity check that we can send a write request.
+  p4::v1::WriteRequest request;
+  ASSERT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
+
+  // Save a new config. VERIFY_AND_SAVE does not check that the new config
+  // matches the existing config so it should still update the P4RT App state
+  // that a new config exists, but has not been applied.
+  ASSERT_OK(pdpi::SetForwardingPipelineConfig(
+      p4rt_session_.get(), SetForwardingPipelineConfigRequest::VERIFY_AND_SAVE,
+      sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+
+  EXPECT_THAT(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
+      StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
 }  // namespace

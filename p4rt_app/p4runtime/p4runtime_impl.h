@@ -50,6 +50,7 @@ namespace p4rt_app {
 struct P4RuntimeImplOptions {
   bool use_genetlink = false;
   bool translate_port_ids = true;
+  absl::optional<std::string> forwarding_config_full_path;
 };
 
 class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
@@ -75,7 +76,12 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
   ~P4RuntimeImpl() override = default;
 
   // Determines the type of write request (e.g. table entry, direct counter
-  // entry, etc.) then passes work off to a helper method.
+  // entry, etc.) then passes work off to a helper method. Requests will be
+  // rejected if:
+  //  * Request is not from the primary connection.
+  //  * No config has been applied.
+  //  * The last saved config has not been applied.
+  //  * The switch is in a critical state.
   grpc::Status Write(grpc::ServerContext* context,
                      const p4::v1::WriteRequest* request,
                      p4::v1::WriteResponse* response) override
@@ -156,9 +162,19 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
   grpc::Status VerifyPipelineConfig(
       const p4::v1::SetForwardingPipelineConfigRequest& request) const;
 
-  // Verify and realize the given config. Today we DO NOT support clearing any
-  // forwarding state, and we will return a failure if a config has already been
-  // applied.
+  // Verify and save the config if the target can realize it. Do not modify the
+  // forwarding state in the target. Any subsequent read/write requests must
+  // refer to fields in the new config.
+  //
+  // Returns error if config is not provided of if the provided config cannot be
+  // realized.
+  grpc::Status VerifyAndSavePipelineConfig(
+      const p4::v1::SetForwardingPipelineConfigRequest& request)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(server_state_lock_);
+
+  // Verify, save and realize the given config. Today we DO NOT support clearing
+  // any forwarding state, and we will return a failure if a config has already
+  // been applied.
   //
   // Returns an error if the config is not provided of if the provided config
   // cannot be realized.
@@ -166,15 +182,30 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
       const p4::v1::SetForwardingPipelineConfigRequest& request)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(server_state_lock_);
 
-  // Verify and realize the given config. Today we DO NOT support changing the
-  // P4Info in any way, and we will return a failure if we detect any changes.
-  // However, new configs can be pushed multiple times so long as the P4Info
-  // remains the same.
+  // Realize the last saved, but not yet committed config.
+  //
+  // Returns an error if a config is provided, if a config is already realized,
+  // or if a no saved config is found.
+  grpc::Status CommitPipelineConfig(
+      const p4::v1::SetForwardingPipelineConfigRequest& request)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(server_state_lock_);
+
+  // Verify, save and realize the given config. Today we DO NOT support changing
+  // the P4Info in any way, and we will return a failure if we detect any
+  // changes. However, new configs can be pushed multiple times so long as the
+  // P4Info remains the same.
   //
   // Returns an error if the config is not provided, or if the existing
   // forwarding state cannot be preserved for the given config by the target.
   grpc::Status ReconcileAndCommitPipelineConfig(
       const p4::v1::SetForwardingPipelineConfigRequest& request)
+      ABSL_EXCLUSIVE_LOCKS_REQUIRED(server_state_lock_);
+
+  // Tries to save the forwarding config to a file. If the
+  // forwarding_config_full_path_ variable is not set it will return OK, but any
+  // other issue with saving the config will return an error.
+  grpc::Status SavePipelineConfig(
+      const p4::v1::ForwardingPipelineConfig& config) const
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(server_state_lock_);
 
   // Writes the necessary updates from the pipeline config into the AppDb
@@ -253,6 +284,16 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
   // the P4RT service start processing write requests.
   absl::optional<p4::v1::ForwardingPipelineConfig> forwarding_pipeline_config_
       ABSL_GUARDED_BY(server_state_lock_);
+
+  // The ForwardingConfig can be saved to disk when it is pushed to the switch.
+  // It can also be loaded from disk by sending a COMMIT request to the
+  // SetForwardingPipelineConfig method.
+  absl::optional<std::string> forwarding_config_full_path_
+      ABSL_GUARDED_BY(server_state_lock_);
+
+  // Once we receive a config we should not accept new requests until it has
+  // been applied.
+  bool forwarding_config_has_been_applied_ ABSL_GUARDED_BY(server_state_lock_);
 
   // Once we receive the P4Info we create a pdpi::IrP4Info object which allows
   // us to translate the PI requests into human-readable objects.

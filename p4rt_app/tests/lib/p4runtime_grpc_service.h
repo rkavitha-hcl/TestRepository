@@ -64,6 +64,10 @@ class P4RuntimeGrpcService {
   swss::FakeSystemStateHelper& GetSystemStateHelper();
 
  private:
+  // The TCP port used to  open the P4RT App service. It is choosen randomly in
+  // the ctor, and shouldn't be modified otherwise.
+  int grpc_port_;
+
   // Faked AppDb tables.
   sonic::FakeSonicDbTable fake_p4rt_table_;
   sonic::FakeSonicDbTable fake_vrf_table_;

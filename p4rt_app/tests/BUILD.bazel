@@ -150,6 +150,7 @@ cc_test(
     srcs = ["forwarding_pipeline_config_test.cc"],
     tags = ["exclusive"],
     deps = [
+        "//gutil:proto",
         "//gutil:proto_matchers",
         "//gutil:status",
         "//gutil:status_matchers",
