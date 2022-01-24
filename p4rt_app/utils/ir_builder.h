@@ -39,20 +39,25 @@ class IrActionDefinitionBuilder {
     return *this;
   }
 
-  IrActionDefinitionBuilder& param(p4::config::v1::Action::Param param_proto) {
+  IrActionDefinitionBuilder& param(
+      p4::config::v1::Action::Param param_proto,
+      pdpi::Format format = pdpi::Format::HEX_STRING) {
     pdpi::IrActionDefinition::IrActionParamDefinition param_def;
     *param_def.mutable_param() = std::move(param_proto);
+    param_def.set_format(format);
     (*action_.mutable_params_by_id())[param_def.param().id()] = param_def;
     (*action_.mutable_params_by_name())[param_def.param().name()] =
         std::move(param_def);
     return *this;
   }
 
-  IrActionDefinitionBuilder& param(absl::string_view param_str) {
+  IrActionDefinitionBuilder& param(
+      absl::string_view param_str,
+      pdpi::Format format = pdpi::Format::HEX_STRING) {
     p4::config::v1::Action::Param param_proto;
     google::protobuf::TextFormat::ParseFromString(std::string(param_str),
                                                   &param_proto);
-    return param(param_proto);
+    return param(param_proto, format);
   }
 
  private:

@@ -11,9 +11,51 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+
 package(
     default_visibility = ["//visibility:public"],
     licenses = ["notice"],
+)
+
+proto_library(
+    name = "p4info_verification_schema_proto",
+    srcs = ["p4info_verification_schema.proto"],
+    deps = ["//p4_pdpi:ir_proto"],
+)
+
+cc_proto_library(
+    name = "p4info_verification_schema_cc_proto",
+    deps = ["p4info_verification_schema_proto"],
+)
+
+cc_library(
+    name = "p4info_verification_schema",
+    srcs = ["p4info_verification_schema.cc"],
+    hdrs = ["p4info_verification_schema.h"],
+    deps = [
+        "p4info_verification_schema_cc_proto",
+        "//gutil:status",
+        "//p4_pdpi:ir_cc_proto",
+        "//p4rt_app/utils:table_utility",
+        "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+    ],
+)
+
+cc_test(
+    name = "p4info_verification_schema_test",
+    srcs = ["p4info_verification_schema_test.cc"],
+    deps = [
+        ":p4info_verification_schema",
+        "//gutil:proto_matchers",
+        "//gutil:status_matchers",
+        "//p4_pdpi:ir_cc_proto",
+        "//p4rt_app/utils:ir_builder",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+    ],
 )
 
 cc_library(
