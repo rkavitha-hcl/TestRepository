@@ -66,6 +66,29 @@ absl::Status ReadProtoFromString(absl::string_view proto_string,
   return absl::OkStatus();
 }
 
+absl::Status SaveProtoToFile(absl::string_view filename,
+                             const google::protobuf::Message &message) {
+  // Verifies that the version of the library that we linked against is
+  // compatible with the version of the headers we compiled against.
+  GOOGLE_PROTOBUF_VERIFY_VERSION;
+  int fd = open(std::string(filename).c_str(), O_WRONLY | O_CREAT, 0644);
+  if (fd < 0) {
+    return InvalidArgumentErrorBuilder()
+           << "Error opening the file " << filename;
+  }
+
+  google::protobuf::io::FileOutputStream file_stream(fd);
+  file_stream.SetCloseOnDelete(true);
+
+  if (!google::protobuf::TextFormat::Print(message, &file_stream)) {
+    return InvalidArgumentErrorBuilder()
+           << "Failed to print proto to file " << filename;
+  }
+
+  file_stream.Flush();
+  return absl::OkStatus();
+}
+
 absl::StatusOr<std::string> GetOneOfFieldName(
     const google::protobuf::Message &message, const std::string &oneof_name) {
   const auto *oneof_descriptor =

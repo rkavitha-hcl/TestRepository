@@ -13,16 +13,9 @@
 // limitations under the License.
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
 
-#include <endian.h>
-
-#include <fstream>
-#include <iomanip>
-#include <iostream>
 #include <memory>
-#include <sstream>
 #include <stdexcept>
 #include <string>
-#include <type_traits>
 #include <vector>
 
 #include "absl/memory/memory.h"
@@ -369,7 +362,6 @@ P4RuntimeImpl::P4RuntimeImpl(
       app_db_table_switch_(std::move(app_db_table_switch)),
       app_db_notifier_switch_(std::move(app_db_notifier_switch)),
       forwarding_config_full_path_(p4rt_options.forwarding_config_full_path),
-      forwarding_config_has_been_applied_(false),
       packetio_impl_(std::move(packetio_impl)),
       component_state_(component_state),
       system_state_(system_state),
@@ -423,14 +415,6 @@ grpc::Status P4RuntimeImpl::Write(grpc::ServerContext* context,
     if (!ir_p4info_.has_value()) {
       return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
                           "Switch has not configured the forwarding pipeline.");
-    }
-
-    // We do not allow new requests if a new config was saved, but not realized.
-    if (!forwarding_config_has_been_applied_) {
-      return grpc::Status(
-          grpc::StatusCode::FAILED_PRECONDITION,
-          "A new forwarding pipeline has been saved, but not committed. Please "
-          "COMMIT the saved config before writing.");
     }
 
     pdpi::IrWriteRpcStatus rpc_status;
@@ -652,9 +636,6 @@ grpc::Status P4RuntimeImpl::SetForwardingPipelineConfig(
     switch (request->action()) {
       case p4::v1::SetForwardingPipelineConfigRequest::VERIFY:
         action_status = VerifyPipelineConfig(*request);
-        break;
-      case p4::v1::SetForwardingPipelineConfigRequest::VERIFY_AND_SAVE:
-        action_status = VerifyAndSavePipelineConfig(*request);
         break;
       case p4::v1::SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT:
         action_status = VerifyAndCommitPipelineConfig(*request);
@@ -915,21 +896,6 @@ grpc::Status P4RuntimeImpl::VerifyPipelineConfig(
   return grpc::Status::OK;
 }
 
-grpc::Status P4RuntimeImpl::VerifyAndSavePipelineConfig(
-    const p4::v1::SetForwardingPipelineConfigRequest& request) {
-  grpc::Status verified = VerifyPipelineConfig(request);
-  if (!verified.ok()) return verified;
-
-  if (!forwarding_config_full_path_.has_value()) {
-    return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
-                        "P4RT App has not been configured to save forwarding "
-                        "configs. The VERIFY_AND_SAVE action cannot be used.");
-  }
-
-  forwarding_config_has_been_applied_ = false;
-  return SavePipelineConfig(request.config());
-}
-
 grpc::Status P4RuntimeImpl::VerifyAndCommitPipelineConfig(
     const p4::v1::SetForwardingPipelineConfigRequest& request) {
   // Today we do not clear any forwarding state so if we detect any we return an
@@ -1036,7 +1002,6 @@ grpc::Status P4RuntimeImpl::ReconcileAndCommitPipelineConfig(
   // The ForwardingPipelineConfig is still updated incase the cookie value has
   // been changed.
   forwarding_pipeline_config_ = request.config();
-  forwarding_config_has_been_applied_ = true;
 
   grpc::Status saved = SavePipelineConfig(*forwarding_pipeline_config_);
   if (!saved.ok()) {
@@ -1056,30 +1021,8 @@ grpc::Status P4RuntimeImpl::SavePipelineConfig(
                     "path was not set.";
     return grpc::Status::OK;
   }
-  const std::string& filename = *forwarding_config_full_path_;
-
-  std::ofstream fileout(filename);
-  if (!fileout) {
-    LOG(ERROR) << "Could not open file: " << filename;
-    return grpc::Status(
-        grpc::StatusCode::FAILED_PRECONDITION,
-        absl::StrCat(
-            "Could not open file to save the ForwardingPipelineConfig: ",
-            filename));
-  }
-
-  fileout << config.DebugString();
-  if (!fileout) {
-    LOG(ERROR) << "Problem writting the ForwardingPipelineConfig: " << filename;
-    return grpc::Status(
-        grpc::StatusCode::UNKNOWN,
-        absl::StrCat("Could not save the ForwardingPipelineConfig: ",
-                     filename));
-  }
-
-  LOG(INFO) << "Saved the ForwardingPipelineConfig: "
-            << *forwarding_config_full_path_;
-  return grpc::Status::OK;
+  return gutil::AbslStatusToGrpcStatus(
+      gutil::SaveProtoToFile(*forwarding_config_full_path_, config));
 }
 
 absl::Status P4RuntimeImpl::ConfigureAppDbTables(

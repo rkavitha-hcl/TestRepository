@@ -162,16 +162,6 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
   grpc::Status VerifyPipelineConfig(
       const p4::v1::SetForwardingPipelineConfigRequest& request) const;
 
-  // Verify and save the config if the target can realize it. Do not modify the
-  // forwarding state in the target. Any subsequent read/write requests must
-  // refer to fields in the new config.
-  //
-  // Returns error if config is not provided of if the provided config cannot be
-  // realized.
-  grpc::Status VerifyAndSavePipelineConfig(
-      const p4::v1::SetForwardingPipelineConfigRequest& request)
-      ABSL_EXCLUSIVE_LOCKS_REQUIRED(server_state_lock_);
-
   // Verify, save and realize the given config. Today we DO NOT support clearing
   // any forwarding state, and we will return a failure if a config has already
   // been applied.
@@ -290,10 +280,6 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
   // SetForwardingPipelineConfig method.
   absl::optional<std::string> forwarding_config_full_path_
       ABSL_GUARDED_BY(server_state_lock_);
-
-  // Once we receive a config we should not accept new requests until it has
-  // been applied.
-  bool forwarding_config_has_been_applied_ ABSL_GUARDED_BY(server_state_lock_);
 
   // Once we receive the P4Info we create a pdpi::IrP4Info object which allows
   // us to translate the PI requests into human-readable objects.
