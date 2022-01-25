@@ -811,7 +811,7 @@ TEST_P(ExampleIxiaTestFixture, TestIPv4Pkts) {
   }
 
   // Wait to let the links come up
-  absl::SleepFor(absl::Seconds(30));
+  absl::SleepFor(absl::Seconds(60));
 
   // Loop through the interface_info looking for Ixia/SUT interface pairs,
   // checking if the link is up.  we need one pair with link up for the
@@ -1380,7 +1380,7 @@ TEST_P(ExampleIxiaTestFixture, TestIPv6Pkts) {
   }
 
   // Wait to let the links come up
-  absl::SleepFor(absl::Seconds(30));
+  absl::SleepFor(absl::Seconds(60));
 
   // Loop through the interface_info looking for Ixia/SUT interface pairs,
   // checking if the link is up.  we need one pair with link up for the
