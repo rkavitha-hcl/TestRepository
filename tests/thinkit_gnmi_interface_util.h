@@ -94,7 +94,8 @@ GetExpectedPortInfoForBreakoutMode(const std::string& port,
 // breakoutSpeed1 + numBreakouts2 x breakoutSpeed2 + ... Eg: "1x400G", 2x100G +
 // 1x200G"
 absl::Status GetBreakoutModeConfigFromString(
-    gnmi::SetRequest& req, const absl::string_view index,
+    gnmi::SetRequest& req, gnmi::gNMI::StubInterface* sut_gnmi_stub,
+    const absl::string_view port_index, const absl::string_view intf_name,
     const absl::string_view breakout_mode);
 
 // GetNonExistingPortsAfterBreakout returns list of ports that were part of a
@@ -130,5 +131,9 @@ absl::StatusOr<std::string> GetPortIndex(
 
 std::string ConstructSupportedBreakoutMode(absl::string_view num_breakouts,
                                            absl::string_view breakout_speed);
+
+// IsCopperPort returns whether the port is copper or optic.
+absl::StatusOr<bool> IsCopperPort(gnmi::gNMI::StubInterface* sut_gnmi_stub,
+                                  absl::string_view port);
 }  // namespace pins_test
 #endif  // GOOGLE_TESTS_THINKIT_GNMI_INTERFACE_UTIL_H_

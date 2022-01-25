@@ -15,6 +15,7 @@
 #include "absl/strings/match.h"
 #include "absl/strings/numbers.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_join.h"
 #include "absl/strings/str_replace.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
@@ -380,8 +381,46 @@ absl::StatusOr<std::string> GenerateComponentBreakoutConfig(
   return component_config;
 }
 
+absl::StatusOr<bool> IsCopperPort(gnmi::gNMI::StubInterface* sut_gnmi_stub,
+                                  absl::string_view port) {
+  // Get transceiver name for the port.
+  auto state_path =
+      absl::StrCat("interfaces/interface[name=", port, "]/state/transceiver");
+  auto resp_parse_str = "openconfig-platform-transceiver:transceiver";
+  ASSIGN_OR_RETURN(
+      auto xcvrd_name,
+      GetGnmiStatePathInfo(sut_gnmi_stub, state_path, resp_parse_str),
+      _ << "Failed to get GNMI state path value for port transceiver for "
+           "port "
+        << port);
+  StripSymbolFromString(xcvrd_name, '\"');
+
+  // TODO: Replace with PMD type when supported.
+  // Get cable length for the port transceiver.
+  state_path =
+      absl::StrCat("components/component[name=", xcvrd_name,
+                   "]/transceiver/state/openconfig-platform-ext:cable-length");
+  resp_parse_str = "openconfig-platform-ext:cable-length";
+  ASSIGN_OR_RETURN(
+      auto cable_length_str,
+      GetGnmiStatePathInfo(sut_gnmi_stub, state_path, resp_parse_str),
+      _ << "Failed to get GNMI state path value for cable-length for "
+           "port "
+        << port);
+  StripSymbolFromString(cable_length_str, '\"');
+
+  // Only cable lengths of copper ports are a positive value.
+  float cable_length;
+  if (!absl::SimpleAtof(cable_length_str, &cable_length)) {
+    return gutil::InternalErrorBuilder().LogError()
+           << "Failed to convert string (" << cable_length_str << ") to float";
+  }
+  return (cable_length > 0);
+}
+
 absl::StatusOr<std::string> GenerateInterfaceBreakoutConfig(
-    absl::string_view port, const int id, absl::string_view breakout_speed) {
+    absl::string_view port, const int id, absl::string_view breakout_speed,
+    const bool is_copper_port) {
   auto interface_config = absl::Substitute(
       R"pb({
              "config": {
@@ -408,11 +447,43 @@ absl::StatusOr<std::string> GenerateInterfaceBreakoutConfig(
            }
       )pb",
       port, breakout_speed);
+  if (is_copper_port) {
+    interface_config = absl::Substitute(
+        R"pb({
+               "config": {
+                 "enabled": true,
+                 "loopback-mode": false,
+                 "mtu": 9216,
+                 "name": "$0",
+                 "type": "iana-if-type:ethernetCsmacd"
+               },
+               "name": "$0",
+               "openconfig-if-ethernet:ethernet": {
+                 "config": {
+                   "port-speed": "openconfig-if-ethernet:SPEED_$1B",
+                   "standalone-link-training": true
+                 }
+               },
+               "subinterfaces": {
+                 "subinterface":
+                 [ {
+                   "config": { "index": 0 },
+                   "index": 0,
+                   "openconfig-if-ip:ipv6": {
+                     "unnumbered": { "config": { "enabled": true } }
+                   }
+                 }]
+               }
+             }
+        )pb",
+        port, breakout_speed);
+  }
   return interface_config;
 }
 
 absl::Status GetBreakoutModeConfigFromString(
-    gnmi::SetRequest& req, const absl::string_view port_index,
+    gnmi::SetRequest& req, gnmi::gNMI::StubInterface* sut_gnmi_stub,
+    const absl::string_view port_index, const absl::string_view intf_name,
     const absl::string_view breakout_mode) {
   std::string kBreakoutPath = absl::StrCat("components/component[name=1/",
                                            port_index, "]/port/breakout-mode");
@@ -434,7 +505,9 @@ absl::Status GetBreakoutModeConfigFromString(
   }
   curr_port_number = (curr_port_number - 1) * kMaxPortLanes;
 
-  for (auto& mode : modes) {
+  ASSIGN_OR_RETURN(bool is_copper_port, IsCopperPort(sut_gnmi_stub, intf_name));
+
+  for (const auto& mode : modes) {
     auto num_breakouts_str = mode.substr(0, mode.find('x'));
     int num_breakouts;
     if (!absl::SimpleAtoi(num_breakouts_str, &num_breakouts)) {
@@ -455,26 +528,19 @@ absl::Status GetBreakoutModeConfigFromString(
     // group.
     for (int i = 0; i < num_breakouts; i++) {
       auto port = absl::StrCat(kEthernet, std::to_string(curr_port_number));
-      ASSIGN_OR_RETURN(auto interfaceConfig,
-                       GenerateInterfaceBreakoutConfig(port, curr_port_number,
-                                                       breakout_speed));
-      interface_configs.push_back(interfaceConfig);
+      ASSIGN_OR_RETURN(
+          auto interface_config,
+          GenerateInterfaceBreakoutConfig(port, curr_port_number,
+                                          breakout_speed, is_copper_port));
+      interface_configs.push_back(interface_config);
       int offset = max_channels_in_group / num_breakouts;
       curr_port_number += offset;
     }
     index += 1;
   }
 
-  std::string componentConfig, interfaceConfig;
-  for (auto& group_config : group_configs) {
-    componentConfig += absl::StrCat(group_config, ",");
-  }
-  for (auto& interface_config : interface_configs) {
-    interfaceConfig += absl::StrCat(interface_config, ",");
-  }
-  // Pop the last comma from the component and interface config array.
-  componentConfig.pop_back();
-  interfaceConfig.pop_back();
+  std::string full_component_config = absl::StrJoin(group_configs, ",");
+  std::string full_interface_config = absl::StrJoin(interface_configs, ",");
 
   auto kBreakoutConfig = absl::Substitute(
       R"pb({
@@ -491,8 +557,8 @@ absl::Status GetBreakoutModeConfigFromString(
                }]
              }
            })pb",
-      interfaceConfig, absl::StrCat("1/", port_index), port_index,
-      componentConfig);
+      full_interface_config, absl::StrCat("1/", port_index), port_index,
+      full_component_config);
   // Build GNMI config set request for given port breakout mode.
   ASSIGN_OR_RETURN(
       req, BuildGnmiSetRequest("", GnmiSetType::kReplace, kBreakoutConfig));
