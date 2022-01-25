@@ -33,14 +33,8 @@ struct P4InfoPushTestParams {
 
 class P4InfoPushTestFixture
     : public testing::TestWithParam<P4InfoPushTestParams> {
- public:
-  void SetUp() override {
-    testbed_interface_->SetUp();
-
-    // TODO: currently have to reboot the switch as it
-    // doesn't support pushing different P4Infos without a restart.
-    RebootSut();
-  }
+ protected:
+  void SetUp() override { testbed_interface_->SetUp(); }
 
   void TearDown() override {
     // TODO: rebooting SUT not to mess with other test
@@ -54,7 +48,6 @@ class P4InfoPushTestFixture
     return testbed_interface_->GetMirrorTestbed();
   }
 
- private:
   void RebootSut() {
     LOG(INFO) << "Rebooting the switch under test";
     thinkit::Switch& sut = GetTestbed().Sut();

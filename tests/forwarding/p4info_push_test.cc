@@ -44,6 +44,15 @@ TEST_P(P4InfoPushTestFixture, P4InfoPushTest) {
   ASSERT_OK_AND_ASSIGN(auto sut_p4rt_session,
                        pdpi::P4RuntimeSession::Create(sut));
 
+  // TODO: currently have to reboot the switch if P4Info is already
+  // present, as it doesn't support pushing different P4Infos without a restart.
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::GetForwardingPipelineConfigResponse p4_config,
+      pdpi::GetForwardingPipelineConfig(sut_p4rt_session.get()));
+  if (p4_config.config().has_p4info()) {
+    RebootSut();
+  }
+
   // Push P4Info.
   LOG(INFO) << "Pushing P4Info";
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
