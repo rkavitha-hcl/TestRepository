@@ -14,33 +14,45 @@
 
 #include "tests/forwarding/hashing_test.h"
 
-#include <algorithm>
-#include <cctype>
 #include <memory>
-#include <ostream>
+#include <optional>
+#include <string>
+#include <thread>  // NOLINT
+#include <tuple>
+#include <type_traits>
 #include <vector>
 
-#include "absl/algorithm/algorithm.h"
-#include "absl/algorithm/container.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/flags/flag.h"
+#include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/escaping.h"
-#include "absl/strings/match.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
-#include "absl/strings/substitute.h"
+#include "absl/strings/str_split.h"
+#include "absl/strings/string_view.h"
+#include "absl/synchronization/mutex.h"
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
 #include "boost/math/distributions/chi_squared.hpp"
+#include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/proto_matchers.h"
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "lib/gnmi/gnmi_helper.h"
+#include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "p4_pdpi/ir.h"
+#include "p4_pdpi/ir.pb.h"
+#include "p4_pdpi/netaddr/mac_address.h"
 #include "p4_pdpi/p4_runtime_session.h"
+#include "p4_pdpi/packetlib/packetlib.h"
+#include "p4_pdpi/packetlib/packetlib.pb.h"
 #include "p4_pdpi/pd.h"
 #include "p4_pdpi/string_encodings/decimal_string.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
@@ -48,8 +60,11 @@
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
 #include "tests/forwarding/group_programming_util.h"
 #include "tests/forwarding/packet_test_util.h"
+#include "tests/forwarding/test_vector.pb.h"
 #include "tests/forwarding/util.h"
+#include "thinkit/mirror_testbed.h"
 #include "thinkit/mirror_testbed_fixture.h"
+#include "thinkit/test_environment.h"
 
 // Test for the hashing behavior of the switch.  See go/p4-hashing for a
 // description of the design.
@@ -167,12 +182,13 @@ int GetNumberOfPackets(TestConfiguration config) {
   return GetNumberOfPackets(PacketsShouldBeHashed(config));
 }
 
-absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession* const p4_session) {
+absl::Status SetUpControlSwitch(const pdpi::IrP4Info& ir_p4info,
+                                pdpi::P4RuntimeSession* const p4_session) {
   // Trap all packets on control switch.
   ASSIGN_OR_RETURN(
       p4::v1::TableEntry punt_all_pi_entry,
       pdpi::PdTableEntryToPi(
-          sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
+          ir_p4info,
           gutil::ParseProtoOrDie<sai::TableEntry>(
               R"pb(
                 acl_ingress_table_entry {
@@ -191,9 +207,9 @@ absl::Status SetUpControlSwitch(pdpi::P4RuntimeSession* const p4_session) {
 }
 
 // Returns the set of entities required for the hashing test.
-absl::Status ProgramHashingEntities(thinkit::TestEnvironment& test_environment,
+absl::Status ProgramHashingEntities(const pdpi::IrP4Info& ir_p4info,
+                                    thinkit::TestEnvironment& test_environment,
                                     pdpi::P4RuntimeSession& session,
-                                    const pdpi::IrP4Info& ir_p4info,
                                     std::vector<gpins::GroupMember>& members) {
   RETURN_IF_ERROR(
       gpins::ProgramNextHops(test_environment, session, ir_p4info, members));
@@ -301,13 +317,11 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
       testbed.ControlSwitch(), gnmi_config,
       /*timeout=*/absl::Minutes(3)));
 
-  // Obtain P4Info for SAI P4 program.
-  const p4::config::v1::P4Info p4info =
-      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+  const p4::config::v1::P4Info& p4info = GetParam().p4_info;
   ASSERT_OK(testbed.Environment().StoreTestArtifact("p4info.pb.txt",
                                                     p4info.DebugString()));
   ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
-                       pdpi::CreateIrP4Info(p4info));
+                       pdpi::CreateIrP4Info(GetParam().p4_info));
 
   // Setup SUT & control switch.
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> sut_p4_session,
@@ -317,7 +331,7 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
       std::unique_ptr<pdpi::P4RuntimeSession> control_p4_session,
       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
           testbed.ControlSwitch(), p4info));
-  ASSERT_OK(SetUpControlSwitch(control_p4_session.get()));
+  ASSERT_OK(SetUpControlSwitch(ir_p4info, control_p4_session.get()));
 
   // Listen for packets from the SUT on the ControlSwitch.
   TestData test_data;
@@ -386,8 +400,8 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
       members[i].weight = weights[i];
     }
 
-    ASSERT_OK(ProgramHashingEntities(testbed.Environment(), *sut_p4_session,
-                                     ir_p4info, members));
+    ASSERT_OK(ProgramHashingEntities(ir_p4info, testbed.Environment(),
+                                     *sut_p4_session, members));
 
     // Apply the member weights tweak if applicable.
     if (GetParam().tweak_member_weight.has_value()) {
