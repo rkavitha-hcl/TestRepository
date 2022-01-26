@@ -17,6 +17,7 @@
 
 #include <string>
 
+#include "gutil/status_matchers.h"
 #include "tests/thinkit_sanity_tests.h"
 #include "thinkit/mirror_testbed.h"
 #include "thinkit/mirror_testbed_fixture.h"
@@ -38,8 +39,8 @@ class P4InfoPushTestFixture
 
   void TearDown() override {
     // TODO: rebooting SUT not to mess with other test
-    // suites in a workflow.
-    RebootSut();
+    // suites in a workflow. Grab logs before rebooting for better debugging.
+    RebootSut("teardown_");
 
     testbed_interface_->TearDown();
   }
@@ -48,7 +49,10 @@ class P4InfoPushTestFixture
     return testbed_interface_->GetMirrorTestbed();
   }
 
-  void RebootSut() {
+  // Reboot the SUT device. Logs the current state of the switch in the test
+  // artifacts with the provided prefix.
+  void RebootSut(absl::string_view log_prefix) {
+    EXPECT_OK(testbed_interface_->SaveSwitchLogs(log_prefix));
     LOG(INFO) << "Rebooting the switch under test";
     thinkit::Switch& sut = GetTestbed().Sut();
     pins_test::TestGnoiSystemColdReboot(sut);
