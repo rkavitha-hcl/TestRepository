@@ -55,7 +55,7 @@ enum class GnmiFieldType {
 
 // Describes a single interface in a gNMI config.
 struct OpenConfigInterfaceDescription {
-  absl::string_view port_name;
+  std::string port_name;
   int port_id;
 };
 
