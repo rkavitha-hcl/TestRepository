@@ -51,6 +51,8 @@ TEST_P(P4InfoPushTestFixture, P4InfoPushTest) {
       pdpi::GetForwardingPipelineConfig(sut_p4rt_session.get()));
   if (p4_config.config().has_p4info()) {
     RebootSut();
+    // Reconnect after reboot.
+    ASSERT_OK_AND_ASSIGN(sut_p4rt_session, pdpi::P4RuntimeSession::Create(sut));
   }
 
   // Push P4Info.
