@@ -21,6 +21,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "google/protobuf/message.h"
+#include "google/protobuf/util/message_differencer.h"
 #include "gutil/status.h"
 
 namespace gutil {
@@ -41,12 +42,20 @@ absl::Status SaveProtoToFile(absl::string_view filename,
 template <class T>
 absl::StatusOr<T> ParseTextProto(absl::string_view proto_string) {
   T message;
-  if (auto status = ReadProtoFromString(proto_string, &message); status.ok()) {
-    return message;
-  } else {
-    return status;
-  }
+  RETURN_IF_ERROR(ReadProtoFromString(proto_string, &message));
+  return message;
 }
+
+// Returns diff of the given protobuf messages, provided they have the same
+// `Descriptor` (message1.GetDescriptor() == message2.GetDescriptor()), or
+// returns `InvalidArgumentError` otherwise.
+// Optionally, a `differ` can be provided for fine-grained control over how to
+// compute the diff.
+absl::StatusOr<std::string> ProtoDiff(
+    const google::protobuf::Message &message1,
+    const google::protobuf::Message &message2,
+    google::protobuf::util::MessageDifferencer differ =
+        google::protobuf::util::MessageDifferencer());
 
 // Get the name of the oneof enum that is set.
 // Eg:

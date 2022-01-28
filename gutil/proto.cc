@@ -89,6 +89,23 @@ absl::Status SaveProtoToFile(absl::string_view filename,
   return absl::OkStatus();
 }
 
+absl::StatusOr<std::string> ProtoDiff(
+    const google::protobuf::Message &message1,
+    const google::protobuf::Message &message2,
+    google::protobuf::util::MessageDifferencer differ) {
+  if (message1.GetDescriptor() != message2.GetDescriptor()) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "cannot compute diff for messages of incompatible descriptors `"
+           << message1.GetDescriptor()->full_name() << "' vs '"
+           << message2.GetDescriptor()->full_name() << "'";
+  }
+
+  std::string diff;
+  differ.ReportDifferencesToString(&diff);
+  differ.Compare(message1, message2);
+  return diff;
+}
+
 absl::StatusOr<std::string> GetOneOfFieldName(
     const google::protobuf::Message &message, const std::string &oneof_name) {
   const auto *oneof_descriptor =

@@ -180,6 +180,8 @@ cc_test(
         ":proto",
         ":proto_test_cc_proto",
         ":status_matchers",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
         "@com_google_googletest//:gtest_main",
     ],
 )
