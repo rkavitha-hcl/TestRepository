@@ -120,6 +120,12 @@ void FuzzerTestFixture::SetUp() {
 void FuzzerTestFixture::TearDown() {
   auto& sut = GetParam().mirror_testbed->GetMirrorTestbed().Sut();
 
+  // Save the logs before reset clearing to help with debug in case of failure.
+  if (HasFatalFailure()) {
+    EXPECT_OK(GetParam().mirror_testbed->SaveSwitchLogs(
+        /*save_prefix=*/"failure_state_"));
+  }
+
   // TODO: Reboots the switch if we pushed a modified p4info.
   if (GetParam().reboot_switch_before_and_after_test_due_to_modified_p4info) {
     LOG(INFO) << "Rebooting switch since we pushed a modified p4info.";
