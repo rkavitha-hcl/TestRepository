@@ -54,7 +54,7 @@ absl::StatusOr<std::vector<z3::expr>> EvaluateSaiParser(
   constraints.push_back(!erspan_ethernet.valid);
   constraints.push_back(!erspan_ipv4.valid);
   constraints.push_back(!erspan_gre.valid);
-  constraints.push_back(local_metadata.admit_to_l3 == bv_true);
+  constraints.push_back(local_metadata.admit_to_l3 == bv_false);
   constraints.push_back(local_metadata.vrf_id == 0);
   constraints.push_back(local_metadata.mirror_session_id_valid == bv_false);
   constraints.push_back(local_metadata.ingress_port ==
