@@ -122,6 +122,32 @@ absl::StatusOr<p4::v1::Update> NexthopTableUpdate(
   return pdpi::IrUpdateToPi(ir_p4_info, ir_update);
 }
 
+absl::StatusOr<p4::v1::Update> VrfTableUpdate(const pdpi::IrP4Info& ir_p4_info,
+                                              p4::v1::Update::Type type,
+                                              absl::string_view vrf_id) {
+  if (vrf_id.empty()) {
+    return absl::InvalidArgumentError(
+        "Empty vrf id is reserved for default vrf.");
+  }
+  pdpi::IrUpdate ir_update;
+  RETURN_IF_ERROR(gutil::ReadProtoFromString(
+      absl::Substitute(R"pb(
+                         type: $0
+                         table_entry {
+                           table_name: "vrf_table"
+                           matches {
+                             name: "vrf_id"
+                             exact { str: "$1" }
+                           }
+                           action { name: "no_action" }
+                         }
+                       )pb",
+                       type, vrf_id),
+      &ir_update))
+      << "invalid pdpi::IrUpdate string.";
+  return pdpi::IrUpdateToPi(ir_p4_info, ir_update);
+}
+
 absl::StatusOr<p4::v1::Update> Ipv4TableUpdate(
     const pdpi::IrP4Info& ir_p4_info, p4::v1::Update::Type type,
     const IpTableOptions& ip_options) {

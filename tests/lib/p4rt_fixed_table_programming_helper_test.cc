@@ -139,6 +139,21 @@ TEST_P(L3RouteProgrammingTest, NexthopId) {
   EXPECT_THAT(pi_update, HasActionParam("peer-2"));
 }
 
+TEST_P(L3RouteProgrammingTest, VrfTableAddId) {
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::Update pi_update,
+      VrfTableUpdate(sai::GetIrP4Info(GetParam()), p4::v1::Update::INSERT,
+                     /*vrf_id=*/"vrf-1"));
+  EXPECT_THAT(pi_update, HasExactMatch("vrf-1"));
+}
+
+TEST_P(L3RouteProgrammingTest, VrfTableAddFailsWithEmptyId) {
+  EXPECT_THAT(
+      VrfTableUpdate(sai::GetIrP4Info(GetParam()), p4::v1::Update::INSERT,
+                     /*vrf_id=*/""),
+      StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
 TEST_P(L3RouteProgrammingTest, Ipv4TableDoesNotRequireAnAction) {
   // The helper class will assume a default (e.g. drop).
   ASSERT_OK_AND_ASSIGN(

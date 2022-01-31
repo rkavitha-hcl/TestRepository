@@ -38,6 +38,10 @@ absl::StatusOr<p4::v1::Update> NexthopTableUpdate(
     absl::string_view nexthop_id, absl::string_view router_interface_id,
     absl::string_view neighbor_id);
 
+absl::StatusOr<p4::v1::Update> VrfTableUpdate(const pdpi::IrP4Info& ir_p4_info,
+                                              p4::v1::Update::Type type,
+                                              absl::string_view vrf_id);
+
 // The fixed IP tables (ipv4_table and ipv6_table) allow for mutliple action
 // (e.g. drop or set_next_hop). The IpTableOptions object provides a superset of
 // all IP table settings, but not all combinations are valid. For example:
