@@ -28,14 +28,12 @@
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
-#include "sai_p4/fixed/roles.h"
 #include "thinkit/test_environment.h"
 
 namespace gpins {
 namespace {
 
 using ::google::rpc::ALREADY_EXISTS;
-using ::grpc::ClientContext;
 using ::p4::v1::ReadRequest;
 using ::p4::v1::ReadResponse;
 using ::p4::v1::StreamMessageResponse;

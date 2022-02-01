@@ -32,8 +32,6 @@
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
-#include "sai_p4/instantiations/google/instantiations.h"
-#include "sai_p4/instantiations/google/sai_p4info.h"
 #include "thinkit/mirror_testbed_fixture.h"
 #include "thinkit/test_environment.h"
 
@@ -67,7 +65,8 @@ class ArbitrationTestFixture : public thinkit::MirrorTestbedFixture {
     RETURN_IF_ERROR(pdpi::SetForwardingPipelineConfig(
         p4rt_session,
         p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-        sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+        GetP4Info()));
+
     // Clear entries here in case the previous test did not (e.g. because it
     // crashed).
     RETURN_IF_ERROR(pdpi::ClearTableEntries(p4rt_session));
@@ -116,13 +115,9 @@ class ArbitrationTestFixture : public thinkit::MirrorTestbedFixture {
     return GetMirrorTestbed().Environment();
   }
 
-  const pdpi::IrP4Info& IrP4Info() const { return ir_p4info_; }
-
  private:
   uint64_t upper_election_id_;
   uint32_t device_id_;
-  pdpi::IrP4Info ir_p4info_ =
-      sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
 };
 
 }  // namespace gpins
