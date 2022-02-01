@@ -104,7 +104,7 @@ cc_library(
         "//gutil:status",
         "//p4_pdpi:ir",
         "//p4_pdpi:ir_cc_proto",
-        "@com_github_google_glog//:glog",
+        "//sai_p4/instantiations/google:sai_p4info_cc",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
         "@com_google_absl//absl/memory",
         "@com_google_absl//absl/status",
