@@ -502,8 +502,8 @@ absl::Status CheckInterfaceOperStateOverGnmi(
 
   if (!unavailable_interfaces.empty()) {
     return absl::UnavailableError(absl::StrCat(
-        "Some interfaces are not in the expected state: \n",
-        absl::StrJoin(unavailable_interfaces, "\n"),
+        "Some interfaces are not in the expected state ", interface_oper_state,
+        ": \n", absl::StrJoin(unavailable_interfaces, "\n"),
         "\n\nInterfaces provided: \n", absl::StrJoin(interfaces, "\n")));
   }
   return absl::OkStatus();
