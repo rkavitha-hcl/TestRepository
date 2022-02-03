@@ -20,9 +20,12 @@
 #include "absl/strings/substitute.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "gutil/proto.h"
 #include "gutil/proto_matchers.h"
 #include "gutil/status_matchers.h"
+#include "gutil/testing.h"
 #include "p4_pdpi/ir.pb.h"
+#include "p4rt_app/p4runtime/p4info_verification_schema.pb.h"
 #include "p4rt_app/utils/ir_builder.h"
 
 namespace p4rt_app {
@@ -31,8 +34,11 @@ namespace {
 using ::gutil::EqualsProto;
 using ::gutil::IsOkAndHolds;
 using ::gutil::StatusIs;
+using ::testing::AllOf;
+using ::testing::Gt;
 using ::testing::HasSubstr;
 using ::testing::MatchesRegex;
+using ::testing::Property;
 using ::testing::ValuesIn;
 
 // Returns a default, valid match field for testing.
@@ -532,6 +538,341 @@ TEST(ConvertToSchemaTest, FailsToConvertFixedTableWithMeter) {
   EXPECT_THAT(ConvertToSchema(irp4info).status(),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("may not contain meters")));
+}
+
+TEST(SupportedSchemaTest, ReturnsASchema) {
+  EXPECT_THAT(
+      SupportedSchema(),
+      IsOkAndHolds(Property(&P4InfoVerificationSchema::ByteSizeLong, Gt(0))));
+}
+
+pdpi::IrP4Info IrP4InfoFromSchema(const P4InfoVerificationSchema& schema) {
+  IrP4InfoBuilder ir_p4info_builder;
+  for (const auto& table : schema.tables()) {
+    IrTableDefinitionBuilder table_builder;
+    table_builder.name(table.name());
+    for (const auto& match_field : table.match_fields()) {
+      table_builder.match_field(
+          absl::Substitute(R"pb(name: "$0" match_type: $1 bitwidth: $2)pb",
+                           match_field.name(),
+                           MatchSchema::MatchType_Name(match_field.type()),
+                           match_field.bitwidth()),
+          match_field.format());
+    }
+    for (const auto& action : table.actions()) {
+      IrActionDefinitionBuilder action_builder;
+      action_builder.name(action.name());
+      for (const auto& param : action.parameters()) {
+        action_builder.param(absl::Substitute(R"pb(name: "$0" bitwidth: $1)pb",
+                                              param.name(), param.bitwidth()),
+                             param.format());
+      }
+      table_builder.entry_action(action_builder);
+    }
+    ir_p4info_builder.table(table_builder);
+  }
+  return ir_p4info_builder();
+}
+
+TEST(IsSupportedBySchemaTest, ReturnsOkWithTableSubset) {
+  const P4InfoVerificationSchema kSupportedSchema =
+      gutil::ParseProtoOrDie<P4InfoVerificationSchema>(R"pb(
+        tables {
+          name: "Table1"
+          match_fields { name: "match1" format: STRING type: EXACT }
+        }
+        tables {
+          name: "Table2"
+          match_fields { name: "match2" format: STRING type: EXACT }
+        }
+        tables {
+          name: "Table3"
+          match_fields { name: "match3" format: STRING type: EXACT }
+        }
+      )pb");
+  auto schema = kSupportedSchema;
+  schema.mutable_tables()->erase(schema.mutable_tables()->begin());
+  pdpi::IrP4Info schema_p4info = IrP4InfoFromSchema(schema);
+  EXPECT_OK(IsSupportedBySchema(schema_p4info, kSupportedSchema));
+}
+
+TEST(IsSupportedBySchemaTest, ReturnsOkWithMatchFieldSubset) {
+  const P4InfoVerificationSchema kSupportedSchema =
+      gutil::ParseProtoOrDie<P4InfoVerificationSchema>(R"pb(
+        tables {
+          name: "Table"
+          match_fields { name: "match1" format: STRING type: EXACT }
+          match_fields { name: "match2" format: STRING type: EXACT }
+        }
+      )pb");
+  auto schema = kSupportedSchema;
+  auto& match_fields = *schema.mutable_tables(0)->mutable_match_fields();
+  match_fields.erase(match_fields.begin());
+  pdpi::IrP4Info schema_p4info = IrP4InfoFromSchema(schema);
+  EXPECT_OK(IsSupportedBySchema(schema_p4info, kSupportedSchema));
+}
+
+TEST(IsSupportedBySchemaTest, ReturnsOkWithActionSubset) {
+  const P4InfoVerificationSchema kSupportedSchema =
+      gutil::ParseProtoOrDie<P4InfoVerificationSchema>(R"pb(
+        tables {
+          name: "Table"
+          match_fields { name: "match1" format: STRING type: EXACT }
+          match_fields { name: "match2" format: STRING type: EXACT }
+          actions { name: "action1" }
+          actions { name: "action2" }
+        }
+      )pb");
+  auto schema = kSupportedSchema;
+  auto& actions = *schema.mutable_tables(0)->mutable_actions();
+  actions.erase(actions.begin());
+  pdpi::IrP4Info schema_p4info = IrP4InfoFromSchema(schema);
+  EXPECT_OK(IsSupportedBySchema(schema_p4info, kSupportedSchema));
+}
+
+TEST(IsSupportedBySchemaTest, ReturnsErrorForUnknownTable) {
+  const P4InfoVerificationSchema kSupportedSchema =
+      gutil::ParseProtoOrDie<P4InfoVerificationSchema>(R"pb(
+        tables {
+          name: "Table1"
+          match_fields { name: "match1" format: STRING type: EXACT }
+          actions { name: "action1" }
+        }
+        tables {
+          name: "Table2"
+          match_fields { name: "match1" format: STRING type: EXACT }
+          actions { name: "action2" }
+        }
+      )pb");
+  auto schema = kSupportedSchema;
+  schema.mutable_tables(1)->set_name("not_a_table");
+
+  pdpi::IrP4Info schema_p4info = IrP4InfoFromSchema(schema);
+  EXPECT_THAT(IsSupportedBySchema(schema_p4info, kSupportedSchema),
+              StatusIs(absl::StatusCode::kNotFound, HasSubstr("not_a_table")));
+}
+
+TEST(IsSupportedBySchemaTest, ReturnsErrorForUnknownMatchField) {
+  const P4InfoVerificationSchema kSupportedSchema =
+      gutil::ParseProtoOrDie<P4InfoVerificationSchema>(R"pb(
+        tables {
+          name: "Table1"
+          match_fields { name: "match1" format: STRING type: EXACT }
+          actions { name: "action1" }
+        }
+      )pb");
+  auto schema = kSupportedSchema;
+  schema.mutable_tables(0)->mutable_match_fields(0)->set_name("not_a_field");
+  pdpi::IrP4Info schema_p4info = IrP4InfoFromSchema(schema);
+  EXPECT_THAT(IsSupportedBySchema(schema_p4info, kSupportedSchema),
+              StatusIs(absl::StatusCode::kNotFound,
+                       AllOf(HasSubstr("Table1"), HasSubstr("not_a_field"))));
+}
+
+TEST(IsSupportedBySchemaTest, ReturnsErrorForUnknownAction) {
+  const P4InfoVerificationSchema kSupportedSchema =
+      gutil::ParseProtoOrDie<P4InfoVerificationSchema>(R"pb(
+        tables {
+          name: "Table1"
+          match_fields { name: "match1" format: STRING type: EXACT }
+          actions { name: "action1" }
+        }
+      )pb");
+  auto schema = kSupportedSchema;
+  schema.mutable_tables(0)->mutable_actions(0)->set_name("not_an_action");
+  pdpi::IrP4Info schema_p4info = IrP4InfoFromSchema(schema);
+  EXPECT_THAT(IsSupportedBySchema(schema_p4info, kSupportedSchema),
+              StatusIs(absl::StatusCode::kNotFound,
+                       AllOf(HasSubstr("Table1"), HasSubstr("not_an_action"))));
+}
+
+TEST(IsSupportedBySchemaTest, ReturnsErrorForMatchFieldMatchTypeMismatch) {
+  const P4InfoVerificationSchema kSupportedSchema =
+      gutil::ParseProtoOrDie<P4InfoVerificationSchema>(R"pb(
+        tables {
+          name: "Table1"
+          match_fields { name: "match1" format: STRING type: EXACT }
+        }
+      )pb");
+  auto schema = kSupportedSchema;
+  schema.mutable_tables(0)->mutable_match_fields(0)->set_type(MatchSchema::LPM);
+
+  pdpi::IrP4Info schema_p4info = IrP4InfoFromSchema(schema);
+  EXPECT_THAT(IsSupportedBySchema(schema_p4info, kSupportedSchema),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       AllOf(HasSubstr("Table1"), HasSubstr("match1"),
+                             HasSubstr("match type"))));
+}
+
+TEST(IsSupportedBySchemaTest, ReturnsErrorForMatchFieldFormatMismatch) {
+  const P4InfoVerificationSchema kSupportedSchema =
+      gutil::ParseProtoOrDie<P4InfoVerificationSchema>(R"pb(
+        tables {
+          name: "Table1"
+          match_fields { name: "match1" format: STRING type: EXACT }
+        }
+      )pb");
+  auto schema = kSupportedSchema;
+  schema.mutable_tables(0)->mutable_match_fields(0)->set_format(
+      pdpi::Format::IPV4);
+
+  pdpi::IrP4Info schema_p4info = IrP4InfoFromSchema(schema);
+  EXPECT_THAT(IsSupportedBySchema(schema_p4info, kSupportedSchema),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       AllOf(HasSubstr("Table1"), HasSubstr("match1"),
+                             HasSubstr("format"))));
+}
+
+TEST(IsSupportedBySchemaTest, ReturnsErrorForMatchFieldBitwidthMismatch) {
+  pdpi::IrP4Info ir_p4info =
+      IrP4InfoBuilder().table(IrTableDefinitionBuilder()
+                                  .name("TableName")
+                                  .match_field(R"pb(id: 1
+                                                    name: "MatchName"
+                                                    match_type: EXACT
+                                                    bitwidth: 10)pb",
+                                               pdpi::Format::HEX_STRING)
+                                  .entry_action(DefaultAction()))();
+  ASSERT_OK_AND_ASSIGN(P4InfoVerificationSchema schema,
+                       ConvertToSchema(ir_p4info));
+  schema.mutable_tables(0)->mutable_match_fields(0)->set_bitwidth(9);
+
+  EXPECT_THAT(IsSupportedBySchema(ir_p4info, schema),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       AllOf(HasSubstr("TableName"), HasSubstr("MatchName"),
+                             HasSubstr("bitwidth"))));
+}
+
+TEST(IsSupportedBySchemaTest, ReturnsErrorForUnknownActionParameter) {
+  pdpi::IrP4Info ir_p4info = IrP4InfoBuilder().table(
+      IrTableDefinitionBuilder()
+          .name("TableName")
+          .match_field(DefaultMatchField(), pdpi::Format::STRING)
+          .entry_action(IrActionDefinitionBuilder()
+                            .name("ActionName")
+                            .param(R"pb(id: 1 name: "ParamName")pb",
+                                   pdpi::Format::STRING)))();
+  ASSERT_OK_AND_ASSIGN(P4InfoVerificationSchema schema,
+                       ConvertToSchema(ir_p4info));
+  schema.mutable_tables(0)->mutable_actions(0)->mutable_parameters(0)->set_name(
+      "SchemaName");
+  EXPECT_THAT(IsSupportedBySchema(ir_p4info, schema),
+              StatusIs(absl::StatusCode::kNotFound,
+                       AllOf(HasSubstr("TableName"), HasSubstr("ActionName"),
+                             HasSubstr("ParamName"))));
+}
+
+TEST(IsSupportedBySchemaTest, ReturnsErrorForUnexpectedActionParameter) {
+  pdpi::IrP4Info ir_p4info = IrP4InfoBuilder().table(
+      IrTableDefinitionBuilder()
+          .name("TableName")
+          .match_field(DefaultMatchField(), pdpi::Format::STRING)
+          .entry_action(IrActionDefinitionBuilder()
+                            .name("ActionName")
+                            .param(R"pb(id: 1 name: "ParamName")pb",
+                                   pdpi::Format::IPV4)))();
+  ASSERT_OK_AND_ASSIGN(P4InfoVerificationSchema schema,
+                       ConvertToSchema(ir_p4info));
+  schema.mutable_tables(0)->mutable_actions(0)->clear_parameters();
+  EXPECT_THAT(IsSupportedBySchema(ir_p4info, schema),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       AllOf(HasSubstr("TableName"), HasSubstr("ActionName"),
+                             HasSubstr("parameter"))));
+}
+
+TEST(IsSupportedBySchemaTest, ReturnsErrorForExtraActionParameter) {
+  pdpi::IrP4Info ir_p4info = IrP4InfoBuilder().table(
+      IrTableDefinitionBuilder()
+          .name("TableName")
+          .match_field(DefaultMatchField(), pdpi::Format::STRING)
+          .entry_action(
+              IrActionDefinitionBuilder()
+                  .name("ActionName")
+                  .param(R"pb(id: 1 name: "ParamName")pb", pdpi::Format::IPV4)
+                  .param(R"pb(id: 2 name: "SecondParamName")pb",
+                         pdpi::Format::IPV4)))();
+  ASSERT_OK_AND_ASSIGN(P4InfoVerificationSchema schema,
+                       ConvertToSchema(ir_p4info));
+  auto& parameters =
+      *schema.mutable_tables(0)->mutable_actions(0)->mutable_parameters();
+  parameters.erase(parameters.begin());
+  EXPECT_THAT(IsSupportedBySchema(ir_p4info, schema),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       AllOf(HasSubstr("TableName"), HasSubstr("ActionName"),
+                             HasSubstr("parameter"))));
+}
+
+TEST(IsSupportedBySchemaTest, ReturnsErrorForActionParameterFormatMismatch) {
+  pdpi::IrP4Info ir_p4info = IrP4InfoBuilder().table(
+      IrTableDefinitionBuilder()
+          .name("TableName")
+          .match_field(DefaultMatchField(), pdpi::Format::STRING)
+          .entry_action(IrActionDefinitionBuilder()
+                            .name("ActionName")
+                            .param(R"pb(id: 1 name: "ParamName")pb",
+                                   pdpi::Format::IPV4)))();
+  ASSERT_OK_AND_ASSIGN(P4InfoVerificationSchema schema,
+                       ConvertToSchema(ir_p4info));
+  schema.mutable_tables(0)
+      ->mutable_actions(0)
+      ->mutable_parameters(0)
+      ->set_format(pdpi::Format::IPV6);
+  EXPECT_THAT(IsSupportedBySchema(ir_p4info, schema),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       AllOf(HasSubstr("TableName"), HasSubstr("ActionName"),
+                             HasSubstr("ParamName"), HasSubstr("format"))));
+}
+
+TEST(IsSupportedBySchemaTest, ReturnsErrorForActionParameterBitwidthMismatch) {
+  pdpi::IrP4Info ir_p4info = IrP4InfoBuilder().table(
+      IrTableDefinitionBuilder()
+          .name("TableName")
+          .match_field(DefaultMatchField(), pdpi::Format::STRING)
+          .entry_action(IrActionDefinitionBuilder()
+                            .name("ActionName")
+                            .param(R"pb(id: 1 name: "ParamName" bitwidth: 9)pb",
+                                   pdpi::Format::HEX_STRING)))();
+  ASSERT_OK_AND_ASSIGN(P4InfoVerificationSchema schema,
+                       ConvertToSchema(ir_p4info));
+  schema.mutable_tables(0)
+      ->mutable_actions(0)
+      ->mutable_parameters(0)
+      ->set_bitwidth(8);
+  EXPECT_THAT(IsSupportedBySchema(ir_p4info, schema),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       AllOf(HasSubstr("TableName"), HasSubstr("ActionName"),
+                             HasSubstr("ParamName"), HasSubstr("bitwidth"))));
+}
+
+TEST(IsSupportedBySchemaTest, AcceptsSmallerActionParameterBitwidth) {
+  pdpi::IrP4Info ir_p4info = IrP4InfoBuilder().table(
+      IrTableDefinitionBuilder()
+          .name("TableName")
+          .match_field(DefaultMatchField(), pdpi::Format::STRING)
+          .entry_action(IrActionDefinitionBuilder()
+                            .name("ActionName")
+                            .param(R"pb(id: 1 name: "ParamName" bitwidth: 7)pb",
+                                   pdpi::Format::HEX_STRING)))();
+  ASSERT_OK_AND_ASSIGN(P4InfoVerificationSchema schema,
+                       ConvertToSchema(ir_p4info));
+  schema.mutable_tables(0)
+      ->mutable_actions(0)
+      ->mutable_parameters(0)
+      ->set_bitwidth(8);
+  EXPECT_OK(IsSupportedBySchema(ir_p4info, schema));
+}
+
+TEST(IsSupportedBySchemaTest, AcceptsSmallerMatchFieldBitwidth) {
+  pdpi::IrP4Info ir_p4info = IrP4InfoBuilder().table(
+      IrTableDefinitionBuilder()
+          .name("TableName")
+          .match_field(R"pb(id: 1 name: "Match" bitwidth: 7 match_type: LPM)pb",
+                       pdpi::Format::HEX_STRING)
+          .entry_action(DefaultAction()))();
+  ASSERT_OK_AND_ASSIGN(P4InfoVerificationSchema schema,
+                       ConvertToSchema(ir_p4info));
+  schema.mutable_tables(0)->mutable_match_fields(0)->set_bitwidth(8);
+  EXPECT_OK(IsSupportedBySchema(ir_p4info, schema));
 }
 
 }  // namespace

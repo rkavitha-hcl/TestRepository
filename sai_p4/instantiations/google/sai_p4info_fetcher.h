@@ -2,6 +2,7 @@
 #define GOOGLE_SAI_P4_INSTANTIATIONS_GOOGLE_SAI_P4INFO_FETCHER_H_
 
 #include <optional>
+#include <vector>
 
 #include "absl/types/optional.h"
 #include "p4/config/v1/p4info.pb.h"
@@ -30,6 +31,21 @@ p4::config::v1::P4Info FetchP4Info(
     absl::optional<ClosStage> stage = absl::optional<ClosStage>());
 
 p4::config::v1::P4Info FetchUnionedP4Info();
+
+inline std::vector<ClosStage> AllStages() {
+  return {ClosStage::kStage2, ClosStage::kStage3};
+}
+
+inline std::string ClosStageToString(ClosStage stage) {
+  switch (stage) {
+    case ClosStage::kStage2:
+      return "Stage2";
+    case ClosStage::kStage3:
+      return "Stage3";
+  }
+  LOG(DFATAL) << "invalid ClosStage: " << static_cast<int>(stage);
+  return "";
+}
 
 }  // namespace sai
 

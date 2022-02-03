@@ -21,6 +21,7 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/cord.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
@@ -103,7 +104,6 @@
   return gutil::InternalErrorBuilder() << "(" << #cond << ") failed"
 
 namespace gutil {
-
 // Protobuf and some other Google projects use Status classes that are isomorph,
 // but not equal to absl::Status (outside of google3).
 // This auxiliary function converts such Status classes to absl::Status.
@@ -184,6 +184,11 @@ class StatusBuilder {
     return *this;
   }
 
+  StatusBuilder& SetPayload(absl::string_view url, absl::Cord payload) {
+    status_.SetPayload(url, std::move(payload));
+    return *this;
+  }
+
   // Implicit type conversions.
   operator absl::Status() const { return GetStatusAndLog(); }
   template <typename T>
@@ -197,6 +202,7 @@ class StatusBuilder {
     kAppend,
     kPrepend,
   };
+
   std::string source_;
   absl::Status status_;
   std::stringstream stream_;

@@ -16,6 +16,7 @@
 #define GUTIL_COLLECTIONS_H
 
 #include <string>
+#include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -26,6 +27,14 @@
 #include "gutil/status.h"
 
 namespace gutil {
+
+// Returns a vector of the keys in a map collection.
+template <typename M>
+std::vector<typename M::key_type> Keys(const M &m) {
+  std::vector<typename M::key_type> keys;
+  for (const auto &[key, val] : m) keys.push_back(key);
+  return keys;
+}
 
 // Returns a const copy of the value associated with a given key if it exists,
 // or a status failure if it does not.

@@ -19,6 +19,7 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/ascii.h"
 #include "absl/strings/str_cat.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
@@ -40,6 +41,7 @@
 #include "p4rt_app/tests/lib/p4runtime_request_helpers.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
+#include "sai_p4/instantiations/google/sai_p4info_fetcher.h"
 
 namespace p4rt_app {
 namespace {
@@ -64,7 +66,7 @@ absl::StatusOr<std::string> GetTestTmpDir() {
   char* test_tmpdir = std::getenv("TEST_TMPDIR");
   if (test_tmpdir == nullptr) {
     return gutil::InternalErrorBuilder()
-           << "Could not find enviornment variable $TEST_TMPDIR. Is this a "
+           << "Could not find environment variable ${TEST_TMPDIR}. Is this a "
               "bazel test run?";
   }
   return test_tmpdir;
@@ -158,7 +160,7 @@ class ForwardingPipelineConfigTest : public testing::Test {
 using VerifyTest = ForwardingPipelineConfigTest;
 
 TEST_F(VerifyTest, DoesNotUpdateAppDbState) {
-  // By using the "middleblock" config we expect the ACL table definitionss to
+  // By using the "middleblock" config we expect the ACL table definitions to
   // be written into the AppDb during a config push.
   auto request = GetBasicForwardingRequest();
   request.set_action(SetForwardingPipelineConfigRequest::VERIFY);
@@ -177,6 +179,20 @@ TEST_F(VerifyTest, DoesNotUpdateAppDbState) {
 TEST_F(VerifyTest, FailsWhenNoConfigIsSet) {
   auto request = GetBasicForwardingRequest();
   request.set_action(SetForwardingPipelineConfigRequest::VERIFY);
+
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  EXPECT_THAT(p4rt_session_->Stub().SetForwardingPipelineConfig(
+                  &context, request, &response),
+              GrpcStatusIs(grpc::StatusCode::INVALID_ARGUMENT));
+}
+
+TEST_F(VerifyTest, FailsWhenVerifyFails) {
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::VERIFY);
+  *request.mutable_config()->mutable_p4info() =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+  request.mutable_config()->mutable_p4info()->clear_actions();
 
   SetForwardingPipelineConfigResponse response;
   grpc::ClientContext context;
@@ -595,6 +611,85 @@ TEST_F(ForwardingPipelineConfigTest,
       pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
       StatusIs(absl::StatusCode::kInternal));
 }
+
+class PerConfigTest : public ForwardingPipelineConfigTest,
+                      public testing::WithParamInterface<
+                          std::tuple<sai::Instantiation, sai::ClosStage> > {};
+
+TEST_P(PerConfigTest, VerifySucceeds) {
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::VERIFY);
+  *request.mutable_config()->mutable_p4info() =
+      sai::FetchP4Info(std::get<0>(GetParam()), std::get<1>(GetParam()));
+
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  EXPECT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(&context, request,
+                                                              &response));
+}
+
+TEST_P(PerConfigTest, VerifyAndCommitSucceeds) {
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::VERIFY_AND_COMMIT);
+  *request.mutable_config()->mutable_p4info() =
+      sai::FetchP4Info(std::get<0>(GetParam()), std::get<1>(GetParam()));
+
+  SetForwardingPipelineConfigResponse response;
+  grpc::ClientContext context;
+  EXPECT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(&context, request,
+                                                              &response));
+  EXPECT_THAT(p4rt_service_->GetP4rtAppDbTable().GetAllKeys(), Not(IsEmpty()));
+}
+
+TEST_P(PerConfigTest, ReconcileAndCommitSucceeds) {
+  auto request = GetBasicForwardingRequest();
+  request.set_action(SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT);
+  *request.mutable_config()->mutable_p4info() =
+      sai::FetchP4Info(std::get<0>(GetParam()), std::get<1>(GetParam()));
+
+  SetForwardingPipelineConfigResponse response;
+  {
+    grpc::ClientContext context;
+    EXPECT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(
+        &context, request, &response));
+  }
+  EXPECT_THAT(p4rt_service_->GetP4rtAppDbTable().GetAllKeys(), Not(IsEmpty()));
+  {
+    grpc::ClientContext context;
+    EXPECT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(
+        &context, request, &response))
+        << "Failed second commit (expected no-op)";
+  }
+  EXPECT_THAT(p4rt_service_->GetP4rtAppDbTable().GetAllKeys(), Not(IsEmpty()));
+}
+
+// Generate the test case name for an <Instantiation, ClosStage> tuple.
+// The generated test name is in CamelCase.
+// Example: FabricBorderRouterStage3
+std::string PerConfigTestCaseName(
+    testing::TestParamInfo<PerConfigTest::ParamType> param_info) {
+  bool to_upper = true;
+  std::string test_name;
+
+  // InstantiationToString returns strings with underscore. Swap to CamelCase.
+  // Example: fabric_border_router -> FabricBorderRouter
+  for (char c : sai::InstantiationToString(std::get<0>(param_info.param))) {
+    if (c == '_') {
+      to_upper = true;
+    } else {
+      test_name.push_back(to_upper ? absl::ascii_toupper(c) : c);
+      to_upper = false;
+    }
+  }
+  test_name.append(sai::ClosStageToString(std::get<1>(param_info.param)));
+  return test_name;
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    ForwardingPipelineConfig, PerConfigTest,
+    testing::Combine(testing::ValuesIn(sai::AllInstantiations()),
+                     testing::ValuesIn(sai::AllStages())),
+    PerConfigTestCaseName);
 
 }  // namespace
 }  // namespace p4rt_app

@@ -19,6 +19,7 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
@@ -171,55 +172,23 @@ class HashingTest : public testing::Test {
                                                       /*device_id=*/183807201));
   }
 
-  // Sample hashing config for both ECMP and LAGs.
-  static constexpr char kSampleP4Info[] = R"pb(
-    actions {
-      preamble {
-        id: 17825802
-        name: "ingress.hashing.select_ecmp_hash_algorithm"
-        alias: "select_ecmp_hash_algorithm"
-        annotations: "@sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"
-        annotations: "@sai_hash_seed(0)"
-        annotations: "@sai_hash_offset(0)"
-      }
-    }
-    actions {
-      preamble {
-        id: 16777227
-        name: "ingress.hashing.compute_ecmp_hash_ipv4"
-        alias: "compute_ecmp_hash_ipv4"
-        annotations: "@sai_ecmp_hash(SAI_SWITCH_ATTR_ECMP_HASH_IPV4)"
-        annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_SRC_IPV4)"
-        annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_DST_IPV4)"
-        annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_L4_SRC_PORT)"
-        annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_L4_DST_PORT)"
-      }
-    }
-    actions {
-      preamble {
-        id: 16777228
-        name: "ingress.hashing.compute_ecmp_hash_ipv6"
-        alias: "compute_ecmp_hash_ipv6"
-        annotations: "@sai_ecmp_hash(SAI_SWITCH_ATTR_ECMP_HASH_IPV6)"
-        annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_SRC_IPV6)"
-        annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_DST_IPV6)"
-        annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_L4_SRC_PORT)"
-        annotations: "@sai_native_hash_field(SAI_NATIVE_HASH_FIELD_L4_DST_PORT)"
-      }
-    }
-  )pb";
-
   test_lib::P4RuntimeGrpcService p4rt_service_ =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
 };
 
 TEST_F(HashingTest, HashTableInsertionFails) {
-  p4::config::v1::P4Info p4_info;
-  EXPECT_TRUE(
-      google::protobuf::TextFormat::ParseFromString(kSampleP4Info, &p4_info));
+  p4::config::v1::P4Info p4_info =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+  std::string action_name;
+  for (const auto& action : p4_info.actions()) {
+    if (absl::StartsWith(action.preamble().name(), "ingress.hashing")) {
+      action_name = action.preamble().alias();
+    }
+  }
+
   p4rt_service_.GetHashAppDbTable().SetResponseForKey(
-      "compute_ecmp_hash_ipv4", "SWSS_RC_INVALID_PARAM", "my error message");
+      action_name, "SWSS_RC_INVALID_PARAM", "my error message");
   EXPECT_THAT(
       pdpi::SetForwardingPipelineConfig(
           p4rt_session_.get(),
@@ -229,9 +198,8 @@ TEST_F(HashingTest, HashTableInsertionFails) {
 }
 
 TEST_F(HashingTest, SwitchTableInsertionFails) {
-  p4::config::v1::P4Info p4_info;
-  EXPECT_TRUE(
-      google::protobuf::TextFormat::ParseFromString(kSampleP4Info, &p4_info));
+  p4::config::v1::P4Info p4_info =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
   p4rt_service_.GetSwitchAppDbTable().SetResponseForKey(
       "switch", "SWSS_RC_INVALID_PARAM", "my error message");
   EXPECT_THAT(

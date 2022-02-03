@@ -884,14 +884,15 @@ grpc::Status P4RuntimeImpl::VerifyPipelineConfig(
   }
 
   absl::Status validate_p4info = ValidateP4Info(request.config().p4info());
-
-  // TODO (b/181241450): Re-enable verification checks before SB400 DVT end.
   if (!validate_p4info.ok()) {
-    // return gutil::AbslStatusToGrpcStatus(
-    //     gutil::StatusBuilder(validate_p4info.code())
-    //     << "P4Info is not valid. Details: " << validate_p4info.message());
-    LOG(WARNING) << "P4Info is not valid, but we will still try to apply it: "
+    // Any failure to validate indicates an invalid P4Info.
+    std::string library_prefix = LibraryPrefix(validate_p4info);
+    LOG(WARNING) << library_prefix << "Failed to validate P4Info. "
                  << validate_p4info;
+    return gutil::AbslStatusToGrpcStatus(
+        gutil::StatusBuilder(absl::StatusCode::kInvalidArgument)
+        << library_prefix
+        << "Failed to validate P4Info. Details: " << validate_p4info.message());
   }
   return grpc::Status::OK;
 }
@@ -980,7 +981,7 @@ grpc::Status P4RuntimeImpl::ReconcileAndCommitPipelineConfig(
                    << ir_p4info.status();
       return gutil::AbslStatusToGrpcStatus(absl::Status(
           ir_p4info.status().code(),
-          absl::StrCat("[P4RT/PDPI]", ir_p4info.status().message())));
+          absl::StrCat("[P4RT/PDPI] ", ir_p4info.status().message())));
     }
     TranslateIrP4InfoForOrchAgent(*ir_p4info);
 
