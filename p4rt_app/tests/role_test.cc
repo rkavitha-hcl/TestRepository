@@ -86,14 +86,12 @@ TEST_F(RoleTest, PrimaryAndBackupConnectionsPerRole) {
   const std::string kRole2 = "role2";
 
   // Primary 1.
-  ASSERT_OK_AND_ASSIGN(auto primary_session1,
-                       pdpi::P4RuntimeSession::Create(
-                           p4rt_grpc_address_,
-                           grpc::InsecureChannelCredentials(), p4rt_device_id_,
-                           pdpi::P4RuntimeSessionOptionalArgs{
-                               .election_id = 200,
-                               .role = kRole1,
-                           }));
+  ASSERT_OK(pdpi::P4RuntimeSession::Create(
+      p4rt_grpc_address_, grpc::InsecureChannelCredentials(), p4rt_device_id_,
+      pdpi::P4RuntimeSessionOptionalArgs{
+          .election_id = 200,
+          .role = kRole1,
+      }));
 
   // Backup 1.
   EXPECT_THAT(pdpi::P4RuntimeSession::Create(p4rt_grpc_address_,
@@ -103,17 +101,15 @@ TEST_F(RoleTest, PrimaryAndBackupConnectionsPerRole) {
                                                  .election_id = 199,
                                                  .role = kRole1,
                                              }),
-              StatusIs(absl::StatusCode::kInternal));
+              StatusIs(absl::StatusCode::kNotFound));
 
   // Primary 2.
-  ASSERT_OK_AND_ASSIGN(auto primary_session2,
-                       pdpi::P4RuntimeSession::Create(
-                           p4rt_grpc_address_,
-                           grpc::InsecureChannelCredentials(), p4rt_device_id_,
-                           pdpi::P4RuntimeSessionOptionalArgs{
-                               .election_id = 200,
-                               .role = kRole2,
-                           }));
+  ASSERT_OK(pdpi::P4RuntimeSession::Create(
+      p4rt_grpc_address_, grpc::InsecureChannelCredentials(), p4rt_device_id_,
+      pdpi::P4RuntimeSessionOptionalArgs{
+          .election_id = 200,
+          .role = kRole2,
+      }));
 
   // Backup 2.
   EXPECT_THAT(pdpi::P4RuntimeSession::Create(p4rt_grpc_address_,
@@ -123,7 +119,7 @@ TEST_F(RoleTest, PrimaryAndBackupConnectionsPerRole) {
                                                  .election_id = 199,
                                                  .role = kRole2,
                                              }),
-              StatusIs(absl::StatusCode::kInternal));
+              StatusIs(absl::StatusCode::kNotFound));
 }
 
 // TODO: Fix and re-enable this test -- it broke when

@@ -19,6 +19,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_join.h"
+#include "absl/strings/substitute.h"
 #include "absl/types/span.h"
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/repeated_field.h"
@@ -61,7 +62,7 @@ std::unique_ptr<P4Runtime::Stub> CreateP4RuntimeStub(
 // destructed.
 absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
     std::unique_ptr<P4Runtime::StubInterface> stub, uint32_t device_id,
-    const P4RuntimeSessionOptionalArgs& metadata) {
+    const P4RuntimeSessionOptionalArgs& metadata, bool error_if_not_primary) {
   // Open streaming channel.
   // Using `new` to access a private constructor.
   std::unique_ptr<P4RuntimeSession> session =
@@ -101,17 +102,16 @@ absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
   //   return gutil::InternalErrorBuilder() << "Received role doesn't match: "
   //                                        << response.ShortDebugString();
   // }
-  if (response.arbitration().election_id().high() !=
-      session->election_id_.high()) {
-    return gutil::InternalErrorBuilder()
-           << "Highest 64 bits of received election id doesn't match: "
-           << response.ShortDebugString();
-  }
-  if (response.arbitration().election_id().low() !=
-      session->election_id_.low()) {
-    return gutil::InternalErrorBuilder()
-           << "Lowest 64 bits of received election id doesn't match: "
-           << response.ShortDebugString();
+  // If we want to ensure that this session has become primary, then we check,
+  // returning the error that we get in the response otherwise.
+  if (error_if_not_primary) {
+    RETURN_IF_ERROR(gutil::ToAbslStatus(response.arbitration().status()))
+            .SetPrepend()
+        << absl::Substitute(
+               "failed to become primary because given election id '$0' was "
+               "less than highest seen election id '$1': ",
+               session->election_id_.DebugString(),
+               response.arbitration().election_id().DebugString());
   }
 
   // When object returned doesn't have the same type as the function's return
@@ -128,15 +128,18 @@ absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
 absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
     const std::string& address,
     const std::shared_ptr<grpc::ChannelCredentials>& credentials,
-    uint32_t device_id, const P4RuntimeSessionOptionalArgs& metadata) {
-  return Create(CreateP4RuntimeStub(address, credentials), device_id, metadata);
+    uint32_t device_id, const P4RuntimeSessionOptionalArgs& metadata,
+    bool error_if_not_primary) {
+  return Create(CreateP4RuntimeStub(address, credentials), device_id, metadata,
+                error_if_not_primary);
 }
 
 absl::StatusOr<std::unique_ptr<P4RuntimeSession>> P4RuntimeSession::Create(
     thinkit::Switch& thinkit_switch,
-    const P4RuntimeSessionOptionalArgs& metadata) {
+    const P4RuntimeSessionOptionalArgs& metadata, bool error_if_not_primary) {
   ASSIGN_OR_RETURN(auto stub, thinkit_switch.CreateP4RuntimeStub());
-  return Create(std::move(stub), thinkit_switch.DeviceId(), metadata);
+  return Create(std::move(stub), thinkit_switch.DeviceId(), metadata,
+                error_if_not_primary);
 }
 
 // Create the default session with the switch.

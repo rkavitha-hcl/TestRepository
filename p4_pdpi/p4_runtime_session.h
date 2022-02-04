@@ -118,23 +118,24 @@ class P4RuntimeSession {
       const P4RuntimeSessionOptionalArgs& metadata = {});
 
   // Creates a session with the switch, which lasts until the session object is
-  // destructed.
+  // destructed. Performs primary arbitration and, if `error_if_not_primary` is
+  // set, as it is by default, then if the session is not the primary switch
+  // controller:
+  // * `ALREADY_EXISTS` will be returned if there is already a primary.
+  // * `NOT_FOUND` will be returned if there is no primary.
   static absl::StatusOr<std::unique_ptr<P4RuntimeSession>> Create(
       std::unique_ptr<p4::v1::P4Runtime::StubInterface> stub,
-      uint32_t device_id, const P4RuntimeSessionOptionalArgs& metadata = {});
-
-  // Creates a session with the switch, which lasts until the session object is
-  // destructed.
+      uint32_t device_id, const P4RuntimeSessionOptionalArgs& metadata = {},
+      bool error_if_not_primary = true);
   static absl::StatusOr<std::unique_ptr<P4RuntimeSession>> Create(
       const std::string& address,
       const std::shared_ptr<grpc::ChannelCredentials>& credentials,
-      uint32_t device_id, const P4RuntimeSessionOptionalArgs& metadata = {});
-
-  // Creates a session with the switch, which lasts until the session object is
-  // destructed.
+      uint32_t device_id, const P4RuntimeSessionOptionalArgs& metadata = {},
+      bool error_if_not_primary = true);
   static absl::StatusOr<std::unique_ptr<P4RuntimeSession>> Create(
       thinkit::Switch& thinkit_switch,
-      const P4RuntimeSessionOptionalArgs& metadata = {});
+      const P4RuntimeSessionOptionalArgs& metadata = {},
+      bool error_if_not_primary = true);
 
   // Connects to the default session on the switch, which has no election_id
   // and which cannot be terminated. This should only be used for testing.
