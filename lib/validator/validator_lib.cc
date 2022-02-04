@@ -91,7 +91,13 @@ absl::Status SSHable(thinkit::Switch& thinkit_switch,
 
 // Checks if a P4Runtime session could be established.
 absl::Status P4rtAble(thinkit::Switch& thinkit_switch) {
-  return pdpi::P4RuntimeSession::Create(thinkit_switch).status();
+  // Uses a metadata with minimum election id to connect as backup and not
+  // change election id necessary to connect as primary in the future.
+  return pdpi::P4RuntimeSession::Create(
+             thinkit_switch,
+             pdpi::P4RuntimeSessionOptionalArgs{.election_id = 0},
+             /*error_if_not_primary=*/false)
+      .status();
 }
 
 // Checks if a gNMI get all interface request can be sent and a response
