@@ -90,7 +90,7 @@ const std::string BuildPerPortStartBertRequest(
                                 key { key: "name" value: '$0' }
                               }
                             }
-                            prbs_polynomial: PRBS_POLYNOMIAL_PRBS23
+                            prbs_polynomial: PRBS_POLYNOMIAL_PRBS31
                             test_duration_in_secs: $1
                           )pb",
                           interface_name, ToInt64Seconds(kTestDuration));
