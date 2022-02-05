@@ -4,16 +4,19 @@
 #include <vector>
 
 #include "absl/container/flat_hash_set.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_replace.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/proto_matchers.h"
+#include "gutil/status_matchers.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 
 namespace sai {
 namespace {
 using ::gutil::EqualsProto;
+using ::gutil::StatusIs;
 using ::testing::Gt;
 using ::testing::Not;
 
@@ -74,6 +77,23 @@ INSTANTIATE_TEST_SUITE_P(FetchP4InfoTest, InstantiationsWithoutStageTest,
 
 TEST(FetchP4InfoTest, CanFetchUnionedP4Info) {
   EXPECT_THAT(FetchUnionedP4Info().ByteSizeLong(), Gt(0));
+}
+
+// Checks that any instantiation that differs by stage is compatible with all
+// stages.
+// Note that this could in theory eventually not be true.
+TEST(InstantiationAndStageCompatibility, DiffersByStageImpliesCompatible) {
+  EXPECT_OK(AssertInstantiationAndClosStageAreCompatible(
+      Instantiation::kMiddleblock, ClosStage::kStage2));
+  EXPECT_THAT(AssertInstantiationAndClosStageAreCompatible(
+                  Instantiation::kFabricBorderRouter, /*stage=*/std::nullopt),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+
+  EXPECT_OK(AssertInstantiationAndClosStageAreCompatible(
+      Instantiation::kWbb, /*stage=*/std::nullopt));
+  EXPECT_THAT(AssertInstantiationAndClosStageAreCompatible(Instantiation::kWbb,
+                                                           ClosStage::kStage3),
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 }  // namespace

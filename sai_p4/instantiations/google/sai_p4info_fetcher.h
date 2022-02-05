@@ -2,9 +2,10 @@
 #define GOOGLE_SAI_P4_INSTANTIATIONS_GOOGLE_SAI_P4INFO_FETCHER_H_
 
 #include <optional>
+#include <ostream>
 #include <vector>
 
-#include "absl/types/optional.h"
+#include "absl/status/status.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_pdpi/ir.pb.h"
 #include "sai_p4/instantiations/google/instantiations.h"
@@ -28,12 +29,15 @@ enum class ClosStage {
 // instantiation (the same behavior as if the stage was not provided at all).
 p4::config::v1::P4Info FetchP4Info(
     Instantiation instantiation,
-    absl::optional<ClosStage> stage = absl::optional<ClosStage>());
+    std::optional<ClosStage> stage = std::optional<ClosStage>());
 
 p4::config::v1::P4Info FetchUnionedP4Info();
 
 inline std::vector<ClosStage> AllStages() {
-  return {ClosStage::kStage2, ClosStage::kStage3};
+  return {
+      ClosStage::kStage2,
+      ClosStage::kStage3,
+  };
 }
 
 inline std::string ClosStageToString(ClosStage stage) {
@@ -46,6 +50,18 @@ inline std::string ClosStageToString(ClosStage stage) {
   LOG(DFATAL) << "invalid ClosStage: " << static_cast<int>(stage);
   return "";
 }
+
+inline std::ostream& operator<<(std::ostream& os, ClosStage stage) {
+  return os << ClosStageToString(stage);
+}
+
+// Returns true if the given `instantiation` is used in different CLOS stages.
+bool DiffersByClosStage(Instantiation instantiation);
+
+// Returns an error if the given `instantiation` and CLOS `stage` pair are
+// incompatible.
+absl::Status AssertInstantiationAndClosStageAreCompatible(
+    Instantiation instantiation, std::optional<ClosStage> stage);
 
 }  // namespace sai
 

@@ -1,5 +1,9 @@
 #include "sai_p4/instantiations/google/sai_p4info_fetcher.h"
 
+#include <optional>
+
+#include "absl/status/status.h"
+#include "absl/strings/substitute.h"
 #include "glog/logging.h"
 #include "google/protobuf/text_format.h"
 #include "p4/config/v1/p4info.pb.h"
@@ -47,7 +51,7 @@ P4Info MiddleblockP4Info(std::optional<ClosStage> stage) {
 }  // namespace
 
 P4Info FetchP4Info(Instantiation instantiation,
-                   absl::optional<ClosStage> stage) {
+                   std::optional<ClosStage> stage) {
   P4Info p4info;
   switch (instantiation) {
     case Instantiation::kMiddleblock:
@@ -65,6 +69,40 @@ P4Info FetchP4Info(Instantiation instantiation,
 
 P4Info FetchUnionedP4Info() {
   return FileTocToP4Info(unioned_p4info_embed_create());
+}
+
+bool DiffersByClosStage(Instantiation instantiation) {
+  switch (instantiation) {
+    case Instantiation::kMiddleblock:
+    case Instantiation::kFabricBorderRouter:
+      return true;
+    case Instantiation::kWbb:
+      return false;
+  }
+  LOG(DFATAL) << absl::StrCat("invalid instantiation '$0'",
+                              static_cast<int>(instantiation));
+  return false;
+}
+
+absl::Status AssertInstantiationAndClosStageAreCompatible(
+    Instantiation instantiation, std::optional<ClosStage> stage) {
+  // If an instantiation admits different CLOS stages, then a CLOS stage must be
+  // given.
+  if (sai::DiffersByClosStage(instantiation) && !stage.has_value()) {
+    return absl::InvalidArgumentError(
+        absl::Substitute("Instantiation '$0' exists for different CLOS stages, "
+                         "but no CLOS stage was given.",
+                         sai::InstantiationToString(instantiation)));
+  }
+  // Otherwise, a CLOS stage may not be given.
+  if (!sai::DiffersByClosStage(instantiation) && stage.has_value()) {
+    return absl::InvalidArgumentError(absl::Substitute(
+        "Instantiation '$0' does not exist for different CLOS stages, "
+        "but CLOS stage $1 was given.",
+        sai::InstantiationToString(instantiation),
+        sai::ClosStageToString(*stage)));
+  }
+  return absl::OkStatus();
 }
 
 }  // namespace sai
