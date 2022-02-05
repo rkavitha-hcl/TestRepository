@@ -14,6 +14,7 @@
 #include "tests/forwarding/fuzzer_tests.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <limits>
 #include <set>
 
@@ -21,6 +22,7 @@
 #include "absl/flags/flag.h"
 #include "absl/random/random.h"
 #include "absl/random/seed_sequences.h"
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/string_view.h"
@@ -79,9 +81,8 @@ constexpr absl::Duration kEndOfTestBuffer = absl::Minutes(5);
 constexpr absl::Duration kTestTimeout = absl::Hours(1);
 
 bool IsMaskedResource(absl::string_view table_name) {
-  // TODO: unmask when wcmp_group_table meets resource guarantees.
   // TODO: unmask when acl_egress_table meets resource guarantees.
-  return table_name == "wcmp_group_table" || table_name == "acl_egress_table";
+  return table_name == "acl_egress_table";
 }
 
 class TestEnvironment : public testing::Environment {
@@ -97,6 +98,53 @@ testing::Environment* const env =
     testing::AddGlobalTestEnvironment(new TestEnvironment);
 
 TestEnvironment& Environment() { return *dynamic_cast<TestEnvironment*>(env); }
+
+// TODO: When the oracle handles resource exhaustion, swap out this
+// function.
+absl::Status ResourceExhaustedIsAllowed(const SwitchState& state,
+                                        const pdpi::IrTableDefinition& table,
+                                        int max_total_wcmp_members) {
+  uint32_t table_id = table.preamble().id();
+
+  // If the table is full, resources may always be exhausted.
+  if (state.IsTableFull(table_id)) return absl::OkStatus();
+
+  absl::Status full_status = absl::ResourceExhaustedError(absl::Substitute(
+      "Switch reported RESOURCE_EXHAUSTED for table named '$0'. The "
+      "table currently has $1 entries, but is supposed to support at "
+      "least $2 entries: ",
+      table.preamble().alias(), state.GetNumTableEntries(table_id),
+      table.size()));
+
+  // If the table uses action profiles, then its resources may be exhausted due
+  // to too much total weight or too many total members.
+  if (table.implementation_id_case() ==
+      pdpi::IrTableDefinition::kActionProfileId) {
+    // TODO: Combine these two notions of Action Profile
+    // fullness to ActionProfileIsFull, when that is defined.
+
+    // Ensure that total members is above guarantee...
+    ASSIGN_OR_RETURN(auto total_actions, state.GetTotalActions(table_id));
+    // TODO: Once P4RT standard is updated, derive
+    // max_total_wcmp_members from p4info instead. Then, 0 will mean that there
+    // is no guarantee placed on total members so we do not use that to
+    // determine resource exhaustion. We use the same sentinel value here.
+    if (total_actions >= max_total_wcmp_members && max_total_wcmp_members != 0)
+      return absl::OkStatus();
+
+    // ... or that total weight is above guarantee.
+    absl::Status weight_status =
+        state.EnsureActionProfileIsFullOfWeight(table_id);
+    if (weight_status.ok()) return absl::OkStatus();
+    RETURN_IF_ERROR(full_status)
+        << weight_status.message()
+        << absl::Substitute(
+               "The table currently has $0 total members, but is supposed to "
+               "support at least $1.",
+               total_actions, max_total_wcmp_members);
+  }
+  return full_status;
+}
 
 }  // namespace
 
@@ -141,10 +189,11 @@ void FuzzerTestFixture::TearDown() {
     // inadvertently does due to some bug. Then we reboot the switch to
     // clear the state.
     if (!switch_cleared.ok()) {
-      ADD_FAILURE()
-          << "Failed to clear entries from switch (now attempting reboot): "
-          << switch_cleared;
-
+      if (!GetParam().milestone.has_value()) {
+        ADD_FAILURE()
+            << "Failed to clear entries from switch (now attempting reboot): "
+            << switch_cleared;
+      }
       // Save the logs before rebooting to help with debug.
       EXPECT_OK(GetParam().mirror_testbed->SaveSwitchLogs(
           /*save_prefix=*/"failed_to_clear_sut_state_"));
@@ -283,13 +332,11 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
           // are exhausted.
           if (this_is_the_resource_limits_test ||
               (this_is_not_some_other_specific_test && is_not_masked)) {
-            // Check that table was full before this status.
-            ASSERT_TRUE(state.IsTableFull(table_id)) << absl::Substitute(
-                "Switch reported RESOURCE_EXHAUSTED for table named '$0'. The "
-                "table currently has $1 entries, but is supposed to support at "
-                "least $2 entries.\nUpdate = $3\nState = $4",
-                table.preamble().alias(), state.GetNumTableEntries(table_id),
-                table.size(), update.DebugString(), state.SwitchStateSummary());
+            // Check that table is allowed to have exhausted resources.
+            ASSERT_OK(ResourceExhaustedIsAllowed(
+                state, table, GetParam().max_total_wcmp_members))
+                << "\nUpdate = " << update.DebugString()
+                << "\nState = " << state.SwitchStateSummary();
           }
         }
         // Collect error messages and update state.

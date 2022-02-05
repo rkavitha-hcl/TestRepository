@@ -14,6 +14,7 @@
 #include "p4_fuzzer/switch_state.h"
 
 #include <algorithm>
+#include <cstdint>
 #include <iterator>
 #include <set>
 #include <string>
@@ -24,6 +25,7 @@
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/substitute.h"
 #include "glog/logging.h"
 #include "gutil/collections.h"
 #include "gutil/status.h"
@@ -69,6 +71,73 @@ int64_t SwitchState::GetNumTableEntries() const {
     result += table.size();
   }
   return result;
+}
+
+absl::StatusOr<int64_t> SwitchState::GetTotalActions(
+    const uint32_t table_id) const {
+  ASSIGN_OR_RETURN(const pdpi::IrTableDefinition& table_def,
+                   gutil::FindOrStatus(ir_p4info_.tables_by_id(), table_id));
+  ASSIGN_OR_RETURN(const TableEntries& table,
+                   gutil::FindOrStatus(tables_, table_id));
+
+  if (table_def.implementation_id_case() !=
+      pdpi::IrTableDefinition::kActionProfileId) {
+    return absl::InvalidArgumentError(
+        absl::Substitute("tried to get total actions from table with id '$0', "
+                         "but it does not implement action profile",
+                         table_id));
+  }
+
+  int total_actions = 0;
+  for (auto& [_, table_entry] : table) {
+    total_actions += table_entry.action()
+                         .action_profile_action_set()
+                         .action_profile_actions_size();
+  }
+  return total_actions;
+}
+
+absl::Status SwitchState::EnsureActionProfileIsFullOfWeight(
+    const uint32_t table_id) const {
+  ASSIGN_OR_RETURN(const pdpi::IrTableDefinition& table_def,
+                   gutil::FindOrStatus(ir_p4info_.tables_by_id(), table_id));
+  ASSIGN_OR_RETURN(const TableEntries& table,
+                   gutil::FindOrStatus(tables_, table_id));
+
+  if (table_def.implementation_id_case() !=
+      pdpi::IrTableDefinition::kActionProfileId) {
+    return absl::InvalidArgumentError(
+        absl::Substitute("tried to get total actions from table with id '$0', "
+                         "but it does not implement action profile",
+                         table_id));
+  }
+
+  int total_weight = 0;
+  for (auto& [_, table_entry] : table) {
+    for (const p4::v1::ActionProfileAction& action :
+         table_entry.action()
+             .action_profile_action_set()
+             .action_profile_actions()) {
+      total_weight += action.weight();
+    }
+  }
+
+  ASSIGN_OR_RETURN(const auto& action_profile_def,
+                   gutil::FindOrStatus(ir_p4info_.action_profiles_by_id(),
+                                       table_def.action_profile_id()));
+  const p4::config::v1::ActionProfile& action_profile =
+      action_profile_def.action_profile();
+
+  // If the total weight is high enough, then the action profile is full of
+  // weight.
+  if (total_weight >= action_profile.size() && action_profile.size() != 0)
+    return absl::OkStatus();
+
+  // Otherwise, the action profile is not full.
+  return absl::FailedPreconditionError(
+      absl::Substitute("action profile is not full of weight: table with id "
+                       "'$0' currently has $1 total weight, but supports $2.",
+                       table_id, total_weight, action_profile.size()));
 }
 
 const std::vector<uint32_t> SwitchState::AllTableIds() const {

@@ -22,6 +22,7 @@
 #include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/types/optional.h"
 #include "glog/logging.h"
 #include "gutil/status.h"
@@ -54,6 +55,20 @@ class SwitchState {
   // is no guarantee that any further entry will fit into this table. Whether
   // or not a table is full, may depend on the entries in other tables as well.
   bool IsTableFull(const uint32_t table_id) const;
+
+  // Returns the total number of actions in a table that uses action profiles,
+  // or InvalidArgumentError if the given table does not use action profiles.
+  // TODO: Remove when we can change the function below to just
+  // ActionProfileIsFull.
+  absl::StatusOr<int64_t> GetTotalActions(const uint32_t table_id) const;
+
+  // Returns Ok if the table uses action profiles and is at its limit in terms
+  // of weight. If the table does not use action profiles, it returns
+  // InvalidArgumentError. If the action profile is not full, it returns
+  // FailedPreconditionError.
+  // TODO: Change to just EnsureActionProfileIsFull, when that is
+  // defined as desired.
+  absl::Status EnsureActionProfileIsFullOfWeight(const uint32_t table_id) const;
 
   // Checks whether the given set of table entries is empty.
   bool AllTablesEmpty() const;

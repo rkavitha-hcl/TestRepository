@@ -56,6 +56,8 @@ struct FuzzerTestFixtureParams {
   // different P4Info is pushed. Set this boolean if the P4Info passed in as a
   // parameter is different from the one we expect to exist on the switch.
   bool reboot_switch_before_and_after_test_due_to_modified_p4info;
+  // TODO: Remove once we can derive this number from the P4Info.
+  int max_total_wcmp_members;
 };
 
 class FuzzerTestFixture
