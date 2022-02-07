@@ -291,12 +291,31 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
         absl::StrCat("# Response to request number ", i + 1, "\n",
                      response.DebugString())));
 
-    // TODO: The switch currently often returns an RPC wide error
-    // when failing to delete a WCMP group.
-    if (!mask_known_failures) {
-      ASSERT_TRUE(response.has_rpc_response())
-          << "Expected proper response, but got: " << response.DebugString();
+    // If there is an RPC-wide error, it is unclear what state the switch may be
+    // in and we perform a full read to recover it.
+    if (!response.has_rpc_response()) {
+      // This is technically an error, but we want to focus on other issues
+      // during milestone testing and thus are lenient.
+      // TODO: The switch currently often returns an RPC-wide error
+      // when failing to delete a WCMP group.
+      if (!GetParam().milestone.has_value() && !mask_known_failures) {
+        ASSERT_TRUE(response.has_rpc_response())
+            << "Expected proper response, but got: " << response.DebugString();
+      } else {
+        LOG(WARNING) << "Attempting to recover switch state after receiving an "
+                        "unexpected WriteResponse: "
+                     << response.DebugString();
+      }
+
+      // Recover switch state via full read.
+      ASSERT_OK_AND_ASSIGN(std::vector<p4::v1::TableEntry> table_entries,
+                           pdpi::ReadPiTableEntries(session.get()));
+      ASSERT_OK(state.SetTableEntries(table_entries));
     }
+
+    // If we get a proper reponse from the switch, we check for resource
+    // exhaustion and update our internal view of the switch state
+    // incrementally.
     if (response.has_rpc_response()) {
       for (int i = 0; i < response.rpc_response().statuses().size(); i++) {
         const pdpi::IrUpdateStatus& status =
@@ -314,7 +333,8 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
               gutil::FindOrStatus(info.tables_by_id(), table_id));
 
           // Determine if we should check for resource exhaustion:
-          // If this is the resource limits test, then we always want to check.
+          // If this is the resource limits test, then we always want to
+          // check.
           bool this_is_the_resource_limits_test =
               GetParam().milestone == Milestone::kResourceLimits;
 
@@ -323,8 +343,8 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
           bool this_is_not_some_other_specific_test =
               !GetParam().milestone.has_value();
 
-          // ... but we only want to check if we are not masking any failures or
-          // just not this specific one.
+          // ... but we only want to check if we are not masking any failures
+          // or just not this specific one.
           bool is_not_masked = !mask_known_failures ||
                                !IsMaskedResource(table.preamble().alias());
 
@@ -416,12 +436,12 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
   EXPECT_OK(environment.StoreTestArtifact("error_messages.txt",
                                           absl::StrJoin(error_messages, "\n")));
 
-  // Unless we are testing a specific milestone, ensure that clearing all tables
-  // succeds. Can be safely skipped as we also clean up the switch during
-  // TearDown, but is helpful to detect switch bugs.
+  // Unless we are testing a specific milestone, ensure that clearing all
+  // tables succeeds. Can be safely skipped as we also clean up the switch
+  // during TearDown, but is helpful to detect switch bugs.
   // TODO: Clean-up has a known bug where deletion of existing
   // table entries fails.
-  if (GetParam().milestone == std::nullopt && !mask_known_failures) {
+  if (!GetParam().milestone.has_value() && !mask_known_failures) {
     ASSERT_OK_AND_ASSIGN(auto table_entries,
                          pdpi::ReadPiTableEntries(session.get()));
     for (const auto& entry : table_entries) {

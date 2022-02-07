@@ -14,6 +14,7 @@
 #include "p4_fuzzer/switch_state.h"
 
 #include <cstdint>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"

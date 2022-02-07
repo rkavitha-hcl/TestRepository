@@ -24,6 +24,7 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/optional.h"
+#include "absl/types/span.h"
 #include "glog/logging.h"
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
