@@ -16,6 +16,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <limits>
+#include <optional>
 #include <set>
 
 #include "absl/container/flat_hash_set.h"
@@ -415,11 +416,12 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
   EXPECT_OK(environment.StoreTestArtifact("error_messages.txt",
                                           absl::StrJoin(error_messages, "\n")));
 
-  // Leave the switch in a clean state and log the final state to help with
-  // debugging.
+  // Unless we are testing a specific milestone, ensure that clearing all tables
+  // succeds. Can be safely skipped as we also clean up the switch during
+  // TearDown, but is helpful to detect switch bugs.
   // TODO: Clean-up has a known bug where deletion of existing
   // table entries fails.
-  if (!mask_known_failures) {
+  if (GetParam().milestone == std::nullopt && !mask_known_failures) {
     ASSERT_OK_AND_ASSIGN(auto table_entries,
                          pdpi::ReadPiTableEntries(session.get()));
     for (const auto& entry : table_entries) {
