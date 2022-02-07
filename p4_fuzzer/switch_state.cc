@@ -31,6 +31,7 @@
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "p4_fuzzer/table_entry_key.h"
 #include "p4_pdpi/internal/ordered_map.h"
 #include "p4_pdpi/ir.pb.h"
 
@@ -41,10 +42,15 @@ using ::p4::v1::TableEntry;
 using ::p4::v1::Update;
 using ::pdpi::IrP4Info;
 
-SwitchState::SwitchState(IrP4Info ir_p4info) : ir_p4info_(ir_p4info) {
+SwitchState::SwitchState(IrP4Info ir_p4info)
+    : ir_p4info_(std::move(ir_p4info)) {
   for (auto& [table_id, table] : ir_p4info_.tables_by_id()) {
     tables_[table_id] = TableEntries();
   }
+}
+
+void SwitchState::ClearTableEntries() {
+  *this = SwitchState(std::move(ir_p4info_));
 }
 
 bool SwitchState::AllTablesEmpty() const {
@@ -188,7 +194,7 @@ absl::Status SwitchState::ApplyUpdate(const Update& update) {
 
   auto& table = FindOrDie(tables_, table_id);
 
-  TableEntry table_entry = update.entity().table_entry();
+  const TableEntry& table_entry = update.entity().table_entry();
 
   switch (update.type()) {
     case Update::INSERT: {
@@ -227,6 +233,23 @@ absl::Status SwitchState::ApplyUpdate(const Update& update) {
     default:
       LOG(FATAL) << "Update of unsupported type: " << update.DebugString();
   }
+  return absl::OkStatus();
+}
+
+absl::Status SwitchState::SetTableEntries(
+    absl::Span<const p4::v1::TableEntry> table_entries) {
+  ClearTableEntries();
+
+  for (const p4::v1::TableEntry& entry : table_entries) {
+    auto table = tables_.find(entry.table_id());
+    if (table == tables_.end()) {
+      return gutil::InvalidArgumentErrorBuilder()
+             << "table entry with unknown table ID '" << entry.table_id()
+             << "'";
+    }
+    table->second.insert({TableEntryKey(entry), entry});
+  }
+
   return absl::OkStatus();
 }
 

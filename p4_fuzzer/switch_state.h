@@ -102,6 +102,14 @@ class SwitchState {
   // cannot already be present, and returns an error otherwise.
   absl::Status ApplyUpdate(const p4::v1::Update& update);
 
+  // Updates all tables to match the given set of table entries.
+  absl::Status SetTableEntries(
+      absl::Span<const p4::v1::TableEntry> table_entries);
+
+  // Clears all table entries. Equivalent to constructing a new `SwitchState`
+  // object.
+  void ClearTableEntries();
+
   // Returns a summary of the state.
   std::string SwitchStateSummary() const;
 

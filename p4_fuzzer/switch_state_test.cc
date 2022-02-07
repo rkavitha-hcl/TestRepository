@@ -15,11 +15,14 @@
 
 #include <cstdint>
 
+#include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/substitute.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/collections.h"
+#include "gutil/proto_matchers.h"
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "p4/v1/p4runtime.pb.h"
@@ -40,7 +43,10 @@ using ::p4::v1::TableEntry;
 using ::p4::v1::Update;
 using ::pdpi::CreateIrP4Info;
 using ::pdpi::IrP4Info;
-using ::testing::StrEq;
+
+// All P4Runtime table IDs must have their most significant byte equal to this
+// value.
+constexpr uint32_t kTableIdMostSignificantByte = 0x02'00'00'00;
 
 TEST(SwitchStateTest, TableEmptyTrivial) {
   IrP4Info info;
@@ -93,6 +99,18 @@ TEST(SwitchStateTest, RuleInsert) {
 
   EXPECT_EQ(state.GetTableEntries(42).size(), 1);
   EXPECT_EQ(state.GetTableEntries(43).size(), 0);
+
+  state.ClearTableEntries();
+  EXPECT_TRUE(state.AllTablesEmpty());
+}
+
+TEST(SwitchStateTest, ClearTableEntriesPreservesP4Info) {
+  const IrP4Info p4info = pdpi::GetTestIrP4Info();
+  SwitchState state(p4info);
+  EXPECT_THAT(state.GetIrP4Info(), gutil::EqualsProto(p4info));
+
+  state.ClearTableEntries();
+  EXPECT_THAT(state.GetIrP4Info(), gutil::EqualsProto(p4info));
 }
 
 TEST(SwitchStateTest, RuleDelete) {
@@ -171,6 +189,48 @@ TEST(SwitchStateTest, GetIdsForMatchField) {
   ASSERT_OK(state.ApplyUpdate(MakePiUpdate(info, Update::DELETE, entry1)));
   ASSERT_THAT(state.GetIdsForMatchField(field),
               testing::UnorderedElementsAre("other-id"));
+}
+
+TEST(SwitchStateTest, SetTableEntriesSetsTableEntries) {
+  // Initialize state.
+  SwitchState state(pdpi::GetTestIrP4Info());
+  EXPECT_TRUE(state.AllTablesEmpty());
+  constexpr uint32_t kTableId1 = 1 | kTableIdMostSignificantByte;
+  constexpr uint32_t kTableId2 = 2 | kTableIdMostSignificantByte;
+
+  // Call SetTableEntries and ensure it indeed populates the correct tables.
+  std::vector<p4::v1::TableEntry> entries;
+  entries.emplace_back().set_table_id(kTableId1);  // Entry #1 in table 1.
+  entries.emplace_back().set_table_id(kTableId2);  // Entry #1 in table 2.
+  entries.emplace_back() =                         // Entry #2 in table 1.
+      gutil::ParseProtoOrDie<p4::v1::TableEntry>(
+          absl::Substitute(R"pb(
+                             table_id: $0
+                             match {
+                               field_id: 1
+                               exact { value: "second entry in table 1" }
+                             }
+                           )pb",
+                           kTableId1));
+  ASSERT_OK(state.SetTableEntries(entries))
+      << " with the following P4Info:\n " << state.GetIrP4Info().DebugString();
+  EXPECT_EQ(state.GetNumTableEntries(kTableId1), 2);
+  EXPECT_EQ(state.GetNumTableEntries(kTableId2), 1);
+  EXPECT_EQ(state.GetNumTableEntries(), 3);
+
+  state.ClearTableEntries();
+  EXPECT_EQ(state.GetNumTableEntries(kTableId1), 0);
+  EXPECT_EQ(state.GetNumTableEntries(kTableId2), 0);
+  EXPECT_EQ(state.GetNumTableEntries(), 0);
+  EXPECT_TRUE(state.AllTablesEmpty());
+}
+
+TEST(SwitchStateTest, SetTableEntriesFailsForUnknownTableIds) {
+  SwitchState state(pdpi::GetTestIrP4Info());
+  EXPECT_THAT(
+      state.SetTableEntries(std::vector{
+          gutil::ParseProtoOrDie<p4::v1::TableEntry>("table_id: 123456789")}),
+      gutil::StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(SwitchStateTest, CheckStateSummaryNoMax) {
