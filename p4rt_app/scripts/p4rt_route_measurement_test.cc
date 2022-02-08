@@ -43,7 +43,9 @@ DEFINE_string(server_cert_file, "", "Server certificate file");
 // server_address should have format of <IP_address>:9559 if not unix socket
 DEFINE_string(server_address, "unix:/sock/p4rt.sock",
               "The address of the server to connect to");
+DEFINE_int32(min_silent_time, 0, "Min silent time in second");
 DEFINE_int32(max_silent_time, 0, "Max silent time in second");
+DEFINE_int32(delta_silent_time, 0, "Delta silent time in second");
 
 namespace p4rt_app {
 namespace {
@@ -246,9 +248,12 @@ class P4rtRouteTest : public Test {
   absl::Status SendBatchRequest(absl::string_view iptable_entry,
                                 absl::string_view update_type,
                                 uint32_t number_batches, uint32_t batch_size,
-                                uint32_t max_silent_time) {
+                                uint32_t min_silent_time,
+                                uint32_t max_silent_time,
+                                uint32_t delta_silent_time) {
     uint32_t ip_prefix = 0x14000000;
     uint32_t subnet0, subnet1, subnet2, subnet3;
+    uint32_t silent_time = min_silent_time;
     for (uint32_t i = 0; i < number_batches; i++) {
       p4::v1::WriteRequest request;
       for (uint32_t j = 0; j < batch_size; j++) {
@@ -280,8 +285,12 @@ class P4rtRouteTest : public Test {
           pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
 
       // Below is to introduce some silent time between batches, if needed
-      if (max_silent_time > 0) {
-        absl::SleepFor(absl::Seconds(std::max(5 * (i + 1), max_silent_time)));
+      if (silent_time > 0) {
+        absl::SleepFor(absl::Seconds(silent_time));
+        silent_time += delta_silent_time;
+        if (silent_time > max_silent_time) {
+          silent_time = min_silent_time;  // wrap around
+        }
       }
     }
     return absl::OkStatus();
@@ -296,8 +305,9 @@ class P4rtRouteTest : public Test {
 
 TEST_F(P4rtRouteTest, ProgramIp4RouteEntries) {
   auto start = absl::Now();
-  auto status = SendBatchRequest(ip4table_entry, "INSERT", FLAGS_number_batches,
-                                 FLAGS_batch_size, FLAGS_max_silent_time);
+  auto status = SendBatchRequest(
+      ip4table_entry, "INSERT", FLAGS_number_batches, FLAGS_batch_size,
+      FLAGS_min_silent_time, FLAGS_max_silent_time, FLAGS_delta_silent_time);
   auto delta_time = absl::Now() - start;
   if (status.ok()) {
     // Send to stdout so that callers can parse the output.
@@ -308,7 +318,9 @@ TEST_F(P4rtRouteTest, ProgramIp4RouteEntries) {
 
   // Delete all batches, no matter the create passed or failed.
   status.Update(SendBatchRequest(ip4table_entry, "DELETE", FLAGS_number_batches,
-                                 FLAGS_batch_size, 0));
+                                 FLAGS_batch_size, /*min_silent_time=*/0,
+                                 /*max_silent_time=*/0,
+                                 /*delta_silent_time=*/0));
   EXPECT_OK(status) << "Failed to delete batch request";
 }
 
