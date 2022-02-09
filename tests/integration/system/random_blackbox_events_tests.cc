@@ -24,20 +24,28 @@
 #include <vector>
 
 #include "absl/algorithm/container.h"
+#include "absl/cleanup/cleanup.h"
+#include "absl/container/flat_hash_map.h"
 #include "absl/random/random.h"
 #include "absl/status/statusor.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
+#include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "google/rpc/code.pb.h"
 #include "grpcpp/client_context.h"
+#include "grpcpp/impl/codegen/call_op_set.h"
+#include "grpcpp/impl/codegen/client_context.h"
+#include "grpcpp/support/sync_stream.h"
 #include "gtest/gtest.h"
+#include "gutil/proto.h"
 #include "gutil/status.h"
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "lib/basic_traffic/basic_traffic.h"
 #include "lib/gnmi/gnmi_helper.h"
 #include "lib/utils/generic_testbed_utils.h"
+#include "lib/validator/validator_lib.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_fuzzer/annotation_util.h"
@@ -49,11 +57,15 @@
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
 #include "p4_pdpi/packetlib/packetlib.pb.h"
+#include "proto/gnmi/gnmi.grpc.pb.h"
+#include "proto/gnmi/gnmi.pb.h"
 #include "sai_p4/fixed/roles.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 #include "thinkit/generic_testbed.h"
 #include "thinkit/proto/generic_testbed.pb.h"
+#include "thinkit/switch.h"
+#include "thinkit/test_environment.h"
 
 namespace pins_test {
 namespace {
@@ -86,22 +98,38 @@ TEST_P(RandomBlackboxEventsTest, ControlPlaneWithTrafficWithoutValidation) {
                                     })pb")));
   testbed->Environment().SetTestCaseID("491b3f60-1369-4099-9385-da5dd44a087d");
 
-  ASSERT_OK_AND_ASSIGN(
-      auto p4rt_session,
-      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-          testbed->Sut(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+  // Initial sanity check.
+  ASSERT_OK(SwitchReady(testbed->Sut()));
 
-  std::vector<std::string> sut_control_interfaces =
-      GetSutInterfaces(FromTestbed(GetAllControlLinks, *testbed));
-
+  // Setup gNMI subscription request.
   ASSERT_OK_AND_ASSIGN(auto gnmi_stub, testbed->Sut().CreateGnmiStub());
+  auto subscription_request =
+      gutil::ParseProtoFileOrDie<gnmi::SubscribeRequest>(
+          "tests/integration/system/"
+          "gnmi_subscription_request.textproto");
+  grpc::ClientContext subscribe_context;
+  auto subscription = gnmi_stub->Subscribe(&subscribe_context);
+  subscription->WriteLast(subscription_request, grpc::WriteOptions());
+  std::thread subscribe_thread([&subscription] {
+    gnmi::SubscribeResponse response;
+    while (subscription->Read(&response)) {
+      LOG_EVERY_N(INFO, 1000)
+          << "Received subscribe notification (Count: " << google::COUNTER
+          << "): " << response.ShortDebugString();
+    }
+  });
+  absl::Cleanup cancel_subscribe = [&subscribe_context, &subscribe_thread] {
+    subscribe_context.TryCancel();
+    subscribe_thread.join();
+  };
+
+  // Setup fuzzer thread.
   ASSERT_OK_AND_ASSIGN(auto port_id_map,
                        GetAllInterfaceNameToPortId(*gnmi_stub));
   std::vector<std::string> port_ids;
   port_ids.reserve(port_id_map.size());
   absl::c_transform(port_id_map, std::back_inserter(port_ids),
                     [](const auto& pair) { return pair.second; });
-
   p4_fuzzer::FuzzerConfig config = {
       .info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
       .ports = std::move(port_ids),
@@ -111,7 +139,10 @@ TEST_P(RandomBlackboxEventsTest, ControlPlaneWithTrafficWithoutValidation) {
       .role = "sdn_controller",
       .mutate_update_probability = 0.1,
   };
-
+  ASSERT_OK_AND_ASSIGN(
+      auto p4rt_session,
+      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+          testbed->Sut(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
   {
     ScopedThread p4rt_fuzzer([&config,
                               &p4rt_session](const bool& time_to_exit) {
@@ -151,6 +182,8 @@ TEST_P(RandomBlackboxEventsTest, ControlPlaneWithTrafficWithoutValidation) {
         EXPECT_OK(pdpi::ReadPiTableEntries(p4rt_session.get()).status());
       }
     });
+
+    // Send traffic and report discrepencies.
     const auto test_packet = gutil::ParseProtoOrDie<packetlib::Packet>(R"pb(
       headers {
         ethernet_header {
@@ -176,6 +209,8 @@ TEST_P(RandomBlackboxEventsTest, ControlPlaneWithTrafficWithoutValidation) {
       headers {
         udp_header { source_port: "0x0000" destination_port: "0x0000" }
       })pb");
+    std::vector<std::string> sut_control_interfaces =
+        GetSutInterfaces(FromTestbed(GetAllControlLinks, *testbed));
     ASSERT_OK_AND_ASSIGN(
         auto statistics,
         basic_traffic::SendTraffic(
@@ -195,6 +230,8 @@ TEST_P(RandomBlackboxEventsTest, ControlPlaneWithTrafficWithoutValidation) {
       }
     }
   }
+  // Final sanity check.
+  ASSERT_OK(SwitchReady(testbed->Sut()));
 }
 
 }  // namespace pins_test
