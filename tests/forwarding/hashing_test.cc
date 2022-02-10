@@ -297,11 +297,11 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
       {"789dad22-96d1-4550-8acb-d42c1f69ca21",
        "fdaa1b1e-67a3-497f-aa62-fd62d711c415"});
 
-  absl::Span<const int> orion_port_ids = GetParam().port_ids;
-  ASSERT_GE(orion_port_ids.size(), kNumWcmpMembersForTest);
+  absl::Span<const int> port_ids = GetParam().port_ids;
+  ASSERT_GE(port_ids.size(), kNumWcmpMembersForTest);
 
   // The port on which we input all dataplane test packets.
-  const int ingress_port = orion_port_ids[0];
+  const int ingress_port = port_ids[0];
 
   const std::string& gnmi_config = GetParam().gnmi_config;
   ASSERT_OK(
@@ -379,7 +379,7 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
   for (int iter = 0; iter < 3; iter++) {
     std::vector<GroupMember> members(kNumWcmpMembersForTest);
     for (int i = 0; i < kNumWcmpMembersForTest; i++) {
-      members[i] = gpins::GroupMember{.weight = 0, .port = orion_port_ids[i]};
+      members[i] = gpins::GroupMember{.weight = 0, .port = port_ids[i]};
     }
 
     std::vector<int> weights(kNumWcmpMembersForTest);
@@ -456,7 +456,7 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
 
                 int port = ingress_port;
                 if (field == PacketField::kInputPort) {
-                  port = orion_port_ids[idx % members.size()];
+                  port = port_ids[idx % members.size()];
                 }
 
                 ASSERT_OK_AND_ASSIGN(auto packet,

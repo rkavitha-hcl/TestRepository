@@ -248,6 +248,7 @@ cc_library(
         ":group_programming_util",
         ":packet_test_util",
         ":util",
+        "//gutil:proto_matchers",
         "//gutil:status_matchers",
         "//gutil:testing",
         "//lib/gnmi:gnmi_helper",

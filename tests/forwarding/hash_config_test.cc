@@ -38,6 +38,7 @@
 #include "absl/types/span.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "gutil/proto_matchers.h"
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "lib/gnmi/gnmi_helper.h"
@@ -65,8 +66,16 @@ absl::node_hash_map<std::string, HashConfigTest::TestData>*
 
 namespace {
 
-using gpins::PacketField;
-using gpins::TestConfiguration;
+using ::gpins::PacketField;
+using ::gpins::TestConfiguration;
+using ::gutil::EqualsProto;
+using ::gutil::ParseProtoOrDie;
+using ::gutil::ParseTextProto;
+using ::testing::Contains;
+using ::testing::Key;
+using ::testing::Matches;
+using ::testing::Not;
+using ::testing::UnorderedElementsAreArray;
 
 // The minimum number of ports needed to perform the test.
 constexpr int kMinimumMembersForTest = 3;
@@ -215,20 +224,20 @@ void ProgramHashingEntities(thinkit::MirrorTestbed& testbed,
   // Create default VRF.
   ASSERT_OK_AND_ASSIGN(
       p4::v1::TableEntry pi_entry,
-      pdpi::PdTableEntryToPi(ir_p4info, gutil::ParseProtoOrDie<sai::TableEntry>(
-                                            kAddVrfTableEntry)));
+      pdpi::PdTableEntryToPi(
+          ir_p4info, ParseProtoOrDie<sai::TableEntry>(kAddVrfTableEntry)));
   pi_entries.push_back(pi_entry);
 
   // Set default VRF for all packets.
   ASSERT_OK_AND_ASSIGN(
       pi_entry,
-      pdpi::PdTableEntryToPi(ir_p4info, gutil::ParseProtoOrDie<sai::TableEntry>(
-                                            kSetVrfTableEntry)));
+      pdpi::PdTableEntryToPi(
+          ir_p4info, ParseProtoOrDie<sai::TableEntry>(kSetVrfTableEntry)));
   pi_entries.push_back(pi_entry);
 
   // Add flows to allow destination mac variations.
   auto l3_dst_mac_classifier =
-      gutil::ParseProtoOrDie<sai::TableEntry>(kDstMacClassifier);
+      ParseProtoOrDie<sai::TableEntry>(kDstMacClassifier);
   l3_dst_mac_classifier.mutable_l3_admit_table_entry()
       ->mutable_match()
       ->mutable_dst_mac()
@@ -240,14 +249,14 @@ void ProgramHashingEntities(thinkit::MirrorTestbed& testbed,
   // Add minimal set of flows to allow forwarding.
   ASSERT_OK_AND_ASSIGN(
       pi_entry,
-      pdpi::PdTableEntryToPi(ir_p4info, gutil::ParseProtoOrDie<sai::TableEntry>(
-                                            kIpv4DefaultRouteEntry)));
+      pdpi::PdTableEntryToPi(
+          ir_p4info, ParseProtoOrDie<sai::TableEntry>(kIpv4DefaultRouteEntry)));
   pi_entries.push_back(pi_entry);
 
   ASSERT_OK_AND_ASSIGN(
       pi_entry,
-      pdpi::PdTableEntryToPi(ir_p4info, gutil::ParseProtoOrDie<sai::TableEntry>(
-                                            kIpv6DefaultRouteEntry)));
+      pdpi::PdTableEntryToPi(
+          ir_p4info, ParseProtoOrDie<sai::TableEntry>(kIpv6DefaultRouteEntry)));
   pi_entries.push_back(pi_entry);
 
   ASSERT_OK(pdpi::InstallPiTableEntries(session.get(), ir_p4info, pi_entries));
@@ -292,7 +301,7 @@ void InitializeTestbed(thinkit::MirrorTestbed& testbed,
       p4::v1::TableEntry punt_all_pi_entry,
       pdpi::PdTableEntryToPi(
           ir_p4info,
-          gutil::ParseProtoOrDie<sai::TableEntry>(
+          ParseProtoOrDie<sai::TableEntry>(
               R"pb(
                 acl_ingress_table_entry {
                   match {}                                  # Wildcard match.
@@ -386,8 +395,8 @@ void RegexModifyP4Info(p4::config::v1::P4Info& p4info, absl::string_view regex,
   std::string p4info_str = p4info.DebugString();
   ASSERT_TRUE(RE2::Replace(&p4info_str, regex, replacement))
       << "Failed to perform P4Info replacement of regex " << regex;
-  ASSERT_OK_AND_ASSIGN(
-      p4info, gutil::ParseTextProto<p4::config::v1::P4Info>(p4info_str));
+  ASSERT_OK_AND_ASSIGN(p4info,
+                       ParseTextProto<p4::config::v1::P4Info>(p4info_str));
 }
 
 // Retrieve the current known port IDs from the switch. Must use numerical port
@@ -402,8 +411,7 @@ void GetPortIds(thinkit::Switch& target, std::vector<std::string>& interfaces,
 
   for (const auto& interface_name : up_interfaces) {
     int port_id;
-    ASSERT_THAT(interface_id_map,
-                testing::Contains(testing::Key(interface_name)));
+    ASSERT_THAT(interface_id_map, Contains(Key(interface_name)));
     ASSERT_TRUE(
         absl::SimpleAtoi(interface_id_map.at(interface_name), &port_id));
     port_ids.insert(port_id);
@@ -589,7 +597,7 @@ void HashConfigTest::TestHashDifference(
 
   for (const auto& config : TestConfigNames()) {
     EXPECT_THAT(modified_hash_test_data.at(config).Results(),
-                testing::Not(testing::UnorderedElementsAreArray(
+                Not(UnorderedElementsAreArray(
                     OriginalP4InfoTestData().at(config).Results())))
         << "No hash diff found for config: " << config;
   }
@@ -611,7 +619,7 @@ TEST_P(HashConfigTest, HashIsStableWithSameP4Info) {
   // the same result.
   for (const auto& config : TestConfigNames()) {
     EXPECT_THAT(hash_test_data.at(config).Results(),
-                testing::UnorderedElementsAreArray(
+                UnorderedElementsAreArray(
                     OriginalP4InfoTestData().at(config).Results()))
         << "No hash diff found for config: " << config;
   }
@@ -625,6 +633,14 @@ TEST_P(HashConfigTest, HashAlgorithmSettingsAffectPacketHash) {
   ASSERT_NO_FATAL_FAILURE(
       RegexModifyP4Info(modified_p4info, R"re(sai_hash_algorithm\([^)]*\))re",
                         "sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"));
+  // If we happen to match, attempt with another algorithm.
+  if (Matches(EqualsProto(GetP4Info()))(modified_p4info)) {
+    ASSERT_NO_FATAL_FAILURE(
+        RegexModifyP4Info(modified_p4info, R"re(sai_hash_algorithm\([^)]*\))re",
+                          "sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_CCITT)"));
+  }
+  ASSERT_THAT(modified_p4info, Not(EqualsProto(GetP4Info())))
+      << "Failed to modify the hash algorithm in the P4Info.";
 
   ASSERT_NO_FATAL_FAILURE(TestHashDifference(modified_p4info));
 }
@@ -637,6 +653,14 @@ TEST_P(HashConfigTest, HashOffsetSettingsAffectPacketHash) {
   ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(modified_p4info,
                                             R"re(sai_hash_offset\([^)]*\))re",
                                             "sai_hash_offset(3)"));
+  // If we happen to match, attempt with another offset.
+  if (Matches(EqualsProto(GetP4Info()))(modified_p4info)) {
+    ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(modified_p4info,
+                                              R"re(sai_hash_offset\([^)]*\))re",
+                                              "sai_hash_offset(4)"));
+  }
+  ASSERT_THAT(modified_p4info, Not(EqualsProto(GetP4Info())))
+      << "Failed to modify the hash offset in the P4Info.";
 
   ASSERT_NO_FATAL_FAILURE(TestHashDifference(modified_p4info));
 }
@@ -648,6 +672,13 @@ TEST_P(HashConfigTest, HashSeedSettingsAffectPacketHash) {
   p4::config::v1::P4Info modified_p4info = GetP4Info();
   ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(
       modified_p4info, R"re(sai_hash_seed\([^)]*\))re", "sai_hash_seed(7)"));
+  // If we happen to match, attempt with another seed.
+  if (Matches(EqualsProto(GetP4Info()))(modified_p4info)) {
+    ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(
+        modified_p4info, R"re(sai_hash_seed\([^)]*\))re", "sai_hash_seed(8)"));
+  }
+  ASSERT_THAT(modified_p4info, Not(EqualsProto(GetP4Info())))
+      << "Failed to modify the hash seed in the P4Info.";
 
   ASSERT_NO_FATAL_FAILURE(TestHashDifference(modified_p4info));
 }
