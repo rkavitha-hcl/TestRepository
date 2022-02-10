@@ -163,12 +163,15 @@ absl::Status SwitchReady(thinkit::Switch& thinkit_switch,
 absl::Status SwitchReadyWithSsh(thinkit::Switch& thinkit_switch,
                                 thinkit::SSHClient& ssh_client,
                                 absl::Span<const std::string> interfaces,
+                                bool check_interfaces_state,
                                 absl::Duration timeout) {
   RETURN_IF_ERROR(Pingable(thinkit_switch));
   RETURN_IF_ERROR(SSHable(thinkit_switch, ssh_client));
   RETURN_IF_ERROR(P4rtAble(thinkit_switch));
   RETURN_IF_ERROR(GnmiAble(thinkit_switch));
-  RETURN_IF_ERROR(PortsUp(thinkit_switch, interfaces));
+  if (check_interfaces_state) {
+    RETURN_IF_ERROR(PortsUp(thinkit_switch, interfaces));
+  }
   RETURN_IF_ERROR(GnoiAble(thinkit_switch));
   return NoAlarms(thinkit_switch);
 }
