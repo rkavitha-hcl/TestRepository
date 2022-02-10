@@ -1,5 +1,8 @@
 # Google P4 Programs
 
+Note: After any update to p4 files, run `update_p4program_derived_files.sh` to
+update the derived protobufs.
+
 ## Directory Overview
 
 This directory contains google-specific P4 programs, their derived P4Info
