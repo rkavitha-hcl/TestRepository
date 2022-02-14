@@ -54,6 +54,7 @@
 #include "p4rt_app/sonic/packetio_impl.h"
 #include "p4rt_app/sonic/packetio_interface.h"
 #include "p4rt_app/sonic/packetio_port.h"
+#include "p4rt_app/sonic/redis_connections.h"
 #include "p4rt_app/sonic/response_handler.h"
 #include "p4rt_app/sonic/state_verification.h"
 #include "p4rt_app/sonic/vrf_entry_translation.h"
@@ -335,32 +336,16 @@ sonic::AppDbUpdates PiTableEntryUpdatesToIr(
 }  // namespace
 
 P4RuntimeImpl::P4RuntimeImpl(
-    std::unique_ptr<sonic::DBConnectorAdapter> app_db_client,
-    std::unique_ptr<sonic::DBConnectorAdapter> app_state_db_client,
-    std::unique_ptr<sonic::DBConnectorAdapter> counter_db_client,
-    std::unique_ptr<sonic::ProducerStateTableAdapter> app_db_table_p4rt,
-    std::unique_ptr<sonic::ConsumerNotifierAdapter> app_db_notifier_p4rt,
-    std::unique_ptr<sonic::ProducerStateTableAdapter> app_db_table_vrf,
-    std::unique_ptr<sonic::ConsumerNotifierAdapter> app_db_notifier_vrf,
-    std::unique_ptr<sonic::ProducerStateTableAdapter> app_db_table_hash,
-    std::unique_ptr<sonic::ConsumerNotifierAdapter> app_db_notifier_hash,
-    std::unique_ptr<sonic::ProducerStateTableAdapter> app_db_table_switch,
-    std::unique_ptr<sonic::ConsumerNotifierAdapter> app_db_notifier_switch,
+    sonic::P4rtTable p4rt_table, sonic::VrfTable vrf_table,
+    sonic::HashTable hash_table, sonic::SwitchTable switch_table,
     std::unique_ptr<sonic::PacketIoInterface> packetio_impl,
     swss::ComponentStateHelperInterface& component_state,
     swss::SystemStateHelperInterface& system_state,
     const P4RuntimeImplOptions& p4rt_options)
-    : app_db_client_(std::move(app_db_client)),
-      app_state_db_client_(std::move(app_state_db_client)),
-      counter_db_client_(std::move(counter_db_client)),
-      app_db_table_p4rt_(std::move(app_db_table_p4rt)),
-      app_db_notifier_p4rt_(std::move(app_db_notifier_p4rt)),
-      app_db_table_vrf_(std::move(app_db_table_vrf)),
-      app_db_notifier_vrf_(std::move(app_db_notifier_vrf)),
-      app_db_table_hash_(std::move(app_db_table_hash)),
-      app_db_notifier_hash_(std::move(app_db_notifier_hash)),
-      app_db_table_switch_(std::move(app_db_table_switch)),
-      app_db_notifier_switch_(std::move(app_db_notifier_switch)),
+    : p4rt_table_(std::move(p4rt_table)),
+      vrf_table_(std::move(vrf_table)),
+      hash_table_(std::move(hash_table)),
+      switch_table_(std::move(switch_table)),
       forwarding_config_full_path_(p4rt_options.forwarding_config_full_path),
       packetio_impl_(std::move(packetio_impl)),
       component_state_(component_state),
@@ -426,9 +411,9 @@ grpc::Status P4RuntimeImpl::Write(grpc::ServerContext* context,
     // Any AppDb update failures should be appended to the `rpc_response`. If
     // UpdateAppDb fails we should go critical.
     auto app_db_write_status = sonic::UpdateAppDb(
-        app_db_updates, *ir_p4info_, *app_db_table_p4rt_,
-        *app_db_notifier_p4rt_, *app_db_client_, *app_state_db_client_,
-        *app_db_table_vrf_, *app_db_notifier_vrf_, rpc_response);
+        app_db_updates, *ir_p4info_, *p4rt_table_.producer_state,
+        *p4rt_table_.notifier, *p4rt_table_.app_db, *p4rt_table_.app_state_db,
+        *vrf_table_.producer_state, *vrf_table_.notifier, rpc_response);
     if (!app_db_write_status.ok()) {
       return EnterCriticalState(
           absl::StrCat("Unexpected error calling UpdateAppDb: ",
@@ -477,9 +462,10 @@ grpc::Status P4RuntimeImpl::Read(
                           "ReadResponse writer cannot be a nullptr.");
     }
 
-    auto response_status = DoRead(*request, ir_p4info_.value(),
-                                  translate_port_ids_, port_translation_map_,
-                                  *app_state_db_client_, *counter_db_client_);
+    auto response_status =
+        DoRead(*request, ir_p4info_.value(), translate_port_ids_,
+               port_translation_map_, *p4rt_table_.app_state_db,
+               *p4rt_table_.counter_db);
     if (!response_status.ok()) {
       LOG(WARNING) << "Read failure: " << response_status.status();
       return grpc::Status(
@@ -814,8 +800,8 @@ absl::Status P4RuntimeImpl::VerifyState() {
   // Verify the P4RT entries.
   std::vector<std::string> p4rt_table_failures =
       sonic::VerifyAppStateDbAndAppDbEntries(
-          app_db_table_p4rt_->get_table_name(), *app_state_db_client_,
-          *app_db_client_);
+          p4rt_table_.producer_state->get_table_name(),
+          *p4rt_table_.app_state_db, *p4rt_table_.app_db);
   if (!p4rt_table_failures.empty()) {
     failures.insert(failures.end(), p4rt_table_failures.begin(),
                     p4rt_table_failures.end());
@@ -824,8 +810,8 @@ absl::Status P4RuntimeImpl::VerifyState() {
   // Verify the VRF_TABLE entries.
   std::vector<std::string> vrf_table_failures =
       sonic::VerifyAppStateDbAndAppDbEntries(
-          app_db_table_vrf_->get_table_name(), *app_state_db_client_,
-          *app_db_client_);
+          vrf_table_.producer_state->get_table_name(), *vrf_table_.app_state_db,
+          *vrf_table_.app_db);
   if (!vrf_table_failures.empty()) {
     failures.insert(failures.end(), vrf_table_failures.begin(),
                     vrf_table_failures.end());
@@ -834,8 +820,8 @@ absl::Status P4RuntimeImpl::VerifyState() {
   // Verify the HASH_TABLE entries.
   std::vector<std::string> hash_table_failures =
       sonic::VerifyAppStateDbAndAppDbEntries(
-          app_db_table_hash_->get_table_name(), *app_state_db_client_,
-          *app_db_client_);
+          hash_table_.producer_state->get_table_name(),
+          *hash_table_.app_state_db, *hash_table_.app_db);
   if (!hash_table_failures.empty()) {
     failures.insert(failures.end(), hash_table_failures.begin(),
                     hash_table_failures.end());
@@ -844,8 +830,8 @@ absl::Status P4RuntimeImpl::VerifyState() {
   // Verify the SWITCH_TABLE entries.
   std::vector<std::string> switch_table_failures =
       sonic::VerifyAppStateDbAndAppDbEntries(
-          app_db_table_switch_->get_table_name(), *app_state_db_client_,
-          *app_db_client_);
+          switch_table_.producer_state->get_table_name(),
+          *switch_table_.app_state_db, *switch_table_.app_db);
   if (!switch_table_failures.empty()) {
     failures.insert(failures.end(), switch_table_failures.begin(),
                     switch_table_failures.end());
@@ -1040,16 +1026,16 @@ absl::Status P4RuntimeImpl::ConfigureAppDbTables(
       LOG(INFO) << "Configuring ACL table: " << table_name;
       ASSIGN_OR_RETURN(
           std::string acl_key,
-          sonic::InsertAclTableDefinition(*app_db_table_p4rt_, table),
+          sonic::InsertAclTableDefinition(*p4rt_table_.producer_state, table),
           _ << "Failed to add ACL table definition [" << table_name
             << "] to AppDb.");
 
       // Wait for OA to confirm it can realize the table updates.
-      ASSIGN_OR_RETURN(
-          pdpi::IrUpdateStatus status,
-          sonic::GetAndProcessResponseNotification(
-              app_db_table_p4rt_->get_table_name(), *app_db_notifier_p4rt_,
-              *app_db_client_, *app_state_db_client_, acl_key));
+      ASSIGN_OR_RETURN(pdpi::IrUpdateStatus status,
+                       sonic::GetAndProcessResponseNotification(
+                           p4rt_table_.producer_state->get_table_name(),
+                           *p4rt_table_.notifier, *p4rt_table_.app_db,
+                           *p4rt_table_.app_state_db, acl_key));
 
       // Any issue with the forwarding config should be sent back to the
       // controller as an INVALID_ARGUMENT.
@@ -1060,14 +1046,16 @@ absl::Status P4RuntimeImpl::ConfigureAppDbTables(
   }
 
   // Program hash table fields used for ECMP hashing.
-  ASSIGN_OR_RETURN(auto hash_fields,
-                   sonic::ProgramHashFieldTable(
-                       ir_p4info, *app_db_table_hash_, *app_db_notifier_hash_,
-                       *app_db_client_, *app_state_db_client_));
+  ASSIGN_OR_RETURN(
+      auto hash_fields,
+      sonic::ProgramHashFieldTable(ir_p4info, *hash_table_.producer_state,
+                                   *hash_table_.notifier, *hash_table_.app_db,
+                                   *hash_table_.app_state_db));
   // Program hash algorithm and related fields for ECMP hashing.
   RETURN_IF_ERROR(sonic::ProgramSwitchTable(
-      ir_p4info, hash_fields, *app_db_table_switch_, *app_db_notifier_switch_,
-      *app_db_client_, *app_state_db_client_));
+      ir_p4info, hash_fields, *switch_table_.producer_state,
+      *switch_table_.notifier, *switch_table_.app_db,
+      *switch_table_.app_state_db));
   return absl::OkStatus();
 }
 

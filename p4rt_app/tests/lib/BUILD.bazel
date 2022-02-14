@@ -66,6 +66,7 @@ cc_library(
         "//gutil:status_matchers",
         "//p4rt_app/p4runtime:p4runtime_impl",
         "//p4rt_app/sonic:fake_packetio_interface",
+        "//p4rt_app/sonic:redis_connections",
         "//p4rt_app/sonic/adapters:fake_consumer_notifier_adapter",
         "//p4rt_app/sonic/adapters:fake_db_connector_adapter",
         "//p4rt_app/sonic/adapters:fake_producer_state_table_adapter",

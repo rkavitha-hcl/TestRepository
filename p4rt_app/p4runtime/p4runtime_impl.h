@@ -20,6 +20,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/base/thread_annotations.h"
 #include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -41,6 +42,7 @@
 #include "p4rt_app/sonic/app_db_manager.h"
 #include "p4rt_app/sonic/packetio_interface.h"
 #include "p4rt_app/sonic/packetio_port.h"
+#include "p4rt_app/sonic/redis_connections.h"
 #include "p4rt_app/sonic/response_handler.h"
 #include "p4rt_app/sonic/vrf_entry_translation.h"
 #include "swss/component_state_helper_interface.h"
@@ -55,24 +57,12 @@ struct P4RuntimeImplOptions {
 
 class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
  public:
-  // TODO: find way to group arguments so we don't have to pass so
-  // many at once.
-  P4RuntimeImpl(
-      std::unique_ptr<sonic::DBConnectorAdapter> app_db_client,
-      std::unique_ptr<sonic::DBConnectorAdapter> app_state_db_client,
-      std::unique_ptr<sonic::DBConnectorAdapter> counter_db_client,
-      std::unique_ptr<sonic::ProducerStateTableAdapter> app_db_table_p4rt,
-      std::unique_ptr<sonic::ConsumerNotifierAdapter> app_db_notifier_p4rt,
-      std::unique_ptr<sonic::ProducerStateTableAdapter> app_db_table_vrf,
-      std::unique_ptr<sonic::ConsumerNotifierAdapter> app_db_notifier_vrf,
-      std::unique_ptr<sonic::ProducerStateTableAdapter> app_db_table_hash,
-      std::unique_ptr<sonic::ConsumerNotifierAdapter> app_db_notifier_hash,
-      std::unique_ptr<sonic::ProducerStateTableAdapter> app_db_table_switch,
-      std::unique_ptr<sonic::ConsumerNotifierAdapter> app_db_notifier_switch,
-      std::unique_ptr<sonic::PacketIoInterface> packetio_impl,
-      swss::ComponentStateHelperInterface& component_state,
-      swss::SystemStateHelperInterface& system_state,
-      const P4RuntimeImplOptions& p4rt_options);
+  P4RuntimeImpl(sonic::P4rtTable p4rt_table, sonic::VrfTable vrf_table,
+                sonic::HashTable hash_table, sonic::SwitchTable switch_table,
+                std::unique_ptr<sonic::PacketIoInterface> packetio_impl,
+                swss::ComponentStateHelperInterface& component_state,
+                swss::SystemStateHelperInterface& system_state,
+                const P4RuntimeImplOptions& p4rt_options);
   ~P4RuntimeImpl() override = default;
 
   // Determines the type of write request (e.g. table entry, direct counter
@@ -212,45 +202,11 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
   // Mutex for constraining actions to access and modify server state.
   absl::Mutex server_state_lock_;
 
-  // A RedisDB interface to handle requests into AppDb tables that cannot be
-  // done through the ProducerStateTable interface. For example, read out all
-  // P4RT entries.
-  std::unique_ptr<sonic::DBConnectorAdapter> app_db_client_
-      ABSL_GUARDED_BY(server_state_lock_);
-
-  // A RedisDB interface to handle requests into the AppStateDb tables that
-  // cannot be done through other interfaces.
-  std::unique_ptr<sonic::DBConnectorAdapter> app_state_db_client_
-      ABSL_GUARDED_BY(server_state_lock_);
-
-  // A RedisDB interface to handle requests into the CounterDb tables that
-  // cannot be done through other interfaces.
-  std::unique_ptr<sonic::DBConnectorAdapter> counter_db_client_
-      ABSL_GUARDED_BY(server_state_lock_);
-
-  // A RedisDB interface to write entries into the P4RT AppDb table.
-  std::unique_ptr<sonic::ProducerStateTableAdapter> app_db_table_p4rt_
-      ABSL_GUARDED_BY(server_state_lock_);
-  std::unique_ptr<sonic::ConsumerNotifierAdapter> app_db_notifier_p4rt_
-      ABSL_GUARDED_BY(server_state_lock_);
-
-  // A RedisDB interface to write entries into the VRF_TABLE AppDb table.
-  std::unique_ptr<sonic::ProducerStateTableAdapter> app_db_table_vrf_
-      ABSL_GUARDED_BY(server_state_lock_);
-  std::unique_ptr<sonic::ConsumerNotifierAdapter> app_db_notifier_vrf_
-      ABSL_GUARDED_BY(server_state_lock_);
-
-  // A RedisDB interface to write entries into the HASH_TABLE AppDb table.
-  std::unique_ptr<sonic::ProducerStateTableAdapter> app_db_table_hash_
-      ABSL_GUARDED_BY(server_state_lock_);
-  std::unique_ptr<sonic::ConsumerNotifierAdapter> app_db_notifier_hash_
-      ABSL_GUARDED_BY(server_state_lock_);
-
-  // A RedisDB interface to write entries into the SWITCH_TABLE AppDb table.
-  std::unique_ptr<sonic::ProducerStateTableAdapter> app_db_table_switch_
-      ABSL_GUARDED_BY(server_state_lock_);
-  std::unique_ptr<sonic::ConsumerNotifierAdapter> app_db_notifier_switch_
-      ABSL_GUARDED_BY(server_state_lock_);
+  // Interfaces which are used to update entries in the RedisDB tables.
+  sonic::P4rtTable p4rt_table_ ABSL_GUARDED_BY(server_state_lock_);
+  sonic::VrfTable vrf_table_ ABSL_GUARDED_BY(server_state_lock_);
+  sonic::HashTable hash_table_ ABSL_GUARDED_BY(server_state_lock_);
+  sonic::SwitchTable switch_table_ ABSL_GUARDED_BY(server_state_lock_);
 
   // P4RT can accept multiple connections to a single switch for redundancy.
   // When there is >1 connection the switch chooses a primary which is used for

@@ -269,6 +269,16 @@ cc_test(
 )
 
 cc_library(
+    name = "redis_connections",
+    hdrs = ["redis_connections.h"],
+    deps = [
+        "//p4rt_app/sonic/adapters:consumer_notifier_adapter",
+        "//p4rt_app/sonic/adapters:db_connector_adapter",
+        "//p4rt_app/sonic/adapters:producer_state_table_adapter",
+    ],
+)
+
+cc_library(
     name = "response_handler",
     srcs = ["response_handler.cc"],
     hdrs = ["response_handler.h"],

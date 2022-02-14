@@ -32,6 +32,7 @@ cc_binary(
         "//p4rt_app/event_monitoring:state_verification_events",
         "//p4rt_app/p4runtime:p4runtime_impl",
         "//p4rt_app/sonic:packetio_impl",
+        "//p4rt_app/sonic:redis_connections",
         "//p4rt_app/sonic/adapters:consumer_notifier_adapter",
         "//p4rt_app/sonic/adapters:db_connector_adapter",
         "//p4rt_app/sonic/adapters:producer_state_table_adapter",

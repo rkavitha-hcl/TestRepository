@@ -30,6 +30,7 @@
 #include "p4rt_app/sonic/adapters/fake_producer_state_table_adapter.h"
 #include "p4rt_app/sonic/adapters/fake_sonic_db_table.h"
 #include "p4rt_app/sonic/fake_packetio_interface.h"
+#include "p4rt_app/sonic/redis_connections.h"
 #include "swss/fakes/fake_component_state_helper.h"
 #include "swss/fakes/fake_system_state_helper.h"
 
@@ -41,38 +42,11 @@ constexpr char kServerAddr[] = "localhost:9999";
 // This test suite doesn't deal with the P4Runtime service so we do not need to
 // properly confiugre the fake DB connections.
 P4RuntimeImpl DummyP4RuntimeImpl() {
-  const std::string fake_name = "DUMMY_TABLE";
-  sonic::FakeSonicDbTable fake_db_table;
-
-  // Dummy redis DB clients.
-  auto app_db_client = std::make_unique<sonic::FakeDBConnectorAdapter>(":");
-  auto app_state_db_client =
-      std::make_unique<sonic::FakeDBConnectorAdapter>(":");
-  auto counter_db_client = std::make_unique<sonic::FakeDBConnectorAdapter>(":");
-
-  // Dummy producer state tables.
-  auto app_db_p4rt_table =
-      std::make_unique<sonic::FakeProducerStateTableAdapter>(fake_name,
-                                                             &fake_db_table);
-  auto app_db_vrf_table =
-      std::make_unique<sonic::FakeProducerStateTableAdapter>(fake_name,
-                                                             &fake_db_table);
-  auto app_db_hash_table =
-      std::make_unique<sonic::FakeProducerStateTableAdapter>(fake_name,
-                                                             &fake_db_table);
-  auto app_db_switch_table =
-      std::make_unique<sonic::FakeProducerStateTableAdapter>(fake_name,
-                                                             &fake_db_table);
-
-  // Dummy consumer notifiers.
-  auto notify_p4rt_table =
-      std::make_unique<sonic::FakeConsumerNotifierAdapter>(&fake_db_table);
-  auto notify_vrf_table =
-      std::make_unique<sonic::FakeConsumerNotifierAdapter>(&fake_db_table);
-  auto notify_hash_table =
-      std::make_unique<sonic::FakeConsumerNotifierAdapter>(&fake_db_table);
-  auto notify_switch_table =
-      std::make_unique<sonic::FakeConsumerNotifierAdapter>(&fake_db_table);
+  // Dummy RedisDB tables.
+  sonic::P4rtTable dummy_p4rt_table;
+  sonic::VrfTable dummy_vrf_table;
+  sonic::HashTable dummy_hash_table;
+  sonic::SwitchTable dummy_switch_table;
 
   // Dummy PacketIO.
   auto packet_io = std::make_unique<sonic::FakePacketIoInterface>();
@@ -81,14 +55,11 @@ P4RuntimeImpl DummyP4RuntimeImpl() {
   swss::FakeComponentStateHelper component_state_helper;
   swss::FakeSystemStateHelper system_state_helper;
 
-  return P4RuntimeImpl(
-      std::move(app_db_client), std::move(app_state_db_client),
-      std::move(counter_db_client), std::move(app_db_p4rt_table),
-      std::move(notify_p4rt_table), std::move(app_db_vrf_table),
-      std::move(notify_vrf_table), std::move(app_db_hash_table),
-      std::move(notify_hash_table), std::move(app_db_switch_table),
-      std::move(notify_switch_table), std::move(packet_io),
-      component_state_helper, system_state_helper, P4RuntimeImplOptions{});
+  return P4RuntimeImpl(std::move(dummy_p4rt_table), std::move(dummy_vrf_table),
+                       std::move(dummy_hash_table),
+                       std::move(dummy_switch_table), std::move(packet_io),
+                       component_state_helper, system_state_helper,
+                       P4RuntimeImplOptions{});
 }
 
 TEST(GrpcBehaviorTest,
