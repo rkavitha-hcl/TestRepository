@@ -23,6 +23,8 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "gflags/gflags.h"
 #include "glog/logging.h"
 #include "google/protobuf/descriptor.h"
@@ -239,6 +241,19 @@ sonic::SwitchTable CreateSwitchTable(swss::DBConnector* app_db,
   };
 }
 
+void WaitForPortInitDone() {
+  // Open a RedisDB connection to the AppDB.
+  swss::DBConnector app_db(APPL_DB, kRedisDbHost, kRedisDbPort, /*timeout=*/0);
+
+  // Wait for the ports to be initialized.
+  while (!app_db.exists("PORT_TABLE:PortInitDone")) {
+    // Prints once every 5 minutes.
+    LOG_EVERY_N(WARNING, 60)
+        << "Waiting for PortInitDone to be set before P4RT App will start.";
+    absl::SleepFor(absl::Seconds(5));
+  }
+}
+
 }  // namespace
 }  // namespace p4rt_app
 
@@ -278,11 +293,7 @@ int main(int argc, char** argv) {
   auto packetio_impl = p4rt_app::sonic::PacketIoImpl::CreatePacketIoImpl();
 
   // Wait for PortInitDone to be done.
-  {
-    auto sonic_app_db =
-        absl::make_unique<p4rt_app::sonic::DBConnectorAdapter>(&app_db);
-    p4rt_app::sonic::WaitForPortInitDone(*sonic_app_db);
-  }
+  p4rt_app::WaitForPortInitDone();
 
   // Configure the P4RT options.
   p4rt_app::P4RuntimeImplOptions p4rt_options{

@@ -36,7 +36,6 @@
 #include "absl/strings/substitute.h"
 #include "gutil/collections.h"
 #include "gutil/status.h"
-#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
 #include "p4rt_app/sonic/adapters/system_call_adapter.h"
 
 namespace p4rt_app {
@@ -113,20 +112,6 @@ absl::StatusOr<int> CreatePacketIoSocket(
 }
 
 }  // namespace
-
-void WaitForPortInitDone(DBConnectorAdapter &app_db_client) {
-  while (true) {
-    auto port_init_map = app_db_client.hgetall("PORT_TABLE:PortInitDone");
-    if (!port_init_map.empty()) {
-      LOG(INFO) << "PortInitDone is set, P4RT init starts";
-      break;
-    }
-
-    LOG_EVERY_N(WARNING, 120)
-        << "Waiting for PortInitDone to be set before P4RT can start";
-    absl::SleepFor(absl::Seconds(5));
-  }
-}
 
 bool IsValidSystemPort(const SystemCallAdapter &system_call_adapter,
                        absl::string_view port_name) {

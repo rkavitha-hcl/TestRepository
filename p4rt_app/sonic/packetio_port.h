@@ -23,7 +23,6 @@
 #include "absl/strings/string_view.h"
 #include "glog/logging.h"
 #include "p4_pdpi/utils/ir.h"
-#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
 #include "p4rt_app/sonic/adapters/system_call_adapter.h"
 #include "p4rt_app/sonic/packetio_selectables.h"
 #include "p4rt_app/sonic/receive_genetlink.h"
@@ -38,9 +37,6 @@ struct PacketIoPortParams {
   int socket;
   std::unique_ptr<PacketInSelectable> packet_in_selectable;
 };
-
-// Blocking wait until port init is done.
-void WaitForPortInitDone(DBConnectorAdapter& app_db_client);
 
 // Checks whether the given port exists in the system or not.
 bool IsValidSystemPort(const SystemCallAdapter& system_call_adapter,
