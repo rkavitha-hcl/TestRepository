@@ -127,7 +127,7 @@ absl::Status AppendTableEntryReads(
     const pdpi::IrP4Info& p4_info, const std::string& role_name,
     bool translate_port_ids,
     const boost::bimap<std::string, std::string>& port_translation_map,
-    sonic::DBConnectorAdapter& app_state_db_client,
+    sonic::VrfTable& vrf_table, sonic::DBConnectorAdapter& app_state_db_client,
     sonic::DBConnectorAdapter& counters_db_client) {
   RETURN_IF_ERROR(SupportedTableEntryRequest(pi_table_entry));
 
@@ -168,7 +168,7 @@ absl::Status AppendTableEntryReads(
 
   // Get all VRF_TABLE entries from the AppDb.
   ASSIGN_OR_RETURN(std::vector<pdpi::IrTableEntry> vrf_entries,
-                   sonic::GetAllAppDbVrfTableEntries(app_state_db_client));
+                   sonic::GetAllAppDbVrfTableEntries(vrf_table));
   for (const auto& ir_table_entry : vrf_entries) {
     auto translate_status = pdpi::IrTableEntryToPi(p4_info, ir_table_entry);
     if (!translate_status.ok()) {
@@ -183,8 +183,8 @@ absl::Status AppendTableEntryReads(
 }
 
 absl::StatusOr<p4::v1::ReadResponse> DoRead(
-    const p4::v1::ReadRequest& request, const pdpi::IrP4Info p4_info,
-    bool translate_port_ids,
+    sonic::VrfTable& vrf_table, const p4::v1::ReadRequest& request,
+    const pdpi::IrP4Info p4_info, bool translate_port_ids,
     const boost::bimap<std::string, std::string>& port_translation_map,
     sonic::DBConnectorAdapter& app_state_db_client,
     sonic::DBConnectorAdapter& counters_db_client) {
@@ -195,8 +195,8 @@ absl::StatusOr<p4::v1::ReadResponse> DoRead(
       case p4::v1::Entity::kTableEntry: {
         RETURN_IF_ERROR(AppendTableEntryReads(
             response, entity.table_entry(), p4_info, request.role(),
-            translate_port_ids, port_translation_map, app_state_db_client,
-            counters_db_client));
+            translate_port_ids, port_translation_map, vrf_table,
+            app_state_db_client, counters_db_client));
         break;
       }
       default:
@@ -411,9 +411,9 @@ grpc::Status P4RuntimeImpl::Write(grpc::ServerContext* context,
     // Any AppDb update failures should be appended to the `rpc_response`. If
     // UpdateAppDb fails we should go critical.
     auto app_db_write_status = sonic::UpdateAppDb(
-        app_db_updates, *ir_p4info_, *p4rt_table_.producer_state,
+        vrf_table_, app_db_updates, *ir_p4info_, *p4rt_table_.producer_state,
         *p4rt_table_.notifier, *p4rt_table_.app_db, *p4rt_table_.app_state_db,
-        *vrf_table_.producer_state, *vrf_table_.notifier, rpc_response);
+        rpc_response);
     if (!app_db_write_status.ok()) {
       return EnterCriticalState(
           absl::StrCat("Unexpected error calling UpdateAppDb: ",
@@ -463,7 +463,7 @@ grpc::Status P4RuntimeImpl::Read(
     }
 
     auto response_status =
-        DoRead(*request, ir_p4info_.value(), translate_port_ids_,
+        DoRead(vrf_table_, *request, ir_p4info_.value(), translate_port_ids_,
                port_translation_map_, *p4rt_table_.app_state_db,
                *p4rt_table_.counter_db);
     if (!response_status.ok()) {

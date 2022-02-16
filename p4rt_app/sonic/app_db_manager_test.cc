@@ -32,6 +32,7 @@
 #include "p4rt_app/sonic/adapters/mock_consumer_notifier_adapter.h"
 #include "p4rt_app/sonic/adapters/mock_db_connector_adapter.h"
 #include "p4rt_app/sonic/adapters/mock_producer_state_table_adapter.h"
+#include "p4rt_app/sonic/redis_connections.h"
 #include "p4rt_app/tests/lib/app_db_entry_builder.h"
 #include "p4rt_app/utils/table_utility.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
@@ -63,8 +64,17 @@ class AppDbManagerTest : public ::testing::Test {
   AppDbManagerTest() {
     ON_CALL(mock_p4rt_table_, get_table_name)
         .WillByDefault(Return(p4rt_table_name_));
-    ON_CALL(mock_vrf_table_, get_table_name)
+
+    auto vrf_producer_state = std::make_unique<MockProducerStateTableAdapter>();
+    ON_CALL(*vrf_producer_state, get_table_name)
         .WillByDefault(Return(vrf_table_name_));
+
+    mock_vrf_table_ = VrfTable{
+        .producer_state = std::move(vrf_producer_state),
+        .notifier = std::make_unique<MockConsumerNotifierAdapter>(),
+        .app_db = std::make_unique<MockDBConnectorAdapter>(),
+        .app_state_db = std::make_unique<MockDBConnectorAdapter>(),
+    };
   }
 
   const std::string p4rt_table_name_ = "P4RT";
@@ -74,8 +84,7 @@ class AppDbManagerTest : public ::testing::Test {
   MockDBConnectorAdapter mock_app_db_client_;
   MockProducerStateTableAdapter mock_p4rt_table_;
   MockConsumerNotifierAdapter mock_p4rt_notification_;
-  MockProducerStateTableAdapter mock_vrf_table_;
-  MockConsumerNotifierAdapter mock_vrf_notification_;
+  VrfTable mock_vrf_table_;
 
   // Mock StateDb tables.
   MockDBConnectorAdapter mock_state_db_client_;
@@ -133,11 +142,10 @@ TEST_F(AppDbManagerTest, InsertTableEntry) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDb(updates,
+  EXPECT_OK(UpdateAppDb(mock_vrf_table_, updates,
                         sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                         mock_p4rt_table_, mock_p4rt_notification_,
-                        mock_app_db_client_, mock_state_db_client_,
-                        mock_vrf_table_, mock_vrf_notification_, &response));
+                        mock_app_db_client_, mock_state_db_client_, &response));
   ASSERT_EQ(response.statuses_size(), 1);
   EXPECT_EQ(response.statuses(0).code(), google::rpc::OK);
 }
@@ -177,10 +185,10 @@ TEST_F(AppDbManagerTest, InsertWithUnknownAppDbTableTypeFails) {
 
   pdpi::IrWriteResponse response;
   EXPECT_THAT(
-      UpdateAppDb(updates, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
+      UpdateAppDb(mock_vrf_table_, updates,
+                  sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                   mock_p4rt_table_, mock_p4rt_notification_,
-                  mock_app_db_client_, mock_state_db_client_, mock_vrf_table_,
-                  mock_vrf_notification_, &response),
+                  mock_app_db_client_, mock_state_db_client_, &response),
       StatusIs(absl::StatusCode::kInternal));
 }
 
@@ -225,11 +233,10 @@ TEST_F(AppDbManagerTest, InsertDuplicateTableEntryFails) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDb(updates,
+  EXPECT_OK(UpdateAppDb(mock_vrf_table_, updates,
                         sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                         mock_p4rt_table_, mock_p4rt_notification_,
-                        mock_app_db_client_, mock_state_db_client_,
-                        mock_vrf_table_, mock_vrf_notification_, &response));
+                        mock_app_db_client_, mock_state_db_client_, &response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::ALREADY_EXISTS);
 }
 
@@ -293,11 +300,10 @@ TEST_F(AppDbManagerTest, ModifyTableEntry) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDb(updates,
+  EXPECT_OK(UpdateAppDb(mock_vrf_table_, updates,
                         sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                         mock_p4rt_table_, mock_p4rt_notification_,
-                        mock_app_db_client_, mock_state_db_client_,
-                        mock_vrf_table_, mock_vrf_notification_, &response));
+                        mock_app_db_client_, mock_state_db_client_, &response));
   ASSERT_EQ(response.statuses_size(), 1);
   EXPECT_EQ(response.statuses(0).code(), google::rpc::OK);
 }
@@ -343,11 +349,10 @@ TEST_F(AppDbManagerTest, ModifyNonExistentTableEntryFails) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDb(updates,
+  EXPECT_OK(UpdateAppDb(mock_vrf_table_, updates,
                         sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                         mock_p4rt_table_, mock_p4rt_notification_,
-                        mock_app_db_client_, mock_state_db_client_,
-                        mock_vrf_table_, mock_vrf_notification_, &response));
+                        mock_app_db_client_, mock_state_db_client_, &response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::NOT_FOUND);
 }
 
@@ -404,11 +409,10 @@ TEST_F(AppDbManagerTest, DeleteTableEntry) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDb(updates,
+  EXPECT_OK(UpdateAppDb(mock_vrf_table_, updates,
                         sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                         mock_p4rt_table_, mock_p4rt_notification_,
-                        mock_app_db_client_, mock_state_db_client_,
-                        mock_vrf_table_, mock_vrf_notification_, &response));
+                        mock_app_db_client_, mock_state_db_client_, &response));
   ASSERT_EQ(response.statuses_size(), 1);
   EXPECT_EQ(response.statuses(0).code(), google::rpc::OK);
 }
@@ -454,11 +458,10 @@ TEST_F(AppDbManagerTest, DeleteNonExistentTableEntryFails) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDb(updates,
+  EXPECT_OK(UpdateAppDb(mock_vrf_table_, updates,
                         sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                         mock_p4rt_table_, mock_p4rt_notification_,
-                        mock_app_db_client_, mock_state_db_client_,
-                        mock_vrf_table_, mock_vrf_notification_, &response));
+                        mock_app_db_client_, mock_state_db_client_, &response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::NOT_FOUND);
 }
 

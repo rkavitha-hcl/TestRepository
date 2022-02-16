@@ -28,6 +28,7 @@
 #include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
 #include "p4rt_app/sonic/adapters/db_connector_adapter.h"
 #include "p4rt_app/sonic/adapters/producer_state_table_adapter.h"
+#include "p4rt_app/sonic/redis_connections.h"
 
 namespace p4rt_app {
 namespace sonic {
@@ -59,14 +60,12 @@ struct AppDbUpdates {
 // Takes a list of AppDb updates (i.e. inserts, modifies, or deletes) and
 // translates them so that they are consumable by the AppDb. It will also
 // create, or remove, any VRF IDs as needed.
-absl::Status UpdateAppDb(const AppDbUpdates& updates,
+absl::Status UpdateAppDb(VrfTable& vrf_table, const AppDbUpdates& updates,
                          const pdpi::IrP4Info& p4_info,
                          ProducerStateTableAdapter& p4rt_table,
                          ConsumerNotifierAdapter& p4rt_notification,
                          DBConnectorAdapter& app_db_client,
                          DBConnectorAdapter& state_db_client,
-                         ProducerStateTableAdapter& vrf_table,
-                         ConsumerNotifierAdapter& vrf_notification,
                          pdpi::IrWriteResponse* response);
 
 // Returns all P4RT keys currently installed in the AppDb. This does not include

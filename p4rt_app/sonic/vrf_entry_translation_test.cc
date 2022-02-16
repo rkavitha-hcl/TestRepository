@@ -13,6 +13,8 @@
 // limitations under the License.
 #include "p4rt_app/sonic/vrf_entry_translation.h"
 
+#include <utility>
+
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "gmock/gmock.h"
@@ -26,6 +28,7 @@
 #include "p4rt_app/sonic/adapters/mock_consumer_notifier_adapter.h"
 #include "p4rt_app/sonic/adapters/mock_db_connector_adapter.h"
 #include "p4rt_app/sonic/adapters/mock_producer_state_table_adapter.h"
+#include "p4rt_app/sonic/redis_connections.h"
 
 namespace p4rt_app {
 namespace sonic {
@@ -44,16 +47,34 @@ using ::testing::UnorderedElementsAre;
 class VrfEntryTranslationTest : public ::testing::Test {
  protected:
   VrfEntryTranslationTest() {
-    ON_CALL(mock_vrf_table_, get_table_name)
+    auto vrf_producer_state = std::make_unique<MockProducerStateTableAdapter>();
+    auto vrf_notifier = std::make_unique<MockConsumerNotifierAdapter>();
+    auto vrf_app_db = std::make_unique<MockDBConnectorAdapter>();
+    auto vrf_app_state_db = std::make_unique<MockDBConnectorAdapter>();
+
+    // Save a pointer so we can test against the mocks.
+    mock_vrf_producer_state_ = vrf_producer_state.get();
+    mock_vrf_notifier_ = vrf_notifier.get();
+    mock_vrf_app_db_ = vrf_app_db.get();
+    mock_vrf_app_state_db_ = vrf_app_state_db.get();
+
+    vrf_table_ = VrfTable{
+        .producer_state = std::move(vrf_producer_state),
+        .notifier = std::move(vrf_notifier),
+        .app_db = std::move(vrf_app_db),
+        .app_state_db = std::move(vrf_app_state_db),
+    };
+
+    ON_CALL(*mock_vrf_producer_state_, get_table_name)
         .WillByDefault(Return(vrf_table_name_));
   }
 
   const std::string vrf_table_name_ = "VRF_TABLE";
-  MockProducerStateTableAdapter mock_vrf_table_;
-  MockConsumerNotifierAdapter mock_vrf_notifier_;
-  MockDBConnectorAdapter mock_app_db_client_;
-  MockDBConnectorAdapter mock_state_db_client_;
-  absl::flat_hash_map<std::string, int> vrf_id_reference_count_;
+  MockProducerStateTableAdapter* mock_vrf_producer_state_;
+  MockConsumerNotifierAdapter* mock_vrf_notifier_;
+  MockDBConnectorAdapter* mock_vrf_app_db_;
+  MockDBConnectorAdapter* mock_vrf_app_state_db_;
+  VrfTable vrf_table_;
 };
 
 TEST_F(VrfEntryTranslationTest, InsertVrfEntry) {
@@ -64,8 +85,8 @@ TEST_F(VrfEntryTranslationTest, InsertVrfEntry) {
                                                })pb",
                                           &table_entry));
 
-  EXPECT_CALL(mock_vrf_table_, set(Eq("vrf-1"), _)).Times(1);
-  EXPECT_CALL(mock_vrf_notifier_, WaitForNotificationAndPop)
+  EXPECT_CALL(*mock_vrf_producer_state_, set(Eq("vrf-1"), _)).Times(1);
+  EXPECT_CALL(*mock_vrf_notifier_, WaitForNotificationAndPop)
       .WillOnce(DoAll(SetArgReferee<0>("SWSS_RC_SUCCESS"),
                       SetArgReferee<1>("vrf-1"),
                       SetArgReferee<2>(std::vector<swss::FieldValueTuple>(
@@ -74,10 +95,8 @@ TEST_F(VrfEntryTranslationTest, InsertVrfEntry) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDbVrfTable(p4::v1::Update::INSERT, /*rpc_index=*/0,
-                                table_entry, mock_vrf_table_,
-                                mock_vrf_notifier_, mock_app_db_client_,
-                                mock_state_db_client_, response));
+  EXPECT_OK(UpdateAppDbVrfTable(vrf_table_, p4::v1::Update::INSERT,
+                                /*rpc_index=*/0, table_entry, response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::Code::OK);
 }
 
@@ -91,16 +110,14 @@ TEST_F(VrfEntryTranslationTest, CannotInsertDuplicateVrfEntry) {
 
   // When checking for existance we return `true`. Then because it already
   // exists we should not try to add a VRF entry.
-  EXPECT_CALL(mock_app_db_client_, exists("VRF_TABLE:vrf-1"))
+  EXPECT_CALL(*mock_vrf_app_db_, exists("VRF_TABLE:vrf-1"))
       .WillOnce(Return(true));
-  EXPECT_CALL(mock_vrf_table_, set).Times(0);
+  EXPECT_CALL(*mock_vrf_producer_state_, set).Times(0);
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDbVrfTable(p4::v1::Update::INSERT, /*rpc_index=*/0,
-                                table_entry, mock_vrf_table_,
-                                mock_vrf_notifier_, mock_app_db_client_,
-                                mock_state_db_client_, response));
+  EXPECT_OK(UpdateAppDbVrfTable(vrf_table_, p4::v1::Update::INSERT,
+                                /*rpc_index=*/0, table_entry, response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::Code::ALREADY_EXISTS);
 }
 
@@ -112,10 +129,10 @@ TEST_F(VrfEntryTranslationTest, DeleteVrfEntry) {
                                                })pb",
                                           &table_entry));
 
-  EXPECT_CALL(mock_app_db_client_, exists("VRF_TABLE:vrf-1"))
+  EXPECT_CALL(*mock_vrf_app_db_, exists("VRF_TABLE:vrf-1"))
       .WillOnce(Return(true));
-  EXPECT_CALL(mock_vrf_table_, del(Eq("vrf-1"))).Times(1);
-  EXPECT_CALL(mock_vrf_notifier_, WaitForNotificationAndPop)
+  EXPECT_CALL(*mock_vrf_producer_state_, del(Eq("vrf-1"))).Times(1);
+  EXPECT_CALL(*mock_vrf_notifier_, WaitForNotificationAndPop)
       .WillOnce(DoAll(SetArgReferee<0>("SWSS_RC_SUCCESS"),
                       SetArgReferee<1>("vrf-1"),
                       SetArgReferee<2>(std::vector<swss::FieldValueTuple>(
@@ -124,10 +141,8 @@ TEST_F(VrfEntryTranslationTest, DeleteVrfEntry) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDbVrfTable(p4::v1::Update::DELETE, /*rpc_index=*/0,
-                                table_entry, mock_vrf_table_,
-                                mock_vrf_notifier_, mock_app_db_client_,
-                                mock_state_db_client_, response));
+  EXPECT_OK(UpdateAppDbVrfTable(vrf_table_, p4::v1::Update::DELETE,
+                                /*rpc_index=*/0, table_entry, response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::Code::OK);
 }
 
@@ -141,16 +156,14 @@ TEST_F(VrfEntryTranslationTest, CannotDeleteMissingVrfEntry) {
 
   // When checking for existance we return `false`. Then because the entry does
   // not exist we should not try to delete it.
-  EXPECT_CALL(mock_app_db_client_, exists("VRF_TABLE:vrf-1"))
+  EXPECT_CALL(*mock_vrf_app_db_, exists("VRF_TABLE:vrf-1"))
       .WillOnce(Return(false));
-  EXPECT_CALL(mock_vrf_table_, del).Times(0);
+  EXPECT_CALL(*mock_vrf_producer_state_, del).Times(0);
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDbVrfTable(p4::v1::Update::DELETE, /*rpc_index=*/0,
-                                table_entry, mock_vrf_table_,
-                                mock_vrf_notifier_, mock_app_db_client_,
-                                mock_state_db_client_, response));
+  EXPECT_OK(UpdateAppDbVrfTable(vrf_table_, p4::v1::Update::DELETE,
+                                /*rpc_index=*/0, table_entry, response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::Code::NOT_FOUND);
 }
 
@@ -164,10 +177,8 @@ TEST_F(VrfEntryTranslationTest, ModifyVrfEntryIsNotAllowed) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDbVrfTable(p4::v1::Update::MODIFY, /*rpc_index=*/0,
-                                table_entry, mock_vrf_table_,
-                                mock_vrf_notifier_, mock_app_db_client_,
-                                mock_state_db_client_, response));
+  EXPECT_OK(UpdateAppDbVrfTable(vrf_table_, p4::v1::Update::MODIFY,
+                                /*rpc_index=*/0, table_entry, response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::INVALID_ARGUMENT);
 }
 
@@ -181,10 +192,8 @@ TEST_F(VrfEntryTranslationTest, RequireVrfIdMatchField) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDbVrfTable(p4::v1::Update::INSERT, /*rpc_index=*/0,
-                                table_entry, mock_vrf_table_,
-                                mock_vrf_notifier_, mock_app_db_client_,
-                                mock_state_db_client_, response));
+  EXPECT_OK(UpdateAppDbVrfTable(vrf_table_, p4::v1::Update::INSERT,
+                                /*rpc_index=*/0, table_entry, response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::INVALID_ARGUMENT);
 }
 
@@ -198,16 +207,14 @@ TEST_F(VrfEntryTranslationTest, CannotChangeTheSonicDefaultVrf) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDbVrfTable(p4::v1::Update::INSERT, /*rpc_index=*/0,
-                                table_entry, mock_vrf_table_,
-                                mock_vrf_notifier_, mock_app_db_client_,
-                                mock_state_db_client_, response));
+  EXPECT_OK(UpdateAppDbVrfTable(vrf_table_, p4::v1::Update::INSERT,
+                                /*rpc_index=*/0, table_entry, response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::INVALID_ARGUMENT);
 }
 
 TEST_F(VrfEntryTranslationTest, ReadIgnoresUninstalledVrfs) {
   // Return 2 table entries, but only 2 have been fully installed by the OA.
-  EXPECT_CALL(mock_app_db_client_, keys("*"))
+  EXPECT_CALL(*mock_vrf_app_db_, keys("*"))
       .WillOnce(Return(std::vector<std::string>{
           "VRF_TABLE:vrf-0",
           "_VRF_TABLE:vrf-1",
@@ -217,7 +224,7 @@ TEST_F(VrfEntryTranslationTest, ReadIgnoresUninstalledVrfs) {
   // We expect to read back only those 2 entries that have been installed by the
   // OA.
   EXPECT_THAT(
-      GetAllAppDbVrfTableEntries(mock_app_db_client_),
+      GetAllAppDbVrfTableEntries(vrf_table_),
       IsOkAndHolds(UnorderedElementsAre(EqualsProto(
                                             R"pb(
                                               table_name: "vrf_table"
@@ -246,14 +253,12 @@ TEST_F(VrfEntryTranslationTest, CannotTouchSonicDefaultVrf) {
                                                })pb",
                                           &table_entry));
 
-  EXPECT_CALL(mock_vrf_table_, set).Times(0);
+  EXPECT_CALL(*mock_vrf_producer_state_, set).Times(0);
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDbVrfTable(p4::v1::Update::INSERT, /*rpc_index=*/0,
-                                table_entry, mock_vrf_table_,
-                                mock_vrf_notifier_, mock_app_db_client_,
-                                mock_state_db_client_, response));
+  EXPECT_OK(UpdateAppDbVrfTable(vrf_table_, p4::v1::Update::INSERT,
+                                /*rpc_index=*/0, table_entry, response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::Code::INVALID_ARGUMENT);
 }
 

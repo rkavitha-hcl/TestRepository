@@ -73,9 +73,6 @@ P4RuntimeGrpcService::P4RuntimeGrpcService(
   fake_p4rt_app_db->AddSonicDbTable(kP4rtTableName, &fake_p4rt_table_);
   fake_p4rt_app_state_db->AddSonicDbTable(kP4rtTableName,
                                           &fake_p4rt_state_table_);
-  fake_p4rt_app_db->AddSonicDbTable(kVrfTableName, &fake_vrf_table_);
-  fake_p4rt_app_state_db->AddSonicDbTable(kVrfTableName,
-                                          &fake_vrf_state_table_);
   fake_p4rt_counter_db->AddSonicDbTable(kCountersTableName,
                                         &fake_p4rt_counters_table_);
   sonic::P4rtTable p4rt_table{

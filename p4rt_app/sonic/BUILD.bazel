@@ -59,6 +59,7 @@ cc_library(
     hdrs = ["app_db_manager.h"],
     deps = [
         ":app_db_to_pdpi_ir_translator",
+        ":redis_connections",
         ":response_handler",
         ":vrf_entry_translation",
         "//gutil:collections",
@@ -86,6 +87,7 @@ cc_test(
     srcs = ["app_db_manager_test.cc"],
     deps = [
         ":app_db_manager",
+        ":redis_connections",
         "//gutil:proto_matchers",
         "//gutil:status_matchers",
         "//p4_pdpi:ir",
@@ -346,13 +348,11 @@ cc_library(
     srcs = ["vrf_entry_translation.cc"],
     hdrs = ["vrf_entry_translation.h"],
     deps = [
+        ":redis_connections",
         ":response_handler",
         "//gutil:status",
         "//p4_pdpi:ir",
         "//p4_pdpi:ir_cc_proto",
-        "//p4rt_app/sonic/adapters:consumer_notifier_adapter",
-        "//p4rt_app/sonic/adapters:db_connector_adapter",
-        "//p4rt_app/sonic/adapters:producer_state_table_adapter",
         "//p4rt_app/utils:status_utility",
         "@com_github_google_glog//:glog",
         "@com_google_absl//absl/container:btree",
@@ -369,6 +369,7 @@ cc_test(
     name = "vrf_entry_translation_test",
     srcs = ["vrf_entry_translation_test.cc"],
     deps = [
+        ":redis_connections",
         ":vrf_entry_translation",
         "//gutil:proto_matchers",
         "//gutil:status_matchers",
