@@ -21,9 +21,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "p4_pdpi/ir.h"
-#include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
-#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
-#include "p4rt_app/sonic/adapters/producer_state_table_adapter.h"
+#include "p4rt_app/sonic/redis_connections.h"
 #include "swss/table.h"
 
 namespace p4rt_app {
@@ -69,20 +67,14 @@ GenerateAppDbHashValueEntries(const pdpi::IrP4Info& ir_p4info);
 // used for ECMP hashing (IPv4, IPv6), this creates the hash objects to
 // be used in the SWITCH_TABLE later.
 absl::StatusOr<std::vector<std::string>> ProgramHashFieldTable(
-    const pdpi::IrP4Info& ir_p4info,
-    ProducerStateTableAdapter& app_db_table_hash,
-    ConsumerNotifierAdapter& app_db_notifier_hash,
-    DBConnectorAdapter& app_db_client, DBConnectorAdapter& state_db_client);
+    HashTable& hash_table, const pdpi::IrP4Info& ir_p4info);
 
 // Programs the APP_DB enries (SWITCH_TABLE) with all ecmp hashing related
 // fields in the switch table, like algorithm, seed, offset and the hash field
 // object.
-absl::Status ProgramSwitchTable(const pdpi::IrP4Info& ir_p4info,
-                                std::vector<std::string> hash_fields,
-                                ProducerStateTableAdapter& app_db_table_switch,
-                                ConsumerNotifierAdapter& app_db_notifier_switch,
-                                DBConnectorAdapter& app_db_client,
-                                DBConnectorAdapter& state_db_client);
+absl::Status ProgramSwitchTable(SwitchTable& switch_table,
+                                const pdpi::IrP4Info& ir_p4info,
+                                const std::vector<std::string>& hash_fields);
 
 }  // namespace sonic
 }  // namespace p4rt_app

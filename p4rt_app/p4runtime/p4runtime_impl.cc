@@ -45,9 +45,6 @@
 #include "p4rt_app/p4runtime/ir_translation.h"
 #include "p4rt_app/p4runtime/p4info_verification.h"
 #include "p4rt_app/p4runtime/packetio_helpers.h"
-#include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
-#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
-#include "p4rt_app/sonic/adapters/producer_state_table_adapter.h"
 #include "p4rt_app/sonic/app_db_acl_def_table_manager.h"
 #include "p4rt_app/sonic/app_db_manager.h"
 #include "p4rt_app/sonic/hashing.h"
@@ -1036,16 +1033,12 @@ absl::Status P4RuntimeImpl::ConfigureAppDbTables(
   }
 
   // Program hash table fields used for ECMP hashing.
-  ASSIGN_OR_RETURN(
-      auto hash_fields,
-      sonic::ProgramHashFieldTable(ir_p4info, *hash_table_.producer_state,
-                                   *hash_table_.notifier, *hash_table_.app_db,
-                                   *hash_table_.app_state_db));
+  ASSIGN_OR_RETURN(auto hash_fields,
+                   sonic::ProgramHashFieldTable(hash_table_, ir_p4info));
+
   // Program hash algorithm and related fields for ECMP hashing.
-  RETURN_IF_ERROR(sonic::ProgramSwitchTable(
-      ir_p4info, hash_fields, *switch_table_.producer_state,
-      *switch_table_.notifier, *switch_table_.app_db,
-      *switch_table_.app_state_db));
+  RETURN_IF_ERROR(
+      sonic::ProgramSwitchTable(switch_table_, ir_p4info, hash_fields));
   return absl::OkStatus();
 }
 

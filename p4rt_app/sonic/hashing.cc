@@ -24,9 +24,7 @@
 #include "gutil/status.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/utils/annotation_parser.h"
-#include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
-#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
-#include "p4rt_app/sonic/adapters/producer_state_table_adapter.h"
+#include "p4rt_app/sonic/redis_connections.h"
 #include "p4rt_app/sonic/response_handler.h"
 #include "swss/json.h"
 #include "swss/json.hpp"
@@ -293,10 +291,7 @@ GenerateAppDbHashValueEntries(const pdpi::IrP4Info& ir_p4info) {
 }
 
 absl::StatusOr<std::vector<std::string>> ProgramHashFieldTable(
-    const pdpi::IrP4Info& ir_p4info,
-    ProducerStateTableAdapter& app_db_table_hash,
-    ConsumerNotifierAdapter& app_db_notifier_hash,
-    DBConnectorAdapter& app_db_client, DBConnectorAdapter& state_db_client) {
+    HashTable& hash_table, const pdpi::IrP4Info& ir_p4info) {
   // Get the key, value pairs of Hash field APP_DB entries.
   ASSIGN_OR_RETURN(const auto entries,
                    sonic::GenerateAppDbHashFieldEntries(ir_p4info));
@@ -305,15 +300,15 @@ absl::StatusOr<std::vector<std::string>> ProgramHashFieldTable(
   pdpi::IrWriteResponse update_status;
   absl::btree_map<std::string, pdpi::IrUpdateStatus*> status_by_key;
   for (const auto& entry : entries) {
-    app_db_table_hash.set(entry.hash_key, entry.hash_value);
+    hash_table.producer_state->set(entry.hash_key, entry.hash_value);
     status_by_key[entry.hash_key] = update_status.add_statuses();
   }
 
   // Wait for the OrchAgent's repsonse.
   pdpi::IrWriteResponse ir_write_response;
   RETURN_IF_ERROR(sonic::GetAndProcessResponseNotification(
-      app_db_table_hash.get_table_name(), app_db_notifier_hash, app_db_client,
-      state_db_client, status_by_key));
+      hash_table.producer_state->get_table_name(), *hash_table.notifier,
+      *hash_table.app_db, *hash_table.app_state_db, status_by_key));
 
   // Pickup the hash field keys that were written(and ack'ed) successfully by
   // OrchAgent.
@@ -323,21 +318,20 @@ absl::StatusOr<std::vector<std::string>> ProgramHashFieldTable(
       hash_field_keys.push_back(key);
     } else {
       return gutil::InternalErrorBuilder()
-             << "Could not write '" << app_db_table_hash.get_table_name() << ":"
-             << key << "' into the AppDb: " << status->message();
+             << "Could not write '"
+             << hash_table.producer_state->get_table_name() << ":" << key
+             << "' into the AppDb: " << status->message();
     }
   }
   return hash_field_keys;
 }
 
-absl::Status ProgramSwitchTable(const pdpi::IrP4Info& ir_p4info,
-                                std::vector<std::string> hash_fields,
-                                ProducerStateTableAdapter& app_db_table_switch,
-                                ConsumerNotifierAdapter& app_db_notifier_switch,
-                                DBConnectorAdapter& app_db_client,
-                                DBConnectorAdapter& state_db_client) {
+absl::Status ProgramSwitchTable(SwitchTable& switch_table,
+                                const pdpi::IrP4Info& ir_p4info,
+                                const std::vector<std::string>& hash_fields) {
   const std::string kSwitchTableEntryKey = "switch";
   std::vector<swss::FieldValueTuple> switch_table_attrs;
+
   // Get all the hash value related attributes like algorithm type, offset and
   // seed value etc.
   ASSIGN_OR_RETURN(switch_table_attrs,
@@ -363,13 +357,13 @@ absl::Status ProgramSwitchTable(const pdpi::IrP4Info& ir_p4info,
   }
 
   // Write to switch table and process response.
-  app_db_table_switch.set(kSwitchTableEntryKey, switch_table_attrs);
+  switch_table.producer_state->set(kSwitchTableEntryKey, switch_table_attrs);
 
-  ASSIGN_OR_RETURN(
-      pdpi::IrUpdateStatus status,
-      sonic::GetAndProcessResponseNotification(
-          app_db_table_switch.get_table_name(), app_db_notifier_switch,
-          app_db_client, state_db_client, kSwitchTableEntryKey));
+  ASSIGN_OR_RETURN(pdpi::IrUpdateStatus status,
+                   sonic::GetAndProcessResponseNotification(
+                       switch_table.producer_state->get_table_name(),
+                       *switch_table.notifier, *switch_table.app_db,
+                       *switch_table.app_state_db, kSwitchTableEntryKey));
 
   // Failing to program the switch table should never happen so we return an
   // internal error.
