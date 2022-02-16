@@ -1024,11 +1024,10 @@ absl::Status P4RuntimeImpl::ConfigureAppDbTables(
     // Add ACL table definition to AppDb (if applicable).
     if (table_type == table::Type::kAcl) {
       LOG(INFO) << "Configuring ACL table: " << table_name;
-      ASSIGN_OR_RETURN(
-          std::string acl_key,
-          sonic::InsertAclTableDefinition(*p4rt_table_.producer_state, table),
-          _ << "Failed to add ACL table definition [" << table_name
-            << "] to AppDb.");
+      ASSIGN_OR_RETURN(std::string acl_key,
+                       sonic::InsertAclTableDefinition(p4rt_table_, table),
+                       _ << "Failed to add ACL table definition [" << table_name
+                         << "] to AppDb.");
 
       // Wait for OA to confirm it can realize the table updates.
       ASSIGN_OR_RETURN(pdpi::IrUpdateStatus status,

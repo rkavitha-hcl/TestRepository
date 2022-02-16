@@ -21,10 +21,10 @@ cc_library(
     srcs = ["app_db_acl_def_table_manager.cc"],
     hdrs = ["app_db_acl_def_table_manager.h"],
     deps = [
+        ":redis_connections",
         "//gutil:status",
         "//p4_pdpi:ir_cc_proto",
         "//p4_pdpi/utils:annotation_parser",
-        "//p4rt_app/sonic/adapters:producer_state_table_adapter",
         "//p4rt_app/utils:table_utility",
         "@com_github_google_glog//:glog",
         "@com_google_absl//absl/container:flat_hash_map",
@@ -40,6 +40,7 @@ cc_test(
     srcs = ["app_db_acl_def_table_manager_test.cc"],
     deps = [
         ":app_db_acl_def_table_manager",
+        ":redis_connections",
         "//gutil:status_matchers",
         "//p4rt_app/sonic/adapters:fake_producer_state_table_adapter",
         "//p4rt_app/sonic/adapters:fake_sonic_db_table",
