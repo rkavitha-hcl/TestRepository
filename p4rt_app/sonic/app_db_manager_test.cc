@@ -62,12 +62,33 @@ GetSuccessfulResponseValues() {
 class AppDbManagerTest : public ::testing::Test {
  protected:
   AppDbManagerTest() {
-    ON_CALL(mock_p4rt_table_, get_table_name)
-        .WillByDefault(Return(p4rt_table_name_));
-
+    auto p4rt_producer_state =
+        std::make_unique<MockProducerStateTableAdapter>();
+    auto p4rt_notifier = std::make_unique<MockConsumerNotifierAdapter>();
+    auto p4rt_app_db = std::make_unique<MockDBConnectorAdapter>();
+    auto p4rt_app_state_db = std::make_unique<MockDBConnectorAdapter>();
+    auto p4rt_counter_db = std::make_unique<MockDBConnectorAdapter>();
     auto vrf_producer_state = std::make_unique<MockProducerStateTableAdapter>();
+
+    ON_CALL(*p4rt_producer_state, get_table_name)
+        .WillByDefault(Return(p4rt_table_name_));
     ON_CALL(*vrf_producer_state, get_table_name)
         .WillByDefault(Return(vrf_table_name_));
+
+    // Save a pointer so we can test against the mocks.
+    mock_p4rt_producer_state_ = p4rt_producer_state.get();
+    mock_p4rt_notifier_ = p4rt_notifier.get();
+    mock_p4rt_app_db_ = p4rt_app_db.get();
+    mock_p4rt_app_state_db_ = p4rt_app_state_db.get();
+    mock_p4rt_counter_db_ = p4rt_counter_db.get();
+
+    mock_p4rt_table_ = P4rtTable{
+        .producer_state = std::move(p4rt_producer_state),
+        .notifier = std::move(p4rt_notifier),
+        .app_db = std::move(p4rt_app_db),
+        .app_state_db = std::move(p4rt_app_state_db),
+        .counter_db = std::move(p4rt_counter_db),
+    };
 
     mock_vrf_table_ = VrfTable{
         .producer_state = std::move(vrf_producer_state),
@@ -81,13 +102,13 @@ class AppDbManagerTest : public ::testing::Test {
   const std::string vrf_table_name_ = "VRF_TABLE";
 
   // Mock AppDb tables.
-  MockDBConnectorAdapter mock_app_db_client_;
-  MockProducerStateTableAdapter mock_p4rt_table_;
-  MockConsumerNotifierAdapter mock_p4rt_notification_;
+  MockProducerStateTableAdapter* mock_p4rt_producer_state_;
+  MockConsumerNotifierAdapter* mock_p4rt_notifier_;
+  MockDBConnectorAdapter* mock_p4rt_app_db_;
+  MockDBConnectorAdapter* mock_p4rt_app_state_db_;
+  MockDBConnectorAdapter* mock_p4rt_counter_db_;
+  P4rtTable mock_p4rt_table_;
   VrfTable mock_vrf_table_;
-
-  // Mock StateDb tables.
-  MockDBConnectorAdapter mock_state_db_client_;
 };
 
 TEST_F(AppDbManagerTest, InsertTableEntry) {
@@ -131,10 +152,11 @@ TEST_F(AppDbManagerTest, InsertTableEntry) {
                             .AddActionParam("src_mac", "00:02:03:04:05:06");
   const std::vector<swss::KeyOpFieldsValuesTuple> expected_key_value = {
       std::make_tuple(expected.GetKey(), "", expected.GetValueList())};
-  EXPECT_CALL(mock_p4rt_table_, batch_set(expected_key_value)).Times(1);
+  EXPECT_CALL(*mock_p4rt_producer_state_, batch_set(expected_key_value))
+      .Times(1);
 
   // Expected OrchAgent response.
-  EXPECT_CALL(mock_p4rt_notification_, WaitForNotificationAndPop)
+  EXPECT_CALL(*mock_p4rt_notifier_, WaitForNotificationAndPop)
       .WillOnce(DoAll(SetArgReferee<0>("SWSS_RC_SUCCESS"),
                       SetArgReferee<1>(expected.GetKey()),
                       SetArgReferee<2>(GetSuccessfulResponseValues()),
@@ -142,10 +164,9 @@ TEST_F(AppDbManagerTest, InsertTableEntry) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDb(mock_vrf_table_, updates,
+  EXPECT_OK(UpdateAppDb(mock_p4rt_table_, mock_vrf_table_, updates,
                         sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
-                        mock_p4rt_table_, mock_p4rt_notification_,
-                        mock_app_db_client_, mock_state_db_client_, &response));
+                        &response));
   ASSERT_EQ(response.statuses_size(), 1);
   EXPECT_EQ(response.statuses(0).code(), google::rpc::OK);
 }
@@ -184,12 +205,10 @@ TEST_F(AppDbManagerTest, InsertWithUnknownAppDbTableTypeFails) {
   updates.total_rpc_updates = 1;
 
   pdpi::IrWriteResponse response;
-  EXPECT_THAT(
-      UpdateAppDb(mock_vrf_table_, updates,
-                  sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
-                  mock_p4rt_table_, mock_p4rt_notification_,
-                  mock_app_db_client_, mock_state_db_client_, &response),
-      StatusIs(absl::StatusCode::kInternal));
+  EXPECT_THAT(UpdateAppDb(mock_p4rt_table_, mock_vrf_table_, updates,
+                          sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
+                          &response),
+              StatusIs(absl::StatusCode::kInternal));
 }
 
 TEST_F(AppDbManagerTest, InsertDuplicateTableEntryFails) {
@@ -228,15 +247,14 @@ TEST_F(AppDbManagerTest, InsertDuplicateTableEntryFails) {
                             .SetTableName("P4RT:FIXED_ROUTER_INTERFACE_TABLE")
                             .SetPriority(123)
                             .AddMatchField("router_interface_id", "16");
-  EXPECT_CALL(mock_app_db_client_, exists(Eq(expected.GetKey())))
+  EXPECT_CALL(*mock_p4rt_app_db_, exists(Eq(expected.GetKey())))
       .WillOnce(Return(true));
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDb(mock_vrf_table_, updates,
+  EXPECT_OK(UpdateAppDb(mock_p4rt_table_, mock_vrf_table_, updates,
                         sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
-                        mock_p4rt_table_, mock_p4rt_notification_,
-                        mock_app_db_client_, mock_state_db_client_, &response));
+                        &response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::ALREADY_EXISTS);
 }
 
@@ -282,17 +300,18 @@ TEST_F(AppDbManagerTest, ModifyTableEntry) {
   // RedisDB returns that the entry exists so it can be modified.
   const std::vector<swss::KeyOpFieldsValuesTuple> expected_key_value = {
       std::make_tuple(expected.GetKey(), "", expected.GetValueList())};
-  EXPECT_CALL(mock_app_db_client_,
+  EXPECT_CALL(*mock_p4rt_app_db_,
               exists(Eq(absl::StrCat("P4RT:", expected.GetKey()))))
       .WillOnce(Return(true));
-  EXPECT_CALL(mock_app_db_client_,
+  EXPECT_CALL(*mock_p4rt_app_db_,
               batch_del(std::vector<std::string>{
                   absl::StrCat("P4RT:", expected.GetKey())}))
       .Times(1);
-  EXPECT_CALL(mock_p4rt_table_, batch_set(expected_key_value)).Times(1);
+  EXPECT_CALL(*mock_p4rt_producer_state_, batch_set(expected_key_value))
+      .Times(1);
 
   // OrchAgent returns success.
-  EXPECT_CALL(mock_p4rt_notification_, WaitForNotificationAndPop)
+  EXPECT_CALL(*mock_p4rt_notifier_, WaitForNotificationAndPop)
       .WillOnce(DoAll(SetArgReferee<0>("SWSS_RC_SUCCESS"),
                       SetArgReferee<1>(expected.GetKey()),
                       SetArgReferee<2>(GetSuccessfulResponseValues()),
@@ -300,10 +319,9 @@ TEST_F(AppDbManagerTest, ModifyTableEntry) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDb(mock_vrf_table_, updates,
+  EXPECT_OK(UpdateAppDb(mock_p4rt_table_, mock_vrf_table_, updates,
                         sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
-                        mock_p4rt_table_, mock_p4rt_notification_,
-                        mock_app_db_client_, mock_state_db_client_, &response));
+                        &response));
   ASSERT_EQ(response.statuses_size(), 1);
   EXPECT_EQ(response.statuses(0).code(), google::rpc::OK);
 }
@@ -344,15 +362,14 @@ TEST_F(AppDbManagerTest, ModifyNonExistentTableEntryFails) {
                             .SetTableName("P4RT:FIXED_ROUTER_INTERFACE_TABLE")
                             .SetPriority(123)
                             .AddMatchField("router_interface_id", "16");
-  EXPECT_CALL(mock_app_db_client_, exists(Eq(expected.GetKey())))
+  EXPECT_CALL(*mock_p4rt_app_db_, exists(Eq(expected.GetKey())))
       .WillOnce(Return(false));
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDb(mock_vrf_table_, updates,
+  EXPECT_OK(UpdateAppDb(mock_p4rt_table_, mock_vrf_table_, updates,
                         sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
-                        mock_p4rt_table_, mock_p4rt_notification_,
-                        mock_app_db_client_, mock_state_db_client_, &response));
+                        &response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::NOT_FOUND);
 }
 
@@ -393,15 +410,15 @@ TEST_F(AppDbManagerTest, DeleteTableEntry) {
                             .AddMatchField("router_interface_id", "16");
 
   // RedisDB returns that the entry exists so it can be deleted.
-  EXPECT_CALL(mock_app_db_client_,
+  EXPECT_CALL(*mock_p4rt_app_db_,
               exists(Eq(absl::StrCat("P4RT:", expected.GetKey()))))
       .WillOnce(Return(true));
-  EXPECT_CALL(mock_p4rt_table_,
+  EXPECT_CALL(*mock_p4rt_producer_state_,
               batch_del(std::vector<std::string>{expected.GetKey()}))
       .Times(1);
 
   // OrchAgent returns success.
-  EXPECT_CALL(mock_p4rt_notification_, WaitForNotificationAndPop)
+  EXPECT_CALL(*mock_p4rt_notifier_, WaitForNotificationAndPop)
       .WillOnce(DoAll(SetArgReferee<0>("SWSS_RC_SUCCESS"),
                       SetArgReferee<1>(expected.GetKey()),
                       SetArgReferee<2>(GetSuccessfulResponseValues()),
@@ -409,10 +426,9 @@ TEST_F(AppDbManagerTest, DeleteTableEntry) {
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDb(mock_vrf_table_, updates,
+  EXPECT_OK(UpdateAppDb(mock_p4rt_table_, mock_vrf_table_, updates,
                         sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
-                        mock_p4rt_table_, mock_p4rt_notification_,
-                        mock_app_db_client_, mock_state_db_client_, &response));
+                        &response));
   ASSERT_EQ(response.statuses_size(), 1);
   EXPECT_EQ(response.statuses(0).code(), google::rpc::OK);
 }
@@ -453,19 +469,18 @@ TEST_F(AppDbManagerTest, DeleteNonExistentTableEntryFails) {
                             .SetTableName("P4RT:FIXED_ROUTER_INTERFACE_TABLE")
                             .SetPriority(123)
                             .AddMatchField("router_interface_id", "16");
-  EXPECT_CALL(mock_app_db_client_, exists(Eq(expected.GetKey())))
+  EXPECT_CALL(*mock_p4rt_app_db_, exists(Eq(expected.GetKey())))
       .WillOnce(Return(false));
 
   pdpi::IrWriteResponse response;
   response.add_statuses();
-  EXPECT_OK(UpdateAppDb(mock_vrf_table_, updates,
+  EXPECT_OK(UpdateAppDb(mock_p4rt_table_, mock_vrf_table_, updates,
                         sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
-                        mock_p4rt_table_, mock_p4rt_notification_,
-                        mock_app_db_client_, mock_state_db_client_, &response));
+                        &response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::NOT_FOUND);
 }
 
-TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryWithoutCounterData) {
+TEST_F(AppDbManagerTest, ReadAppStateDbP4TableEntryWithoutCounterData) {
   const auto app_db_entry =
       AppDbEntryBuilder{}
           .SetTableName("P4RT:FIXED_ROUTER_INTERFACE_TABLE")
@@ -475,20 +490,18 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryWithoutCounterData) {
           .AddActionParam("port", "Ethernet28/5")
           .AddActionParam("src_mac", "00:02:03:04:05:06");
 
-  MockDBConnectorAdapter mock_app_db_client;
-  EXPECT_CALL(mock_app_db_client, hgetall(Eq(app_db_entry.GetKey())))
+  EXPECT_CALL(*mock_p4rt_app_state_db_, hgetall(Eq(app_db_entry.GetKey())))
       .WillOnce(Return(app_db_entry.GetValueMap()));
 
   // We will always check the CountersDB for packet data, but if nothing exists
   // we should not update the table entry.
-  MockDBConnectorAdapter mock_counters_db_client;
-  EXPECT_CALL(mock_counters_db_client,
+  EXPECT_CALL(*mock_p4rt_counter_db_,
               hgetall(Eq(absl::StrCat("COUNTERS:", app_db_entry.GetKey()))))
       .WillOnce(Return(std::unordered_map<std::string, std::string>{}));
 
-  auto table_entry_status = ReadAppDbP4TableEntry(
-      sai::GetIrP4Info(sai::Instantiation::kMiddleblock), mock_app_db_client,
-      mock_counters_db_client, app_db_entry.GetKey());
+  auto table_entry_status = ReadP4TableEntry(
+      mock_p4rt_table_, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
+      app_db_entry.GetKey());
   ASSERT_TRUE(table_entry_status.ok()) << table_entry_status.status();
   pdpi::IrTableEntry table_entry = table_entry_status.value();
 
@@ -512,7 +525,7 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryWithoutCounterData) {
                 })pb"));
 }
 
-TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryWithCounterData) {
+TEST_F(AppDbManagerTest, ReadAppStateDbP4TableEntryWithCounterData) {
   const auto app_db_entry =
       AppDbEntryBuilder{}
           .SetTableName("P4RT:FIXED_ROUTER_INTERFACE_TABLE")
@@ -522,8 +535,7 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryWithCounterData) {
           .AddActionParam("port", "Ethernet28/5")
           .AddActionParam("src_mac", "00:02:03:04:05:06");
 
-  MockDBConnectorAdapter mock_app_db_client;
-  EXPECT_CALL(mock_app_db_client, hgetall(Eq(app_db_entry.GetKey())))
+  EXPECT_CALL(*mock_p4rt_app_state_db_, hgetall(Eq(app_db_entry.GetKey())))
       .WillOnce(Return(app_db_entry.GetValueMap()));
 
   // We want to support 64-bit integers for both the number of packets, as well
@@ -532,16 +544,15 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryWithCounterData) {
   // Using decimal numbers:
   //    1152921504606846975 = 0x0FFF_FFFF_FFFF_FFFF
   //    1076078835964837887 = 0x0EEE_FFFF_FFFF_FFFF
-  MockDBConnectorAdapter mock_counters_db_client;
-  EXPECT_CALL(mock_counters_db_client,
+  EXPECT_CALL(*mock_p4rt_counter_db_,
               hgetall(Eq(absl::StrCat("COUNTERS:", app_db_entry.GetKey()))))
       .WillOnce(Return(std::unordered_map<std::string, std::string>{
           {"packets", "1076078835964837887"},
           {"bytes", "1152921504606846975"}}));
 
-  auto table_entry_status = ReadAppDbP4TableEntry(
-      sai::GetIrP4Info(sai::Instantiation::kMiddleblock), mock_app_db_client,
-      mock_counters_db_client, app_db_entry.GetKey());
+  auto table_entry_status = ReadP4TableEntry(
+      mock_p4rt_table_, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
+      app_db_entry.GetKey());
   ASSERT_TRUE(table_entry_status.ok()) << table_entry_status.status();
   pdpi::IrTableEntry table_entry = table_entry_status.value();
 
@@ -569,7 +580,7 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryWithCounterData) {
                 })pb"));
 }
 
-TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryIgnoresInvalidCounterData) {
+TEST_F(AppDbManagerTest, ReadAppStateDbP4TableEntryIgnoresInvalidCounterData) {
   const auto app_db_entry =
       AppDbEntryBuilder{}
           .SetTableName("P4RT:FIXED_ROUTER_INTERFACE_TABLE")
@@ -579,19 +590,17 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryIgnoresInvalidCounterData) {
           .AddActionParam("port", "Ethernet28/5")
           .AddActionParam("src_mac", "00:02:03:04:05:06");
 
-  MockDBConnectorAdapter mock_app_db_client;
-  EXPECT_CALL(mock_app_db_client, hgetall(Eq(app_db_entry.GetKey())))
+  EXPECT_CALL(*mock_p4rt_app_state_db_, hgetall(Eq(app_db_entry.GetKey())))
       .WillOnce(Return(app_db_entry.GetValueMap()));
 
-  MockDBConnectorAdapter mock_counters_db_client;
-  EXPECT_CALL(mock_counters_db_client,
+  EXPECT_CALL(*mock_p4rt_counter_db_,
               hgetall(Eq(absl::StrCat("COUNTERS:", app_db_entry.GetKey()))))
       .WillOnce(Return(std::unordered_map<std::string, std::string>{
           {"packets", "A"}, {"bytes", "B"}}));
 
-  auto table_entry_status = ReadAppDbP4TableEntry(
-      sai::GetIrP4Info(sai::Instantiation::kMiddleblock), mock_app_db_client,
-      mock_counters_db_client, app_db_entry.GetKey());
+  auto table_entry_status = ReadP4TableEntry(
+      mock_p4rt_table_, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
+      app_db_entry.GetKey());
   ASSERT_TRUE(table_entry_status.ok()) << table_entry_status.status();
   pdpi::IrTableEntry table_entry = table_entry_status.value();
 
@@ -616,40 +625,36 @@ TEST_F(AppDbManagerTest, ReadAppDbP4TableEntryIgnoresInvalidCounterData) {
 }
 
 TEST_F(AppDbManagerTest, GetAllP4KeysReturnsInstalledKeys) {
-  MockDBConnectorAdapter mock_app_db_client;
-  EXPECT_CALL(mock_app_db_client, keys)
+  EXPECT_CALL(*mock_p4rt_app_state_db_, keys)
       .WillOnce(Return(std::vector<std::string>{"P4RT:TABLE:{key}"}));
 
-  EXPECT_THAT(GetAllAppDbP4TableEntryKeys(mock_app_db_client),
+  EXPECT_THAT(GetAllP4TableEntryKeys(mock_p4rt_table_),
               ContainerEq(std::vector<std::string>{"P4RT:TABLE:{key}"}));
 }
 
 TEST_F(AppDbManagerTest, GetAllP4KeysDoesNotReturnUninstalledKey) {
-  MockDBConnectorAdapter mock_app_db_client;
-  EXPECT_CALL(mock_app_db_client, keys)
+  EXPECT_CALL(*mock_p4rt_app_state_db_, keys)
       .WillOnce(Return(std::vector<std::string>{"_P4RT:TABLE:{key}"}));
 
-  EXPECT_THAT(GetAllAppDbP4TableEntryKeys(mock_app_db_client),
+  EXPECT_THAT(GetAllP4TableEntryKeys(mock_p4rt_table_),
               ContainerEq(std::vector<std::string>{}));
 }
 
 TEST_F(AppDbManagerTest, GetAllP4KeysIgnoresKeySet) {
-  MockDBConnectorAdapter mock_app_db_client;
-  EXPECT_CALL(mock_app_db_client, keys)
+  EXPECT_CALL(*mock_p4rt_app_state_db_, keys)
       .WillOnce(Return(
           std::vector<std::string>{"P4RT_KEY_SET:TABLE", "P4RT:TABLE:{key}"}));
 
-  EXPECT_THAT(GetAllAppDbP4TableEntryKeys(mock_app_db_client),
+  EXPECT_THAT(GetAllP4TableEntryKeys(mock_p4rt_table_),
               ContainerEq(std::vector<std::string>{"P4RT:TABLE:{key}"}));
 }
 
 TEST_F(AppDbManagerTest, GetAllP4KeysIgnoresDelSet) {
-  MockDBConnectorAdapter mock_app_db_client;
-  EXPECT_CALL(mock_app_db_client, keys)
+  EXPECT_CALL(*mock_p4rt_app_state_db_, keys)
       .WillOnce(Return(
           std::vector<std::string>{"P4RT_DEL_SET:TABLE", "P4RT:TABLE:{key}"}));
 
-  EXPECT_THAT(GetAllAppDbP4TableEntryKeys(mock_app_db_client),
+  EXPECT_THAT(GetAllP4TableEntryKeys(mock_p4rt_table_),
               ContainerEq(std::vector<std::string>{"P4RT:TABLE:{key}"}));
 }
 

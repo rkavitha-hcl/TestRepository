@@ -30,9 +30,6 @@
 #include "gutil/collections.h"
 #include "gutil/status.h"
 #include "p4_pdpi/ir.pb.h"
-#include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
-#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
-#include "p4rt_app/sonic/adapters/producer_state_table_adapter.h"
 #include "p4rt_app/sonic/app_db_to_pdpi_ir_translator.h"
 #include "p4rt_app/sonic/redis_connections.h"
 #include "p4rt_app/sonic/response_handler.h"
@@ -86,10 +83,10 @@ absl::flat_hash_set<std::string> FindDuplicateKeys(
 // Validates the AppDb entry to be deleted and updates the p4rt_deletes (to be
 // deleted in a batch later). On success the P4RT key to be deleted is returned.
 absl::StatusOr<std::string> CreateEntryForAppDbDelete(
-    const pdpi::IrTableEntry& entry, const pdpi::IrP4Info& p4_info,
+    P4rtTable& p4rt_table, const pdpi::IrTableEntry& entry,
+    const pdpi::IrP4Info& p4_info,
     const absl::flat_hash_set<std::string>& duplicate_keys,
-    std::vector<std::string>& p4rt_deletes,
-    ProducerStateTableAdapter& p4rt_table, DBConnectorAdapter& app_db_client) {
+    std::vector<std::string>& p4rt_deletes) {
   LOG(INFO) << "Delete PDPI IR entry: " << entry.ShortDebugString();
 
   ASSIGN_OR_RETURN(std::string key, GetP4rtTableKey(entry, p4_info));
@@ -101,9 +98,9 @@ absl::StatusOr<std::string> CreateEntryForAppDbDelete(
   }
 
   std::string p4rt_prefix_key =
-      absl::StrCat(p4rt_table.get_table_name(), ":", key);
+      absl::StrCat(p4rt_table.producer_state->get_table_name(), ":", key);
   // Check that key exists in the table.
-  if (!app_db_client.exists(p4rt_prefix_key)) {
+  if (!p4rt_table.app_db->exists(p4rt_prefix_key)) {
     LOG(WARNING) << "Could not delete missing entry: " << key;
     return gutil::NotFoundErrorBuilder()
            << "[P4RT App] Table entry with the given key does not exist in '"
@@ -112,10 +109,10 @@ absl::StatusOr<std::string> CreateEntryForAppDbDelete(
 
   // Get table entry from the APP_DB (before delete) instead of the one from the
   // request.
-  ASSIGN_OR_RETURN(
-      auto ir_table_entry,
-      AppDbKeyAndValuesToIrTableEntry(p4_info, p4rt_prefix_key,
-                                      app_db_client.hgetall(p4rt_prefix_key)));
+  ASSIGN_OR_RETURN(auto ir_table_entry,
+                   AppDbKeyAndValuesToIrTableEntry(
+                       p4_info, p4rt_prefix_key,
+                       p4rt_table.app_db->hgetall(p4rt_prefix_key)));
 
   LOG(INFO) << "Delete AppDb entry: " << key;
   p4rt_deletes.push_back(key);
@@ -125,11 +122,10 @@ absl::StatusOr<std::string> CreateEntryForAppDbDelete(
 // Formats the IR entry as a AppDb entry and updates the p4rt_inserts (to be
 // inserted in a batch later). On success the P4RT key is returned.
 absl::StatusOr<std::string> CreateEntryForAppDbInsert(
-    const pdpi::IrTableEntry& entry, const pdpi::IrP4Info& p4_info,
+    P4rtTable& p4rt_table, const pdpi::IrTableEntry& entry,
+    const pdpi::IrP4Info& p4_info,
     const absl::flat_hash_set<std::string>& duplicate_keys,
-    std::vector<swss::KeyOpFieldsValuesTuple>& p4rt_inserts,
-    ProducerStateTableAdapter& p4rt_table, DBConnectorAdapter& app_db_client,
-    DBConnectorAdapter& state_db_client) {
+    std::vector<swss::KeyOpFieldsValuesTuple>& p4rt_inserts) {
   LOG(INFO) << "Insert PDPI IR entry: " << entry.ShortDebugString();
 
   ASSIGN_OR_RETURN(std::string key, GetP4rtTableKey(entry, p4_info));
@@ -141,8 +137,8 @@ absl::StatusOr<std::string> CreateEntryForAppDbInsert(
   }
 
   // Check that key does not already exist in the table.
-  if (app_db_client.exists(
-          absl::StrCat(p4rt_table.get_table_name(), ":", key))) {
+  if (p4rt_table.app_db->exists(absl::StrCat(
+          p4rt_table.producer_state->get_table_name(), ":", key))) {
     LOG(WARNING) << "Could not insert duplicate entry: " << key;
     return gutil::AlreadyExistsErrorBuilder()
            << "[P4RT App] Table entry with the given key already exist in '"
@@ -161,16 +157,16 @@ absl::StatusOr<std::string> CreateEntryForAppDbInsert(
 // Formats the IR entry as a AppDb entry and updates the p4rt_modifies (to be
 // modified in a batch later). On success the P4RT key is returned.
 absl::StatusOr<std::string> CreateEntryForAppDbModify(
-    const pdpi::IrTableEntry& entry, const pdpi::IrP4Info& p4_info,
+    P4rtTable& p4rt_table, const pdpi::IrTableEntry& entry,
+    const pdpi::IrP4Info& p4_info,
     const absl::flat_hash_set<std::string>& duplicate_keys,
-    std::vector<swss::KeyOpFieldsValuesTuple>& p4rt_modifies,
-    ProducerStateTableAdapter& p4rt_table, DBConnectorAdapter& app_db_client,
-    DBConnectorAdapter& state_db_client) {
+    std::vector<swss::KeyOpFieldsValuesTuple>& p4rt_modifies) {
   LOG(INFO) << "Modify PDPI IR entry: " << entry.ShortDebugString();
 
   ASSIGN_OR_RETURN(std::string key, GetP4rtTableKey(entry, p4_info));
 
-  std::string app_db_key = absl::StrCat(p4rt_table.get_table_name(), ":", key);
+  std::string app_db_key =
+      absl::StrCat(p4rt_table.producer_state->get_table_name(), ":", key);
   // Verify key has not been duplicated in this batch request.
   if (duplicate_keys.count(key) > 0) {
     return gutil::InvalidArgumentErrorBuilder()
@@ -178,7 +174,7 @@ absl::StatusOr<std::string> CreateEntryForAppDbModify(
   }
 
   // Check that key already exist in the table.
-  if (!app_db_client.exists(app_db_key)) {
+  if (!p4rt_table.app_db->exists(app_db_key)) {
     LOG(WARNING) << "Could not modify missing entry: " << key;
     return gutil::NotFoundErrorBuilder()
            << "[P4RT App] Table entry with the given key does not exist in '"
@@ -227,52 +223,52 @@ absl::Status AppendCounterData(
 
 // Writes into the APP_DB Producer Table using the bulk option.
 void WriteBatchToAppDb(
+    P4rtTable& p4rt_table,
     const std::vector<swss::KeyOpFieldsValuesTuple>& p4rt_inserts,
     const std::vector<swss::KeyOpFieldsValuesTuple>& p4rt_modifies,
-    const std::vector<std::string>& p4rt_deletes,
-    DBConnectorAdapter& app_db_client, ProducerStateTableAdapter& p4rt_table) {
-  if (!p4rt_inserts.empty()) p4rt_table.batch_set(p4rt_inserts);
+    const std::vector<std::string>& p4rt_deletes) {
+  if (!p4rt_inserts.empty()) p4rt_table.producer_state->batch_set(p4rt_inserts);
 
   if (!p4rt_modifies.empty()) {
     std::vector<std::string> del_keys(p4rt_modifies.size());
     for (int i = 0; i < p4rt_modifies.size(); ++i) {
-      del_keys[i] = absl::StrCat(p4rt_table.get_table_name(), ":",
-                                 kfvKey(p4rt_modifies[i]));
+      del_keys[i] = absl::StrCat(p4rt_table.producer_state->get_table_name(),
+                                 ":", kfvKey(p4rt_modifies[i]));
     }
 
     // On modify we need to first remove the existing entries to get rid of any
     // action paramters that may be replaced with a new action. Doing this
     // through the app_db_client will not invoke an action in the OrchAgent.
-    app_db_client.batch_del(del_keys);
+    p4rt_table.app_db->batch_del(del_keys);
 
     // Then we re-insert the entries through the ProducerStateTable which will
     // inoke an update action in the OrchAgent.
-    p4rt_table.batch_set(p4rt_modifies);
+    p4rt_table.producer_state->batch_set(p4rt_modifies);
   }
 
-  if (!p4rt_deletes.empty()) p4rt_table.batch_del(p4rt_deletes);
+  if (!p4rt_deletes.empty()) p4rt_table.producer_state->batch_del(p4rt_deletes);
 }
 
 }  // namespace
 
-absl::StatusOr<pdpi::IrTableEntry> ReadAppDbP4TableEntry(
-    const pdpi::IrP4Info& p4info, DBConnectorAdapter& app_db_client,
-    DBConnectorAdapter& counters_db_client, const std::string& key) {
+absl::StatusOr<pdpi::IrTableEntry> ReadP4TableEntry(
+    P4rtTable& p4rt_table, const pdpi::IrP4Info& p4info,
+    const std::string& key) {
   VLOG(1) << "Read AppDb entry: " << key;
-  ASSIGN_OR_RETURN(
-      pdpi::IrTableEntry table_entry,
-      AppDbKeyAndValuesToIrTableEntry(p4info, key, app_db_client.hgetall(key)));
+  ASSIGN_OR_RETURN(pdpi::IrTableEntry table_entry,
+                   AppDbKeyAndValuesToIrTableEntry(
+                       p4info, key, p4rt_table.app_state_db->hgetall(key)));
 
   RETURN_IF_ERROR(AppendCounterData(
-      table_entry, counters_db_client.hgetall(absl::StrCat("COUNTERS:", key))));
+      table_entry,
+      p4rt_table.counter_db->hgetall(absl::StrCat("COUNTERS:", key))));
   return table_entry;
 }
 
-std::vector<std::string> GetAllAppDbP4TableEntryKeys(
-    DBConnectorAdapter& app_db_client) {
+std::vector<std::string> GetAllP4TableEntryKeys(P4rtTable& p4rt_table) {
   std::vector<std::string> p4rt_keys;
 
-  for (const auto& key : app_db_client.keys("*")) {
+  for (const auto& key : p4rt_table.app_state_db->keys("*")) {
     const std::vector<std::string> split = absl::StrSplit(key, ':');
     if (split.size() < 2) continue;
 
@@ -291,12 +287,9 @@ std::vector<std::string> GetAllAppDbP4TableEntryKeys(
   return p4rt_keys;
 }
 
-absl::Status UpdateAppDb(VrfTable& vrf_table, const AppDbUpdates& updates,
+absl::Status UpdateAppDb(P4rtTable& p4rt_table, VrfTable& vrf_table,
+                         const AppDbUpdates& updates,
                          const pdpi::IrP4Info& p4_info,
-                         ProducerStateTableAdapter& p4rt_table,
-                         ConsumerNotifierAdapter& p4rt_notification,
-                         DBConnectorAdapter& app_db_client,
-                         DBConnectorAdapter& state_db_client,
                          pdpi::IrWriteResponse* response) {
   // We keep a temporary cache of any keys that are duplicated in the batch
   // request so the flow can be rejected.
@@ -332,19 +325,16 @@ absl::Status UpdateAppDb(VrfTable& vrf_table, const AppDbUpdates& updates,
     absl::StatusOr<std::string> key;
     switch (entry.update_type) {
       case p4::v1::Update::INSERT:
-        key = CreateEntryForAppDbInsert(entry.entry, p4_info, duplicate_keys,
-                                        p4rt_inserts, p4rt_table, app_db_client,
-                                        state_db_client);
+        key = CreateEntryForAppDbInsert(p4rt_table, entry.entry, p4_info,
+                                        duplicate_keys, p4rt_inserts);
         break;
       case p4::v1::Update::MODIFY:
-        key = CreateEntryForAppDbModify(entry.entry, p4_info, duplicate_keys,
-                                        p4rt_modifies, p4rt_table,
-                                        app_db_client, state_db_client);
+        key = CreateEntryForAppDbModify(p4rt_table, entry.entry, p4_info,
+                                        duplicate_keys, p4rt_modifies);
         break;
       case p4::v1::Update::DELETE:
-        key =
-            CreateEntryForAppDbDelete(entry.entry, p4_info, duplicate_keys,
-                                      p4rt_deletes, p4rt_table, app_db_client);
+        key = CreateEntryForAppDbDelete(p4rt_table, entry.entry, p4_info,
+                                        duplicate_keys, p4rt_deletes);
         break;
       default:
         key = gutil::InvalidArgumentErrorBuilder()
@@ -361,11 +351,10 @@ absl::Status UpdateAppDb(VrfTable& vrf_table, const AppDbUpdates& updates,
     app_db_status[*key] = response->mutable_statuses(entry.rpc_index);
   }
 
-  WriteBatchToAppDb(p4rt_inserts, p4rt_modifies, p4rt_deletes, app_db_client,
-                    p4rt_table);
+  WriteBatchToAppDb(p4rt_table, p4rt_inserts, p4rt_modifies, p4rt_deletes);
   RETURN_IF_ERROR(GetAndProcessResponseNotification(
-      p4rt_table.get_table_name(), p4rt_notification, app_db_client,
-      state_db_client, app_db_status));
+      p4rt_table.producer_state->get_table_name(), *p4rt_table.notifier,
+      *p4rt_table.app_db, *p4rt_table.app_state_db, app_db_status));
 
   return absl::OkStatus();
 }
