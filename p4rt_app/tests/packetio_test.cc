@@ -57,6 +57,7 @@ using ::gutil::EqualsProto;
 using ::gutil::StatusIs;
 using ::p4::v1::P4Runtime;
 using ::testing::Eq;
+using ::testing::HasSubstr;
 using ::testing::UnorderedElementsAre;
 
 // Helper method to read Responses from stream channel.
@@ -281,29 +282,11 @@ TEST_F(FakePacketIoTest, VerifyPacketOut) {
             std::vector<std::string>({"test packet1", "test packet2"}));
 }
 
-class PacketIoUsingPortNameTest : public testing::Test {
- protected:
-  void SetUp() override {
-    const std::string address =
-        absl::StrCat("localhost:", p4rt_service_.GrpcPort());
-    auto stub =
-        pdpi::CreateP4RuntimeStub(address, grpc::InsecureChannelCredentials());
-    ASSERT_OK_AND_ASSIGN(
-        p4rt_session_, pdpi::P4RuntimeSession::Create(std::move(stub),
-                                                      /*device_id=*/183807201));
-
-    ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-        p4rt_session_.get(),
-        p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-        sai::GetP4Info(sai::Instantiation::kMiddleblock)));
-  }
-
-  test_lib::P4RuntimeGrpcService p4rt_service_ = test_lib::P4RuntimeGrpcService(
-      P4RuntimeImplOptions{.translate_port_ids = false});
-  std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
-};
-
-TEST_F(PacketIoUsingPortNameTest, VerifyPacketInWithPortNames) {
+TEST_F(FakePacketIoTest, VerifyPacketInWithPortNames) {
+  ASSERT_OK(pdpi::SetForwardingPipelineConfig(
+      p4rt_session_.get(),
+      p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+      sai::GetP4Info(sai::Instantiation::kMiddleblock)));
   ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet0", "0"));
   std::vector<p4::v1::StreamMessageResponse> actual_responses;
   absl::Notification got_responses;
@@ -323,10 +306,36 @@ TEST_F(PacketIoUsingPortNameTest, VerifyPacketInWithPortNames) {
   EXPECT_THAT(actual_responses, UnorderedElementsAre(EqualsProto(R"pb(
                 packet {
                   payload: "test packet1"
-                  metadata { metadata_id: 1 value: "Ethernet0" }
-                  metadata { metadata_id: 2 value: "Ethernet0" }
+                  metadata { metadata_id: 1 value: "0" }
+                  metadata { metadata_id: 2 value: "0" }
                 }
               )pb")));
+}
+
+TEST_F(FakePacketIoTest, PacketInMessageFailsWhenNoPrimaryExists) {
+  // Close the existing primary connection.
+  ASSERT_OK(p4rt_session_->Finish());
+
+  // Push a dummy PacketIn message.
+  ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet0", "0"));
+  EXPECT_THAT(p4rt_service_.GetFakePacketIoInterface().PushPacketIn(
+                  "Ethernet0", "Ethernet0", "test packet1"),
+              StatusIs(absl::StatusCode::kNotFound,
+                       HasSubstr("Could not find active primary connection")));
+}
+
+TEST(PacketIoTest, PacketInMessageFailsWhenNoPrimaryIsEstablished) {
+  // Start a P4Runtime service and do not establish any connection.
+  test_lib::P4RuntimeGrpcService p4rt_service = test_lib::P4RuntimeGrpcService(
+      P4RuntimeImplOptions{.translate_port_ids = false});
+
+  // Push a dummy PacketIn message.
+  ASSERT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
+  EXPECT_THAT(
+      p4rt_service.GetFakePacketIoInterface().PushPacketIn(
+          "Ethernet0", "Ethernet0", "test packet1"),
+      StatusIs(absl::StatusCode::kNotFound,
+               HasSubstr("Primary connection has not been established")));
 }
 
 }  // namespace
