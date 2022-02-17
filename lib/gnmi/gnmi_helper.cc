@@ -523,6 +523,9 @@ absl::Status CheckAllInterfaceOperStateOverGnmi(
       continue;
     }
     if (oper_status != interface_oper_state) {
+      LOG(INFO) << "Interface "
+                << interface << " not found in interfaces that are "
+                << interface_oper_state;
       unavailable_interfaces.push_back(interface);
     }
   }
