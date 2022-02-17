@@ -27,9 +27,9 @@ def pins_infra_deps():
             # support without hitting big CA file issue.
             # When https://github.com/grpc/grpc/issues/17340 is fixed,
             # use appropriate released branch of https://github.com/grpc/grpc
-            url = "https://github.com/shak5009/grpc/archive/4acc9eda92e990f843e5cf985e1363eb53b163d6.zip",
-            strip_prefix = "grpc-4acc9eda92e990f843e5cf985e1363eb53b163d6",
-            sha256 = "d6caaedc541c753eb85993180fb8e1629759486de1f7d27bb559bf068086a3b2",
+            url = "https://github.com/mint570/grpc/archive/dce7ba326260aa6e353e82ccef13f277ad63bf80.zip",
+            strip_prefix = "grpc-dce7ba326260aa6e353e82ccef13f277ad63bf80",
+            sha256 = "72b3bf761f6f4cd497e93b19d2784ba15429d5c59f02bad4d23558573942464c",
         )
     if not native.existing_rule("com_google_absl"):
         http_archive(
