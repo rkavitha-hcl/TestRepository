@@ -1,5 +1,6 @@
 #include "tests/lib/switch_test_setup_helpers.h"
 
+#include <future>  // NOLINT: third_party library.
 #include <memory>
 #include <string>
 #include <utility>
@@ -97,8 +98,6 @@ ConfigureSwitchAndReturnP4RuntimeSession(
                                                        metadata);
 }
 
-// TODO: Implement using std::future instead, so rebooting can happen
-// in parallel.
 absl::StatusOr<std::pair<std::unique_ptr<pdpi::P4RuntimeSession>,
                          std::unique_ptr<pdpi::P4RuntimeSession>>>
 ConfigureSwitchPairAndReturnP4RuntimeSessionPair(
@@ -106,27 +105,29 @@ ConfigureSwitchPairAndReturnP4RuntimeSessionPair(
     std::optional<std::string> gnmi_config,
     std::optional<p4::config::v1::P4Info> p4info,
     const pdpi::P4RuntimeSessionOptionalArgs& metadata) {
-  // Since the gNMI Config push relies on tables being cleared, we construct the
-  // P4RuntimeSessions and clear the tables first.
-  RETURN_IF_ERROR(ClearTableEntries(thinkit_switch1, metadata));
-  RETURN_IF_ERROR(ClearTableEntries(thinkit_switch2, metadata));
-
-  if (gnmi_config.has_value()) {
-    // Push the gNMI configs to both switches before waiting for convergence.
-    RETURN_IF_ERROR(PushGnmiConfig(thinkit_switch1, *gnmi_config));
-    RETURN_IF_ERROR(PushGnmiConfig(thinkit_switch2, *gnmi_config));
-    RETURN_IF_ERROR(WaitForGnmiPortIdConvergence(thinkit_switch1, *gnmi_config,
-                                                 kGnmiTimeoutDefault));
-    RETURN_IF_ERROR(WaitForGnmiPortIdConvergence(thinkit_switch2, *gnmi_config,
-                                                 kGnmiTimeoutDefault));
+  // We configure both switches in parallel, since it may require rebooting the
+  // switch which is costly.
+  using T = absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>>;
+  T session1, session2;
+  {
+    std::future<T> future1 = std::async(std::launch::async, [&] {
+      return ConfigureSwitchAndReturnP4RuntimeSession(
+          thinkit_switch1, gnmi_config, p4info, metadata);
+    });
+    std::future<T> future2 = std::async(std::launch::async, [&] {
+      return ConfigureSwitchAndReturnP4RuntimeSession(
+          thinkit_switch2, gnmi_config, p4info, metadata);
+    });
+    session1 = future1.get();
+    session2 = future2.get();
   }
-
-  std::unique_ptr<pdpi::P4RuntimeSession> session1, session2;
-  ASSIGN_OR_RETURN(session1, CreateP4RuntimeSessionAndOptionallyPushP4Info(
-                                 thinkit_switch1, p4info, metadata));
-  ASSIGN_OR_RETURN(session2, CreateP4RuntimeSessionAndOptionallyPushP4Info(
-                                 thinkit_switch2, p4info, metadata));
-  return std::make_pair(std::move(session1), std::move(session2));
+  RETURN_IF_ERROR(session1.status()).SetPrepend()
+      << "failed to configure switch '" << thinkit_switch1.ChassisName()
+      << "': ";
+  RETURN_IF_ERROR(session2.status()).SetPrepend()
+      << "failed to configure switch '" << thinkit_switch2.ChassisName()
+      << "': ";
+  return std::make_pair(std::move(*session1), std::move(*session2));
 }
 
 }  // namespace pins_test
