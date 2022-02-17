@@ -36,27 +36,13 @@ class P4InfoPushTestFixture
     : public testing::TestWithParam<P4InfoPushTestParams> {
  protected:
   void SetUp() override { testbed_interface_->SetUp(); }
-
-  void TearDown() override {
-    // TODO: rebooting SUT not to mess with other test
-    // suites in a workflow. Grab logs before rebooting for better debugging.
-    RebootSut("teardown_");
-
-    testbed_interface_->TearDown();
-  }
+  void TearDown() override { testbed_interface_->TearDown(); }
 
   thinkit::MirrorTestbed& GetTestbed() {
     return testbed_interface_->GetMirrorTestbed();
   }
 
-  // Reboot the SUT device. Logs the current state of the switch in the test
-  // artifacts with the provided prefix.
-  void RebootSut(absl::string_view log_prefix) {
-    EXPECT_OK(testbed_interface_->SaveSwitchLogs(log_prefix));
-    LOG(INFO) << "Rebooting the switch under test";
-    thinkit::Switch& sut = GetTestbed().Sut();
-    pins_test::TestGnoiSystemColdReboot(sut);
-  }
+ private:
   std::unique_ptr<thinkit::MirrorTestbedInterface> testbed_interface_ =
       absl::WrapUnique(GetParam().testbed_interface);
 };

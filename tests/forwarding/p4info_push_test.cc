@@ -21,6 +21,7 @@
 #include "lib/gnmi/gnmi_helper.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
+#include "tests/lib/switch_test_setup_helpers.h"
 
 // Note: "gutil/status_matchers.h" is needed for GitHub builds to succeed.
 
@@ -30,37 +31,13 @@ namespace {
 // Sends P4Info to the switch and makes sure it works.
 TEST_P(P4InfoPushTestFixture, P4InfoPushTest) {
   LOG(INFO) << "Test started";
-  thinkit::Switch& sut = GetTestbed().Sut();
-  const p4::config::v1::P4Info& p4info = GetParam().p4info;
 
-  // Push the gNMI configuration to the SUT switch.
-  LOG(INFO) << "Pushing gNMI config";
-  ASSERT_OK(pins_test::PushGnmiConfig(sut, GetParam().gnmi_config));
-  // Not pushing the control switch's gNMI config as we do not use that switch
-  // in this test.
-
-  // Initialize the P4RT session.
-  LOG(INFO) << "Establishing P4RT session";
-  ASSERT_OK_AND_ASSIGN(auto sut_p4rt_session,
-                       pdpi::P4RuntimeSession::Create(sut));
-
-  // TODO: currently have to reboot the switch if P4Info is already
-  // present, as it doesn't support pushing different P4Infos without a restart.
+  // Push the gNMI configuration and P4Info to the SUT.
+  LOG(INFO) << "Pushing gNMI config & P4info";
   ASSERT_OK_AND_ASSIGN(
-      p4::v1::GetForwardingPipelineConfigResponse p4_config,
-      pdpi::GetForwardingPipelineConfig(sut_p4rt_session.get()));
-  if (p4_config.config().has_p4info()) {
-    RebootSut("pre_p4info_push_");
-    // Reconnect after reboot.
-    ASSERT_OK_AND_ASSIGN(sut_p4rt_session, pdpi::P4RuntimeSession::Create(sut));
-  }
-
-  // Push P4Info.
-  LOG(INFO) << "Pushing P4Info";
-  ASSERT_OK(pdpi::SetForwardingPipelineConfig(
-      sut_p4rt_session.get(),
-      p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-      p4info));
+      std::unique_ptr<pdpi::P4RuntimeSession> sut_p4rt_session,
+      pins_test::ConfigureSwitchAndReturnP4RuntimeSession(
+          GetTestbed().Sut(), GetParam().gnmi_config, GetParam().p4info));
 
   // Pull P4Info, make sure it is the same as the pushed one.
   LOG(INFO) << "Pulling P4Info";
@@ -68,7 +45,8 @@ TEST_P(P4InfoPushTestFixture, P4InfoPushTest) {
                        pdpi::GetForwardingPipelineConfig(
                            sut_p4rt_session.get(),
                            p4::v1::GetForwardingPipelineConfigRequest::ALL));
-  ASSERT_THAT(response.config().p4info(), gutil::EqualsProto(p4info));
+  ASSERT_THAT(response.config().p4info(),
+              gutil::EqualsProto(GetParam().p4info));
 
   LOG(INFO) << "Test finished successfully";
 }
