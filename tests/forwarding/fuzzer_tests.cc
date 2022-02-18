@@ -190,11 +190,9 @@ void FuzzerTestFixture::TearDown() {
     // inadvertently does due to some bug. Then we reboot the switch to
     // clear the state.
     if (!switch_cleared.ok()) {
-      if (!GetParam().milestone.has_value()) {
-        ADD_FAILURE()
-            << "Failed to clear entries from switch (now attempting reboot): "
-            << switch_cleared;
-      }
+      LOG(WARNING)
+          << "Failed to clear entries from switch (now attempting reboot): "
+          << switch_cleared;
       // Save the logs before rebooting to help with debug.
       EXPECT_OK(GetParam().mirror_testbed->SaveSwitchLogs(
           /*save_prefix=*/"failed_to_clear_sut_state_"));
@@ -439,8 +437,8 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
   // Unless we are testing a specific milestone, ensure that clearing all
   // tables succeeds. Can be safely skipped as we also clean up the switch
   // during TearDown, but is helpful to detect switch bugs.
-  // TODO: Clean-up has a known bug where deletion of existing
-  // table entries fails.
+  // TODO: The switch currently often returns an RPC-wide error
+  // when failing to delete a WCMP group.
   if (!GetParam().milestone.has_value() && !mask_known_failures) {
     ASSERT_OK_AND_ASSIGN(auto table_entries,
                          pdpi::ReadPiTableEntries(session.get()));
