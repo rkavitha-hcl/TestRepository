@@ -24,7 +24,10 @@
 #include "p4_pdpi/ir.pb.h"
 #include "p4rt_app/p4runtime/p4info_verification_schema.h"
 #include "p4rt_app/p4runtime/p4info_verification_schema.pb.h"
+#include "p4rt_app/sonic/app_db_acl_def_table_manager.h"
+#include "p4rt_app/sonic/hashing.h"
 #include "p4rt_app/utils/status_utility.h"
+#include "p4rt_app/utils/table_utility.h"
 
 namespace p4rt_app {
 namespace {
@@ -105,6 +108,19 @@ absl::Status ValidateP4Info(const p4::config::v1::P4Info& p4info) {
   ASSIGN_OR_RETURN(auto ir_result, pdpi::CreateIrP4Info(p4info),
                    _.SetPayload(kLibraryUrl, absl::Cord("PDPI")));
   RETURN_IF_ERROR(IsSupportedBySchema(ir_result, schema));
+
+  RETURN_IF_ERROR(sonic::GenerateAppDbHashFieldEntries(ir_result).status());
+  RETURN_IF_ERROR(sonic::GenerateAppDbHashValueEntries(ir_result).status());
+
+  for (const auto& [table_name, table] : ir_result.tables_by_name()) {
+    ASSIGN_OR_RETURN(table::Type table_type, GetTableType(table),
+                     _.SetPrepend()
+                         << "Failed to process table '" << table_name << "'. ");
+    if (table_type == table::Type::kAcl) {
+      RETURN_IF_ERROR(sonic::VerifyAclTableDefinition(table)).SetPrepend()
+          << "Table '" << table_name << "' failed ACL table verification. ";
+    }
+  }
   return absl::OkStatus();
 }
 

@@ -23,6 +23,10 @@
 namespace p4rt_app {
 namespace sonic {
 
+// Verify an ACL table definition can be inserted into the AppDB ACL Table
+// Definition Table.
+absl::Status VerifyAclTableDefinition(const pdpi::IrTableDefinition& ir_table);
+
 // Insert an ACL table definition entry into the AppDB ACL Table Definition
 // Table, returns the key that was used.
 absl::StatusOr<std::string> InsertAclTableDefinition(

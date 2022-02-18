@@ -13,14 +13,19 @@
 // limitations under the License.
 #include "p4rt_app/p4runtime/p4info_verification.h"
 
+#include "absl/status/status.h"
 #include "absl/strings/match.h"
+#include "absl/strings/string_view.h"
+#include "absl/strings/substitute.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "google/protobuf/text_format.h"
 #include "gtest/gtest.h"
 #include "gutil/proto.h"
 #include "gutil/proto_matchers.h"
+#include "gutil/status.h"
 #include "gutil/status_matchers.h"
+#include "p4/config/v1/p4info.pb.h"
 #include "p4_pdpi/utils/ir.h"
 #include "p4rt_app/utils/status_utility.h"
 #include "sai_p4/instantiations/google/instantiations.h"
@@ -30,8 +35,11 @@ namespace p4rt_app {
 namespace {
 
 using ::gutil::EqualsProto;
+using ::gutil::StatusIs;
+using ::testing::Eq;
 using ::testing::HasSubstr;
 using ::testing::Not;
+using ::testing::Optional;
 
 class InstantiationTest : public testing::TestWithParam<sai::Instantiation> {};
 TEST_P(InstantiationTest, SaiP4InfoIsOk) {
@@ -65,11 +73,8 @@ TEST(P4InfoVerificationTest, ReturnsErrorWhenIrParsingFails) {
   p4info.mutable_actions()->erase(p4info.mutable_actions()->begin());
   auto validate_p4info_status = ValidateP4Info(p4info);
   EXPECT_FALSE(validate_p4info_status.ok());
-
-  SCOPED_TRACE(validate_p4info_status.ToString());
-  ASSERT_TRUE(validate_p4info_status.GetPayload(kLibraryUrl).has_value())
-      << "Error was not from the PDPI call as expected.";
-  EXPECT_EQ(validate_p4info_status.GetPayload(kLibraryUrl)->Flatten(), "PDPI")
+  EXPECT_THAT(validate_p4info_status.GetPayload(kLibraryUrl),
+              Optional(Eq("PDPI")))
       << "Error was not from the PDPI call as expected.";
 }
 
@@ -95,6 +100,82 @@ TEST(P4InfoVerificationTest, ReturnsErrorWhenSchemaVerificationFails) {
   EXPECT_THAT(
       ValidateP4Info(p4info),
       gutil::StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("LPM")));
+}
+
+// Replace a sai hash algorithm with a new one.
+absl::Status ReplaceAHashAlgorithm(p4::config::v1::P4Info& p4info,
+                                   absl::string_view new_value) {
+  for (auto& action : *p4info.mutable_actions()) {
+    for (auto& annotation : *action.mutable_preamble()->mutable_annotations()) {
+      if (absl::StartsWith(annotation, "@sai_hash_algorithm(")) {
+        annotation = absl::Substitute("@sai_hash_algorithm($0)", new_value);
+        return absl::OkStatus();
+      }
+    }
+  }
+  return gutil::NotFoundErrorBuilder()
+         << "Could not find any action with a hash algorithm "
+         << "(@sai_hash_algorithm) in the P4info.";
+}
+
+TEST(P4InfoVerificationTest, ReturnsErrorWhenHashValueVerificationFails) {
+  p4::config::v1::P4Info p4info =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+  ASSERT_OK(ReplaceAHashAlgorithm(p4info, "NotAnAlgorithm"));
+  EXPECT_THAT(
+      ValidateP4Info(p4info),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("algorithm")));
+}
+
+absl::Status AddAHashField(p4::config::v1::P4Info& p4info,
+                           absl::string_view new_value) {
+  for (auto& action : *p4info.mutable_actions()) {
+    for (auto& annotation : *action.mutable_preamble()->mutable_annotations()) {
+      if (absl::StartsWith(annotation, "@sai_native_hash_field(")) {
+        annotation = absl::Substitute("@sai_native_hash_field($0)", new_value);
+        return absl::OkStatus();
+      }
+    }
+  }
+  return gutil::NotFoundErrorBuilder()
+         << "Could not find any action with a hash field "
+         << "(@sai_native_hash_field) in the P4info.";
+}
+
+TEST(P4InfoVerificationTest, ReturnsErrorWhenHashFieldVerificationFails) {
+  p4::config::v1::P4Info p4info =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+  ASSERT_OK(AddAHashField(p4info, "NotAHashField"));
+  EXPECT_THAT(
+      ValidateP4Info(p4info),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("hash field")));
+}
+
+// Replace a sai acl match field bitwidth with a new one.
+absl::Status ReplaceAclMatchFieldBitwidth(p4::config::v1::P4Info& p4info,
+                                          int new_bitwidth) {
+  for (auto& table : *p4info.mutable_tables()) {
+    for (auto& match_field : *table.mutable_match_fields()) {
+      for (auto& annotation : *match_field.mutable_annotations()) {
+        if (absl::StartsWith(annotation, "@sai_field(")) {
+          if (match_field.bitwidth() > 0) {
+            match_field.set_bitwidth(new_bitwidth);
+            return absl::OkStatus();
+          }
+        }
+      }
+    }
+  }
+  return gutil::NotFoundErrorBuilder()
+         << "Could not find any integer ACL match field in the P4info.";
+}
+
+TEST(P4InfoVerificationTest, ReturnsErrorWhenAclDoesNotMatch) {
+  p4::config::v1::P4Info p4info =
+      sai::GetP4Info(sai::Instantiation::kMiddleblock);
+  ASSERT_OK(ReplaceAclMatchFieldBitwidth(p4info, 999));
+  EXPECT_THAT(ValidateP4Info(p4info),
+              StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("ACL")));
 }
 
 }  // namespace
