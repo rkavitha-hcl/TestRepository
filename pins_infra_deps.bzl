@@ -13,23 +13,14 @@ load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
 
 def pins_infra_deps():
     """Sets up 3rd party workspaces needed to build PINS infrastructure."""
-    if not native.existing_rule("com_github_bazelbuild_buildtools"):
-        http_archive(
-            name = "com_github_bazelbuild_buildtools",
-            sha256 = "44a6e5acc007e197d45ac3326e7f993f0160af9a58e8777ca7701e00501c0857",
-            strip_prefix = "buildtools-4.2.4",
-            url = "https://github.com/bazelbuild/buildtools/archive/4.2.4.tar.gz",
-        )
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
             name = "com_github_grpc_grpc",
-            # TODO: The following is a temporary workaround to get the crl
-            # support without hitting big CA file issue.
-            # When https://github.com/grpc/grpc/issues/17340 is fixed,
-            # use appropriate released branch of https://github.com/grpc/grpc
-            url = "https://github.com/shak5009/grpc/archive/4acc9eda92e990f843e5cf985e1363eb53b163d6.zip",
-            strip_prefix = "grpc-4acc9eda92e990f843e5cf985e1363eb53b163d6",
-            sha256 = "d6caaedc541c753eb85993180fb8e1629759486de1f7d27bb559bf068086a3b2",
+            # TODO: Temporary workaround for compilation error seen in some versions of gcc.
+            # Use https://github.com/grpc/grpc after https://github.com/grpc/grpc/pull/28196 merges.
+            url = "https://github.com/shak5009/grpc/archive/74106d4b44541596f0d3a502a3b2f6c5245c88d8.zip",
+            strip_prefix = "grpc-74106d4b44541596f0d3a502a3b2f6c5245c88d8",
+            sha256 = "b726aa682af97f4dc527a307222c7b4bc944900b0bfb07f17d9445943bcf2142",
         )
     if not native.existing_rule("com_google_absl"):
         http_archive(

@@ -1,4 +1,4 @@
-# Copyright 2022 Google LLC
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -107,3 +107,10 @@ http_archive(
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
 
 gazelle_dependencies()
+
+http_archive(
+    name = "com_github_bazelbuild_buildtools",
+    sha256 = "a02ba93b96a8151b5d8d3466580f6c1f7e77212c4eb181cba53eb2cae7752a23",
+    strip_prefix = "buildtools-3.5.0",
+    url = "https://github.com/bazelbuild/buildtools/archive/3.5.0.tar.gz",
+)
