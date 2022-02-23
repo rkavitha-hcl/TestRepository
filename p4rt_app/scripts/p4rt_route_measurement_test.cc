@@ -35,6 +35,8 @@
 DEFINE_int32(batch_size, 1000, "Number of entries in each batch");
 DEFINE_int32(number_batches, 10, "Number of batches");
 DEFINE_int64(election_id, -1, "Election id to be used");
+DEFINE_bool(error_if_not_primary, true,
+            "Exit with error if not primary connection.");
 DEFINE_bool(insecure, true, "Use insecure channel for connection.");
 DEFINE_string(hostname, "", "Hostname of the server to connect.");
 DEFINE_string(ca_cert_file, "", "CA certificate file");
@@ -213,7 +215,8 @@ class P4rtRouteTest : public Test {
         pdpi::P4RuntimeSession::Create(
             std::move(stub),
             /*device_id=*/183807201,
-            pdpi::P4RuntimeSessionOptionalArgs{.election_id = election_id}));
+            pdpi::P4RuntimeSessionOptionalArgs{.election_id = election_id},
+            FLAGS_error_if_not_primary));
     ASSERT_OK_AND_ASSIGN(p4::v1::GetForwardingPipelineConfigResponse response,
                          pdpi::GetForwardingPipelineConfig(
                              p4rt_session_.get(),
