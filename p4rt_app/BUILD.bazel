@@ -59,7 +59,10 @@ pkg_tar(
     srcs = [
         ":p4rt",  # TODO explore p4rt.stripped
         "//p4rt_app/scripts:p4rt_program_table",
+        "//p4rt_app/scripts:p4rt_read",
         "//p4rt_app/scripts:p4rt_route_measurement_test",
+        "//p4rt_app/scripts:p4rt_set_forwarding_pipeline",
+        "//p4rt_app/scripts:p4rt_write",
     ],
     extension = "tar.bz2",
     mode = "0755",
