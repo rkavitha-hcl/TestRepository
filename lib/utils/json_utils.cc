@@ -142,10 +142,6 @@ bool JsonIsSubset(const Value& source, const Value& target,
           return false;
         }
         if (!JsonIsSubset(source[key], target[key], error_messages)) {
-          std::string error_string = absl::Substitute(
-              "source[$0] $1 not a subset of target[$2] $3", key,
-              source[key].toStyledString(), key, target[key].toStyledString());
-          error_messages.push_back(error_string);
           return false;
         }
       }
