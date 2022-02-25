@@ -206,6 +206,7 @@ cc_library(
     hdrs = ["sai_p4info_fetcher.h"],
     deps =
         [instantiation + "_p4info_embed" for (instantiation, _) in INSTANTIATIONS] + [
+            ":clos_stage",
             ":instantiations",
             ":unioned_p4info_embed",
             "@com_github_google_glog//:glog",
@@ -222,6 +223,7 @@ cc_test(
     name = "sai_p4info_fetcher_test",
     srcs = ["sai_p4info_fetcher_test.cc"],
     deps = [
+        ":clos_stage",
         ":instantiations",
         ":sai_p4info_fetcher_cc",
         "//gutil:proto_matchers",
@@ -325,6 +327,29 @@ cc_library(
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_protobuf//:protobuf",
+    ],
+)
+
+cc_library(
+    name = "clos_stage",
+    srcs = ["clos_stage.cc"],
+    hdrs = ["clos_stage.h"],
+    deps = [
+        ":instantiations",
+        "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/strings",
+    ],
+)
+
+cc_test(
+    name = "clos_stage_test",
+    srcs = ["clos_stage_test.cc"],
+    deps = [
+        ":clos_stage",
+        ":instantiations",
+        "//gutil:status_matchers",
+        "@com_google_googletest//:gtest_main",
     ],
 )
 
