@@ -26,7 +26,6 @@
 #include "p4/v1/p4runtime.pb.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "p4rt_app/sonic/adapters/fake_consumer_notifier_adapter.h"
-#include "p4rt_app/sonic/adapters/fake_db_connector_adapter.h"
 #include "p4rt_app/sonic/adapters/fake_producer_state_table_adapter.h"
 #include "p4rt_app/sonic/adapters/fake_sonic_db_table.h"
 #include "p4rt_app/sonic/fake_packetio_interface.h"

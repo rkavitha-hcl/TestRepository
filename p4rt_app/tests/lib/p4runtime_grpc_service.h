@@ -68,6 +68,12 @@ class P4RuntimeGrpcService {
   // the ctor, and shouldn't be modified otherwise.
   int grpc_port_;
 
+  // Faked StateDb tables.
+  sonic::FakeSonicDbTable fake_p4rt_state_table_;
+  sonic::FakeSonicDbTable fake_vrf_state_table_;
+  sonic::FakeSonicDbTable fake_hash_state_table_;
+  sonic::FakeSonicDbTable fake_switch_state_table_;
+
   // Faked AppDb tables.
   sonic::FakeSonicDbTable fake_p4rt_table_;
   sonic::FakeSonicDbTable fake_vrf_table_;
@@ -77,12 +83,6 @@ class P4RuntimeGrpcService {
 
   // Faked CountersDb tables.
   sonic::FakeSonicDbTable fake_p4rt_counters_table_;
-
-  // Faked StateDb tables.
-  sonic::FakeSonicDbTable fake_p4rt_state_table_;
-  sonic::FakeSonicDbTable fake_vrf_state_table_;
-  sonic::FakeSonicDbTable fake_hash_state_table_;
-  sonic::FakeSonicDbTable fake_switch_state_table_;
 
   // Faked PacketIO interface.
   sonic::FakePacketIoInterface* fake_packetio_interface_;  // No ownership.

@@ -44,9 +44,9 @@
 #include "p4rt_app/event_monitoring/state_verification_events.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
-#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
 #include "p4rt_app/sonic/adapters/producer_state_table_adapter.h"
 #include "p4rt_app/sonic/adapters/system_call_adapter.h"
+#include "p4rt_app/sonic/adapters/table_adapter.h"
 #include "p4rt_app/sonic/packetio_impl.h"
 #include "p4rt_app/sonic/redis_connections.h"
 #include "swss/component_state_helper.h"
@@ -177,11 +177,12 @@ sonic::P4rtTable CreateP4rtTable(swss::DBConnector* app_db,
           app_db, APP_P4RT_TABLE_NAME),
       .notifier = absl::make_unique<sonic::ConsumerNotifierAdapter>(
           kP4rtResponseChannel, app_db),
-      .app_db = absl::make_unique<p4rt_app::sonic::DBConnectorAdapter>(app_db),
-      .app_state_db =
-          absl::make_unique<p4rt_app::sonic::DBConnectorAdapter>(app_state_db),
-      .counter_db =
-          absl::make_unique<p4rt_app::sonic::DBConnectorAdapter>(counters_db),
+      .app_db = absl::make_unique<p4rt_app::sonic::TableAdapter>(
+          app_db, APP_P4RT_TABLE_NAME),
+      .app_state_db = absl::make_unique<p4rt_app::sonic::TableAdapter>(
+          app_state_db, APP_P4RT_TABLE_NAME),
+      .counter_db = absl::make_unique<p4rt_app::sonic::TableAdapter>(
+          counters_db, APP_P4RT_TABLE_NAME),
   };
 }
 
@@ -194,9 +195,10 @@ sonic::VrfTable CreateVrfTable(swss::DBConnector* app_db,
           app_db, APP_VRF_TABLE_NAME),
       .notifier = absl::make_unique<sonic::ConsumerNotifierAdapter>(
           kVrfResponseChannel, app_db),
-      .app_db = absl::make_unique<p4rt_app::sonic::DBConnectorAdapter>(app_db),
-      .app_state_db =
-          absl::make_unique<p4rt_app::sonic::DBConnectorAdapter>(app_state_db),
+      .app_db = absl::make_unique<p4rt_app::sonic::TableAdapter>(
+          app_db, APP_VRF_TABLE_NAME),
+      .app_state_db = absl::make_unique<p4rt_app::sonic::TableAdapter>(
+          app_state_db, APP_VRF_TABLE_NAME),
   };
 }
 
@@ -211,9 +213,10 @@ sonic::HashTable CreateHashTable(swss::DBConnector* app_db,
           app_db, kAppHashTableName),
       .notifier = absl::make_unique<sonic::ConsumerNotifierAdapter>(
           kHashResponseChannel, app_db),
-      .app_db = absl::make_unique<p4rt_app::sonic::DBConnectorAdapter>(app_db),
-      .app_state_db =
-          absl::make_unique<p4rt_app::sonic::DBConnectorAdapter>(app_state_db),
+      .app_db = absl::make_unique<p4rt_app::sonic::TableAdapter>(
+          app_db, kAppHashTableName),
+      .app_state_db = absl::make_unique<p4rt_app::sonic::TableAdapter>(
+          app_state_db, kAppHashTableName),
   };
 }
 
@@ -228,9 +231,10 @@ sonic::SwitchTable CreateSwitchTable(swss::DBConnector* app_db,
           app_db, kAppSwitchTableName),
       .notifier = absl::make_unique<sonic::ConsumerNotifierAdapter>(
           kSwitchResponseChannel, app_db),
-      .app_db = absl::make_unique<p4rt_app::sonic::DBConnectorAdapter>(app_db),
-      .app_state_db =
-          absl::make_unique<p4rt_app::sonic::DBConnectorAdapter>(app_state_db),
+      .app_db = absl::make_unique<p4rt_app::sonic::TableAdapter>(
+          app_db, kAppSwitchTableName),
+      .app_state_db = absl::make_unique<p4rt_app::sonic::TableAdapter>(
+          app_state_db, kAppSwitchTableName),
   };
 }
 
@@ -347,13 +351,13 @@ int main(int argc, char** argv) {
   // Start listening for state verification events, and update StateDb for P4RT.
   swss::DBConnector state_verification_db(STATE_DB, kRedisDbHost, kRedisDbPort,
                                           /*timeout=*/0);
-  p4rt_app::sonic::DBConnectorAdapter state_verification_db_adapter(
-      &state_verification_db);
+  p4rt_app::sonic::TableAdapter state_verification_table_adapter(
+      &state_verification_db, "VERIFY_STATE_RESP_TABLE");
   p4rt_app::sonic::ConsumerNotifierAdapter state_verification_notifier(
       "VERIFY_STATE_REQ_CHANNEL", &state_verification_db);
   p4rt_app::StateVerificationEvents state_verification_event_monitor(
       p4runtime_server, state_verification_notifier,
-      state_verification_db_adapter);
+      state_verification_table_adapter);
   state_verification_event_monitor.Start();
 
   // Start a P4 runtime server

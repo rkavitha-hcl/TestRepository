@@ -31,8 +31,6 @@ class ProducerStateTableAdapter {
                                      const std::string& table_name);
   virtual ~ProducerStateTableAdapter() = default;
 
-  virtual std::string get_table_name() const;
-
   virtual void set(const std::string& key,
                    const std::vector<swss::FieldValueTuple>& values);
 

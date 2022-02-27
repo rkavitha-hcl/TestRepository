@@ -26,8 +26,8 @@
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4rt_app/sonic/adapters/mock_consumer_notifier_adapter.h"
-#include "p4rt_app/sonic/adapters/mock_db_connector_adapter.h"
 #include "p4rt_app/sonic/adapters/mock_producer_state_table_adapter.h"
+#include "p4rt_app/sonic/adapters/mock_table_adapter.h"
 #include "p4rt_app/sonic/redis_connections.h"
 
 namespace p4rt_app {
@@ -49,8 +49,8 @@ class VrfEntryTranslationTest : public ::testing::Test {
   VrfEntryTranslationTest() {
     auto vrf_producer_state = std::make_unique<MockProducerStateTableAdapter>();
     auto vrf_notifier = std::make_unique<MockConsumerNotifierAdapter>();
-    auto vrf_app_db = std::make_unique<MockDBConnectorAdapter>();
-    auto vrf_app_state_db = std::make_unique<MockDBConnectorAdapter>();
+    auto vrf_app_db = std::make_unique<MockTableAdapter>();
+    auto vrf_app_state_db = std::make_unique<MockTableAdapter>();
 
     // Save a pointer so we can test against the mocks.
     mock_vrf_producer_state_ = vrf_producer_state.get();
@@ -64,16 +64,12 @@ class VrfEntryTranslationTest : public ::testing::Test {
         .app_db = std::move(vrf_app_db),
         .app_state_db = std::move(vrf_app_state_db),
     };
-
-    ON_CALL(*mock_vrf_producer_state_, get_table_name)
-        .WillByDefault(Return(vrf_table_name_));
   }
 
-  const std::string vrf_table_name_ = "VRF_TABLE";
   MockProducerStateTableAdapter* mock_vrf_producer_state_;
   MockConsumerNotifierAdapter* mock_vrf_notifier_;
-  MockDBConnectorAdapter* mock_vrf_app_db_;
-  MockDBConnectorAdapter* mock_vrf_app_state_db_;
+  MockTableAdapter* mock_vrf_app_db_;
+  MockTableAdapter* mock_vrf_app_state_db_;
   VrfTable vrf_table_;
 };
 
@@ -110,8 +106,7 @@ TEST_F(VrfEntryTranslationTest, CannotInsertDuplicateVrfEntry) {
 
   // When checking for existance we return `true`. Then because it already
   // exists we should not try to add a VRF entry.
-  EXPECT_CALL(*mock_vrf_app_db_, exists("VRF_TABLE:vrf-1"))
-      .WillOnce(Return(true));
+  EXPECT_CALL(*mock_vrf_app_db_, exists("vrf-1")).WillOnce(Return(true));
   EXPECT_CALL(*mock_vrf_producer_state_, set).Times(0);
 
   pdpi::IrWriteResponse response;
@@ -129,8 +124,7 @@ TEST_F(VrfEntryTranslationTest, DeleteVrfEntry) {
                                                })pb",
                                           &table_entry));
 
-  EXPECT_CALL(*mock_vrf_app_db_, exists("VRF_TABLE:vrf-1"))
-      .WillOnce(Return(true));
+  EXPECT_CALL(*mock_vrf_app_db_, exists("vrf-1")).WillOnce(Return(true));
   EXPECT_CALL(*mock_vrf_producer_state_, del(Eq("vrf-1"))).Times(1);
   EXPECT_CALL(*mock_vrf_notifier_, WaitForNotificationAndPop)
       .WillOnce(DoAll(SetArgReferee<0>("SWSS_RC_SUCCESS"),
@@ -156,8 +150,7 @@ TEST_F(VrfEntryTranslationTest, CannotDeleteMissingVrfEntry) {
 
   // When checking for existance we return `false`. Then because the entry does
   // not exist we should not try to delete it.
-  EXPECT_CALL(*mock_vrf_app_db_, exists("VRF_TABLE:vrf-1"))
-      .WillOnce(Return(false));
+  EXPECT_CALL(*mock_vrf_app_db_, exists("vrf-1")).WillOnce(Return(false));
   EXPECT_CALL(*mock_vrf_producer_state_, del).Times(0);
 
   pdpi::IrWriteResponse response;
@@ -210,39 +203,6 @@ TEST_F(VrfEntryTranslationTest, CannotChangeTheSonicDefaultVrf) {
   EXPECT_OK(UpdateAppDbVrfTable(vrf_table_, p4::v1::Update::INSERT,
                                 /*rpc_index=*/0, table_entry, response));
   EXPECT_EQ(response.statuses(0).code(), google::rpc::INVALID_ARGUMENT);
-}
-
-TEST_F(VrfEntryTranslationTest, ReadIgnoresUninstalledVrfs) {
-  // Return 2 table entries, but only 2 have been fully installed by the OA.
-  EXPECT_CALL(*mock_vrf_app_db_, keys("*"))
-      .WillOnce(Return(std::vector<std::string>{
-          "VRF_TABLE:vrf-0",
-          "_VRF_TABLE:vrf-1",
-          "VRF_TABLE:vrf-2",
-      }));
-
-  // We expect to read back only those 2 entries that have been installed by the
-  // OA.
-  EXPECT_THAT(
-      GetAllAppDbVrfTableEntries(vrf_table_),
-      IsOkAndHolds(UnorderedElementsAre(EqualsProto(
-                                            R"pb(
-                                              table_name: "vrf_table"
-                                              matches {
-                                                name: "vrf_id"
-                                                exact { str: "vrf-0" }
-                                              }
-                                              action { name: "no_action" }
-                                            )pb"),
-                                        EqualsProto(
-                                            R"pb(
-                                              table_name: "vrf_table"
-                                              matches {
-                                                name: "vrf_id"
-                                                exact { str: "vrf-2" }
-                                              }
-                                              action { name: "no_action" }
-                                            )pb"))));
 }
 
 TEST_F(VrfEntryTranslationTest, CannotTouchSonicDefaultVrf) {

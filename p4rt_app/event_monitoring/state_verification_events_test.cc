@@ -22,7 +22,7 @@
 #include "gutil/status_matchers.h"
 #include "p4rt_app/p4runtime/mock_p4runtime_impl.h"
 #include "p4rt_app/sonic/adapters/mock_consumer_notifier_adapter.h"
-#include "p4rt_app/sonic/adapters/mock_db_connector_adapter.h"
+#include "p4rt_app/sonic/adapters/mock_table_adapter.h"
 #include "swss/rediscommand.h"
 
 namespace p4rt_app {
@@ -38,13 +38,13 @@ class StateVerificationEventsTest : public testing::Test {
  protected:
   StateVerificationEventsTest()
       : state_verification_(StateVerificationEvents(
-            mock_p4runtime_, mock_consumer_notifier_, mock_db_connector_)) {}
+            mock_p4runtime_, mock_consumer_notifier_, mock_table_)) {}
 
   StateVerificationEvents state_verification_;
 
   MockP4RuntimeImpl mock_p4runtime_;
   sonic::MockConsumerNotifierAdapter mock_consumer_notifier_;
-  sonic::MockDBConnectorAdapter mock_db_connector_;
+  sonic::MockTableAdapter mock_table_;
 };
 
 TEST_F(StateVerificationEventsTest, GetEventAndUpdateRedisDbState) {
@@ -52,12 +52,12 @@ TEST_F(StateVerificationEventsTest, GetEventAndUpdateRedisDbState) {
       .WillOnce(DoAll(SetArgReferee<0>("p4rt:p4rt"),
                       SetArgReferee<1>("sample_timestamp"), Return(true)));
   EXPECT_CALL(mock_p4runtime_, VerifyState).WillOnce(Return(absl::OkStatus()));
-  EXPECT_CALL(mock_db_connector_, hmset("VERIFY_STATE_RESP_TABLE|p4rt:p4rt",
-                                        std::vector<swss::FieldValueTuple>{
-                                            {"timestamp", "sample_timestamp"},
-                                            {"status", "pass"},
-                                            {"err_str", ""},
-                                        }))
+  EXPECT_CALL(mock_table_, set("p4rt:p4rt",
+                               std::vector<swss::FieldValueTuple>{
+                                   {"timestamp", "sample_timestamp"},
+                                   {"status", "pass"},
+                                   {"err_str", ""},
+                               }))
       .Times(1);
 
   EXPECT_OK(state_verification_.WaitForEventAndVerifyP4Runtime());
@@ -70,13 +70,13 @@ TEST_F(StateVerificationEventsTest,
                       SetArgReferee<1>("sample_timestamp"), Return(true)));
   EXPECT_CALL(mock_p4runtime_, VerifyState)
       .WillOnce(Return(absl::UnknownError("P4RT is in a bad state!")));
-  EXPECT_CALL(mock_db_connector_,
-              hmset("VERIFY_STATE_RESP_TABLE|p4rt:p4rt",
-                    std::vector<swss::FieldValueTuple>{
-                        {"timestamp", "sample_timestamp"},
-                        {"status", "fail"},
-                        {"err_str", "UNKNOWN: P4RT is in a bad state!"},
-                    }))
+  EXPECT_CALL(mock_table_,
+              set("p4rt:p4rt",
+                  std::vector<swss::FieldValueTuple>{
+                      {"timestamp", "sample_timestamp"},
+                      {"status", "fail"},
+                      {"err_str", "UNKNOWN: P4RT is in a bad state!"},
+                  }))
       .Times(1);
 
   EXPECT_THAT(state_verification_.WaitForEventAndVerifyP4Runtime(),
@@ -89,7 +89,7 @@ TEST_F(StateVerificationEventsTest, DoNotUpdateStateWhenNotificationFails) {
       .WillOnce(DoAll(SetArgReferee<0>("p4rt:p4rt"),
                       SetArgReferee<1>("sample_timestamp"), Return(false)));
   EXPECT_CALL(mock_p4runtime_, VerifyState).Times(0);
-  EXPECT_CALL(mock_db_connector_, hmset).Times(0);
+  EXPECT_CALL(mock_table_, set).Times(0);
 
   EXPECT_THAT(state_verification_.WaitForEventAndVerifyP4Runtime(),
               StatusIs(absl::StatusCode::kUnknown));
@@ -102,7 +102,7 @@ TEST_F(StateVerificationEventsTest,
       .WillOnce(DoAll(SetArgReferee<0>("swss:swss"),
                       SetArgReferee<1>("sample_timestamp"), Return(true)));
   EXPECT_CALL(mock_p4runtime_, VerifyState).Times(0);
-  EXPECT_CALL(mock_db_connector_, hmset).Times(0);
+  EXPECT_CALL(mock_table_, set).Times(0);
 
   EXPECT_OK(state_verification_.WaitForEventAndVerifyP4Runtime());
 }

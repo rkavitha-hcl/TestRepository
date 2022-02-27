@@ -307,8 +307,8 @@ absl::StatusOr<std::vector<std::string>> ProgramHashFieldTable(
   // Wait for the OrchAgent's repsonse.
   pdpi::IrWriteResponse ir_write_response;
   RETURN_IF_ERROR(sonic::GetAndProcessResponseNotification(
-      hash_table.producer_state->get_table_name(), *hash_table.notifier,
-      *hash_table.app_db, *hash_table.app_state_db, status_by_key));
+      *hash_table.notifier, *hash_table.app_db, *hash_table.app_state_db,
+      status_by_key));
 
   // Pickup the hash field keys that were written(and ack'ed) successfully by
   // OrchAgent.
@@ -318,9 +318,8 @@ absl::StatusOr<std::vector<std::string>> ProgramHashFieldTable(
       hash_field_keys.push_back(key);
     } else {
       return gutil::InternalErrorBuilder()
-             << "Could not write '"
-             << hash_table.producer_state->get_table_name() << ":" << key
-             << "' into the AppDb: " << status->message();
+             << "Could not write key '" << key
+             << "' into the AppDb HASH_TABLE: " << status->message();
     }
   }
   return hash_field_keys;
@@ -361,7 +360,6 @@ absl::Status ProgramSwitchTable(SwitchTable& switch_table,
 
   ASSIGN_OR_RETURN(pdpi::IrUpdateStatus status,
                    sonic::GetAndProcessResponseNotification(
-                       switch_table.producer_state->get_table_name(),
                        *switch_table.notifier, *switch_table.app_db,
                        *switch_table.app_state_db, kSwitchTableEntryKey));
 

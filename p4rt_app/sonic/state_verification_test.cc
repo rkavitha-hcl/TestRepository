@@ -14,12 +14,13 @@
 #include "p4rt_app/sonic/state_verification.h"
 
 #include <unordered_map>
+#include <utility>
 
 #include "absl/status/status.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/status_matchers.h"
-#include "p4rt_app/sonic/adapters/mock_db_connector_adapter.h"
+#include "p4rt_app/sonic/adapters/mock_table_adapter.h"
 
 namespace p4rt_app {
 namespace sonic {
@@ -31,171 +32,195 @@ using ::testing::IsEmpty;
 using ::testing::Return;
 
 using ListOfKeys = std::vector<std::string>;
-using MapOfValues = std::unordered_map<std::string, std::string>;
+using ListOfValues = std::vector<std::pair<std::string, std::string>>;
 
 TEST(StateVerificationTest, VerifyStateMatches) {
-  MockDBConnectorAdapter mock_app_state_db;
-  MockDBConnectorAdapter mock_app_db;
+  MockTableAdapter mock_app_state_db;
+  MockTableAdapter mock_app_db;
 
   // Read 2 keys from the AppDb and AppStateDb. Order should not matter.
-  EXPECT_CALL(mock_app_db, keys)
-      .WillOnce(Return(ListOfKeys{"P4RT:key1", "P4RT:key0"}));
+  EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"key1", "key0"}));
   EXPECT_CALL(mock_app_state_db, keys)
-      .WillOnce(Return(ListOfKeys{"P4RT:key0", "P4RT:key1"}));
+      .WillOnce(Return(ListOfKeys{"key0", "key1"}));
 
   // Because the key0 matches we'll read the full entry from both DBs.
-  EXPECT_CALL(mock_app_db, hgetall("P4RT:key0"))
+  EXPECT_CALL(mock_app_db, get("key0"))
       .WillOnce(
-          Return(MapOfValues{{"field1", "value1"}, {"field0", "value0"}}));
-  EXPECT_CALL(mock_app_state_db, hgetall("P4RT:key0"))
+          Return(ListOfValues{{"field1", "value1"}, {"field0", "value0"}}));
+  EXPECT_CALL(mock_app_state_db, get("key0"))
       .WillOnce(
-          Return(MapOfValues{{"field0", "value0"}, {"field1", "value1"}}));
+          Return(ListOfValues{{"field0", "value0"}, {"field1", "value1"}}));
 
   // Because the key1 matches we'll read the full entry from both DBs.
-  EXPECT_CALL(mock_app_db, hgetall("P4RT:key1"))
+  EXPECT_CALL(mock_app_db, get("key1"))
       .WillOnce(
-          Return(MapOfValues{{"field11", "value11"}, {"field10", "value10"}}));
-  EXPECT_CALL(mock_app_state_db, hgetall("P4RT:key1"))
+          Return(ListOfValues{{"field11", "value11"}, {"field10", "value10"}}));
+  EXPECT_CALL(mock_app_state_db, get("key1"))
       .WillOnce(
-          Return(MapOfValues{{"field10", "value10"}, {"field11", "value11"}}));
+          Return(ListOfValues{{"field10", "value10"}, {"field11", "value11"}}));
 
   // Because everything matches the state verification should return no errors.
-  EXPECT_THAT(
-      VerifyAppStateDbAndAppDbEntries("P4RT", mock_app_state_db, mock_app_db),
-      IsEmpty());
+  EXPECT_THAT(VerifyAppStateDbAndAppDbEntries(mock_app_state_db, mock_app_db),
+              IsEmpty());
 }
 
 TEST(StateVerificationTest, MissingEntryInAppDbFails) {
-  MockDBConnectorAdapter mock_app_state_db;
-  MockDBConnectorAdapter mock_app_db;
+  MockTableAdapter mock_app_state_db;
+  MockTableAdapter mock_app_db;
 
   // Read only 1 key from the AppDb and 2 keys from the AppStateDb.
-  EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"P4RT:key1"}));
+  EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"key1"}));
   EXPECT_CALL(mock_app_state_db, keys)
-      .WillOnce(Return(ListOfKeys{"P4RT:key0", "P4RT:key1"}));
+      .WillOnce(Return(ListOfKeys{"key0", "key1"}));
 
   // Because the key1 matches we'll read the full entry from both DBs.
-  EXPECT_CALL(mock_app_db, hgetall("P4RT:key1"))
+  EXPECT_CALL(mock_app_db, get("key1"))
       .WillOnce(
-          Return(MapOfValues{{"field1", "value1"}, {"field0", "value0"}}));
-  EXPECT_CALL(mock_app_state_db, hgetall("P4RT:key1"))
+          Return(ListOfValues{{"field1", "value1"}, {"field0", "value0"}}));
+  EXPECT_CALL(mock_app_state_db, get("key1"))
       .WillOnce(
-          Return(MapOfValues{{"field0", "value0"}, {"field1", "value1"}}));
+          Return(ListOfValues{{"field0", "value0"}, {"field1", "value1"}}));
 
   // Because of the missing key we should return 1 failure.
-  EXPECT_THAT(
-      VerifyAppStateDbAndAppDbEntries("P4RT", mock_app_state_db, mock_app_db),
-      ElementsAre(HasSubstr("AppDb is missing key")));
+  EXPECT_THAT(VerifyAppStateDbAndAppDbEntries(mock_app_state_db, mock_app_db),
+              ElementsAre(HasSubstr("AppDb is missing key")));
 }
 
 TEST(StateVerificationTest, MissingEntryInAppStateDbFails) {
-  MockDBConnectorAdapter mock_app_state_db;
-  MockDBConnectorAdapter mock_app_db;
+  MockTableAdapter mock_app_state_db;
+  MockTableAdapter mock_app_db;
 
   // Read only 2 key from the AppDb and 1 key from the AppStateDb.
-  EXPECT_CALL(mock_app_db, keys)
-      .WillOnce(Return(ListOfKeys{"P4RT:key0", "P4RT:key1"}));
-  EXPECT_CALL(mock_app_state_db, keys)
-      .WillOnce(Return(ListOfKeys{"P4RT:key1"}));
+  EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"key0", "key1"}));
+  EXPECT_CALL(mock_app_state_db, keys).WillOnce(Return(ListOfKeys{"key1"}));
 
   // Because the key1 matches we'll read the full entry from both DBs.
-  EXPECT_CALL(mock_app_db, hgetall("P4RT:key1"))
+  EXPECT_CALL(mock_app_db, get("key1"))
       .WillOnce(
-          Return(MapOfValues{{"field1", "value1"}, {"field0", "value0"}}));
-  EXPECT_CALL(mock_app_state_db, hgetall("P4RT:key1"))
+          Return(ListOfValues{{"field1", "value1"}, {"field0", "value0"}}));
+  EXPECT_CALL(mock_app_state_db, get("key1"))
       .WillOnce(
-          Return(MapOfValues{{"field0", "value0"}, {"field1", "value1"}}));
+          Return(ListOfValues{{"field0", "value0"}, {"field1", "value1"}}));
 
   // Because of the missing key we should return 1 failure.
-  EXPECT_THAT(
-      VerifyAppStateDbAndAppDbEntries("P4RT", mock_app_state_db, mock_app_db),
-      ElementsAre(HasSubstr("AppStateDb is missing key")));
+  EXPECT_THAT(VerifyAppStateDbAndAppDbEntries(mock_app_state_db, mock_app_db),
+              ElementsAre(HasSubstr("AppStateDb is missing key")));
 }
 
 TEST(StateVerificationTest, MissingFieldInAppDbEntryFails) {
-  MockDBConnectorAdapter mock_app_state_db;
-  MockDBConnectorAdapter mock_app_db;
+  MockTableAdapter mock_app_state_db;
+  MockTableAdapter mock_app_db;
 
   // Read the same key from the AppDb and AppStateDb.
-  EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"P4RT:key0"}));
-  EXPECT_CALL(mock_app_state_db, keys)
-      .WillOnce(Return(ListOfKeys{"P4RT:key0"}));
+  EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"key0"}));
+  EXPECT_CALL(mock_app_state_db, keys).WillOnce(Return(ListOfKeys{"key0"}));
 
   // However, the AppDb entry has 1 less field value.
-  EXPECT_CALL(mock_app_db, hgetall("P4RT:key0"))
-      .WillOnce(Return(MapOfValues{{"field1", "value1"}}));
-  EXPECT_CALL(mock_app_state_db, hgetall("P4RT:key0"))
+  EXPECT_CALL(mock_app_db, get("key0"))
+      .WillOnce(Return(ListOfValues{{"field1", "value1"}}));
+  EXPECT_CALL(mock_app_state_db, get("key0"))
       .WillOnce(
-          Return(MapOfValues{{"field0", "value0"}, {"field1", "value1"}}));
+          Return(ListOfValues{{"field0", "value0"}, {"field1", "value1"}}));
 
   // Because of the missing field we should return 1 failure.
-  EXPECT_THAT(
-      VerifyAppStateDbAndAppDbEntries("P4RT", mock_app_state_db, mock_app_db),
-      ElementsAre(HasSubstr("do not match")));
+  EXPECT_THAT(VerifyAppStateDbAndAppDbEntries(mock_app_state_db, mock_app_db),
+              ElementsAre(HasSubstr("do not match")));
 }
 
 TEST(StateVerificationTest, ExtraFieldInAppDbEntryFails) {
-  MockDBConnectorAdapter mock_app_state_db;
-  MockDBConnectorAdapter mock_app_db;
+  MockTableAdapter mock_app_state_db;
+  MockTableAdapter mock_app_db;
 
   // Read the same key from the AppDb and AppStateDb.
-  EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"P4RT:key0"}));
-  EXPECT_CALL(mock_app_state_db, keys)
-      .WillOnce(Return(ListOfKeys{"P4RT:key0"}));
+  EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"key0"}));
+  EXPECT_CALL(mock_app_state_db, keys).WillOnce(Return(ListOfKeys{"key0"}));
 
   // However, the AppDb entry has 1 more field value.
-  EXPECT_CALL(mock_app_db, hgetall("P4RT:key0"))
+  EXPECT_CALL(mock_app_db, get("key0"))
       .WillOnce(
-          Return(MapOfValues{{"field0", "value0"}, {"field1", "value1"}}));
-  EXPECT_CALL(mock_app_state_db, hgetall("P4RT:key0"))
-      .WillOnce(Return(MapOfValues{{"field1", "value1"}}));
+          Return(ListOfValues{{"field0", "value0"}, {"field1", "value1"}}));
+  EXPECT_CALL(mock_app_state_db, get("key0"))
+      .WillOnce(Return(ListOfValues{{"field1", "value1"}}));
 
   // Because of the extra field we should return 1 failure.
-  EXPECT_THAT(
-      VerifyAppStateDbAndAppDbEntries("P4RT", mock_app_state_db, mock_app_db),
-      ElementsAre(HasSubstr("do not match")));
+  EXPECT_THAT(VerifyAppStateDbAndAppDbEntries(mock_app_state_db, mock_app_db),
+              ElementsAre(HasSubstr("do not match")));
 }
 
 TEST(StateVerificationTest, MismatchFieldInEntryFails) {
-  MockDBConnectorAdapter mock_app_state_db;
-  MockDBConnectorAdapter mock_app_db;
+  MockTableAdapter mock_app_state_db;
+  MockTableAdapter mock_app_db;
 
   // Read the same key from the AppDb and AppStateDb.
-  EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"P4RT:key0"}));
-  EXPECT_CALL(mock_app_state_db, keys)
-      .WillOnce(Return(ListOfKeys{"P4RT:key0"}));
+  EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"key0"}));
+  EXPECT_CALL(mock_app_state_db, keys).WillOnce(Return(ListOfKeys{"key0"}));
 
   // However, the entries have different fields.
-  EXPECT_CALL(mock_app_db, hgetall("P4RT:key0"))
-      .WillOnce(Return(MapOfValues{{"field0", "value"}}));
-  EXPECT_CALL(mock_app_state_db, hgetall("P4RT:key0"))
-      .WillOnce(Return(MapOfValues{{"field1", "value"}}));
+  EXPECT_CALL(mock_app_db, get("key0"))
+      .WillOnce(Return(ListOfValues{{"field0", "value"}}));
+  EXPECT_CALL(mock_app_state_db, get("key0"))
+      .WillOnce(Return(ListOfValues{{"field1", "value"}}));
 
   // Because of the mismatched field names we should return 1 failure
-  EXPECT_THAT(
-      VerifyAppStateDbAndAppDbEntries("P4RT", mock_app_state_db, mock_app_db),
-      ElementsAre(HasSubstr("do not match")));
+  EXPECT_THAT(VerifyAppStateDbAndAppDbEntries(mock_app_state_db, mock_app_db),
+              ElementsAre(HasSubstr("do not match")));
 }
 
 TEST(StateVerificationTest, DifferentFieldValuesInEntryFails) {
-  MockDBConnectorAdapter mock_app_state_db;
-  MockDBConnectorAdapter mock_app_db;
+  MockTableAdapter mock_app_state_db;
+  MockTableAdapter mock_app_db;
 
   // Read the same key from the AppDb and AppStateDb.
-  EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"P4RT:key0"}));
-  EXPECT_CALL(mock_app_state_db, keys)
-      .WillOnce(Return(ListOfKeys{"P4RT:key0"}));
+  EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"key0"}));
+  EXPECT_CALL(mock_app_state_db, keys).WillOnce(Return(ListOfKeys{"key0"}));
 
   // However, the entries have different values.
-  EXPECT_CALL(mock_app_db, hgetall("P4RT:key0"))
-      .WillOnce(Return(MapOfValues{{"field", "value0"}}));
-  EXPECT_CALL(mock_app_state_db, hgetall("P4RT:key0"))
-      .WillOnce(Return(MapOfValues{{"field", "value1"}}));
+  EXPECT_CALL(mock_app_db, get("key0"))
+      .WillOnce(Return(ListOfValues{{"field", "value0"}}));
+  EXPECT_CALL(mock_app_state_db, get("key0"))
+      .WillOnce(Return(ListOfValues{{"field", "value1"}}));
 
   // Because of the differing field values we should return 1 failure.
-  EXPECT_THAT(
-      VerifyAppStateDbAndAppDbEntries("P4RT", mock_app_state_db, mock_app_db),
-      ElementsAre(HasSubstr("do not match")));
+  EXPECT_THAT(VerifyAppStateDbAndAppDbEntries(mock_app_state_db, mock_app_db),
+              ElementsAre(HasSubstr("do not match")));
+}
+
+TEST(StateVerificationTest, DuplicateAppDbFieldNameInEntryFails) {
+  MockTableAdapter mock_app_state_db;
+  MockTableAdapter mock_app_db;
+
+  // Read the same key from the AppDb and AppStateDb.
+  EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"key0"}));
+  EXPECT_CALL(mock_app_state_db, keys).WillOnce(Return(ListOfKeys{"key0"}));
+
+  // However, the AppDb entry has 2 fields with the same name.
+  EXPECT_CALL(mock_app_db, get("key0"))
+      .WillOnce(Return(ListOfValues{{"field", "value0"}, {"field", "value1"}}));
+  EXPECT_CALL(mock_app_state_db, get("key0"))
+      .WillOnce(Return(ListOfValues{{"field", "value0"}}));
+
+  // Because of the differing field values we should return 1 failure.
+  EXPECT_THAT(VerifyAppStateDbAndAppDbEntries(mock_app_state_db, mock_app_db),
+              ElementsAre(HasSubstr("AppDb has duplicate fields")));
+}
+
+TEST(StateVerificationTest, DuplicateAppStateDbFieldNameInEntryFails) {
+  MockTableAdapter mock_app_state_db;
+  MockTableAdapter mock_app_db;
+
+  // Read the same key from the AppDb and AppStateDb.
+  EXPECT_CALL(mock_app_db, keys).WillOnce(Return(ListOfKeys{"key0"}));
+  EXPECT_CALL(mock_app_state_db, keys).WillOnce(Return(ListOfKeys{"key0"}));
+
+  // However, the AppStateDb entry has 2 fields with the same name.
+  EXPECT_CALL(mock_app_db, get("key0"))
+      .WillOnce(Return(ListOfValues{{"field", "value0"}}));
+  EXPECT_CALL(mock_app_state_db, get("key0"))
+      .WillOnce(Return(ListOfValues{{"field", "value0"}, {"field", "value1"}}));
+
+  // Because of the differing field values we should return 1 failure.
+  EXPECT_THAT(VerifyAppStateDbAndAppDbEntries(mock_app_state_db, mock_app_db),
+              ElementsAre(HasSubstr("AppStateDb has duplicate fields")));
 }
 
 }  // namespace

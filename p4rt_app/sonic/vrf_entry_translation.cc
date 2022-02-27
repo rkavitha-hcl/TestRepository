@@ -70,12 +70,10 @@ absl::StatusOr<std::string> InsertVrfTableEntry(
   ASSIGN_OR_RETURN(std::string key, GetVrfTableKey(entry));
 
   // Check that key does not already exist in the table.
-  std::string full_key =
-      absl::StrCat(vrf_table.producer_state->get_table_name(), ":", key);
-  if (vrf_table.app_db->exists(full_key)) {
+  if (vrf_table.app_db->exists(key)) {
     LOG(WARNING) << "Could not insert duplicate VRF_TABLE entry: " << key;
     return gutil::AlreadyExistsErrorBuilder()
-           << "[P4RT App] Table entry with key '" << full_key
+           << "[P4RT App] Table entry with key '" << key
            << "' already exist in '" << entry.table_name() << "'.";
   }
 
@@ -90,12 +88,10 @@ absl::StatusOr<std::string> DeleteVrfTableEntry(
   ASSIGN_OR_RETURN(std::string key, GetVrfTableKey(entry));
 
   // Check that key exists in the table.
-  std::string full_key =
-      absl::StrCat(vrf_table.producer_state->get_table_name(), ":", key);
-  if (!vrf_table.app_db->exists(full_key)) {
+  if (!vrf_table.app_db->exists(key)) {
     LOG(WARNING) << "Could not delete missing VRF_TABLE entry: " << key;
     return gutil::NotFoundErrorBuilder()
-           << "[P4RT App] Table entry with key '" << full_key
+           << "[P4RT App] Table entry with key '" << key
            << "' does not exist in '" << entry.table_name() << "'.";
   }
 
@@ -128,11 +124,10 @@ absl::Status UpdateAppDbVrfTable(VrfTable& vrf_table,
   }
 
   if (update_key.ok()) {
-    ASSIGN_OR_RETURN(
-        *response.mutable_statuses(rpc_index),
-        GetAndProcessResponseNotification(
-            vrf_table.producer_state->get_table_name(), *vrf_table.notifier,
-            *vrf_table.app_db, *vrf_table.app_state_db, *update_key));
+    ASSIGN_OR_RETURN(*response.mutable_statuses(rpc_index),
+                     GetAndProcessResponseNotification(
+                         *vrf_table.notifier, *vrf_table.app_db,
+                         *vrf_table.app_state_db, *update_key));
   } else {
     LOG(WARNING) << "Could not update in AppDb: " << update_key.status();
     *response.mutable_statuses(rpc_index) =
@@ -146,16 +141,7 @@ absl::StatusOr<std::vector<pdpi::IrTableEntry>> GetAllAppDbVrfTableEntries(
     VrfTable& vrf_table) {
   std::vector<pdpi::IrTableEntry> vrf_entries;
 
-  for (const std::string& key : vrf_table.app_db->keys("*")) {
-    const std::vector<std::string> split = absl::StrSplit(key, ':');
-    if (split.size() < 2) continue;
-
-    // The VRF_TABLE entries will either start with "_VRF_TABLE" (if orchagent
-    // has not installed the entry) or "VRF_TABLE" (if orchagent has installed
-    // the entry). When getting the VRF_TABLE entries we are only concerned with
-    // what orchagent has installed.
-    if (split[0] != "VRF_TABLE") continue;
-
+  for (const std::string& key : vrf_table.app_db->keys()) {
     VLOG(1) << "Read AppDb entry: " << key;
     pdpi::IrTableEntry table_entry;
 
@@ -165,7 +151,7 @@ absl::StatusOr<std::vector<pdpi::IrTableEntry>> GetAllAppDbVrfTableEntries(
     // Fixed match field name.
     auto* match = table_entry.add_matches();
     match->set_name("vrf_id");
-    match->mutable_exact()->set_str(split[1]);
+    match->mutable_exact()->set_str(key);
 
     // Fixed action.
     table_entry.mutable_action()->set_name("no_action");

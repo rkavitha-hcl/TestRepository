@@ -16,12 +16,14 @@
 #ifndef GOOGLE_P4RT_APP_SONIC_RESPONSE_HANDLER_H_
 #define GOOGLE_P4RT_APP_SONIC_RESPONSE_HANDLER_H_
 
+#include <string>
+
 #include "absl/container/btree_map.h"
 #include "absl/status/status.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/utils/ir.h"
 #include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
-#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
+#include "p4rt_app/sonic/adapters/table_adapter.h"
 
 namespace p4rt_app {
 namespace sonic {
@@ -34,9 +36,8 @@ namespace sonic {
 //
 // NOTE: On failue the key_to_status_map should not be trusted.
 absl::Status GetAndProcessResponseNotification(
-    const std::string& table_name,
-    ConsumerNotifierAdapter& notification_interface,
-    DBConnectorAdapter& app_db_client, DBConnectorAdapter& state_db_client,
+    ConsumerNotifierAdapter& notification_interface, TableAdapter& app_db_table,
+    TableAdapter& state_db_table,
     absl::btree_map<std::string, pdpi::IrUpdateStatus*>& key_to_status_map);
 
 // Given a single key this function will wait for a response from the OrchAgent.
@@ -44,10 +45,8 @@ absl::Status GetAndProcessResponseNotification(
 // function will return an absl::Status failure. Otherwise, it will return the
 // OrchAgent's status.
 absl::StatusOr<pdpi::IrUpdateStatus> GetAndProcessResponseNotification(
-    const std::string& table_name,
-    ConsumerNotifierAdapter& notification_interface,
-    DBConnectorAdapter& app_db_client, DBConnectorAdapter& state_db_client,
-    const std::string& key);
+    ConsumerNotifierAdapter& notification_interface, TableAdapter& app_db_table,
+    TableAdapter& state_db_table, const std::string& key);
 
 }  // namespace sonic
 }  // namespace p4rt_app

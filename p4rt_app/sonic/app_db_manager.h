@@ -67,14 +67,8 @@ absl::Status UpdateAppDb(P4rtTable& p4rt_table, VrfTable& vrf_table,
 // keys starting with _).
 std::vector<std::string> GetAllP4TableEntryKeys(P4rtTable& p4rt_table);
 
-// The SONiC ProducerStateTables interface does not support reads so we must
-// read entries at the AppStateDb scope. This means any ReadTable request key
-// should include the "P4RT_" prefix assumed by this AppDbManager.
-//
-// Sample:
-//   "P4RT:ROUTER_INTERFACE_TABLE:{\"router_interface_id\":\"16\"}"
-//
-// NOTE: The resulting IrTableEntry will not include the "P4RT:" prefix.
+// Reads an entry from the P4RT_TABLE in the AppStateDb. Returns a failure if
+// the entry does not exist, or cannot be translated into a pdpi::IrTableEntry.
 absl::StatusOr<pdpi::IrTableEntry> ReadP4TableEntry(
     P4rtTable& p4rt_table, const pdpi::IrP4Info& p4info,
     const std::string& key);

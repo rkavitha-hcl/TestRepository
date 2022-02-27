@@ -30,12 +30,6 @@ ProducerStateTableAdapter::ProducerStateTableAdapter(
     : producer_state_table_(
           std::make_unique<swss::ProducerStateTable>(db, table_name)) {}
 
-std::string ProducerStateTableAdapter::get_table_name() const {
-  LOG_IF(FATAL, producer_state_table_ == nullptr)
-      << "producer_state_table_ cannot be nullptr.";
-  return producer_state_table_->get_table_name();
-}
-
 void ProducerStateTableAdapter::set(
     const std::string& key, const std::vector<swss::FieldValueTuple>& values) {
   LOG_IF(FATAL, producer_state_table_ == nullptr)

@@ -787,9 +787,8 @@ absl::Status P4RuntimeImpl::VerifyState() {
 
   // Verify the P4RT entries.
   std::vector<std::string> p4rt_table_failures =
-      sonic::VerifyAppStateDbAndAppDbEntries(
-          p4rt_table_.producer_state->get_table_name(),
-          *p4rt_table_.app_state_db, *p4rt_table_.app_db);
+      sonic::VerifyAppStateDbAndAppDbEntries(*p4rt_table_.app_state_db,
+                                             *p4rt_table_.app_db);
   if (!p4rt_table_failures.empty()) {
     failures.insert(failures.end(), p4rt_table_failures.begin(),
                     p4rt_table_failures.end());
@@ -797,9 +796,8 @@ absl::Status P4RuntimeImpl::VerifyState() {
 
   // Verify the VRF_TABLE entries.
   std::vector<std::string> vrf_table_failures =
-      sonic::VerifyAppStateDbAndAppDbEntries(
-          vrf_table_.producer_state->get_table_name(), *vrf_table_.app_state_db,
-          *vrf_table_.app_db);
+      sonic::VerifyAppStateDbAndAppDbEntries(*vrf_table_.app_state_db,
+                                             *vrf_table_.app_db);
   if (!vrf_table_failures.empty()) {
     failures.insert(failures.end(), vrf_table_failures.begin(),
                     vrf_table_failures.end());
@@ -807,9 +805,8 @@ absl::Status P4RuntimeImpl::VerifyState() {
 
   // Verify the HASH_TABLE entries.
   std::vector<std::string> hash_table_failures =
-      sonic::VerifyAppStateDbAndAppDbEntries(
-          hash_table_.producer_state->get_table_name(),
-          *hash_table_.app_state_db, *hash_table_.app_db);
+      sonic::VerifyAppStateDbAndAppDbEntries(*hash_table_.app_state_db,
+                                             *hash_table_.app_db);
   if (!hash_table_failures.empty()) {
     failures.insert(failures.end(), hash_table_failures.begin(),
                     hash_table_failures.end());
@@ -817,9 +814,8 @@ absl::Status P4RuntimeImpl::VerifyState() {
 
   // Verify the SWITCH_TABLE entries.
   std::vector<std::string> switch_table_failures =
-      sonic::VerifyAppStateDbAndAppDbEntries(
-          switch_table_.producer_state->get_table_name(),
-          *switch_table_.app_state_db, *switch_table_.app_db);
+      sonic::VerifyAppStateDbAndAppDbEntries(*switch_table_.app_state_db,
+                                             *switch_table_.app_db);
   if (!switch_table_failures.empty()) {
     failures.insert(failures.end(), switch_table_failures.begin(),
                     switch_table_failures.end());
@@ -1014,13 +1010,12 @@ absl::Status P4RuntimeImpl::ConfigureAppDbTables(
       LOG(INFO) << "Configuring ACL table: " << table_name;
       ASSIGN_OR_RETURN(std::string acl_key,
                        sonic::InsertAclTableDefinition(p4rt_table_, table),
-                       _ << "Failed to add ACL table definition [" << table_name
-                         << "] to AppDb.");
+                       _ << "Failed to add ACL table definition '" << table_name
+                         << "' to AppDb.");
 
       // Wait for OA to confirm it can realize the table updates.
       ASSIGN_OR_RETURN(pdpi::IrUpdateStatus status,
                        sonic::GetAndProcessResponseNotification(
-                           p4rt_table_.producer_state->get_table_name(),
                            *p4rt_table_.notifier, *p4rt_table_.app_db,
                            *p4rt_table_.app_state_db, acl_key));
 

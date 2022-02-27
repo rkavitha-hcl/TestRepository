@@ -14,11 +14,13 @@
 #include "p4rt_app/sonic/app_db_to_pdpi_ir_translator.h"
 
 #include <iterator>
+#include <optional>
 #include <unordered_map>
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/strip.h"
 #include "absl/strings/substitute.h"
@@ -33,8 +35,16 @@
 
 namespace p4rt_app {
 namespace sonic {
-
 namespace {
+
+// The kP4rtKeyDelineator is used to separate a P4 table from its key:
+//   FIXED_ROUTER_TABLE:{json_key}
+//
+// This differs from the SONiC table delineators used for the redisDB tables.
+// For example if we were to read the above entry from the AppDb it would look
+// like:
+//   P4RT_TABLE:FIXED_ROUTER_TABLE:{json_key}
+constexpr char kP4rtKeyDelineator = ':';
 
 // P4RT match keys are identified by the P4Info match paramter alias and this
 // prefix.
@@ -75,33 +85,29 @@ absl::StatusOr<std::string> StripAppDbActionParamPrefix(absl::string_view key) {
 
 // The P4RT AppDb entries use ":" to delineate the table name, and the key.
 std::string SonicDbKeyToAppDbKey(absl::string_view app_db_key) {
-  auto p4rt_stripped = app_db_key.substr(app_db_key.find(':') + 1);
-  return std::string(p4rt_stripped.substr(p4rt_stripped.find(':') + 1));
+  return std::string(
+      app_db_key.substr(app_db_key.find(kP4rtKeyDelineator) + 1));
 }
 
 // The P4RT AppDb entries use ":" to delineate the table name, and the key.
 absl::StatusOr<std::string> SonicDbKeyToP4TableName(
     absl::string_view app_db_key) {
-  const std::vector<std::string> split = absl::StrSplit(app_db_key, ':');
+  const std::vector<std::string> split =
+      absl::StrSplit(app_db_key, kP4rtKeyDelineator);
   if (split.empty()) return std::string{""};
 
-  // Strip off the "P4RT_" prefix if it exists.
-  const std::string &table_name = split[0];
-  if (!absl::StartsWith(table_name, kP4rtTablePrefix)) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "Key \"" << app_db_key << "\" does not start with \"P4RT:\".";
-  }
-  absl::string_view sonic_table_name = split[1];
   // Strip off the table type.
+  absl::string_view sonic_table_name = split[0];
   auto split_pos = sonic_table_name.find('_');
   absl::string_view type_name = sonic_table_name.substr(0, split_pos);
   auto type_or = table::TypeParse(type_name);
   if (!type_or.ok()) {
-    return gutil::InvalidArgumentErrorBuilder()
-           << "Key \"" << app_db_key << "\" "
-           << "does not follow the expected format: "
-           << "P4RT:<TableType>_<P4TableName>";
+    return gutil::InvalidArgumentErrorBuilder() << absl::StreamFormat(
+               "Key '%s' does not follow the expected format "
+               "<TableType>_<P4TableName>.",
+               app_db_key);
   }
+
   return absl::AsciiStrToLower(sonic_table_name.substr(++split_pos));
 }
 
@@ -404,12 +410,9 @@ std::vector<swss::FieldValueTuple> P4MeterConfigToAppDbValues(
   return app_db_values;
 }
 
-absl::Status AddAppDbMeterDataToIrTableEntry(
-    const swss::FieldValueTuple &meter_config,
-    pdpi::IrTableEntry *table_entry) {
-  const std::string &meter_key = meter_config.first;
-  const std::string &meter_data = meter_config.second;
-
+absl::Status AddAppDbMeterDataToIrTableEntry(const std::string &meter_key,
+                                             const std::string &meter_data,
+                                             pdpi::IrTableEntry *table_entry) {
   int64_t int_value;
   if (!absl::SimpleAtoi(meter_data, &int_value)) {
     return gutil::InvalidArgumentErrorBuilder()
@@ -517,7 +520,7 @@ absl::StatusOr<std::vector<swss::FieldValueTuple>> IrTableEntryToAppDbValues(
 
 absl::StatusOr<pdpi::IrTableEntry> AppDbKeyAndValuesToIrTableEntry(
     const pdpi::IrP4Info &ir_p4_info, absl::string_view app_db_key,
-    const std::unordered_map<std::string, std::string> &app_db_values) {
+    const std::vector<std::pair<std::string, std::string>> &app_db_values) {
   ASSIGN_OR_RETURN(std::string table_name, SonicDbKeyToP4TableName(app_db_key));
   ASSIGN_OR_RETURN(pdpi::IrTableEntry table_entry,
                    AppDbKeyToIrTableEntry(ir_p4_info, table_name,
@@ -525,42 +528,43 @@ absl::StatusOr<pdpi::IrTableEntry> AppDbKeyAndValuesToIrTableEntry(
 
   // We need to know the table action when translating action parameters. If we
   // see an action paramter, but the action name isn't set it is an error.
-  const auto &action_name = gutil::FindOrStatus(app_db_values, "action");
+  std::optional<std::string> action_name;
+  for (const auto &[field, data] : app_db_values) {
+    if (field == "action") {
+      action_name = data;
+    }
+  }
 
   // The IrTableEntry action and parameters are derived from the AppDb values.
   // We should never have an AppDb entry with both an IrAction and IrActionSet.
   bool has_action = false;
   bool has_action_set = false;
-  for (const auto &value : app_db_values) {
-    const std::string &value_key = value.first;
-    const std::string &value_data = value.second;
-
-    if (value_key == "action") {
+  for (const auto &[field, data] : app_db_values) {
+    if (field == "action") {
       has_action = true;
-      table_entry.mutable_action()->set_name(value_data);
-    } else if (value_key == "actions") {
+      table_entry.mutable_action()->set_name(data);
+    } else if (field == "actions") {
       has_action_set = true;
-      ASSIGN_OR_RETURN(
-          *table_entry.mutable_action_set(),
-          AppDbValueToIrActionSet(ir_p4_info, table_name, value_data));
-    } else if (absl::StartsWith(value_key, kActionParamPrefix)) {
-      if (!action_name.ok()) {
+      ASSIGN_OR_RETURN(*table_entry.mutable_action_set(),
+                       AppDbValueToIrActionSet(ir_p4_info, table_name, data));
+    } else if (absl::StartsWith(field, kActionParamPrefix)) {
+      if (!action_name.has_value()) {
         return gutil::InvalidArgumentErrorBuilder()
-               << "AppDb entry has action parameter " << value_key
+               << "AppDb entry has action parameter " << field
                << ", but no 'action' name.";
       }
-      ASSIGN_OR_RETURN(
-          *table_entry.mutable_action()->add_params(),
-          AppDbNameValueStringsToIrActionParam(
-              ir_p4_info, table_name, *action_name, value_key, value_data));
-    } else if (absl::StartsWith(value_key, "meter/")) {
-      RETURN_IF_ERROR(AddAppDbMeterDataToIrTableEntry(value, &table_entry));
-    } else if (value_key == "controller_metadata") {
-      table_entry.set_controller_metadata(value_data);
+      ASSIGN_OR_RETURN(*table_entry.mutable_action()->add_params(),
+                       AppDbNameValueStringsToIrActionParam(
+                           ir_p4_info, table_name, *action_name, field, data));
+    } else if (absl::StartsWith(field, "meter/")) {
+      RETURN_IF_ERROR(
+          AddAppDbMeterDataToIrTableEntry(field, data, &table_entry));
+    } else if (field == "controller_metadata") {
+      table_entry.set_controller_metadata(data);
     } else {
       return gutil::InvalidArgumentErrorBuilder()
-             << "AppDb Entry contained unknown value [" << value_key << " : "
-             << value_data << "].";
+             << "AppDb Entry contained unknown value '" << field << ": " << data
+             << "'.";
     }
   }
 

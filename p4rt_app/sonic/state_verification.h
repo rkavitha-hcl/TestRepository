@@ -14,11 +14,9 @@
 #ifndef GOOGLE_P4RT_APP_SONIC_STATE_VERIFICATION_H_
 #define GOOGLE_P4RT_APP_SONIC_STATE_VERIFICATION_H_
 
-#include <string>
-#include <unordered_map>
 #include <vector>
 
-#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
+#include "p4rt_app/sonic/adapters/table_adapter.h"
 
 namespace p4rt_app {
 namespace sonic {
@@ -30,8 +28,7 @@ namespace sonic {
 // On success an empty vector is returned. Otherwise, the vector will contain
 // one message for every error found.
 std::vector<std::string> VerifyAppStateDbAndAppDbEntries(
-    const std::string& table_name, DBConnectorAdapter& app_state_db,
-    DBConnectorAdapter& app_db);
+    TableAdapter& app_state_db, TableAdapter& app_db);
 
 }  // namespace sonic
 }  // namespace p4rt_app

@@ -15,8 +15,8 @@
 
 #include <memory>
 #include <type_traits>
-#include <unordered_map>
 #include <utility>
+#include <vector>
 
 #include "absl/container/btree_map.h"
 #include "absl/container/flat_hash_set.h"
@@ -87,7 +87,7 @@ absl::StatusOr<std::string> CreateEntryForAppDbDelete(
     const pdpi::IrP4Info& p4_info,
     const absl::flat_hash_set<std::string>& duplicate_keys,
     std::vector<std::string>& p4rt_deletes) {
-  LOG(INFO) << "Delete PDPI IR entry: " << entry.ShortDebugString();
+  VLOG(1) << "Delete PDPI IR entry: " << entry.ShortDebugString();
 
   ASSIGN_OR_RETURN(std::string key, GetP4rtTableKey(entry, p4_info));
 
@@ -97,10 +97,8 @@ absl::StatusOr<std::string> CreateEntryForAppDbDelete(
            << "[P4RT App] Found duplicated key in the same batch request.";
   }
 
-  std::string p4rt_prefix_key =
-      absl::StrCat(p4rt_table.producer_state->get_table_name(), ":", key);
   // Check that key exists in the table.
-  if (!p4rt_table.app_db->exists(p4rt_prefix_key)) {
+  if (!p4rt_table.app_db->exists(key)) {
     LOG(WARNING) << "Could not delete missing entry: " << key;
     return gutil::NotFoundErrorBuilder()
            << "[P4RT App] Table entry with the given key does not exist in '"
@@ -111,8 +109,7 @@ absl::StatusOr<std::string> CreateEntryForAppDbDelete(
   // request.
   ASSIGN_OR_RETURN(auto ir_table_entry,
                    AppDbKeyAndValuesToIrTableEntry(
-                       p4_info, p4rt_prefix_key,
-                       p4rt_table.app_db->hgetall(p4rt_prefix_key)));
+                       p4_info, key, p4rt_table.app_db->get(key)));
 
   LOG(INFO) << "Delete AppDb entry: " << key;
   p4rt_deletes.push_back(key);
@@ -126,7 +123,7 @@ absl::StatusOr<std::string> CreateEntryForAppDbInsert(
     const pdpi::IrP4Info& p4_info,
     const absl::flat_hash_set<std::string>& duplicate_keys,
     std::vector<swss::KeyOpFieldsValuesTuple>& p4rt_inserts) {
-  LOG(INFO) << "Insert PDPI IR entry: " << entry.ShortDebugString();
+  VLOG(1) << "Insert PDPI IR entry: " << entry.ShortDebugString();
 
   ASSIGN_OR_RETURN(std::string key, GetP4rtTableKey(entry, p4_info));
 
@@ -137,8 +134,7 @@ absl::StatusOr<std::string> CreateEntryForAppDbInsert(
   }
 
   // Check that key does not already exist in the table.
-  if (p4rt_table.app_db->exists(absl::StrCat(
-          p4rt_table.producer_state->get_table_name(), ":", key))) {
+  if (p4rt_table.app_db->exists(key)) {
     LOG(WARNING) << "Could not insert duplicate entry: " << key;
     return gutil::AlreadyExistsErrorBuilder()
            << "[P4RT App] Table entry with the given key already exist in '"
@@ -161,12 +157,10 @@ absl::StatusOr<std::string> CreateEntryForAppDbModify(
     const pdpi::IrP4Info& p4_info,
     const absl::flat_hash_set<std::string>& duplicate_keys,
     std::vector<swss::KeyOpFieldsValuesTuple>& p4rt_modifies) {
-  LOG(INFO) << "Modify PDPI IR entry: " << entry.ShortDebugString();
+  VLOG(1) << "Modify PDPI IR entry: " << entry.ShortDebugString();
 
   ASSIGN_OR_RETURN(std::string key, GetP4rtTableKey(entry, p4_info));
 
-  std::string app_db_key =
-      absl::StrCat(p4rt_table.producer_state->get_table_name(), ":", key);
   // Verify key has not been duplicated in this batch request.
   if (duplicate_keys.count(key) > 0) {
     return gutil::InvalidArgumentErrorBuilder()
@@ -174,7 +168,7 @@ absl::StatusOr<std::string> CreateEntryForAppDbModify(
   }
 
   // Check that key already exist in the table.
-  if (!p4rt_table.app_db->exists(app_db_key)) {
+  if (!p4rt_table.app_db->exists(key)) {
     LOG(WARNING) << "Could not modify missing entry: " << key;
     return gutil::NotFoundErrorBuilder()
            << "[P4RT App] Table entry with the given key does not exist in '"
@@ -192,32 +186,33 @@ absl::StatusOr<std::string> CreateEntryForAppDbModify(
 
 absl::Status AppendCounterData(
     pdpi::IrTableEntry& table_entry,
-    const std::unordered_map<std::string, std::string>& counter_data) {
-  // Update packet count only if data is present.
-  if (auto packets_iter = counter_data.find("packets");
-      packets_iter != counter_data.end()) {
-    uint64_t packets = 0;
-    if (absl::SimpleAtoi(packets_iter->second, &packets)) {
-      table_entry.mutable_counter_data()->set_packet_count(packets);
-    } else {
-      LOG(ERROR) << "Unexpected packets value '" << packets_iter->second
-                 << "' in CountersDB for table entry: "
-                 << table_entry.ShortDebugString();
+    const std::vector<std::pair<std::string, std::string>>& counter_data) {
+  for (const auto& [field, data] : counter_data) {
+    // Update packet count only if data is present.
+    if (field == "packets") {
+      uint64_t packets = 0;
+      if (absl::SimpleAtoi(data, &packets)) {
+        table_entry.mutable_counter_data()->set_packet_count(packets);
+      } else {
+        LOG(ERROR) << "Unexpected packets value '" << data
+                   << "' in CountersDB for table entry: "
+                   << table_entry.ShortDebugString();
+      }
+    }
+
+    // Update byte count only if data is present.
+    if (field == "bytes") {
+      uint64_t bytes = 0;
+      if (absl::SimpleAtoi(data, &bytes)) {
+        table_entry.mutable_counter_data()->set_byte_count(bytes);
+      } else {
+        LOG(ERROR) << "Unexpected bytes value '" << data
+                   << "' in CountersDB for table entry: "
+                   << table_entry.ShortDebugString();
+      }
     }
   }
 
-  // Update byte count only if data is present.
-  if (auto bytes_iter = counter_data.find("bytes");
-      bytes_iter != counter_data.end()) {
-    uint64_t bytes = 0;
-    if (absl::SimpleAtoi(bytes_iter->second, &bytes)) {
-      table_entry.mutable_counter_data()->set_byte_count(bytes);
-    } else {
-      LOG(ERROR) << "Unexpected bytes value '" << bytes_iter->second
-                 << "' in CountersDB for table entry: "
-                 << table_entry.ShortDebugString();
-    }
-  }
   return absl::OkStatus();
 }
 
@@ -232,8 +227,7 @@ void WriteBatchToAppDb(
   if (!p4rt_modifies.empty()) {
     std::vector<std::string> del_keys(p4rt_modifies.size());
     for (int i = 0; i < p4rt_modifies.size(); ++i) {
-      del_keys[i] = absl::StrCat(p4rt_table.producer_state->get_table_name(),
-                                 ":", kfvKey(p4rt_modifies[i]));
+      del_keys[i] = kfvKey(p4rt_modifies[i]);
     }
 
     // On modify we need to first remove the existing entries to get rid of any
@@ -257,30 +251,23 @@ absl::StatusOr<pdpi::IrTableEntry> ReadP4TableEntry(
   VLOG(1) << "Read AppDb entry: " << key;
   ASSIGN_OR_RETURN(pdpi::IrTableEntry table_entry,
                    AppDbKeyAndValuesToIrTableEntry(
-                       p4info, key, p4rt_table.app_state_db->hgetall(key)));
-
-  RETURN_IF_ERROR(AppendCounterData(
-      table_entry,
-      p4rt_table.counter_db->hgetall(absl::StrCat("COUNTERS:", key))));
+                       p4info, key, p4rt_table.app_state_db->get(key)));
+  RETURN_IF_ERROR(
+      AppendCounterData(table_entry, p4rt_table.counter_db->get(key)));
   return table_entry;
 }
 
 std::vector<std::string> GetAllP4TableEntryKeys(P4rtTable& p4rt_table) {
   std::vector<std::string> p4rt_keys;
 
-  for (const auto& key : p4rt_table.app_state_db->keys("*")) {
+  for (const auto& key : p4rt_table.app_state_db->keys()) {
     const std::vector<std::string> split = absl::StrSplit(key, ':');
-    if (split.size() < 2) continue;
 
-    // The P4RT table entries will either start with "_P4RT" (if orchagent has
-    // not installed the entry) or "P4RT" (if orchagent has installed the
-    // entry). When getting the P4 table entries we are only concerned with what
-    // orchagent has installed.
-    if (split[0] != "P4RT") continue;
-
-    // The P4RT:DEFINITION table does not hold any P4RT entries, and should also
+    // The DEFINITION sub-table does not hold any P4RT_TABLE entries, and should
     // be ignored.
-    if (split[1] == "DEFINITION") continue;
+    if (split.size() > 1 && split[0] == "DEFINITION") {
+      continue;
+    }
 
     p4rt_keys.push_back(key);
   }
@@ -353,8 +340,8 @@ absl::Status UpdateAppDb(P4rtTable& p4rt_table, VrfTable& vrf_table,
 
   WriteBatchToAppDb(p4rt_table, p4rt_inserts, p4rt_modifies, p4rt_deletes);
   RETURN_IF_ERROR(GetAndProcessResponseNotification(
-      p4rt_table.producer_state->get_table_name(), *p4rt_table.notifier,
-      *p4rt_table.app_db, *p4rt_table.app_state_db, app_db_status));
+      *p4rt_table.notifier, *p4rt_table.app_db, *p4rt_table.app_state_db,
+      app_db_status));
 
   return absl::OkStatus();
 }

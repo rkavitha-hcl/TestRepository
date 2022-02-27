@@ -26,8 +26,6 @@ namespace sonic {
 
 class MockProducerStateTableAdapter final : public ProducerStateTableAdapter {
  public:
-  MOCK_METHOD(std::string, get_table_name, (), (const, override));
-
   MOCK_METHOD(void, set,
               (const std::string& key,
                const std::vector<swss::FieldValueTuple>& values),

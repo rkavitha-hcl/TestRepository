@@ -24,17 +24,17 @@
 #include "gutil/status.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
+#include "p4rt_app/sonic/adapters/table_adapter.h"
 #include "swss/rediscommand.h"
 
 namespace p4rt_app {
 
-constexpr absl::string_view kP4rtComponentName = "p4rt:p4rt";
-constexpr absl::string_view kVerificationRespTable = "VERIFY_STATE_RESP_TABLE";
+constexpr char kP4rtComponentName[] = "p4rt:p4rt";
 
 StateVerificationEvents::StateVerificationEvents(
     P4RuntimeImpl& p4runtime,
     sonic::ConsumerNotifierAdapter& notification_channel,
-    sonic::DBConnectorAdapter& response_channel)
+    sonic::TableAdapter& response_channel)
     : p4runtime_(p4runtime),
       notification_channel_(notification_channel),
       response_channel_(response_channel) {}
@@ -69,13 +69,11 @@ absl::Status StateVerificationEvents::WaitForEventAndVerifyP4Runtime() {
 
   // When updating AppStateDb we don't need to notify the caller. Simply update
   // the P4RT app entry with the current data.
-  response_channel_.hmset(
-      absl::StrCat(kVerificationRespTable, "|", kP4rtComponentName),
-      {
-          {"timestamp", key},
-          {"status", p4rt_status},
-          {"err_str", error_string},
-      });
+  response_channel_.set(kP4rtComponentName, {
+                                                {"timestamp", key},
+                                                {"status", p4rt_status},
+                                                {"err_str", error_string},
+                                            });
 
   return verification_status;
 }

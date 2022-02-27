@@ -19,8 +19,8 @@
 #include <utility>
 
 #include "p4rt_app/sonic/adapters/consumer_notifier_adapter.h"
-#include "p4rt_app/sonic/adapters/db_connector_adapter.h"
 #include "p4rt_app/sonic/adapters/producer_state_table_adapter.h"
+#include "p4rt_app/sonic/adapters/table_adapter.h"
 
 namespace p4rt_app {
 namespace sonic {
@@ -33,9 +33,9 @@ namespace sonic {
 struct P4rtTable {
   std::unique_ptr<ProducerStateTableAdapter> producer_state;
   std::unique_ptr<ConsumerNotifierAdapter> notifier;
-  std::unique_ptr<DBConnectorAdapter> app_db;
-  std::unique_ptr<DBConnectorAdapter> app_state_db;
-  std::unique_ptr<DBConnectorAdapter> counter_db;
+  std::unique_ptr<TableAdapter> app_db;
+  std::unique_ptr<TableAdapter> app_state_db;
+  std::unique_ptr<TableAdapter> counter_db;
 };
 
 // The P4RT app needs to:
@@ -46,8 +46,8 @@ struct P4rtTable {
 struct VrfTable {
   std::unique_ptr<ProducerStateTableAdapter> producer_state;
   std::unique_ptr<ConsumerNotifierAdapter> notifier;
-  std::unique_ptr<DBConnectorAdapter> app_db;
-  std::unique_ptr<DBConnectorAdapter> app_state_db;
+  std::unique_ptr<TableAdapter> app_db;
+  std::unique_ptr<TableAdapter> app_state_db;
 };
 
 // The P4RT app needs to:
@@ -57,8 +57,8 @@ struct VrfTable {
 struct HashTable {
   std::unique_ptr<ProducerStateTableAdapter> producer_state;
   std::unique_ptr<ConsumerNotifierAdapter> notifier;
-  std::unique_ptr<DBConnectorAdapter> app_db;
-  std::unique_ptr<DBConnectorAdapter> app_state_db;
+  std::unique_ptr<TableAdapter> app_db;
+  std::unique_ptr<TableAdapter> app_state_db;
 };
 
 // The P4RT app needs to:
@@ -68,8 +68,8 @@ struct HashTable {
 struct SwitchTable {
   std::unique_ptr<ProducerStateTableAdapter> producer_state;
   std::unique_ptr<ConsumerNotifierAdapter> notifier;
-  std::unique_ptr<DBConnectorAdapter> app_db;
-  std::unique_ptr<DBConnectorAdapter> app_state_db;
+  std::unique_ptr<TableAdapter> app_db;
+  std::unique_ptr<TableAdapter> app_state_db;
 };
 
 }  // namespace sonic

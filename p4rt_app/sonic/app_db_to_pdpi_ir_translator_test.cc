@@ -13,6 +13,9 @@
 // limitations under the License.
 #include "p4rt_app/sonic/app_db_to_pdpi_ir_translator.h"
 
+#include <utility>
+#include <vector>
+
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "glog/logging.h"
@@ -198,10 +201,10 @@ TEST(TranslatePdpiToAppDbTest, Meters) {
 }
 
 TEST(TranslateAppDbToPdpiTest, AppDbKeyAndValuesToIrTableEntryExactMatch) {
-  constexpr absl::string_view app_db_key =
-      R"(P4RT:FIXED_ROUTER_INTERFACE_TABLE:)"
+  const std::string app_db_key =
+      R"(FIXED_ROUTER_INTERFACE_TABLE:)"
       R"({"priority":123,"match/router_interface_id":"16"})";
-  std::unordered_map<std::string, std::string> app_db_values = {
+  std::vector<std::pair<std::string, std::string>> app_db_values = {
       {"action", "set_port_and_src_mac"},
       {"param/port", "Ethernet28/5"},
       {"param/src_mac", "00:02:03:04:05:06"},
@@ -237,9 +240,9 @@ TEST(TranslateAppDbToPdpiTest, AppDbKeyAndValuesToIrTableEntryExactMatch) {
 
 TEST(TranslateAppDbToPdpiTest, InvalidMatchKeyLpmFails) {
   // Missing prefix length in LPM field.
-  constexpr absl::string_view app_db_key =
-      R"(P4RT:FIXED_IPV4_TABLE:{"match/ipv4_dst":"10.81.8.0"})";
-  std::unordered_map<std::string, std::string> app_db_values;
+  const std::string app_db_key =
+      R"(FIXED_IPV4_TABLE:{"match/ipv4_dst":"10.81.8.0"})";
+  std::vector<std::pair<std::string, std::string>> app_db_values;
 
   ASSERT_OK_AND_ASSIGN(pdpi::IrP4Info p4_info, GetCanonicalP4Info());
   EXPECT_THAT(
@@ -248,10 +251,10 @@ TEST(TranslateAppDbToPdpiTest, InvalidMatchKeyLpmFails) {
 }
 
 TEST(TranslateAppDbToPdpiTest, MatchKeyTernary) {
-  constexpr absl::string_view app_db_key =
-      R"(P4RT:ACL_ACL_INGRESS_TABLE:)"
+  const std::string app_db_key =
+      R"(ACL_ACL_INGRESS_TABLE:)"
       R"({"match/dst_ipv6":"ff02::&ffff:ffff:ffff:ffff::"})";
-  std::unordered_map<std::string, std::string> app_db_values;
+  std::vector<std::pair<std::string, std::string>> app_db_values;
 
   ASSERT_OK_AND_ASSIGN(pdpi::IrP4Info p4_info, GetCanonicalP4Info());
   ASSERT_THAT(
@@ -271,9 +274,9 @@ TEST(TranslateAppDbToPdpiTest, MatchKeyTernary) {
 
 TEST(TranslateAppDbToPdpiTest, InvalidMatchKeyTernaryFails) {
   // Missing mask in ternary field.
-  constexpr absl::string_view app_db_key =
-      R"(P4RT:ACL_ACL_INGRESS_TABLE:{"match/dst_ipv6":"ff02::"})";
-  std::unordered_map<std::string, std::string> app_db_values;
+  const std::string app_db_key =
+      R"(ACL_ACL_INGRESS_TABLE:{"match/dst_ipv6":"ff02::"})";
+  std::vector<std::pair<std::string, std::string>> app_db_values;
 
   ASSERT_OK_AND_ASSIGN(pdpi::IrP4Info p4_info, GetCanonicalP4Info());
   EXPECT_THAT(
@@ -284,10 +287,9 @@ TEST(TranslateAppDbToPdpiTest, InvalidMatchKeyTernaryFails) {
 // TODO: Renable when qos_queue_t is supported.
 TEST(TranslateAppDbToPdpiTest,
      DISABLED_AppDbKeyAndValuesToIrTableEntryOptionalMatch) {
-  constexpr absl::string_view app_db_key =
-      R"(P4RT:ACL_ACL_INGRESS_TABLE:)"
-      R"({"priority":123, "match/is_ip":"0x1"})";
-  std::unordered_map<std::string, std::string> app_db_values = {
+  const std::string app_db_key = R"(ACL_ACL_INGRESS_TABLE:)"
+                                 R"({"priority":123, "match/is_ip":"0x1"})";
+  std::vector<std::pair<std::string, std::string>> app_db_values = {
       {"action", "copy"},   {"param/qos_queue", "AF4"},
       {"meter/cir", "123"}, {"meter/cburst", "234"},
       {"meter/pir", "345"}, {"meter/pburst", "456"},
@@ -314,9 +316,9 @@ TEST(TranslateAppDbToPdpiTest,
 }
 
 TEST(TranslateAppDbToPdpiTest, ActionSetToIrTableEntry) {
-  constexpr absl::string_view app_db_key =
-      R"(P4RT:FIXED_WCMP_GROUP_TABLE:{"match/wcmp_group_id":"8","priority":0})";
-  std::unordered_map<std::string, std::string> app_db_values = {
+  const std::string app_db_key =
+      R"(FIXED_WCMP_GROUP_TABLE:{"match/wcmp_group_id":"8","priority":0})";
+  std::vector<std::pair<std::string, std::string>> app_db_values = {
       {"actions",
        R"([{"action":"set_nexthop_id","param/nexthop_id":"8","weight":1},)"
        R"({"action":"set_nexthop_id","param/nexthop_id":"9","weight":2}])"},
@@ -357,8 +359,8 @@ TEST(TranslateAppDbToPdpiTest, ActionSetToIrTableEntry) {
 }
 
 TEST(TranslateAppDbToPdpiTest, UnspecifiedMatchFieldFails) {
-  constexpr absl::string_view app_db_key =
-      R"(P4RT:FIXED_IPV4_TABLE:{"match/ipv4_dst":"10.81.8.0/8"})";
+  const std::string app_db_key =
+      R"(FIXED_IPV4_TABLE:{"match/ipv4_dst":"10.81.8.0/8"})";
 
   // Assign ipv4_dst's match type to UNSPECIFIED
   ASSERT_OK_AND_ASSIGN(pdpi::IrP4Info p4_info, GetCanonicalP4Info());
@@ -377,8 +379,8 @@ TEST(TranslateAppDbToPdpiTest, UnspecifiedMatchFieldFails) {
 }
 
 TEST(TranslateAppDbToPdpiTest, InvalidMatchPrefixFails) {
-  constexpr absl::string_view app_db_key =
-      R"(P4RT:FIXED_WCMP_GROUP_TABLE:{"wcmp_group_id":"8","priority":0})";
+  const std::string app_db_key =
+      R"(FIXED_WCMP_GROUP_TABLE:{"wcmp_group_id":"8","priority":0})";
 
   // P4 match fields should start with match/.
   pdpi::IrP4Info p4info;
@@ -388,9 +390,9 @@ TEST(TranslateAppDbToPdpiTest, InvalidMatchPrefixFails) {
 }
 
 TEST(TranslateAppDbToPdpiTest, InvalidActionPrefixFails) {
-  constexpr absl::string_view app_db_key =
-      R"(P4RT:FIXED_WCMP_GROUP_TABLE:{"match/wcmp_group_id":"8","priority":0})";
-  std::unordered_map<std::string, std::string> app_db_values = {
+  const std::string app_db_key =
+      R"(FIXED_WCMP_GROUP_TABLE:{"match/wcmp_group_id":"8","priority":0})";
+  std::vector<std::pair<std::string, std::string>> app_db_values = {
       {"actions",
        R"([{"action":"set_nexthop_id","nexthop_id":"8","weight":1},)"
        R"({"action":"set_nexthop_id","param/nexthop_id":"9","weight":2}])"},
@@ -404,7 +406,7 @@ TEST(TranslateAppDbToPdpiTest, InvalidActionPrefixFails) {
 }
 
 TEST(TranslateAppDbToPdpiTest, InvalidTableNameFails) {
-  constexpr absl::string_view app_db_key =
+  const std::string app_db_key =
       R"(RANDOM:ROUTER_INTERFACE_TABLE:{"match/router_interface_id":"16"})";
 
   // All P4 tables must start with "P4RT".
