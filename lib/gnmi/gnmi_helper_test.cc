@@ -17,6 +17,7 @@
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <vector>
 
 #include "absl/status/status.h"
 #include "absl/strings/escaping.h"
@@ -50,6 +51,7 @@ using ::testing::HasSubstr;
 using ::testing::IsEmpty;
 using ::testing::Return;
 using ::testing::SetArgPointee;
+using ::testing::StrEq;
 using ::testing::UnorderedElementsAre;
 using ::testing::UnorderedPointwise;
 
@@ -1361,6 +1363,5 @@ TEST(WaitForGnmiPortIdConvergenceTest, ConfigDoesNotHaveAResponse) {
           absl::Seconds(1)),
       StatusIs(absl::StatusCode::kInternal));
 }
-
 }  // namespace
 }  // namespace pins_test

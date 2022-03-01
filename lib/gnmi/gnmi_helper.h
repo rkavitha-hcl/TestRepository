@@ -216,6 +216,5 @@ absl::StatusOr<std::vector<std::string>> GetAlarms(
 
 // Strips the beginning and ending double-quotes from the `string`.
 absl::string_view StripQuotes(absl::string_view string);
-
 }  // namespace pins_test
 #endif  // GOOGLE_LIB_GNMI_GNMI_HELPER_H_
