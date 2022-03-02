@@ -128,6 +128,7 @@ cc_library(
         ":fake_sonic_db_table",
         ":table_adapter",
         "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/strings",
     ],
 )
 

@@ -76,8 +76,11 @@ TEST_F(AclTableTest, ReadCounters) {
       pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
 
   // Fake OrchAgent updating the counters.
+  //
+  // Note that the OA will reuse the AppDb table name and delimiter for the
+  // entry key.
   auto counter_db_entry = test_lib::AppDbEntryBuilder{}
-                              .SetTableName("ACL_ACL_INGRESS_TABLE")
+                              .SetTableName("P4RT_TABLE:ACL_ACL_INGRESS_TABLE")
                               .SetPriority(10)
                               .AddMatchField("is_ip", "0x1");
   p4rt_service_.GetP4rtCountersDbTable().InsertTableEntry(

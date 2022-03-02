@@ -30,7 +30,9 @@ namespace sonic {
 // notifiying the OrchAgent.
 class FakeTableAdapter final : public TableAdapter {
  public:
-  explicit FakeTableAdapter(FakeSonicDbTable* sonic_db_table);
+  explicit FakeTableAdapter(FakeSonicDbTable* sonic_db_table,
+                            const std::string& table_name,
+                            const std::string& table_delimiter = ":");
 
   bool exists(const std::string& key) override;
   std::vector<std::string> keys() override;
@@ -44,8 +46,13 @@ class FakeTableAdapter final : public TableAdapter {
   void del(const std::string& key) override;
   void batch_del(const std::vector<std::string>& keys) override;
 
+  std::string getTablePrefix() const override;
+
  private:
   FakeSonicDbTable* sonic_db_table_;  // Not owned.
+
+  std::string table_name_;
+  std::string table_delimiter_;
 };
 
 }  // namespace sonic

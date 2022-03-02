@@ -27,8 +27,7 @@ namespace sonic {
 // Fake the OrchAgent write path behavior for table entries in a SONiC DB.
 class FakeProducerStateTableAdapter final : public ProducerStateTableAdapter {
  public:
-  FakeProducerStateTableAdapter(const std::string &table_name,
-                                FakeSonicDbTable *sonic_db_table);
+  explicit FakeProducerStateTableAdapter(FakeSonicDbTable *sonic_db_table);
 
   // Not copyable or moveable.
   FakeProducerStateTableAdapter(const FakeProducerStateTableAdapter &) = delete;

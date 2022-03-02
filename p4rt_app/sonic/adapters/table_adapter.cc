@@ -30,8 +30,7 @@ TableAdapter::TableAdapter(swss::DBConnector* db_connector,
       table_(std::make_unique<swss::Table>(db_connector, table_name)) {}
 
 bool TableAdapter::exists(const std::string& key) {
-  return db_connector_->exists(absl::StrCat(
-      table_->getTableName(), table_->getTableNameSeparator(), key));
+  return db_connector_->exists(absl::StrCat(getTablePrefix(), key));
 }
 
 std::vector<std::string> TableAdapter::keys() {
@@ -58,11 +57,14 @@ void TableAdapter::del(const std::string& key) { table_->del(key); }
 void TableAdapter::batch_del(const std::vector<std::string>& keys) {
   std::vector<std::string> redis_keys(keys.size());
   for (int i = 0; i < keys.size(); ++i) {
-    redis_keys[i] = absl::StrCat(table_->getTableName(),
-                                 table_->getTableNameSeparator(), keys[i]);
+    redis_keys[i] = absl::StrCat(getTablePrefix(), keys[i]);
   }
 
   db_connector_->del(redis_keys);
+}
+
+std::string TableAdapter::getTablePrefix() const {
+  return absl::StrCat(table_->getTableName(), table_->getTableNameSeparator());
 }
 
 }  // namespace sonic

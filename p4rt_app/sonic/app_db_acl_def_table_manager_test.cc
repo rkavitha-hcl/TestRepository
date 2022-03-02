@@ -43,8 +43,8 @@ using ::testing::UnorderedElementsAreArray;
 
 P4rtTable MakeP4rtTable(FakeSonicDbTable& fake_app_db_table) {
   return P4rtTable{
-      .producer_state = std::make_unique<FakeProducerStateTableAdapter>(
-          "P4RT", &fake_app_db_table),
+      .producer_state =
+          std::make_unique<FakeProducerStateTableAdapter>(&fake_app_db_table),
   };
 }
 

@@ -252,8 +252,11 @@ absl::StatusOr<pdpi::IrTableEntry> ReadP4TableEntry(
   ASSIGN_OR_RETURN(pdpi::IrTableEntry table_entry,
                    AppDbKeyAndValuesToIrTableEntry(
                        p4info, key, p4rt_table.app_state_db->get(key)));
-  RETURN_IF_ERROR(
-      AppendCounterData(table_entry, p4rt_table.counter_db->get(key)));
+
+  // CounterDb entries will include the full AppDb entry key.
+  RETURN_IF_ERROR(AppendCounterData(
+      table_entry, p4rt_table.counter_db->get(absl::StrCat(
+                       p4rt_table.app_db->getTablePrefix(), key))));
   return table_entry;
 }
 

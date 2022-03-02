@@ -17,6 +17,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/strings/str_cat.h"
 #include "glog/logging.h"
 #include "p4rt_app/sonic/adapters/fake_sonic_db_table.h"
 #include "p4rt_app/sonic/adapters/table_adapter.h"
@@ -24,8 +25,12 @@
 namespace p4rt_app {
 namespace sonic {
 
-FakeTableAdapter::FakeTableAdapter(FakeSonicDbTable* sonic_db_table)
-    : sonic_db_table_(sonic_db_table) {}
+FakeTableAdapter::FakeTableAdapter(FakeSonicDbTable* sonic_db_table,
+                                   const std::string& table_name,
+                                   const std::string& table_delimiter)
+    : sonic_db_table_(sonic_db_table),
+      table_name_(table_name),
+      table_delimiter_(table_delimiter) {}
 
 bool FakeTableAdapter::exists(const std::string& key) {
   VLOG(1) << "Checking if key exists: " << key;
@@ -66,6 +71,10 @@ void FakeTableAdapter ::batch_del(const std::vector<std::string>& keys) {
   for (const auto& key : keys) {
     FakeTableAdapter::del(key);
   }
+}
+
+std::string FakeTableAdapter::getTablePrefix() const {
+  return absl::StrCat(table_name_, table_delimiter_);
 }
 
 }  // namespace sonic

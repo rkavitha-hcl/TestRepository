@@ -182,7 +182,7 @@ sonic::P4rtTable CreateP4rtTable(swss::DBConnector* app_db,
       .app_state_db = absl::make_unique<p4rt_app::sonic::TableAdapter>(
           app_state_db, APP_P4RT_TABLE_NAME),
       .counter_db = absl::make_unique<p4rt_app::sonic::TableAdapter>(
-          counters_db, APP_P4RT_TABLE_NAME),
+          counters_db, COUNTERS_TABLE),
   };
 }
 

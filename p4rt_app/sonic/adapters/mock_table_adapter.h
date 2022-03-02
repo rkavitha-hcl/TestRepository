@@ -43,6 +43,8 @@ class MockTableAdapter final : public TableAdapter {
 
   MOCK_METHOD(void, batch_del, (const std::vector<std::string>& keys),
               (override));
+
+  MOCK_METHOD(std::string, getTablePrefix, (), (const, override));
 };
 
 }  // namespace sonic
