@@ -254,7 +254,6 @@ control routing(in headers_t headers,
                            wcmp_group_id_t wcmp_group_id) {
     wcmp_group_id_valid = true;
     wcmp_group_id_value = wcmp_group_id;
-    local_metadata.route_metadata = 0;
   }
 
   // Sets SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION to SAI_PACKET_ACTION_FORWARD, and
@@ -270,8 +269,7 @@ control routing(in headers_t headers,
                                         wcmp_group_id)
                                         wcmp_group_id_t wcmp_group_id,
                                         route_metadata_t route_metadata) {
-    wcmp_group_id_valid = true;
-    wcmp_group_id_value = wcmp_group_id;
+    set_wcmp_group_id(wcmp_group_id);
     local_metadata.route_metadata = route_metadata;
   }
 
