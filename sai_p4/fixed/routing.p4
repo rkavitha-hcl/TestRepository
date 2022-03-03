@@ -149,9 +149,6 @@ control routing(in headers_t headers,
   //
   // This action can only refer to `nexthop_id`s that are programmed in the
   // `nexthop_table`.
-  //
-  // TODO: Update the comments after set_nexthop_id is deprecated
-  //                    for use cases outside wcmp_group_table
   @id(ROUTING_SET_NEXTHOP_ID_ACTION_ID)
   action set_nexthop_id(@id(1) @refers_to(nexthop_table, nexthop_id)
                         nexthop_id_t nexthop_id) {
@@ -253,7 +250,6 @@ control routing(in headers_t headers,
   // This action can only refer to `wcmp_group_id`s that are programmed in the
   // `wcmp_group_table`.
   @id(ROUTING_SET_WCMP_GROUP_ID_ACTION_ID)
-  @deprecated("Use set_wcmp_group_id_and_metadata instead")
   action set_wcmp_group_id(@id(1) @refers_to(wcmp_group_table, wcmp_group_id)
                            wcmp_group_id_t wcmp_group_id) {
     wcmp_group_id_valid = true;

@@ -907,7 +907,6 @@ actions {
     id: 16777220
     name: "ingress.routing.set_wcmp_group_id"
     alias: "set_wcmp_group_id"
-    annotations: "@deprecated(\"Use set_wcmp_group_id_and_metadata instead\")"
   }
   params {
     id: 1
