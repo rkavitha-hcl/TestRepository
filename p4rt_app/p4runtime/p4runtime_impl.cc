@@ -1081,9 +1081,9 @@ absl::StatusOr<std::thread> P4RuntimeImpl::StartReceive(
     p4::v1::StreamMessageResponse response;
     *response.mutable_packet() = packet_in;
     *response.mutable_packet()->mutable_payload() = payload;
+
     // Get the primary streamchannel and write into the stream.
-    return controller_manager_->SendStreamMessageToPrimary(
-        P4RUNTIME_ROLE_SDN_CONTROLLER, response);
+    return controller_manager_->SendPacketInToPrimary(response);
   };
 
   absl::MutexLock l(&server_state_lock_);

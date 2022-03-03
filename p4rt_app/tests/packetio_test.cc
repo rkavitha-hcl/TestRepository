@@ -320,8 +320,95 @@ TEST_F(FakePacketIoTest, PacketInMessageFailsWhenNoPrimaryExists) {
   ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet0", "0"));
   EXPECT_THAT(p4rt_service_.GetFakePacketIoInterface().PushPacketIn(
                   "Ethernet0", "Ethernet0", "test packet1"),
-              StatusIs(absl::StatusCode::kNotFound,
-                       HasSubstr("Could not find active primary connection")));
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("No active role has a primary connection")));
+}
+
+TEST_F(FakePacketIoTest, PacketInCanBeSentToMultiplePrimaries) {
+  // p4rt_session_ is a primary client with role: "sdn_controller".
+  // Use that client to push the pipeline config.
+  ASSERT_OK(pdpi::SetForwardingPipelineConfig(
+      p4rt_session_.get(),
+      p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+      sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+  ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet0", "0"));
+
+  // Create a second primary client with the default role ("").
+  const std::string address =
+      absl::StrCat("localhost:", p4rt_service_.GrpcPort());
+  ASSERT_OK_AND_ASSIGN(auto default_role,
+                       pdpi::P4RuntimeSession::Create(
+                           address, grpc::InsecureChannelCredentials(),
+                           /*device_id=*/183807201,
+                           pdpi::P4RuntimeSessionOptionalArgs{.role = ""}));
+
+  // Listener for packets on the "sdn_controller" client.
+  std::vector<p4::v1::StreamMessageResponse>
+      actual_responses_for_sdn_controller;
+  absl::Notification got_sdn_responses;
+  std::thread receive_thread_sdn([&]() {
+    actual_responses_for_sdn_controller =
+        ReadResponses(*p4rt_session_, /*expected_count=*/1);
+    got_sdn_responses.Notify();
+  });
+  absl::Cleanup cleanup_sdn([&] { receive_thread_sdn.join(); });
+
+  // Listener for packets on the default client.
+  std::vector<p4::v1::StreamMessageResponse> actual_responses_for_default;
+  absl::Notification got_default_responses;
+  std::thread receive_thread_default([&]() {
+    actual_responses_for_default =
+        ReadResponses(*default_role, /*expected_count=*/1);
+    got_default_responses.Notify();
+  });
+  absl::Cleanup cleanup_default([&] { receive_thread_default.join(); });
+
+  // Push the expected PacketIn.
+  EXPECT_OK(p4rt_service_.GetFakePacketIoInterface().PushPacketIn(
+      "Ethernet0", "Ethernet0", "test packet1"));
+
+  // Wait for a max timeout, close the session and verify responses.
+  got_sdn_responses.WaitForNotificationWithTimeout(absl::Seconds(10));
+  got_default_responses.WaitForNotificationWithTimeout(absl::Seconds(1));
+  ASSERT_OK(p4rt_session_->Finish());
+  ASSERT_OK(default_role->Finish());
+  EXPECT_THAT(actual_responses_for_sdn_controller,
+              UnorderedElementsAre(EqualsProto(R"pb(
+                packet {
+                  payload: "test packet1"
+                  metadata { metadata_id: 1 value: "0" }
+                  metadata { metadata_id: 2 value: "0" }
+                }
+              )pb")));
+  EXPECT_THAT(actual_responses_for_default,
+              UnorderedElementsAre(EqualsProto(R"pb(
+                packet {
+                  payload: "test packet1"
+                  metadata { metadata_id: 1 value: "0" }
+                  metadata { metadata_id: 2 value: "0" }
+                }
+              )pb")));
+}
+
+TEST_F(FakePacketIoTest, PacketInMessageFailsWhenPrimaryHasNonAuthorizeRole) {
+  // Close the existing primary connection.
+  ASSERT_OK(p4rt_session_->Finish());
+
+  const std::string address =
+      absl::StrCat("localhost:", p4rt_service_.GrpcPort());
+  ASSERT_OK_AND_ASSIGN(
+      auto default_role,
+      pdpi::P4RuntimeSession::Create(
+          address, grpc::InsecureChannelCredentials(),
+          /*device_id=*/183807201,
+          pdpi::P4RuntimeSessionOptionalArgs{.role = "NonAuthorized"}));
+
+  // Push a dummy PacketIn message.
+  ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet0", "0"));
+  EXPECT_THAT(p4rt_service_.GetFakePacketIoInterface().PushPacketIn(
+                  "Ethernet0", "Ethernet0", "test packet1"),
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("No active role has a primary connection")));
 }
 
 TEST(PacketIoTest, PacketInMessageFailsWhenNoPrimaryIsEstablished) {
@@ -331,11 +418,10 @@ TEST(PacketIoTest, PacketInMessageFailsWhenNoPrimaryIsEstablished) {
 
   // Push a dummy PacketIn message.
   ASSERT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
-  EXPECT_THAT(
-      p4rt_service.GetFakePacketIoInterface().PushPacketIn(
-          "Ethernet0", "Ethernet0", "test packet1"),
-      StatusIs(absl::StatusCode::kNotFound,
-               HasSubstr("Primary connection has not been established")));
+  EXPECT_THAT(p4rt_service.GetFakePacketIoInterface().PushPacketIn(
+                  "Ethernet0", "Ethernet0", "test packet1"),
+              StatusIs(absl::StatusCode::kFailedPrecondition,
+                       HasSubstr("No active role has a primary connection")));
 }
 
 }  // namespace

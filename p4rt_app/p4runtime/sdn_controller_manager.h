@@ -17,10 +17,12 @@
 #define GOOGLE_P4RT_APP_P4RUNTIME_SDN_CONTROLLER_MANAGER_H_
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/container/flat_hash_set.h"
 #include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "sai_p4/fixed/roles.h"
 
 namespace p4rt_app {
 
@@ -89,15 +91,17 @@ class SdnControllerManager {
   grpc::Status AllowRequest(
       const p4::v1::SetForwardingPipelineConfigRequest& request) const;
 
-  absl::Status SendStreamMessageToPrimary(
-      const absl::optional<std::string>& role_name,
-      const p4::v1::StreamMessageResponse& response) ABSL_LOCKS_EXCLUDED(lock_);
+  absl::Status SendPacketInToPrimary(
+      const p4::v1::StreamMessageResponse& response);
 
  private:
   // Goes through the current list of active connections, and returns if one of
   // them is currently the primary.
   bool PrimaryConnectionExists(const absl::optional<std::string>& role_name)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(lock_);
+
+  absl::Status SendStreamMessageToPrimary(
+      const p4::v1::StreamMessageResponse& response) ABSL_LOCKS_EXCLUDED(lock_);
 
   // Sends an arbitration update to all active connections for a role about the
   // current primary connection.
@@ -145,6 +149,16 @@ class SdnControllerManager {
   absl::flat_hash_map<absl::optional<std::string>,
                       absl::optional<absl::uint128>>
       election_id_past_by_role_ ABSL_GUARDED_BY(lock_);
+
+  // Placeholder for role_config which ideally would be passed
+  // via the MasterArbitration method.
+  //
+  // Contains the roles that will receive packet in messages.
+  // A copy of the packet will be sent to the primary for each role.
+  absl::flat_hash_set<absl::optional<std::string>> role_receives_packet_in_{
+      P4RUNTIME_ROLE_SDN_CONTROLLER,
+      absl::nullopt,  // default role
+  };
 };
 
 }  // namespace p4rt_app

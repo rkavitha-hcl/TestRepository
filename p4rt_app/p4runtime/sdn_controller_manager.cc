@@ -19,6 +19,7 @@
 #include "absl/strings/str_join.h"
 #include "absl/types/optional.h"
 #include "glog/logging.h"
+#include "gutil/collections.h"
 #include "gutil/status.h"
 #include "p4/v1/p4runtime.pb.h"
 
@@ -386,40 +387,44 @@ void SdnControllerManager::SendArbitrationResponse(SdnConnection* connection) {
   connection->SendStreamMessageResponse(response);
 }
 
+absl::Status SdnControllerManager::SendPacketInToPrimary(
+    const p4::v1::StreamMessageResponse& response) {
+  if (response.update_case() != p4::v1::StreamMessageResponse::kPacket) {
+    LOG(WARNING) << "PacketIn stream message update has to be a packet: "
+                 << response.DebugString();
+    return gutil::InvalidArgumentErrorBuilder()
+           << "PacketIn message must use a packet.";
+  }
+  return SendStreamMessageToPrimary(response);
+}
+
 absl::Status SdnControllerManager::SendStreamMessageToPrimary(
-    const absl::optional<std::string>& role_name,
     const p4::v1::StreamMessageResponse& response) {
   absl::MutexLock l(&lock_);
 
-  // Get the primary election ID for the controller role.
-  absl::optional<absl::uint128> election_id_past_for_role =
-      election_id_past_by_role_[role_name];
+  bool found_at_least_one_primary = false;
 
-  // If there is no election ID set, then there is no primary connection.
-  if (!election_id_past_for_role.has_value()) {
-    LOG(WARNING) << "Cannot send stream message response because there is not "
-                 << "a primary connection: " << response.DebugString();
-    return gutil::NotFoundErrorBuilder()
-           << "Primary connection has not been established.";
-  }
-
-  // Otherwise try to find an active primary connection.
-  SdnConnection* primary_connection = nullptr;
   for (const auto& connection : connections_) {
-    if (connection->GetRoleName() == role_name &&
-        connection->GetElectionId() == election_id_past_for_role) {
-      primary_connection = connection;
+    auto role_name = connection->GetRoleName();
+
+    auto primary_id_by_role_name = gutil::FindOrDefault(
+        election_id_past_by_role_, role_name, absl::nullopt);
+    if (primary_id_by_role_name.has_value() &&
+        primary_id_by_role_name == connection->GetElectionId()) {
+      if (role_receives_packet_in_.contains(role_name)) {
+        found_at_least_one_primary = true;
+        connection->SendStreamMessageResponse(response);
+      }
     }
   }
 
-  if (primary_connection == nullptr) {
+  if (!found_at_least_one_primary) {
     LOG(WARNING) << "Cannot send stream message response because there is no "
                  << "active primary connection: " << response.DebugString();
-    return gutil::NotFoundErrorBuilder()
-           << "Could not find active primary connection.";
+    return gutil::FailedPreconditionErrorBuilder()
+           << "No active role has a primary connection configured to receive "
+              "PacketIn messages.";
   }
-
-  primary_connection->SendStreamMessageResponse(response);
   return absl::OkStatus();
 }
 
