@@ -439,10 +439,11 @@ absl::StatusOr<SymbolicTableMatches> EvaluateTable(
   }
 
   // Start with the default entry
-  z3::expr match_index = Z3Context().int_val(-1);
-  RETURN_IF_ERROR(EvaluateTableEntryAction(
-      table, default_entry, -1, data_plane.program.actions(), state, translator,
-      default_entry_assignment_guard));
+  z3::expr match_index = Z3Context().int_val(kDefaultActionEntryIndex);
+  RETURN_IF_ERROR(
+      EvaluateTableEntryAction(table, default_entry, kDefaultActionEntryIndex,
+                               data_plane.program.actions(), state, translator,
+                               default_entry_assignment_guard));
 
   // Continue evaluating each table entry in reverse priority
   for (int row = sorted_entries.size() - 1; row >= 0; row--) {
