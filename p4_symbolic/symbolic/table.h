@@ -36,7 +36,7 @@ namespace p4_symbolic {
 namespace symbolic {
 namespace table {
 
-// P4-Symbolic models the default action as a an entry with index -1.
+// P4-Symbolic models the default action as an entry with index -1.
 constexpr int kDefaultActionEntryIndex = -1;
 
 absl::StatusOr<SymbolicTableMatches> EvaluateTable(
