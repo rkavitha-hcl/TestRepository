@@ -31,6 +31,7 @@ cc_library(
     deps = [
         ":gnmi_parsers",
         ":openconfig_cc_proto",
+        ":qos_test_util",
         "//gutil:collections",
         "//gutil:overload",
         "//gutil:proto",
@@ -142,4 +143,21 @@ proto_library(
 cc_proto_library(
     name = "openconfig_cc_proto",
     deps = [":openconfig_proto"],
+)
+
+cc_library(
+    name = "qos_test_util",
+    srcs = ["qos_test_util.cc"],
+    hdrs = ["qos_test_util.h"],
+    deps = [
+        "//lib/gnmi:gnmi_helper",
+        "//thinkit:generic_testbed",
+        "//thinkit/proto:generic_testbed_cc_proto",
+        "@com_github_gnmi//proto/gnmi:gnmi_cc_proto",
+        "@com_github_gnmi//proto/gnmi:gnmi_grpc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+    ],
 )
