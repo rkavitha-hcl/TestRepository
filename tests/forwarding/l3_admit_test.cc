@@ -292,6 +292,9 @@ void L3AdmitTestFixture::SetUp() {
 // TODO: greenlight.
 TEST_P(L3AdmitTestFixture,
        DISABLED_L3PacketsAreRoutedOnlyWhenMacAddressIsInMyStation) {
+  GetMirrorTestbed().Environment().SetTestCaseID(
+      "1291adb4-810d-40b8-883c-677dab3c5f7d");
+
   // Punt all traffic arriving at the control switch, and collect them to verify
   // forwarding.
   std::unique_ptr<PacketInHelper> packetio_control =
@@ -379,6 +382,9 @@ TEST_P(L3AdmitTestFixture,
 }
 
 TEST_P(L3AdmitTestFixture, L3AdmitCanUseMaskToAllowMultipleMacAddresses) {
+  GetMirrorTestbed().Environment().SetTestCaseID(
+      "b344fd50-7592-4adf-9601-46c92db45859");
+
   // Punt all traffic arriving at the control switch, and collect them to verify
   // forwarding.
   std::unique_ptr<PacketInHelper> packetio_control =
@@ -452,6 +458,9 @@ TEST_P(L3AdmitTestFixture, L3AdmitCanUseMaskToAllowMultipleMacAddresses) {
 
 // TODO: greenlight.
 TEST_P(L3AdmitTestFixture, DISABLED_L3AdmitCanUseInPortToRestrictMacAddresses) {
+  GetMirrorTestbed().Environment().SetTestCaseID(
+      "45a1e8ac-af8d-4c89-bd5c-b76fc9113907");
+
   // Punt all traffic arriving at the control switch, and collect them to verify
   // forwarding.
   std::unique_ptr<PacketInHelper> packetio_control =
@@ -540,6 +549,9 @@ TEST_P(L3AdmitTestFixture, DISABLED_L3AdmitCanUseInPortToRestrictMacAddresses) {
 }
 
 TEST_P(L3AdmitTestFixture, L3PacketsCanBeRoutedWithOnlyARouterInterface) {
+  GetMirrorTestbed().Environment().SetTestCaseID(
+      "2eca2ffe-6102-4a8b-87ed-425cfea41e2a");
+
   // Punt all traffic arriving at the control switch, and collect them to verify
   // forwarding.
   std::unique_ptr<PacketInHelper> packetio_control =
@@ -603,6 +615,9 @@ TEST_P(L3AdmitTestFixture, L3PacketsCanBeRoutedWithOnlyARouterInterface) {
 }
 
 TEST_P(L3AdmitTestFixture, L3PacketsCanBeClassifiedByDestinationMac) {
+  GetMirrorTestbed().Environment().SetTestCaseID(
+      "2286bafb-2561-4897-939c-b4ac4d5b34ca");
+
   // Only run this test if the ACL_PRE_INGRESS table supports matching on
   // DST_MAC.
   if (!TableHasMatchField(GetIrP4Info(), "acl_pre_ingress_table", "dst_mac")) {
