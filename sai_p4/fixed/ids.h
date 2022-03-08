@@ -23,6 +23,7 @@
 #define L3_ADMIT_TABLE_ID 0x02000047                    // 33554503
 #define MIRROR_PORT_TO_PRE_SESSION_TABLE_ID 0x02000048  // 33554504
 #define ECMP_HASHING_TABLE_ID 0x02000049                // 33554505
+#define ROUTING_TUNNEL_TABLE_ID 0x02000050              // 33554506
 
 // --- Actions -----------------------------------------------------------------
 
@@ -35,6 +36,8 @@
 #define ROUTING_SET_NEXTHOP_ID_ACTION_ID 0x01000005                  // 16777221
 #define ROUTING_SET_NEXTHOP_ID_AND_METADATA_ACTION_ID 0x01000010     // 16777232
 #define ROUTING_DROP_ACTION_ID 0x01000006                            // 16777222
+#define ROUTING_SET_TUNNEL_NEXTHOP_ACTION_ID 0x01000012              // 16777234
+#define ROUTING_MARK_FOR_TUNNEL_ENCAP_ACTION_ID 0x01000013           // 16777235
 #define MIRRORING_MIRROR_AS_IPV4_ERSPAN_ACTION_ID 0x01000007         // 16777223
 #define L3_ADMIT_ACTION_ID 0x01000008                                // 16777224
 #define MIRRORING_SET_PRE_SESSION_ACTION_ID 0x01000009               // 16777225
@@ -44,7 +47,7 @@
 #define COMPUTE_LAG_HASH_IPV4_ACTION_ID 0x0100000D                   // 16777229
 #define COMPUTE_LAG_HASH_IPV6_ACTION_ID 0x0100000E                   // 16777230
 #define TRAP_ACTION_ID 0x0100000F                                    // 16777231
-// Next available action id: 0x01000012
+// Next available action id: 0x01000014
 
 // --- Action Profiles and Selectors (8 most significant bits = 0x11) ----------
 // This value should ideally be 0x11000001, but we currently have this value for

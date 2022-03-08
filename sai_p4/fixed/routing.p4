@@ -41,6 +41,10 @@ control routing(in headers_t headers,
   bool nexthop_id_valid = false;
   nexthop_id_t nexthop_id_value;
 
+  // Tunnel id, only valid if `tunnel_id_valid` is true.
+  bool tunnel_id_valid = false;
+  tunnel_id_t tunnel_id_value;
+
   // Router interface id, only valid if `router_interface_id_valid` is true.
   bool router_interface_id_valid = false;
   router_interface_id_t router_interface_id_value;
@@ -101,6 +105,41 @@ control routing(in headers_t headers,
     size = ROUTER_INTERFACE_TABLE_MINIMUM_GUARANTEED_SIZE;
   }
 
+  // Sets SAI_TUNNEL_ATTR_TYPE to SAI_TUNNEL_TYPE_IPINIP_GRE,
+  // SAI_TUNNEL_PEER_MODE to SAI_TUNNEL_PEER_MODE_P2P and
+  // also sets SAI_TUNNEL_ATTR_ENCAP_SRC_IP, SAI_TUNNEL_ATTR_ENCAP_DST_IP
+  // and SAI_TUNNEL_ATTR_UNDERLAY_INTERFACE.
+  @id(ROUTING_MARK_FOR_TUNNEL_ENCAP_ACTION_ID)
+  action mark_for_tunnel_encap(@id(1) @format(IPV6_ADDRESS)
+                              ipv6_addr_t tunnel_outer_src_ip,
+                              @id(2) @format(IPV6_ADDRESS)
+                              ipv6_addr_t tunnel_outer_dst_ip,
+                              @id(3)
+                              @refers_to(router_interface_table,
+                              router_interface_id)
+                              router_interface_id_t router_interface_id) {
+    local_metadata.tunnel_outer_src_ipv6 = tunnel_outer_src_ip;
+    local_metadata.tunnel_outer_dst_ipv6 = tunnel_outer_dst_ip;
+    local_metadata.apply_tunnel_encap_at_egress = true;
+    router_interface_id_valid = true;
+    router_interface_id_value = router_interface_id;
+  }
+
+  @p4runtime_role(P4RUNTIME_ROLE_ROUTING)
+  @id(ROUTING_TUNNEL_TABLE_ID)
+  table tunnel_table {
+    key = {
+      tunnel_id_value : exact @id(1)
+                              @name("tunnel_id");
+    }
+    actions = {
+      @proto_id(1) mark_for_tunnel_encap;
+      @defaultonly NoAction;
+    }
+    const default_action = NoAction;
+    size = ROUTING_TUNNEL_TABLE_MINIMUM_GUARANTEED_SIZE;
+  }
+
   // Sets SAI_NEXT_HOP_ATTR_TYPE to SAI_NEXT_HOP_TYPE_IP, and
   // SAI_NEXT_HOP_ATTR_ROUTER_INTERFACE_ID, and SAI_NEXT_HOP_ATTR_IP.
   //
@@ -126,6 +165,26 @@ control routing(in headers_t headers,
     neighbor_id_value = neighbor_id;
   }
 
+  // Sets SAI_NEXT_HOP_ATTR_TYPE to SAI_NEXT_HOP_TYPE_TUNNEL_ENCAP, and
+  // SAI_NEXT_HOP_ATTR_TUNNEL_ID and SAI_NEXT_HOP_ATTR_IP.
+  //
+  //  This action can only refer to `neighbor_id`s that are programmed in the
+  // `neighbor_table`.
+  @id(ROUTING_SET_TUNNEL_NEXTHOP_ACTION_ID)
+  action set_tunnel_nexthop(@id(1)
+                            @refers_to(neighbor_table, neighbor_id)
+                            neighbor_id_t neighbor_id,
+                            @id(2)
+                            @refers_to(tunnel_table, tunnel_id)
+                            tunnel_id_t tunnel_id) {
+    tunnel_id_valid = true;
+    tunnel_id_value = tunnel_id;
+    // The other key `router_interface_id` required for the
+    // `neighbor_table` is set in the `tunnel_table` action.
+    neighbor_id_valid = true;
+    neighbor_id_value = neighbor_id;
+  }
+
   @p4runtime_role(P4RUNTIME_ROLE_ROUTING)
   @id(ROUTING_NEXTHOP_TABLE_ID)
   table nexthop_table {
@@ -134,6 +193,7 @@ control routing(in headers_t headers,
     }
     actions = {
       @proto_id(1) set_nexthop;
+      @proto_id(2) set_tunnel_nexthop;
       @defaultonly NoAction;
     }
     const default_action = NoAction;
@@ -351,6 +411,10 @@ control routing(in headers_t headers,
       // The `wcmp_group_table` should always set a valid `nexthop_id`.
       if (nexthop_id_valid) {
         nexthop_table.apply();
+
+        if (tunnel_id_valid) {
+          tunnel_table.apply();
+        }
 
         // The `nexthop_table` should always set a valid
         // `router_interface_id` and `neighbor_id`.

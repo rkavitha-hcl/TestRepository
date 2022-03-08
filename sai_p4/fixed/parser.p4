@@ -89,6 +89,8 @@ control packet_deparser(packet_out packet, in headers_t headers) {
     packet.emit(headers.erspan_ipv4);
     packet.emit(headers.erspan_gre);
     packet.emit(headers.ethernet);
+    packet.emit(headers.tunnel_ipv6);
+    packet.emit(headers.tunnel_gre);
     packet.emit(headers.ipv4);
     packet.emit(headers.ipv6);
     packet.emit(headers.arp);

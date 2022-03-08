@@ -77,7 +77,10 @@ message NexthopTableEntry {
   }
   Match match = 1;
   message Action {
-    SetNexthopAction set_nexthop = 1;
+    oneof action {
+      SetNexthopAction set_nexthop = 1;
+      SetTunnelNexthopAction set_tunnel_nexthop = 2;
+    }
   }
   Action action = 2;
   bytes controller_metadata = 8;
@@ -182,6 +185,18 @@ message VrfTableEntry {
   Match match = 1;
   message Action {
     NoAction no_action = 1;
+  }
+  Action action = 2;
+  bytes controller_metadata = 8;
+}
+
+message TunnelTableEntry {
+  message Match {
+    string tunnel_id = 1;  // exact match / Format::STRING
+  }
+  Match match = 1;
+  message Action {
+    MarkForTunnelEncapAction mark_for_tunnel_encap = 1;
   }
   Action action = 2;
   bytes controller_metadata = 8;
@@ -409,6 +424,20 @@ message SetWcmpGroupIdAndMetadataAction {
   string route_metadata = 2;  // Format::HEX_STRING / 6 bits
 }
 
+message SetTunnelNexthopAction {
+  // Refers to 'neighbor_table.neighbor_id'.
+  string neighbor_id = 1;  // Format::STRING
+  // Refers to 'tunnel_table.tunnel_id'.
+  string tunnel_id = 2;  // Format::STRING
+}
+
+message MarkForTunnelEncapAction {
+  string tunnel_outer_src_ip = 1;  // Format::IPV6
+  string tunnel_outer_dst_ip = 2;  // Format::IPV6
+  // Refers to 'router_interface_table.router_interface_id'.
+  string router_interface_id = 3;  // Format::STRING
+}
+
 message SetVrfAction {
   // Refers to 'vrf_table.vrf_id'.
   string vrf_id = 1;  // Format::STRING
@@ -454,6 +483,7 @@ message TableEntry {
     MirrorSessionTableEntry mirror_session_table_entry = 70;
     L3AdmitTableEntry l3_admit_table_entry = 71;
     VrfTableEntry vrf_table_entry = 74;
+    TunnelTableEntry tunnel_table_entry = 80;
     AclIngressTableEntry acl_ingress_table_entry = 256;
     AclPreIngressTableEntry acl_pre_ingress_table_entry = 257;
     AclWbbIngressTableEntry acl_wbb_ingress_table_entry = 259;

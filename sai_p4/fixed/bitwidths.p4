@@ -41,4 +41,8 @@
 #define ROUTE_METADATA_BITWIDTH 6
 #endif
 
+#ifndef TUNNEL_ID_BITWIDTH
+#define TUNNEL_ID_BITWIDTH 16
+#endif
+
 #endif  // SAI_BITWIDTHS_P4_

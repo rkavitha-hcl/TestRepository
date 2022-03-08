@@ -15,6 +15,7 @@
 #include "../../fixed/mirroring_encap.p4"
 #include "../../fixed/mirroring_clone.p4"
 #include "../../fixed/l3_admit.p4"
+#include "../../fixed/gre_encap.p4"
 #include "../../fixed/ttl.p4"
 #include "../../fixed/packet_rewrites.p4"
 #include "acl_ingress.p4"
@@ -40,6 +41,7 @@ control egress(inout headers_t headers,
                inout standard_metadata_t standard_metadata) {
   apply {
     packet_rewrites.apply(headers, local_metadata, standard_metadata);
+    gre_tunnel_encap.apply(headers, local_metadata, standard_metadata);
     mirroring_encap.apply(headers, local_metadata, standard_metadata);
   }
 }  // control egress

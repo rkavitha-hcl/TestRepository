@@ -49,6 +49,9 @@
 
 #define ROUTING_IPV6_TABLE_MINIMUM_GUARANTEED_SIZE 4096
 
+// TODO: Check required tunnel table size.
+#define ROUTING_TUNNEL_TABLE_MINIMUM_GUARANTEED_SIZE 256
+
 #define L3_ADMIT_TABLE_MINIMUM_GUARANTEED_SIZE 512
 
 // The maximum number of wcmp groups.
