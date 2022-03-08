@@ -52,10 +52,6 @@ struct FuzzerTestFixtureParams {
   // results in spite of this shortcoming.
   absl::btree_set<std::string>
       tables_for_which_to_not_exceed_resource_guarantees;
-  // TODO: Currently, the switch must be rebooted before a
-  // different P4Info is pushed. Set this boolean if the P4Info passed in as a
-  // parameter is different from the one we expect to exist on the switch.
-  bool reboot_switch_before_and_after_test_due_to_modified_p4info;
   // TODO: Remove once we can derive this number from the P4Info.
   int max_total_wcmp_members;
 };
