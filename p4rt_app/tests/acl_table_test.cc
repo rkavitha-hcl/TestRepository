@@ -44,19 +44,21 @@ namespace p4rt_app {
 namespace {
 
 using ::gutil::EqualsProto;
+using ::gutil::IsOkAndHolds;
 using ::gutil::StatusIs;
 using ::testing::HasSubstr;
+using ::testing::UnorderedElementsAreArray;
 
 // Testing end-to-end functionality unique to ACL entries (e.g. reading back
 // port counters, or programming meters, etc.).
-class AclTableTest : public test_lib::P4RuntimeComponentTestFixture {
+class MiddleblockAclTableTest : public test_lib::P4RuntimeComponentTestFixture {
  protected:
-  AclTableTest()
+  MiddleblockAclTableTest()
       : test_lib::P4RuntimeComponentTestFixture(
             sai::Instantiation::kMiddleblock) {}
 };
 
-TEST_F(AclTableTest, ReadCounters) {
+TEST_F(MiddleblockAclTableTest, ReadCounters) {
   ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
                        test_lib::PdWriteRequestToPi(
                            R"pb(
@@ -98,7 +100,7 @@ TEST_F(AclTableTest, ReadCounters) {
               EqualsProto(R"pb(byte_count: 128 packet_count: 1)pb"));
 }
 
-TEST_F(AclTableTest, ReadMeters) {
+TEST_F(MiddleblockAclTableTest, ReadMeters) {
   ASSERT_OK_AND_ASSIGN(
       p4::v1::WriteRequest request,
       test_lib::PdWriteRequestToPi(
@@ -134,7 +136,7 @@ TEST_F(AclTableTest, ReadMeters) {
                   )pb"));
 }
 
-TEST_F(AclTableTest, CannotInsertEntryThatFailsAConstraintCheck) {
+TEST_F(MiddleblockAclTableTest, CannotInsertEntryThatFailsAConstraintCheck) {
   // The ACL pre ingress table requires the is_ipv4 field to be set if we are
   // matching on a dst_ip.
   ASSERT_OK_AND_ASSIGN(
@@ -156,6 +158,53 @@ TEST_F(AclTableTest, CannotInsertEntryThatFailsAConstraintCheck) {
   EXPECT_THAT(
       pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request),
       StatusIs(absl::StatusCode::kUnknown, HasSubstr("#1: INVALID_ARGUMENT")));
+}
+
+class FbrAclTableTest : public test_lib::P4RuntimeComponentTestFixture {
+ protected:
+  FbrAclTableTest()
+      : test_lib::P4RuntimeComponentTestFixture(
+            sai::Instantiation::kFabricBorderRouter) {}
+};
+
+TEST_F(FbrAclTableTest, VrfClassificationCanMatchOnDstMac) {
+  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 acl_pre_ingress_table_entry {
+                                   match {
+                                     is_ip { value: "0x1" }
+                                     dst_mac {
+                                       value: "00:00:AA:AA:00:00"
+                                       mask: "FF:FF:FF:FF:FF:FF"
+                                     }
+                                   }
+                                   priority: 10
+                                   action { set_vrf { vrf_id: "vrf-1" } }
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
+
+  // Expected P4RT AppDb entries.
+  auto acl_entry =
+      test_lib::AppDbEntryBuilder{}
+          .SetTableName("ACL_ACL_PRE_INGRESS_TABLE")
+          .SetPriority(10)
+          .AddMatchField("dst_mac", "00:00:aa:aa:00:00&ff:ff:ff:ff:ff:ff")
+          .AddMatchField("is_ip", "0x1")
+          .SetAction("set_vrf")
+          .AddActionParam("vrf_id", "vrf-1");
+
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_THAT(
+      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(acl_entry.GetKey()),
+      IsOkAndHolds(UnorderedElementsAreArray(acl_entry.GetValueMap())));
 }
 
 }  // namespace
