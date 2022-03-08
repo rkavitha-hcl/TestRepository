@@ -39,6 +39,8 @@ absl::StatusOr<std::vector<z3::expr>> EvaluateSaiParser(
   SaiIpv4& erspan_ipv4 = fields.headers.erspan_ipv4;
   SaiGre& erspan_gre = fields.headers.erspan_gre;
   SaiEthernet& ethernet = fields.headers.ethernet;
+  SaiIpv6& tunnel_ipv6 = fields.headers.tunnel_ipv6;
+  SaiGre& tunnel_gre = fields.headers.tunnel_gre;
   SaiIpv4& ipv4 = fields.headers.ipv4;
   SaiIpv6& ipv6 = fields.headers.ipv6;
   SaiUdp& udp = fields.headers.udp;
@@ -54,6 +56,8 @@ absl::StatusOr<std::vector<z3::expr>> EvaluateSaiParser(
   constraints.push_back(!erspan_ethernet.valid);
   constraints.push_back(!erspan_ipv4.valid);
   constraints.push_back(!erspan_gre.valid);
+  constraints.push_back(!tunnel_ipv6.valid);
+  constraints.push_back(!tunnel_gre.valid);
   constraints.push_back(local_metadata.admit_to_l3 == bv_false);
   constraints.push_back(local_metadata.vrf_id == 0);
   constraints.push_back(local_metadata.mirror_session_id_valid == bv_false);
