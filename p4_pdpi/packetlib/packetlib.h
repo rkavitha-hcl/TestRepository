@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -99,6 +99,12 @@ absl::StatusOr<bool> UpdateAllComputedFields(Packet& packet);
 // Note: This function may invalidate computed fields (e.g., checksum and length
 // fields) and should be called prior to `Update*ComputedFields`.
 absl::StatusOr<bool> PadPacketToMinimumSize(Packet& packet);
+
+// Pads a packet to certain size by appending zeros to the payload and return
+// true. If the packet size is bigger than or equal to the target size,
+// leaves the packet unmodified and returns false. If the packet size cannot be
+// computed, returns error satus.
+absl::StatusOr<bool> PadPacket(int num_bytes, Packet& packet);
 
 // Returns the size of the given packet in bits, starting at the nth header and
 // ignoring all headers before that. Works even when computed fields are

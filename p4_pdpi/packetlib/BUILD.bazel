@@ -73,13 +73,7 @@ cc_test(
     deps = [
         ":bit_widths",
         ":packetlib",
-        "//gutil:proto",
         "//gutil:status_matchers",
-        "//p4_pdpi/string_encodings:byte_string",
-        "//p4_pdpi/string_encodings:hex_string",
-        "//p4_pdpi/string_encodings:readable_byte_string",
-        "@com_google_absl//absl/status",
-        "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_googletest//:gtest_main",

@@ -1,4 +1,4 @@
-// Copyright (c) 2021, Google Inc.
+// Copyright (c) 2022, Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,8 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GOOGLE_TESTS_PACKET_FORWARDING_TESTS_H_
-#define GOOGLE_TESTS_PACKET_FORWARDING_TESTS_H_
+#ifndef GOOGLE_TESTS_INTEGRATION_SYSTEM_PACKET_FORWARDING_TESTS_H_
+#define GOOGLE_TESTS_INTEGRATION_SYSTEM_PACKET_FORWARDING_TESTS_H_
 
 #include "thinkit/generic_testbed_fixture.h"
 
@@ -23,4 +23,4 @@ class PacketForwardingTestFixture : public thinkit::GenericTestbedFixture {};
 
 }  // namespace pins_test
 
-#endif  // GOOGLE_TESTS_PACKET_FORWARDING_TESTS_H_
+#endif  // GOOGLE_TESTS_INTEGRATION_SYSTEM_PACKET_FORWARDING_TESTS_H_

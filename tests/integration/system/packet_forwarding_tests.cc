@@ -1,4 +1,4 @@
-// Copyright (c) 2021, Google Inc.
+// Copyright (c) 2022, Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "tests/packet_forwarding_tests.h"
+#include "tests/integration/system/packet_forwarding_tests.h"
 
 #include <memory>
 #include <string>
@@ -60,6 +60,8 @@
 
 namespace pins_test {
 namespace {
+
+constexpr int kMtu[] = {1500, 5000, 9000};
 
 // Test packet proto message sent from control switch to sut.
 constexpr absl::string_view kTestPacket = R"pb(
@@ -219,6 +221,43 @@ TEST_P(PacketForwardingTestFixture, AllPortsPacketForwardingTest) {
               << ", Packets received: " << statistic.packets_received;
     EXPECT_EQ(statistic.packets_sent, statistic.packets_received);
     EXPECT_EQ(statistic.packets_routed_incorrectly, 0);
+  }
+}
+
+TEST_P(PacketForwardingTestFixture, MtuPacketForwardingTest) {
+  thinkit::TestRequirements requirements =
+      gutil::ParseProtoOrDie<thinkit::TestRequirements>(
+          R"pb(interface_requirements {
+                 count: 2
+                 interface_mode: CONTROL_INTERFACE
+               })pb");
+
+  ASSERT_OK_AND_ASSIGN(auto testbed, GetTestbedWithRequirements(requirements));
+  std::vector<std::string> sut_interfaces =
+      GetSutInterfaces(FromTestbed(GetAllControlLinks, *testbed));
+
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
+      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+          testbed->Sut(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+
+  for (int mtu : kMtu) {
+    LOG(INFO) << "MTU: " << mtu;
+    auto test_packet = gutil::ParseProtoOrDie<packetlib::Packet>(kTestPacket);
+    ASSERT_OK(PadPacket(mtu, test_packet));
+    LOG(INFO) << "Packet: " << test_packet.DebugString();
+    ASSERT_OK_AND_ASSIGN(
+        auto statistics,
+        basic_traffic::SendTraffic(*testbed, p4_session.get(),
+                                   basic_traffic::AllToAll(sut_interfaces),
+                                   {test_packet}, absl::Minutes(5)));
+    for (const basic_traffic::TrafficStatistic& statistic : statistics) {
+      LOG(INFO) << statistic.interfaces.ingress_interface << " -> "
+                << statistic.interfaces.egress_interface << "\n"
+                << ": Packets sent: " << statistic.packets_sent
+                << ", Packets received: " << statistic.packets_received;
+      EXPECT_EQ(statistic.packets_sent, statistic.packets_received);
+    }
   }
 }
 

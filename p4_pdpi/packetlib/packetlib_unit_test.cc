@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,6 +27,9 @@
 
 namespace packetlib {
 namespace {
+
+using ::gutil::IsOkAndHolds;
+using ::testing::Eq;
 
 const absl::string_view kEthernetSourceAddress = "8:0:20:86:35:4b";
 const absl::string_view kEthernetDestinationAddress = "0:e0:f7:26:3f:e9";
@@ -174,6 +177,33 @@ TEST(PacketLib, ICMPWithIpv4Header) {
   icmp->set_checksum(IcmpChecksum(0xfff5));
   icmp->set_rest_of_header(IcmpRestOfHeader(0));
   ASSERT_OK(packetlib::SerializePacket(packet));
+}
+
+TEST(PacketLib, PadPacket) {
+  packetlib::Packet packet;
+
+  ASSERT_OK_AND_ASSIGN(int current_size, PacketSizeInBytes(packet));
+  ASSERT_THAT(PadPacket(current_size - 1, packet), IsOkAndHolds(Eq(false)));
+  ASSERT_THAT(PadPacket(current_size, packet), IsOkAndHolds(Eq(false)));
+  ASSERT_THAT(PadPacket(current_size + 1, packet), IsOkAndHolds(Eq(true)));
+  ASSERT_OK_AND_ASSIGN(int updated_size, PacketSizeInBytes(packet));
+  EXPECT_EQ(current_size + 1, updated_size);
+}
+
+TEST(PacketLib, PadPacketWithEthernetHeader) {
+  packetlib::Packet packet;
+
+  EthernetHeader* eth = packet.add_headers()->mutable_ethernet_header();
+  eth->set_ethertype(EtherType(ETHERTYPE_IP));
+  eth->set_ethernet_source(std::string(kEthernetSourceAddress));
+  eth->set_ethernet_destination(std::string(kEthernetDestinationAddress));
+
+  ASSERT_OK_AND_ASSIGN(int current_size, PacketSizeInBytes(packet));
+  ASSERT_THAT(PadPacket(current_size - 1, packet), IsOkAndHolds(Eq(false)));
+  ASSERT_THAT(PadPacket(current_size, packet), IsOkAndHolds(Eq(false)));
+  ASSERT_THAT(PadPacket(current_size + 1, packet), IsOkAndHolds(Eq(true)));
+  ASSERT_OK_AND_ASSIGN(int updated_size, PacketSizeInBytes(packet));
+  EXPECT_EQ(current_size + 1, updated_size);
 }
 
 }  // namespace

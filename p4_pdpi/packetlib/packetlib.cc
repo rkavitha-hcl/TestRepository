@@ -1,4 +1,4 @@
-// Copyright 2021 Google LLC
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1562,6 +1562,15 @@ absl::StatusOr<bool> PadPacketToMinimumSize(Packet& packet) {
   }
   LOG(DFATAL) << "exhaustive switch statement failed: " << packet.DebugString();
   return false;
+}
+
+absl::StatusOr<bool> PadPacket(int num_bytes, Packet& packet) {
+  ASSIGN_OR_RETURN(int current_size, PacketSizeInBytes(packet));
+  if (current_size >= num_bytes) return false;
+  int header_size = current_size - packet.payload().size();
+  int target_payload_size = num_bytes - header_size;
+  packet.mutable_payload()->resize(target_payload_size);
+  return true;
 }
 
 absl::StatusOr<int> PacketSizeInBytes(const Packet& packet,
