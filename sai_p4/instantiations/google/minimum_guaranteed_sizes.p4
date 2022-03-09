@@ -34,7 +34,7 @@
 // gurantees for the IPv4 and IPv6 tables too much.
 // TODO: Find a better way to model such interdepencies.
 # copybara:strip_end
-#define ROUTING_VRF_TABLE_MINIMUM_GUARANTEED_SIZE 32
+#define ROUTING_VRF_TABLE_MINIMUM_GUARANTEED_SIZE 64
 
 # copybara:strip_begin(comment only applies internally)
 // The IPv4 and IPv6 minimums appear to hold in practice, but Broadcom's

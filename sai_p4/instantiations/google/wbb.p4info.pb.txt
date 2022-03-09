@@ -206,7 +206,7 @@ tables {
     annotations: "@proto_id(1)"
   }
   const_default_action_id: 24742814
-  size: 32
+  size: 64
 }
 tables {
   preamble {
