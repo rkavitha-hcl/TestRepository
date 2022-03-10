@@ -1,5 +1,7 @@
 pkg_info {
+  name: "wbb.p4"
   arch: "v1model"
+  organization: "Google"
 }
 tables {
   preamble {

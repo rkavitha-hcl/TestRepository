@@ -26,6 +26,9 @@
 
 namespace gutil {
 
+// Returns `true` if the given `message` has no fields set, `false` otherwise.
+bool IsEmptyProto(const google::protobuf::Message &message);
+
 // Read the contents of the file into a protobuf.
 absl::Status ReadProtoFromFile(absl::string_view filename,
                                google::protobuf::Message *message);

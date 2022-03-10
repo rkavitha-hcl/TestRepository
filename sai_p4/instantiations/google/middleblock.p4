@@ -46,5 +46,9 @@ control egress(inout headers_t headers,
   }
 }  // control egress
 
+#ifndef PKG_INFO_NAME
+#define PKG_INFO_NAME "middleblock.p4"
+#endif
+@pkginfo(name = PKG_INFO_NAME, organization = "Google")
 V1Switch(packet_parser(), verify_ipv4_checksum(), ingress(), egress(),
          compute_ipv4_checksum(), packet_deparser()) main;

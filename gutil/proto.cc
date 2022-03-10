@@ -29,6 +29,10 @@
 
 namespace gutil {
 
+bool IsEmptyProto(const google::protobuf::Message &message) {
+  return message.ByteSizeLong() == 0;
+}
+
 absl::Status ReadProtoFromFile(absl::string_view filename,
                                google::protobuf::Message *message) {
   // Verifies that the version of the library that we linked against is

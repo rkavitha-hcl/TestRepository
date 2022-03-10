@@ -12,8 +12,26 @@ namespace {
 
 using ::gutil::IsOkAndHolds;
 using ::gutil::StatusIs;
+using ::testing::Eq;
 using ::testing::IsEmpty;
 using ::testing::Not;
+using ::testing::ResultOf;
+
+TEST(IsEmptyProto, ReturnsTrueForEmptyProto) {
+  EXPECT_TRUE(IsEmptyProto(TestMessage()));
+
+  // Same things, but a bit more convoluted.
+  TestMessage message;
+  message.set_int_field(42);
+  message.set_int_field(0);
+  EXPECT_TRUE(IsEmptyProto(message))
+      << "where message = " << message.DebugString();
+}
+
+TEST(IsEmptyProto, ReturnsFalseForNonEmptyProto) {
+  EXPECT_THAT(ParseTextProto<TestMessage>("int_field: 42"),
+              IsOkAndHolds(ResultOf(IsEmptyProto, Eq(false))));
+}
 
 TEST(ParseTextProto, EmptyTextProtoIsOk) {
   EXPECT_THAT(ParseTextProto<TestMessage>(""), IsOk());

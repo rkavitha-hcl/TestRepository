@@ -125,6 +125,7 @@ cc_library(
         "p4info_union_lib.h",
     ],
     deps = [
+        "//gutil:proto",
         "//gutil:status",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
         "@com_github_p4lang_p4runtime//:p4types_cc_proto",

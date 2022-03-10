@@ -1,5 +1,7 @@
 pkg_info {
+  name: "Union of fabric_border_router.p4, middleblock_with_s2_ecmp_profile.p4, middleblock_with_s3_ecmp_profile.p4, wbb.p4"
   arch: "v1model"
+  organization: "Google"
 }
 tables {
   preamble {
