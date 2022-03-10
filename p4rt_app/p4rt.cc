@@ -170,7 +170,8 @@ namespace {
 sonic::P4rtTable CreateP4rtTable(swss::DBConnector* app_db,
                                  swss::DBConnector* app_state_db,
                                  swss::DBConnector* counters_db) {
-  const std::string kP4rtResponseChannel = "APPL_DB_P4RT_RESPONSE_CHANNEL";
+  const std::string kP4rtResponseChannel =
+      std::string("APPL_DB_") + APP_P4RT_TABLE_NAME + "_RESPONSE_CHANNEL";
 
   return sonic::P4rtTable{
       .producer_state = absl::make_unique<sonic::ProducerStateTableAdapter>(
