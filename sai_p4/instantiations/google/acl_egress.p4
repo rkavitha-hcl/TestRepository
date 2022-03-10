@@ -39,6 +39,14 @@ control acl_egress(in headers_t headers,
   }
 
   apply {
+    if (headers.ipv4.isValid()) {
+      ip_protocol = headers.ipv4.protocol;
+    } else if (headers.ipv6.isValid()) {
+      ip_protocol = headers.ipv6.next_header;
+    } else {
+      ip_protocol = 0;
+    }
+
     acl_egress_table.apply();
   }
 }  // control ACL_EGRESS
