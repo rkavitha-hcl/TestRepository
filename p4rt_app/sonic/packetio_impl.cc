@@ -30,20 +30,6 @@
 namespace p4rt_app {
 namespace sonic {
 
-PacketIoImpl::PacketIoImpl(
-    std::unique_ptr<SystemCallAdapter> system_call_adapter,
-    packet_metadata::ReceiveCallbackFunction callback_function,
-    bool use_genetlink)
-    : system_call_adapter_(std::move(system_call_adapter)),
-      callback_function_(std::move(callback_function)),
-      use_genetlink_(use_genetlink) {}
-
-std::unique_ptr<PacketIoInterface> PacketIoImpl::CreatePacketIoImpl() {
-  return std::make_unique<PacketIoImpl>(std::make_unique<SystemCallAdapter>(),
-                                        /*callback_function=*/nullptr,
-                                        /*use_genetlink=*/false);
-}
-
 absl::Status PacketIoImpl::SendPacketOut(absl::string_view port_name,
                                          const std::string& packet) {
   // Retrieve the transmit socket for this egress port.

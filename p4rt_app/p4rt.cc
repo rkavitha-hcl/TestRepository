@@ -288,7 +288,9 @@ int main(int argc, char** argv) {
       p4rt_app::CreateSwitchTable(&app_db, &app_state_db);
 
   // Create PacketIoImpl for Packet I/O.
-  auto packetio_impl = p4rt_app::sonic::PacketIoImpl::CreatePacketIoImpl();
+  auto packetio_impl = std::make_unique<p4rt_app::sonic::PacketIoImpl>(
+      std::make_unique<p4rt_app::sonic::SystemCallAdapter>(),
+      p4rt_app::sonic::PacketIoOptions{});
 
   // Wait for PortInitDone to be done.
   p4rt_app::WaitForPortInitDone();

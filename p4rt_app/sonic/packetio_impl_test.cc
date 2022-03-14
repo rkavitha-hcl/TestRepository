@@ -58,8 +58,9 @@ TEST(PacketIoImplTest, SuccessOnAddPacketIoPort) {
       .WillRepeatedly(Return(1));
 
   PacketIoImpl packetio_impl(std::move(mock_call_adapter),
-                             EmptyPacketInCallback,
-                             /*use_genetlink=*/false);
+                             PacketIoOptions{
+                                 .callback_function = EmptyPacketInCallback,
+                             });
   ASSERT_OK(packetio_impl.AddPacketIoPort("Ethernet0"));
   ASSERT_OK(packetio_impl.AddPacketIoPort(kSubmitToIngress));
 
@@ -84,8 +85,9 @@ TEST(PacketIoImplTest, NoOpOnAddingDuplicatePacketIoPorts) {
   EXPECT_CALL(*mock_call_adapter, if_nametoindex).WillOnce(Return(1));
 
   PacketIoImpl packetio_impl(std::move(mock_call_adapter),
-                             EmptyPacketInCallback,
-                             /*use_genetlink=*/false);
+                             PacketIoOptions{
+                                 .callback_function = EmptyPacketInCallback,
+                             });
   ASSERT_OK(packetio_impl.AddPacketIoPort("Ethernet0"));
   ASSERT_OK(packetio_impl.AddPacketIoPort("Ethernet0"));
   EXPECT_TRUE(packetio_impl.IsValidPortForTransmit("Ethernet0"));
@@ -97,8 +99,9 @@ TEST(PacketIoImplTest, NoActionOnAddingNonSdnPacketIoPorts) {
   EXPECT_CALL(*mock_call_adapter, socket).Times(0);
   EXPECT_CALL(*mock_call_adapter, if_nametoindex).Times(0);
   PacketIoImpl packetio_impl(std::move(mock_call_adapter),
-                             EmptyPacketInCallback,
-                             /*use_genetlink=*/false);
+                             PacketIoOptions{
+                                 .callback_function = EmptyPacketInCallback,
+                             });
   ASSERT_OK(packetio_impl.AddPacketIoPort("loopback0"));
 
   // Checks that ports are not valid for transmit and receive.
@@ -131,8 +134,9 @@ TEST(PacketIoImplTest, SuccessOnRemovePacketIoPort) {
   EXPECT_CALL(*mock_call_adapter, close(Eq(fd1[1]))).Times(1);
 
   PacketIoImpl packetio_impl(std::move(mock_call_adapter),
-                             EmptyPacketInCallback,
-                             /*use_genetlink=*/false);
+                             PacketIoOptions{
+                                 .callback_function = EmptyPacketInCallback,
+                             });
   ASSERT_OK(packetio_impl.AddPacketIoPort("Ethernet0"));
   ASSERT_OK(packetio_impl.AddPacketIoPort(kSubmitToIngress));
   ASSERT_OK(packetio_impl.RemovePacketIoPort("Ethernet0"));
@@ -148,8 +152,9 @@ TEST(PacketIoImplTest, FailOnNonExistentRemovePacketIoPort) {
   auto mock_call_adapter = absl::make_unique<sonic::MockSystemCallAdapter>();
   EXPECT_CALL(*mock_call_adapter, close).Times(0);
   PacketIoImpl packetio_impl(std::move(mock_call_adapter),
-                             EmptyPacketInCallback,
-                             /*use_genetlink=*/false);
+                             PacketIoOptions{
+                                 .callback_function = EmptyPacketInCallback,
+                             });
   EXPECT_THAT(packetio_impl.RemovePacketIoPort("Ethernet0"),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
@@ -163,8 +168,9 @@ TEST(PacketIoImplTest, FailOnRemoveDuplicatePacketIoPort) {
   EXPECT_CALL(*mock_call_adapter, if_nametoindex).WillOnce(Return(1));
   EXPECT_CALL(*mock_call_adapter, close(Eq(fd[1]))).Times(1);
   PacketIoImpl packetio_impl(std::move(mock_call_adapter),
-                             EmptyPacketInCallback,
-                             /*use_genetlink=*/false);
+                             PacketIoOptions{
+                                 .callback_function = EmptyPacketInCallback,
+                             });
   ASSERT_OK(packetio_impl.AddPacketIoPort("Ethernet0"));
   ASSERT_OK(packetio_impl.RemovePacketIoPort("Ethernet0"));
   EXPECT_THAT(packetio_impl.RemovePacketIoPort("Ethernet0"),
@@ -175,8 +181,9 @@ TEST(PacketIoImplTest, NoActionOnRemovingNonSdnPacketIoPort) {
   auto mock_call_adapter = absl::make_unique<sonic::MockSystemCallAdapter>();
   EXPECT_CALL(*mock_call_adapter, close).Times(0);
   PacketIoImpl packetio_impl(std::move(mock_call_adapter),
-                             EmptyPacketInCallback,
-                             /*use_genetlink=*/false);
+                             PacketIoOptions{
+                                 .callback_function = EmptyPacketInCallback,
+                             });
   ASSERT_OK(packetio_impl.RemovePacketIoPort("loopback0"));
   EXPECT_FALSE(packetio_impl.IsValidPortForReceive("loopback0"));
   EXPECT_FALSE(packetio_impl.IsValidPortForTransmit("loopback0"));
@@ -197,8 +204,10 @@ TEST(PacketIoImplTest, SuccessOnAddPacketIoPortWithGenetlink) {
       .Times(2)
       .WillRepeatedly(Return(1));
   PacketIoImpl packetio_impl(std::move(mock_call_adapter),
-                             EmptyPacketInCallback,
-                             /*use_genetlink=*/true);
+                             PacketIoOptions{
+                                 .callback_function = EmptyPacketInCallback,
+                                 .use_genetlink = true,
+                             });
   ASSERT_OK(packetio_impl.AddPacketIoPort("Ethernet0"));
   ASSERT_OK(packetio_impl.AddPacketIoPort(kSubmitToIngress));
   EXPECT_TRUE(packetio_impl.IsValidPortForTransmit("Ethernet0"));
@@ -218,8 +227,10 @@ TEST(PacketIoImplTest, SuccessOnRemovePacketIoPortWithGenetlink) {
       .WillRepeatedly(Return(1));
   EXPECT_CALL(*mock_call_adapter, close).Times(2);
   PacketIoImpl packetio_impl(std::move(mock_call_adapter),
-                             EmptyPacketInCallback,
-                             /*use_genetlink=*/true);
+                             PacketIoOptions{
+                                 .callback_function = EmptyPacketInCallback,
+                                 .use_genetlink = true,
+                             });
   ASSERT_OK(packetio_impl.AddPacketIoPort("Ethernet0"));
   ASSERT_OK(packetio_impl.AddPacketIoPort(kSubmitToIngress));
   ASSERT_OK(packetio_impl.RemovePacketIoPort("Ethernet0"));
