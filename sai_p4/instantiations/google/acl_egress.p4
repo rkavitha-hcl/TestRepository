@@ -19,11 +19,20 @@ control acl_egress(in headers_t headers,
   @id(ACL_EGRESS_TABLE_ID)
   @sai_acl(EGRESS)
   @entry_restriction("
+    // Forbid using ether_type for IP packets (by convention, use is_ip* instead).
+    ether_type != 0x0800 && ether_type != 0x86dd;
     // Only allow IP field matches for IP packets.
     // TODO: Enable once p4-constraints bug is fixed.
     // ip_protocol::mask != 0 -> (ether_type == 0x0800 || ether_type == 0x86dd);
     // Only allow l4_dst_port matches for TCP/UDP packets.
     l4_dst_port::mask != 0 -> (ip_protocol == 6 || ip_protocol == 17);
+    // Forbid illegal combinations of IP_TYPE fields.
+    is_ip::mask != 0 -> (is_ipv4::mask == 0 && is_ipv6::mask == 0);
+    is_ipv4::mask != 0 -> (is_ip::mask == 0 && is_ipv6::mask == 0);
+    is_ipv6::mask != 0 -> (is_ip::mask == 0 && is_ipv4::mask == 0);
+    // Forbid unsupported combinations of IP_TYPE fields.
+    is_ipv4::mask != 0 -> (is_ipv4 == 1);
+    is_ipv6::mask != 0 -> (is_ipv6 == 1);
   ")
   table acl_egress_table {
     key = {
@@ -33,8 +42,14 @@ control acl_egress(in headers_t headers,
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_IP_PROTOCOL);
       local_metadata.l4_dst_port : ternary @name("l4_dst_port") @id(3)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_L4_DST_PORT);
-      (port_id_t)standard_metadata.egress_port: optional @name("out_port") @id(4)
-          @sai_field(SAI_ACL_TABLE_ATTR_FIELD_OUT_PORT);
+      (port_id_t)standard_metadata.egress_port: optional @name("out_port")
+          @id(4) @sai_field(SAI_ACL_TABLE_ATTR_FIELD_OUT_PORT);
+      headers.ipv4.isValid() || headers.ipv6.isValid() : optional @name("is_ip")
+          @id(5) @sai_field(SAI_ACL_TABLE_ATTR_FIELD_ACL_IP_TYPE/IP);
+      headers.ipv4.isValid() : optional @name("is_ipv4") @id(6)
+          @sai_field(SAI_ACL_TABLE_ATTR_FIELD_ACL_IP_TYPE/IPV4ANY);
+      headers.ipv6.isValid() : optional @name("is_ipv6") @id(7)
+          @sai_field(SAI_ACL_TABLE_ATTR_FIELD_ACL_IP_TYPE/IPV6ANY);
     }
     actions = {
       @proto_id(1) acl_drop(standard_metadata);
