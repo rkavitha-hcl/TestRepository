@@ -93,6 +93,8 @@ control acl_ingress(in headers_t headers,
   @id(ACL_INGRESS_TABLE_ID)
   @sai_acl(INGRESS)
   @entry_restriction("
+    // Forbid using ether_type for IP packets (by convention, use is_ip* instead).
+    ether_type != 0x0800 && ether_type != 0x86dd;
     // Only allow IP field matches for IP packets.
     dst_ip::mask != 0 -> is_ipv4 == 1;
     dst_ipv6::mask != 0 -> is_ipv6 == 1;
@@ -100,13 +102,13 @@ control acl_ingress(in headers_t headers,
     dscp::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);
     ecn::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);
     ip_protocol::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);
-    // Forbid using ether_type for IP packets (by convention, use is_ip* instead).
-    ether_type != 0x0800 && ether_type != 0x86dd;
+    // Only allow l4_dst_port matches for TCP/UDP packets.
+    l4_dst_port::mask != 0 -> (ip_protocol == 6 || ip_protocol == 17);
 #ifdef SAI_INSTANTIATION_MIDDLEBLOCK
-    // Only allow arp_tpa for ARP packets.
+    // Only allow arp_tpa matches for ARP packets.
     arp_tpa::mask != 0 -> ether_type == 0x0806;
 #endif
-    // Only allow icmp_type for ICMP packets
+    // Only allow icmp_type matches for ICMP packets
 #ifdef SAI_INSTANTIATION_FABRIC_BORDER_ROUTER
     icmp_type::mask != 0 -> ip_protocol == 1;
 #endif

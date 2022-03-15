@@ -18,7 +18,13 @@ control acl_egress(in headers_t headers,
   @p4runtime_role(P4RUNTIME_ROLE_SDN_CONTROLLER)
   @id(ACL_EGRESS_TABLE_ID)
   @sai_acl(EGRESS)
-
+  @entry_restriction("
+    // Only allow IP field matches for IP packets.
+    // TODO: Enable once p4-constraints bug is fixed.
+    // ip_protocol::mask != 0 -> (ether_type == 0x0800 || ether_type == 0x86dd);
+    // Only allow l4_dst_port matches for TCP/UDP packets.
+    l4_dst_port::mask != 0 -> (ip_protocol == 6 || ip_protocol == 17);
+  ")
   table acl_egress_table {
     key = {
       headers.ethernet.ether_type : ternary @name("ether_type") @id(1)
