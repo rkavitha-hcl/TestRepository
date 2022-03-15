@@ -83,7 +83,8 @@ constexpr absl::Duration kTestTimeout = absl::Hours(1);
 
 bool IsMaskedResource(absl::string_view table_name) {
   // TODO: unmask when acl_egress_table meets resource guarantees.
-  return table_name == "acl_egress_table";
+  // TODO: unmask when l3_admit_table meets resource guarantees
+  return table_name == "acl_egress_table" || table_name == "l3_admit_table";
 }
 
 class TestEnvironment : public testing::Environment {
