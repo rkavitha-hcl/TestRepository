@@ -230,6 +230,7 @@ cc_test(
         "//p4_pdpi/utils:ir",
         "//p4rt_app/sonic:packetio_impl",
         "//p4rt_app/sonic:packetio_port",
+        "//p4rt_app/sonic/adapters:fake_intf_translator",
         "//p4rt_app/sonic/adapters:mock_system_call_adapter",
         "//sai_p4/fixed:p4_ids",
         "//sai_p4/instantiations/google:sai_p4info_cc",

@@ -158,3 +158,13 @@ cc_test(
         "@com_google_googletest//:gtest_main",
     ],
 )
+
+cc_library(
+    name = "fake_intf_translator",
+    srcs = ["fake_intf_translator.cc"],
+    hdrs = ["fake_intf_translator.h"],
+    deps = [
+        "@com_google_absl//absl/strings",
+        "@sonic_swss_common//:libswsscommon",
+    ],
+)

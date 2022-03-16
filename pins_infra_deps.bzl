@@ -193,7 +193,7 @@ def pins_infra_deps():
         # requiring SSH authentication.
         git_repository(
             name = "sonic_swss_common",
-            commit = "850796a5cfeafb12158db0bfbd0f02e3e413c775",
+            commit = "3f93c034049dfd7569ea8e74e9f67dd88f7431d3",
             remote = "git@github.com:pins/sonic-swss-common.git",
             shallow_since = "1616719037 -0700",
         )

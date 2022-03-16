@@ -13,6 +13,7 @@
 // limitations under the License.
 #include "p4rt_app/p4runtime/packetio_helpers.h"
 
+#include <memory>
 #include <utility>
 
 #include "absl/strings/string_view.h"
@@ -25,6 +26,7 @@
 #include "gutil/status_matchers.h"
 #include "p4_pdpi/utils/ir.h"
 #include "p4rt_app/p4runtime/p4info_verification.h"
+#include "p4rt_app/sonic/adapters/fake_intf_translator.h"
 #include "p4rt_app/sonic/adapters/mock_system_call_adapter.h"
 #include "p4rt_app/sonic/packetio_impl.h"
 #include "p4rt_app/sonic/packetio_port.h"
@@ -36,9 +38,17 @@ namespace {
 
 using ::gutil::EqualsProto;
 using ::gutil::StatusIs;
+using ::testing::_;
 using ::testing::DoAll;
 using ::testing::Return;
 using ::testing::SetArgPointee;
+
+MATCHER_P(IfrNameEq, name, "") {
+  if (arg != nullptr) {
+    *result_listener << "(ifr_name: " << arg->ifr_name << ")";
+  }
+  return arg != nullptr && strcmp(arg->ifr_name, name) == 0;
+}
 
 // Use in place of argument literal to make the test's intent clearer.
 constexpr bool kTranslatePortId = true;
@@ -90,8 +100,11 @@ class PacketIoHelpersTest : public testing::Test {
     auto mock_call_adapter = std::make_unique<sonic::MockSystemCallAdapter>();
     mock_call_adapter_ = mock_call_adapter.get();
 
+    auto fake_netdev_translator =
+        std::make_unique<sonic::FakeIntfTranslator>(/*enabled=*/true);
     packetio_impl_ = std::make_unique<sonic::PacketIoImpl>(
-        std::move(mock_call_adapter), sonic::PacketIoOptions{});
+        std::move(mock_call_adapter), std::move(fake_netdev_translator),
+        sonic::PacketIoOptions{});
   }
 
   pdpi::IrP4Info ir_p4_info_ =
@@ -118,22 +131,22 @@ TEST_F(PacketIoHelpersTest, SendPacketOutEgressPortUsingPortIdOk) {
       { IFF_UP | IFF_RUNNING }
     }
   };
-  EXPECT_CALL(*mock_call_adapter_, ioctl)
+  EXPECT_CALL(*mock_call_adapter_, ioctl(_, _, IfrNameEq("Ethernet1_2")))
       .WillOnce(DoAll(SetArgPointee<2>(if_resp), Return(0)));
   EXPECT_CALL(*mock_call_adapter_, write).Times(1);
   EXPECT_CALL(*mock_call_adapter_, socket).WillOnce(Return(fd[1]));
   EXPECT_CALL(*mock_call_adapter_, if_nametoindex).WillOnce(Return(1));
 
   boost::bimap<std::string, std::string> port_maps;
-  port_maps.insert({"Ethernet1", "1"});
-  ASSERT_OK(packetio_impl_->AddPacketIoPort("Ethernet1"));
+  port_maps.insert({"Ethernet1/2", "1"});
+  ASSERT_OK(packetio_impl_->AddPacketIoPort("Ethernet1/2"));
   EXPECT_OK(SendPacketOut(ir_p4_info_, kTranslatePortId, port_maps,
                           packetio_impl_.get(), packet));
 }
 
 TEST_F(PacketIoHelpersTest, SendPacketOutEgressPortUsingPortNameOk) {
   p4::v1::PacketOut packet;
-  SetupPacketOutMetadata(/*egress_port*/ "Ethernet1", /*egress_bitwidth*/ 9,
+  SetupPacketOutMetadata(/*egress_port*/ "Ethernet1/2", /*egress_bitwidth*/ 9,
                          /*submit_to_ingress*/ 0,
                          /*ingress_bitwidth*/ 1, packet);
   int fd[2];
@@ -145,15 +158,15 @@ TEST_F(PacketIoHelpersTest, SendPacketOutEgressPortUsingPortNameOk) {
       { IFF_UP | IFF_RUNNING }
     }
   };
-  EXPECT_CALL(*mock_call_adapter_, ioctl)
+  EXPECT_CALL(*mock_call_adapter_, ioctl(_, _, IfrNameEq("Ethernet1_2")))
       .WillOnce(DoAll(SetArgPointee<2>(if_resp), Return(0)));
   EXPECT_CALL(*mock_call_adapter_, write).Times(1);
   EXPECT_CALL(*mock_call_adapter_, socket).WillOnce(Return(fd[1]));
   EXPECT_CALL(*mock_call_adapter_, if_nametoindex).WillOnce(Return(1));
 
   boost::bimap<std::string, std::string> port_maps;
-  port_maps.insert({"Ethernet1", "1"});
-  ASSERT_OK(packetio_impl_->AddPacketIoPort("Ethernet1"));
+  port_maps.insert({"Ethernet1/2", "1"});
+  ASSERT_OK(packetio_impl_->AddPacketIoPort("Ethernet1/2"));
   EXPECT_OK(SendPacketOut(ir_p4_info_, !kTranslatePortId, port_maps,
                           packetio_impl_.get(), packet));
 }
@@ -263,15 +276,15 @@ TEST_F(PacketIoHelpersTest, SendPacketOutPortZero) {
       { IFF_UP | IFF_RUNNING }
     }
   };
-  EXPECT_CALL(*mock_call_adapter_, ioctl)
+  EXPECT_CALL(*mock_call_adapter_, ioctl(_, _, IfrNameEq("Ethernet1_1")))
       .WillOnce(DoAll(SetArgPointee<2>(if_resp), Return(0)));
   EXPECT_CALL(*mock_call_adapter_, write).Times(1);
   EXPECT_CALL(*mock_call_adapter_, socket).WillOnce(Return(fd[1]));
   EXPECT_CALL(*mock_call_adapter_, if_nametoindex).WillOnce(Return(1));
 
   boost::bimap<std::string, std::string> port_maps;
-  port_maps.insert({"Ethernet0", "0"});
-  ASSERT_OK(packetio_impl_->AddPacketIoPort("Ethernet0"));
+  port_maps.insert({"Ethernet1/1", "0"});
+  ASSERT_OK(packetio_impl_->AddPacketIoPort("Ethernet1/1"));
   ASSERT_OK(SendPacketOut(ir_p4_info_, kTranslatePortId, port_maps,
                           packetio_impl_.get(), packet));
 }

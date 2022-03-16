@@ -52,6 +52,7 @@
 #include "swss/component_state_helper.h"
 #include "swss/component_state_helper_interface.h"
 #include "swss/dbconnector.h"
+#include "swss/intf_translator.h"
 #include "swss/schema.h"
 
 using ::grpc::Server;
@@ -288,8 +289,10 @@ int main(int argc, char** argv) {
       p4rt_app::CreateSwitchTable(&app_db, &app_state_db);
 
   // Create PacketIoImpl for Packet I/O.
+  swss::DBConnector packetio_config_db("CONFIG_DB", 0);
   auto packetio_impl = std::make_unique<p4rt_app::sonic::PacketIoImpl>(
       std::make_unique<p4rt_app::sonic::SystemCallAdapter>(),
+      std::make_unique<swss::IntfTranslator>(&packetio_config_db),
       p4rt_app::sonic::PacketIoOptions{});
 
   // Wait for PortInitDone to be done.

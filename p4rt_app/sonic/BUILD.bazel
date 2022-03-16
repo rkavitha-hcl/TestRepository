@@ -214,12 +214,14 @@ cc_library(
         ":packetio_port",
         ":receive_genetlink",
         "//gutil:collections",
+        "//gutil:status",
         "//p4rt_app/sonic/adapters:system_call_adapter",
         "@com_github_google_glog//:glog",
         "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
         "@sonic_swss_common//:libswsscommon",
     ],
 )
@@ -230,6 +232,7 @@ cc_test(
     deps = [
         ":packetio_impl",
         "//gutil:status_matchers",
+        "//p4rt_app/sonic/adapters:fake_intf_translator",
         "//p4rt_app/sonic/adapters:mock_system_call_adapter",
         "@com_google_absl//absl/cleanup",
         "@com_google_absl//absl/memory",

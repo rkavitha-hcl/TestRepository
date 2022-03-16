@@ -26,6 +26,7 @@
 #include "p4rt_app/sonic/adapters/system_call_adapter.h"
 #include "p4rt_app/sonic/packetio_interface.h"
 #include "p4rt_app/sonic/packetio_port.h"
+#include "swss/intf_translator.h"
 #include "swss/selectable.h"
 
 namespace p4rt_app {
@@ -43,8 +44,10 @@ struct PacketIoOptions {
 class PacketIoImpl : public PacketIoInterface {
  public:
   explicit PacketIoImpl(std::unique_ptr<SystemCallAdapter> system_call_adapter,
+                        std::unique_ptr<swss::IntfTranslator> netdev_translator,
                         const PacketIoOptions& options)
       : system_call_adapter_(std::move(system_call_adapter)),
+        netdev_translator_(std::move(netdev_translator)),
         callback_function_(options.callback_function),
         use_genetlink_(options.use_genetlink) {}
 
@@ -77,6 +80,12 @@ class PacketIoImpl : public PacketIoInterface {
  private:
   // System call adapter object to call into the utility functions.
   const std::unique_ptr<SystemCallAdapter> system_call_adapter_;
+
+  // If a controller decides to use '/' in their SONiC interface names then
+  // Linux will not be able to create the netdev. To address this we allow
+  // translation, enabled by a CONFIG_DB flag, of the interface name which will
+  // replace any '/' with '_' in the name.
+  const std::unique_ptr<swss::IntfTranslator> netdev_translator_;
 
   // Map of Transmit port names and the sockets.
   absl::flat_hash_map<std::string, int> port_to_socket_;

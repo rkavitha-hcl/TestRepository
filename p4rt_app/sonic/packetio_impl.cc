@@ -20,41 +20,66 @@
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "glog/logging.h"
 #include "gutil/collections.h"
+#include "gutil/status.h"
 #include "p4rt_app/sonic/receive_genetlink.h"
 #include "swss/selectable.h"
 
 namespace p4rt_app {
 namespace sonic {
+namespace {
+
+// P4RT App only supports PacketIO for SDN controlled ports. In SONiC we expect
+// these port names to be prefixed with Ethernet. For example:
+//   * Ethernet0, Ethernet8
+//   * Ethernet1/1/0, Ethernet2/1/3
+//
+// We also allow submitting directly to the ingress path.
+bool SdnPortName(absl::string_view port_name) {
+  return absl::StartsWith(port_name, "Ethernet") ||
+         port_name == kSubmitToIngress;
+}
+
+}  // namespace
 
 absl::Status PacketIoImpl::SendPacketOut(absl::string_view port_name,
                                          const std::string& packet) {
   // Retrieve the transmit socket for this egress port.
-  ASSIGN_OR_RETURN(
-      auto socket, gutil::FindOrStatus(port_to_socket_, std::string(port_name)),
-      _ << "Unable to find transmit socket for destination: " << port_name);
-  return sonic::SendPacketOut(*system_call_adapter_, socket, port_name, packet);
+  int* socket = gutil::FindOrNull(port_to_socket_, std::string(port_name));
+  if (socket == nullptr) {
+    return gutil::NotFoundErrorBuilder() << absl::StreamFormat(
+               "Could not find socket '%s' to send packet out.", port_name);
+  }
+
+  // SONiC can use any name for interfaces (e.g. Ethernet1/1/0), but not all
+  // these interface names will work in Linux. So we translate the SONiC port
+  // name to a Linux one if the switch is configured to do so.
+  std::string netdev_name =
+      netdev_translator_->translateToLinux(std::string{port_name});
+  return sonic::SendPacketOut(*system_call_adapter_, *socket, netdev_name,
+                              packet);
 }
 
 absl::Status PacketIoImpl::AddPacketIoPort(absl::string_view port_name) {
-  if (port_to_socket_.find(port_name) != port_to_socket_.end()) {
-    // Already existing port, nothing to do.
+  // Nothing to do if this is not an interesting port or already exists.
+  if (!SdnPortName(port_name) || port_to_socket_.contains(port_name)) {
     return absl::OkStatus();
   }
+  LOG(INFO) << "Adding PacketIO port '" << port_name << "'.";
 
-  // Nothing to do if this is not an interesting port(Ethernet* and
-  // submit_to_ingress) for Packet I/O.
-  if (!absl::StartsWith(port_name, "Ethernet") &&
-      !absl::StartsWith(port_name, kSubmitToIngress)) {
-    return absl::OkStatus();
-  }
-
+  // SONiC can use any name for interfaces (e.g. Ethernet1/1/0), but not all
+  // these interface names will work in Linux. So we translate the SONiC port
+  // name to a Linux one if the switch is configured to do so.
+  std::string netdev_name =
+      netdev_translator_->translateToLinux(std::string{port_name});
   ASSIGN_OR_RETURN(auto port_params,
-                   sonic::AddPacketIoPort(*system_call_adapter_, port_name,
+                   sonic::AddPacketIoPort(*system_call_adapter_, netdev_name,
                                           callback_function_));
+
   // Add the socket to transmit socket map.
   port_to_socket_[port_name] = port_params->socket;
 
@@ -78,12 +103,11 @@ absl::Status PacketIoImpl::AddPacketIoPort(absl::string_view port_name) {
 }
 
 absl::Status PacketIoImpl::RemovePacketIoPort(absl::string_view port_name) {
-  // Nothing to do if this is not an interesting port(Ethernet* and
-  // submit_to_ingress) for Packet I/O.
-  if (!absl::StartsWith(port_name, "Ethernet") &&
-      !absl::StartsWith(port_name, kSubmitToIngress)) {
+  // Nothing to do if this is not an interesting port.
+  if (!SdnPortName(port_name)) {
     return absl::OkStatus();
   }
+  LOG(INFO) << "Removing PacketIO port '" << port_name << "'.";
 
   // Cleanup PacketInSelectable, if in Netdev mode.
   if (!use_genetlink_) {
@@ -101,13 +125,18 @@ absl::Status PacketIoImpl::RemovePacketIoPort(absl::string_view port_name) {
              << "Unable to remove selectable for this port: " << port_name;
     }
   }
-  ASSIGN_OR_RETURN(auto socket,
-                   gutil::FindOrStatus(port_to_socket_, std::string(port_name)),
-                   _ << "Unable to find port: " << port_name);
-  if (socket >= 0) {
-    system_call_adapter_->close(socket);
+
+  auto socket_iter = port_to_socket_.find(port_name);
+  if (socket_iter == port_to_socket_.end()) {
+    return gutil::NotFoundErrorBuilder() << absl::StreamFormat(
+               "Could not find port '%s' to remove from PacketIo port to "
+               "socket map.",
+               port_name);
   }
-  port_to_socket_.erase(port_name);
+  if (socket_iter->second >= 0) {
+    system_call_adapter_->close(socket_iter->second);
+  }
+  port_to_socket_.erase(socket_iter);
 
   return absl::OkStatus();
 }
