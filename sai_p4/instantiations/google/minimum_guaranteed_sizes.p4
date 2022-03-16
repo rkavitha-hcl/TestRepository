@@ -51,7 +51,7 @@
 
 #define ROUTING_TUNNEL_TABLE_MINIMUM_GUARANTEED_SIZE 512
 
-#define L3_ADMIT_TABLE_MINIMUM_GUARANTEED_SIZE 512
+#define L3_ADMIT_TABLE_MINIMUM_GUARANTEED_SIZE 128
 
 // The maximum number of wcmp groups.
 # copybara:strip_begin(comment only applies internally)

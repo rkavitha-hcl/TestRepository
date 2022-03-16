@@ -118,7 +118,7 @@ tables {
     scope: DEFAULT_ONLY
   }
   const_default_action_id: 21257015
-  size: 512
+  size: 128
 }
 tables {
   preamble {
