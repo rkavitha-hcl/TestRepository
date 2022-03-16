@@ -20,6 +20,7 @@
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
+#include "absl/flags/flag.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
@@ -53,10 +54,13 @@
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
+#include "tests/lib/switch_test_setup_helpers.h"
 #include "thinkit/control_device.h"
 #include "thinkit/generic_testbed.h"
 #include "thinkit/proto/generic_testbed.pb.h"
 #include "thinkit/switch.h"
+
+ABSL_FLAG(bool, push_p4_info, true, "Push P4 info to SUT.");
 
 namespace pins_test {
 namespace {
@@ -101,6 +105,19 @@ absl::Status SetupRoute(pdpi::P4RuntimeSession& p4_session, int src_port_id,
   return basic_traffic::ProgramIPv4Route(&p4_session, dst_port_id);
 }
 
+// Pushes the P4 Info to SUT if the flag push_p4_info is set to true and returns
+// the P4 Runtime Session
+absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>> P4InfoPush(
+    thinkit::GenericTestbed& testbed) {
+  std::optional<p4::config::v1::P4Info> p4info = std::nullopt;
+  if (absl::GetFlag(FLAGS_push_p4_info)) {
+    std::optional<p4::config::v1::P4Info> p4info =
+        sai::GetP4Info(sai::Instantiation::kMiddleblock);
+  }
+  return ConfigureSwitchAndReturnP4RuntimeSession(
+      testbed.Sut(), /*gnmi_config=*/std::nullopt, p4info);
+}
+
 TEST_P(PacketForwardingTestFixture, PacketForwardingTest) {
   thinkit::TestRequirements requirements =
       gutil::ParseProtoOrDie<thinkit::TestRequirements>(
@@ -139,10 +156,8 @@ TEST_P(PacketForwardingTestFixture, PacketForwardingTest) {
   LOG(INFO) << "Destination port: " << destination_link.sut_interface
             << " port id: " << destination_port_id;
 
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
-      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-          testbed->Sut(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
+                       P4InfoPush(*testbed));
 
   // Set up a route between the source and destination interfaces.
   ASSERT_OK(SetupRoute(*p4_session, source_port_id, destination_port_id));
@@ -201,10 +216,8 @@ TEST_P(PacketForwardingTestFixture, AllPortsPacketForwardingTest) {
   std::vector<std::string> sut_interfaces =
       GetSutInterfaces(FromTestbed(GetAllControlLinks, *testbed));
 
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
-      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-          testbed->Sut(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
+                       P4InfoPush(*testbed));
 
   const auto test_packet =
       gutil::ParseProtoOrDie<packetlib::Packet>(kTestPacket);
@@ -236,10 +249,8 @@ TEST_P(PacketForwardingTestFixture, MtuPacketForwardingTest) {
   std::vector<std::string> sut_interfaces =
       GetSutInterfaces(FromTestbed(GetAllControlLinks, *testbed));
 
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
-      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-          testbed->Sut(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
+                       P4InfoPush(*testbed));
 
   for (int mtu : kMtu) {
     LOG(INFO) << "MTU: " << mtu;
