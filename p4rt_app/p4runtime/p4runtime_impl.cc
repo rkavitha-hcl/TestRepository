@@ -60,6 +60,7 @@
 #include "sai_p4/fixed/ids.h"
 #include "sai_p4/fixed/roles.h"
 #include "swss/component_state_helper_interface.h"
+#include "swss/intf_translator.h"
 
 namespace p4rt_app {
 namespace {
@@ -332,6 +333,7 @@ P4RuntimeImpl::P4RuntimeImpl(
     std::unique_ptr<sonic::PacketIoInterface> packetio_impl,
     swss::ComponentStateHelperInterface& component_state,
     swss::SystemStateHelperInterface& system_state,
+    swss::IntfTranslator& netdev_translator,
     const P4RuntimeImplOptions& p4rt_options)
     : p4rt_table_(std::move(p4rt_table)),
       vrf_table_(std::move(vrf_table)),
@@ -341,6 +343,7 @@ P4RuntimeImpl::P4RuntimeImpl(
       packetio_impl_(std::move(packetio_impl)),
       component_state_(component_state),
       system_state_(system_state),
+      netdev_translator_(netdev_translator),
       translate_port_ids_(p4rt_options.translate_port_ids) {
   absl::optional<std::string> init_failure;
 
@@ -1042,35 +1045,44 @@ absl::StatusOr<std::thread> P4RuntimeImpl::StartReceive(
   // Define the lambda function for the callback to be executed for every
   // receive packet.
   auto SendPacketInToController =
-      [this](const std::string& source_port_name,
-             const std::string& target_port_name,
+      [this](const std::string& netdev_source_port_name,
+             const std::string& netdev_target_port_name,
              const std::string& payload) -> absl::Status {
     absl::MutexLock l(&server_state_lock_);
 
-    // Convert Sonic port name to controller port number.
+    // The callback will have Linux netdev interfaces. So we first need to
+    // convert it into a SONiC port name then if needed into the controller port
+    // number.
+    std::string sonic_source_port_name =
+        netdev_translator_.translateFromLinux(netdev_source_port_name);
+    std::string sonic_target_port_name =
+        netdev_translator_.translateFromLinux(netdev_target_port_name);
+
     std::string source_port_id;
     if (translate_port_ids_) {
-      ASSIGN_OR_RETURN(source_port_id,
-                       TranslatePort(TranslationDirection::kForController,
-                                     port_translation_map_, source_port_name),
-                       _.SetCode(absl::StatusCode::kInternal).LogError()
-                           << "Failed to parse source port");
+      ASSIGN_OR_RETURN(
+          source_port_id,
+          TranslatePort(TranslationDirection::kForController,
+                        port_translation_map_, sonic_source_port_name),
+          _ << "Could not send PacketIn request because of bad source port "
+               "name.");
     } else {
-      source_port_id = source_port_name;
+      source_port_id = sonic_source_port_name;
     }
 
     // TODO: Until string port names are supported, re-assign empty
     // target egress port names to match the ingress port.
     std::string target_port_id = source_port_id;
-    if (!target_port_name.empty()) {
+    if (!sonic_target_port_name.empty()) {
       if (translate_port_ids_) {
-        ASSIGN_OR_RETURN(target_port_id,
-                         TranslatePort(TranslationDirection::kForController,
-                                       port_translation_map_, target_port_name),
-                         _.SetCode(absl::StatusCode::kInternal).LogError()
-                             << "Failed to parse target port");
+        ASSIGN_OR_RETURN(
+            target_port_id,
+            TranslatePort(TranslationDirection::kForController,
+                          port_translation_map_, sonic_target_port_name),
+            _ << "Could not send PacketIn request because of bad target port "
+                 "name.");
       } else {
-        target_port_id = target_port_name;
+        target_port_id = sonic_target_port_name;
       }
     }
 

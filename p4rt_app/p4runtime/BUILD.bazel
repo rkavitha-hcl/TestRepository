@@ -192,6 +192,7 @@ cc_library(
     hdrs = ["mock_p4runtime_impl.h"],
     deps = [
         ":p4runtime_impl",
+        "//p4rt_app/sonic/adapters:fake_intf_translator",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
         "@com_google_googletest//:gtest",
         "@sonic_swss_common//tests/mocks:mock_component_state_helper",

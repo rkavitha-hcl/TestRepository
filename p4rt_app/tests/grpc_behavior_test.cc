@@ -26,6 +26,7 @@
 #include "p4/v1/p4runtime.pb.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
 #include "p4rt_app/sonic/adapters/fake_consumer_notifier_adapter.h"
+#include "p4rt_app/sonic/adapters/fake_intf_translator.h"
 #include "p4rt_app/sonic/adapters/fake_producer_state_table_adapter.h"
 #include "p4rt_app/sonic/adapters/fake_sonic_db_table.h"
 #include "p4rt_app/sonic/fake_packetio_interface.h"
@@ -54,11 +55,14 @@ P4RuntimeImpl DummyP4RuntimeImpl() {
   swss::FakeComponentStateHelper component_state_helper;
   swss::FakeSystemStateHelper system_state_helper;
 
+  // Dummy netdev name translation.
+  sonic::FakeIntfTranslator netdev_translator(/*enabled=*/false);
+
   return P4RuntimeImpl(std::move(dummy_p4rt_table), std::move(dummy_vrf_table),
                        std::move(dummy_hash_table),
                        std::move(dummy_switch_table), std::move(packet_io),
                        component_state_helper, system_state_helper,
-                       P4RuntimeImplOptions{});
+                       netdev_translator, P4RuntimeImplOptions{});
 }
 
 TEST(GrpcBehaviorTest,

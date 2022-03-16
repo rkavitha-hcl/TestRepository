@@ -289,11 +289,14 @@ int main(int argc, char** argv) {
       p4rt_app::CreateSwitchTable(&app_db, &app_state_db);
 
   // Create PacketIoImpl for Packet I/O.
-  swss::DBConnector packetio_config_db("CONFIG_DB", 0);
+  swss::DBConnector packetio_config_db("CONFIG_DB", /*timeout=*/0);
   auto packetio_impl = std::make_unique<p4rt_app::sonic::PacketIoImpl>(
       std::make_unique<p4rt_app::sonic::SystemCallAdapter>(),
       std::make_unique<swss::IntfTranslator>(&packetio_config_db),
       p4rt_app::sonic::PacketIoOptions{});
+
+  // Create a netdev translator for P4Runtime's PacketIo handling.
+  swss::IntfTranslator netdev_translator(&packetio_config_db);
 
   // Wait for PortInitDone to be done.
   p4rt_app::WaitForPortInitDone();
@@ -313,7 +316,8 @@ int main(int argc, char** argv) {
   p4rt_app::P4RuntimeImpl p4runtime_server(
       std::move(p4rt_table), std::move(vrf_table), std::move(hash_table),
       std::move(switch_table), std::move(packetio_impl),
-      component_state_singleton, system_state_singleton, p4rt_options);
+      component_state_singleton, system_state_singleton, netdev_translator,
+      p4rt_options);
 
   // Create a server to listen on the unix socket port.
   std::thread internal_server_thread;

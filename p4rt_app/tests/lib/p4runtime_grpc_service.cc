@@ -128,7 +128,8 @@ P4RuntimeGrpcService::P4RuntimeGrpcService(const P4RuntimeImplOptions& options)
   p4runtime_server_ = absl::make_unique<P4RuntimeImpl>(
       std::move(p4rt_table), std::move(vrf_table), std::move(hash_table),
       std::move(switch_table), std::move(fake_packetio_interface),
-      fake_component_state_helper_, fake_system_state_helper_, options);
+      fake_component_state_helper_, fake_system_state_helper_,
+      fake_netdev_translator_, options);
 
   // Component tests will use an insecure connection for the service.
   std::string server_address = absl::StrCat("localhost:", GrpcPort());

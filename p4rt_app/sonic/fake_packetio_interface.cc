@@ -27,10 +27,7 @@ absl::Status FakePacketIoInterface::PushPacketIn(
     absl::string_view packet) const {
   VLOG(1) << "Pushing packet in: " << source_port << ", " << target_port << ", "
           << packet;
-  if (valid_ports_.find(source_port) == valid_ports_.end()) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Not a valid port for PacketIn: ", source_port));
-  }
+
   // Invoke the callback function for the passed in packets.
   return callback_function_(std::string(source_port), std::string(target_port),
                             std::string(packet));

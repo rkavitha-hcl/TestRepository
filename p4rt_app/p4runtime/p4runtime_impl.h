@@ -42,6 +42,7 @@
 #include "p4rt_app/sonic/response_handler.h"
 #include "p4rt_app/sonic/vrf_entry_translation.h"
 #include "swss/component_state_helper_interface.h"
+#include "swss/intf_translator.h"
 
 namespace p4rt_app {
 
@@ -58,6 +59,7 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
                 std::unique_ptr<sonic::PacketIoInterface> packetio_impl,
                 swss::ComponentStateHelperInterface& component_state,
                 swss::SystemStateHelperInterface& system_state,
+                swss::IntfTranslator& netdev_translator,
                 const P4RuntimeImplOptions& p4rt_options);
   ~P4RuntimeImpl() override = default;
 
@@ -123,9 +125,11 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
   // Simple constructor that should only be used for testing purposes.
   P4RuntimeImpl(swss::ComponentStateHelperInterface& component_state,
                 swss::SystemStateHelperInterface& system_state,
+                swss::IntfTranslator& netdev_translator,
                 bool translate_port_ids)
       : component_state_(component_state),
         system_state_(system_state),
+        netdev_translator_(netdev_translator),
         translate_port_ids_(translate_port_ids) {}
 
  private:
@@ -251,6 +255,12 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
   // write requests, but can still handle reads.
   swss::ComponentStateHelperInterface& component_state_;
   swss::SystemStateHelperInterface& system_state_;
+
+  // Some controllers may want to use port names that include the
+  // slot/port/channel format (e.g. Ethernet1/1/1) which does not work for
+  // Linux's netdev interfaces. This translator can be used to convert the names
+  // into a valid Linux name (e.g. Ethernet1_1_1).
+  swss::IntfTranslator& netdev_translator_ ABSL_GUARDED_BY(server_state_lock_);
 
   // Some switch enviornments cannot rely on the SONiC port names, and can
   // instead choose to use port ID's configured through gNMI.

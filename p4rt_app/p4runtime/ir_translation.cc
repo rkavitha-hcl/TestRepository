@@ -195,7 +195,7 @@ absl::StatusOr<std::string> TranslatePort(
         return gutil::InvalidArgumentErrorBuilder()
                << "[P4RT App] Cannot translate port '"
                << absl::CHexEscape(port_key)
-               << " to P4RT ID. Has the port been configured with an ID?";
+               << "' to P4RT ID. Has the port been configured with an ID?";
       }
       return value->second;
     }
@@ -205,7 +205,7 @@ absl::StatusOr<std::string> TranslatePort(
         return gutil::InvalidArgumentErrorBuilder()
                << "[P4RT App] Cannot translate port '"
                << absl::CHexEscape(port_key)
-               << " to SONiC name. Has the port been configured with an ID?";
+               << "' to SONiC name. Has the port been configured with an ID?";
       }
       return value->second;
     }

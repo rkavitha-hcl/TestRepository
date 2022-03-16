@@ -20,6 +20,7 @@
 #include "grpcpp/server.h"
 #include "grpcpp/server_builder.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
+#include "p4rt_app/sonic/adapters/fake_intf_translator.h"
 #include "p4rt_app/sonic/adapters/fake_sonic_db_table.h"
 #include "p4rt_app/sonic/fake_packetio_interface.h"
 #include "swss/fakes/fake_component_state_helper.h"
@@ -90,6 +91,9 @@ class P4RuntimeGrpcService {
   // Faked state state managment.
   swss::FakeComponentStateHelper fake_component_state_helper_;
   swss::FakeSystemStateHelper fake_system_state_helper_;
+
+  // Faked netdev port translation.
+  sonic::FakeIntfTranslator fake_netdev_translator_{/*enabled=*/true};
 
   // gRPC server faking the P4RT App for testing.
   std::unique_ptr<grpc::Server> server_;

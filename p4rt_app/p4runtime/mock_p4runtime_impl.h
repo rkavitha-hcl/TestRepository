@@ -19,6 +19,7 @@
 #include "grpcpp/server_context.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
+#include "p4rt_app/sonic/adapters/fake_intf_translator.h"
 #include "swss/mocks/mock_component_state_helper.h"
 
 namespace p4rt_app {
@@ -27,7 +28,7 @@ class MockP4RuntimeImpl final : public P4RuntimeImpl {
  public:
   MockP4RuntimeImpl()
       : P4RuntimeImpl(mock_component_state_helper_, mock_system_state_helper_,
-                      /*translate_port_ids=*/false) {}
+                      fake_intf_translator_, /*translate_port_ids=*/false) {}
 
   MOCK_METHOD(grpc::Status, Write,
               (grpc::ServerContext * context,
@@ -65,6 +66,7 @@ class MockP4RuntimeImpl final : public P4RuntimeImpl {
  private:
   swss::MockComponentStateHelper mock_component_state_helper_;
   swss::MockSystemStateHelper mock_system_state_helper_;
+  sonic::FakeIntfTranslator fake_intf_translator_{/*enabled=*/true};
 };
 
 }  // namespace p4rt_app
