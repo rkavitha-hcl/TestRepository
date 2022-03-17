@@ -30,14 +30,12 @@ namespace pins_test {
 // Test port breakout during parent port in use.
 void TestGNMIParentPortInUseDuringBreakout(
     thinkit::Switch& sut, std::string& platform_json_contents,
-    const p4::config::v1::P4Info& p4_info =
-        sai::GetP4Info(sai::Instantiation::kMiddleblock));
+    const p4::config::v1::P4Info& p4_info);
 
 // Test port breakout during child port in use.
 void TestGNMIChildPortInUseDuringBreakout(
     thinkit::Switch& sut, std::string& platform_json_contents,
-    const p4::config::v1::P4Info& p4_info =
-        sai::GetP4Info(sai::Instantiation::kMiddleblock));
+    const p4::config::v1::P4Info& p4_info);
 
 // Helper function to test port in use.
 void BreakoutDuringPortInUse(thinkit::Switch& sut,

@@ -125,10 +125,9 @@ void MtuRoutingTestFixture::SetUp() {
   LOG(INFO) << "Destination port: " << destination_link_.sut_interface
             << " port id: " << sut_destination_port_id_;
 
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
-      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-          testbed_->Sut(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
+                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+                           testbed_->Sut(), p4_info()));
 
   // Set up a route between the source and destination interfaces.
   ASSERT_OK(

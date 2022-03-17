@@ -20,6 +20,7 @@
 #include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
 #include "gtest/gtest.h"
+#include "p4/config/v1/p4info.pb.h"
 #include "thinkit/generic_testbed.h"
 #include "thinkit/proto/generic_testbed.pb.h"
 
@@ -48,6 +49,7 @@ struct GenericTestbedFixtureParams {
   // Ownership transferred in GenericTestbedFixture class.
   GenericTestbedInterface* generic_testbed;
   std::string gnmi_config;
+  p4::config::v1::P4Info p4_info;
   absl::optional<std::vector<int>> port_ids;
 };
 
@@ -95,7 +97,8 @@ class GenericTestbedFixture
     return generic_testbed_interface_->GetTestbedWithRequirements(requirements);
   }
 
-  std::string GetGnmiConfig() { return GetParam().gnmi_config; }
+  const std::string& GetGnmiConfig() { return GetParam().gnmi_config; }
+  const p4::config::v1::P4Info& p4_info() { return GetParam().p4_info; }
 
  private:
   // Takes ownership of the GenericTestbedInterface parameter.
