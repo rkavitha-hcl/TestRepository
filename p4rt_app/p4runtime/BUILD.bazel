@@ -70,21 +70,10 @@ cc_test(
         "//gutil:testing",
         "//p4_pdpi:ir_cc_proto",
         "//p4rt_app/utils:ir_builder",
+        "//sai_p4/instantiations/google:instantiations",
+        "//sai_p4/instantiations/google:sai_p4info_cc",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "@com_google_googletest//:gtest_main",
-    ],
-)
-
-cc_test(
-    name = "p4info_verification_schema_sync_test",
-    srcs = ["p4info_verification_schema_sync_test.cc"],
-    deps = [
-        ":p4info_verification_schema",
-        "//gutil:proto_matchers",
-        "//gutil:status_matchers",
-        "//p4_pdpi:ir",
-        "//sai_p4/instantiations/google:sai_p4info_cc",
         "@com_google_googletest//:gtest_main",
     ],
 )

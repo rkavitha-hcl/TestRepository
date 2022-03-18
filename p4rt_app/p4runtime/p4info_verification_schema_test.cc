@@ -27,6 +27,8 @@
 #include "p4_pdpi/ir.pb.h"
 #include "p4rt_app/p4runtime/p4info_verification_schema.pb.h"
 #include "p4rt_app/utils/ir_builder.h"
+#include "sai_p4/instantiations/google/instantiations.h"
+#include "sai_p4/instantiations/google/sai_p4info.h"
 
 namespace p4rt_app {
 namespace {
@@ -874,6 +876,25 @@ TEST(IsSupportedBySchemaTest, AcceptsSmallerMatchFieldBitwidth) {
   schema.mutable_tables(0)->mutable_match_fields(0)->set_bitwidth(8);
   EXPECT_OK(IsSupportedBySchema(ir_p4info, schema));
 }
+
+class GoogleInstantiationTest
+    : public ::testing::TestWithParam<sai::Instantiation> {};
+
+// Tests that P4RT app is always "ahead of" our SAI P4 programs, so we don't
+// accidentally expose features in the program that are not yet supported by
+// P4RT app/GPINS.
+TEST_P(GoogleInstantiationTest, SchemaSupportsInstantiation) {
+  sai::Instantiation instantiation = GetParam();
+  ASSERT_OK_AND_ASSIGN(P4InfoVerificationSchema schema, SupportedSchema());
+  EXPECT_OK(IsSupportedBySchema(sai::GetIrP4Info(instantiation), schema));
+}
+
+INSTANTIATE_TEST_SUITE_P(
+    IsSupportedBySchemaTest, GoogleInstantiationTest,
+    ValuesIn(sai::AllInstantiations()),
+    [](const testing::TestParamInfo<sai::Instantiation>& info) {
+      return sai::InstantiationToString(info.param);
+    });
 
 }  // namespace
 }  // namespace p4rt_app
