@@ -4,8 +4,15 @@
 # program tests and updating all files that are directly derived from the P4
 # program such as P4Infos or PD protos.
 
+# Abort on first error.
+set -e
+
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd $DIR
+
+# To speed things up, we first build everything in parallel before testing
+# things sequentially.
+bazel build '...'
 
 # Update the individual p4info files. Exclude special files that are covered
 # after this loop.
@@ -23,7 +30,10 @@ bazel run :union_p4info_up_to_date_test -- --update
 bazel run :sai_pd_up_to_date_test -- --update
 
 # copybara:strip_begin(this is an internal test)
+bazel build //platforms/networking/orion/p4/ofpd:all
 bazel run //platforms/networking/orion/p4/ofpd:sai_to_orion_test -- --test_update_golden_files
+bazel run //platforms/networking/orion/p4/ofpd:orion_to_sai_test -- --test_update_golden_files
+bazel test //third_party/pins_infra/p4rt_app/tests:forwarding_pipeline_config_test
 # copybara:strip_end
 
 # Check P4 program.
