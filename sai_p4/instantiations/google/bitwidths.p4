@@ -4,7 +4,7 @@
 #ifdef PLATFORM_BMV2
   // Number of bits used for types that use @p4runtime_translation("", string).
   // This allows BMv2 to support string up to this length.
-  #define STRING_MAX_BITWIDTH 192 // 24 chars
+  #define STRING_MAX_BITWIDTH 256 // 32 chars
 
   // TODO: We want to use the commented definition, but BMv2 does not
   // support large numbers for ports.
