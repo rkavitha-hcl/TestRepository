@@ -39,7 +39,10 @@ SHARED_DEPS = [
 
 MIDDLEBLOCK_DEPS = SHARED_DEPS + ["middleblock.p4"]
 
-FABRIC_BORDER_ROUTER_DEPS = SHARED_DEPS + ["acl_egress.p4"]
+FABRIC_BORDER_ROUTER_DEPS = SHARED_DEPS + [
+    "acl_egress.p4",
+    "fabric_border_router.p4",
+]
 
 WBB_DEPS = [
     "acl_wbb_ingress.p4",
@@ -53,7 +56,8 @@ WBB_DEPS = [
 
 INSTANTIATIONS = [
     # (<instantiation>, <dependencies>)
-    ("fabric_border_router", FABRIC_BORDER_ROUTER_DEPS),
+    ("fabric_border_router_with_s2_hash_profile", FABRIC_BORDER_ROUTER_DEPS),
+    ("fabric_border_router_with_s3_hash_profile", FABRIC_BORDER_ROUTER_DEPS),
     ("middleblock_with_s2_ecmp_profile", MIDDLEBLOCK_DEPS),
     ("middleblock_with_s3_ecmp_profile", MIDDLEBLOCK_DEPS),
     ("wbb", WBB_DEPS),

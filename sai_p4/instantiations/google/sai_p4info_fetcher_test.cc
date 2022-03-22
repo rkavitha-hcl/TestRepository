@@ -30,7 +30,7 @@ std::string InstantiationTestName(
 }
 
 absl::flat_hash_set<Instantiation> InstantiationsWithStage() {
-  return {Instantiation::kMiddleblock};
+  return {Instantiation::kMiddleblock, Instantiation::kFabricBorderRouter};
 }
 
 std::vector<Instantiation> InstantiationsWithoutStage() {

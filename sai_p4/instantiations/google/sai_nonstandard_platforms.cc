@@ -7,6 +7,7 @@
 #include "google/protobuf/text_format.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_nonstandard_platforms_embed.h"
 
 namespace sai {
@@ -20,6 +21,9 @@ std::string InstantiationName(Instantiation instantiation) {
   // Default to the s2_ecmp_profile for middleblock.
   if (instantiation == Instantiation::kMiddleblock) {
     return "middleblock_with_s2_ecmp_profile";
+  }
+  if (instantiation == Instantiation::kFabricBorderRouter) {
+    return "fabric_border_router_with_s2_hash_profile";
   }
   return InstantiationToString(instantiation);
 }

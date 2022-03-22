@@ -9,7 +9,8 @@
 #include "p4/config/v1/p4info.pb.h"
 #include "p4_pdpi/ir.pb.h"
 #include "sai_p4/instantiations/google/clos_stage.h"
-#include "sai_p4/instantiations/google/fabric_border_router_p4info_embed.h"
+#include "sai_p4/instantiations/google/fabric_border_router_with_s2_hash_profile_p4info_embed.h"
+#include "sai_p4/instantiations/google/fabric_border_router_with_s3_hash_profile_p4info_embed.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/middleblock_with_s2_ecmp_profile_p4info_embed.h"
 #include "sai_p4/instantiations/google/middleblock_with_s3_ecmp_profile_p4info_embed.h"
@@ -49,6 +50,23 @@ P4Info MiddleblockP4Info(std::optional<ClosStage> stage) {
       middleblock_with_s2_ecmp_profile_p4info_embed_create());
 }
 
+// Returns the fabric border router P4Info at the provided stage. If the stage
+// is not defined, returns the stage 2 P4Info by default.
+P4Info FabricBorderRouterP4Info(std::optional<ClosStage> stage) {
+  if (stage.has_value()) {
+    switch (*stage) {
+      case ClosStage::kStage2:
+        return FileTocToP4Info(
+            fabric_border_router_with_s2_hash_profile_p4info_embed_create());
+      case ClosStage::kStage3:
+        return FileTocToP4Info(
+            fabric_border_router_with_s3_hash_profile_p4info_embed_create());
+    }
+  }
+  return FileTocToP4Info(
+      fabric_border_router_with_s2_hash_profile_p4info_embed_create());
+}
+
 }  // namespace
 
 P4Info FetchP4Info(Instantiation instantiation,
@@ -59,7 +77,7 @@ P4Info FetchP4Info(Instantiation instantiation,
       p4info = MiddleblockP4Info(stage);
       break;
     case Instantiation::kFabricBorderRouter:
-      p4info = FileTocToP4Info(fabric_border_router_p4info_embed_create());
+      p4info = FabricBorderRouterP4Info(stage);
       break;
     case Instantiation::kWbb:
       p4info = FileTocToP4Info(wbb_p4info_embed_create());
