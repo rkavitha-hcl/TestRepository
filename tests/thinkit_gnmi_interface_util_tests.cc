@@ -1245,6 +1245,20 @@ TEST_F(GNMIThinkitInterfaceUtilityTest,
 }
 
 TEST_F(GNMIThinkitInterfaceUtilityTest,
+       TestGetBreakoutModeConfigFromStringInvalidLaneNumberFailure) {
+  const std::string port_index = "1";
+  const std::string intf_name = "Ethernet1/1/X";
+  const std::string breakout_mode = "1x400G";
+  auto mock_gnmi_stub_ptr = absl::make_unique<gnmi::MockgNMIStub>();
+  gnmi::SetRequest req;
+  EXPECT_THAT(
+      pins_test::GetBreakoutModeConfigFromString(
+          req, mock_gnmi_stub_ptr.get(), port_index, intf_name, breakout_mode),
+      StatusIs(absl::StatusCode::kInternal,
+               HasSubstr("Failed to convert string (X) to integer")));
+}
+
+TEST_F(GNMIThinkitInterfaceUtilityTest,
        TestGetNonExistingPortsAfterBreakoutForBreakoutAppliedSuccess) {
   absl::flat_hash_map<std::string, pins_test::PortBreakoutInfo>
       orig_breakout_info;
@@ -1870,5 +1884,21 @@ TEST_F(GNMIThinkitInterfaceUtilityTest,
       pins_test::IsCopperPort(mock_gnmi_stub_ptr.get(), "Ethernet1/1/1"),
       StatusIs(absl::StatusCode::kInternal,
                HasSubstr("Failed to convert string (XYZ) to float")));
+}
+
+TEST_F(GNMIThinkitInterfaceUtilityTest,
+       TestGetSlotPortLaneForPortNonFrontPanelPortFailure) {
+  EXPECT_THAT(pins_test::GetSlotPortLaneForPort("NonFrontPanelPort1/1/1"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Requested port (NonFrontPanelPort1/1/1) is "
+                                 "not a front panel port")));
+}
+
+TEST_F(GNMIThinkitInterfaceUtilityTest,
+       TestGetSlotPortLaneForPortInvalidPortFailure) {
+  EXPECT_THAT(pins_test::GetSlotPortLaneForPort("Ethernet1/1"),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("Requested port (Ethernet1/1) does not have a "
+                                 "valid format (EthernetX/Y/Z)")));
 }
 }  // namespace pins_test
