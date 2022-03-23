@@ -533,4 +533,14 @@ std::string MetadataName(absl::string_view metadata_name) {
   return absl::StrCat("Metadata '", metadata_name, "'");
 }
 
+bool IsElementUnused(
+    const google::protobuf::RepeatedPtrField<std::string> &annotations) {
+  for (const std::string &annotation : annotations) {
+    if (annotation == "@unused") {
+      return true;
+    }
+  }
+  return false;
+}
+
 }  // namespace pdpi

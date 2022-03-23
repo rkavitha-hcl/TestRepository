@@ -269,6 +269,11 @@ StatusOr<IrMatch> PiMatchFieldToIr(
   absl::string_view match_name = match_field.name();
   std::vector<std::string> invalid_reasons;
 
+  if (IsElementUnused(match_field.annotations())) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, "Match field has @unused annotation."));
+  }
+
   switch (match_field.match_type()) {
     case MatchField::EXACT: {
       if (!pi_match.has_exact()) {
@@ -463,6 +468,12 @@ StatusOr<IrActionInvocation> PiActionToIr(
   absl::flat_hash_set<uint32_t> used_params;
   std::vector<std::string> invalid_reasons;
   absl::flat_hash_set<std::string> actual_params;
+
+  if (IsElementUnused(ir_action_definition->preamble().annotations())) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, "Action has @unused annotation."));
+  }
+
   for (const auto &param : pi_action.params()) {
     const absl::Status duplicate = gutil::InsertIfUnique(
         used_params, param.param_id(),
@@ -634,6 +645,12 @@ StatusOr<p4::v1::FieldMatch> IrMatchFieldToPi(
   absl::string_view match_name = match_field.name();
 
   std::vector<std::string> invalid_reasons;
+
+  if (IsElementUnused(match_field.annotations())) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, "Match field has @unused annotation."));
+  }
+
   switch (match_field.match_type()) {
     case MatchField::EXACT: {
       if (!ir_match.has_exact()) {
@@ -860,6 +877,12 @@ StatusOr<p4::v1::Action> IrActionInvocationToPi(
   action.set_action_id(ir_action_definition->preamble().id());
   absl::flat_hash_set<std::string> used_params;
   std::vector<std::string> invalid_reasons;
+
+  if (IsElementUnused(ir_action_definition->preamble().annotations())) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, "Action has @unused annotation."));
+  }
+
   for (const auto &param : ir_table_action.params()) {
     const absl::Status &duplicate = gutil::InsertIfUnique(
         used_params, param.name(),
@@ -1368,6 +1391,12 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
   absl::string_view table_name = ir.table_name();
   std::vector<std::string> invalid_reasons;
 
+  if (IsElementUnused(table->preamble().annotations())) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, "Table entry for table '", table_name,
+                     "' has @unused annotation."));
+  }
+
   // Validate and translate the matches
   absl::flat_hash_set<uint32_t> used_field_ids;
   absl::flat_hash_set<std::string> mandatory_matches;
@@ -1766,6 +1795,12 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
   pi.set_table_id(table->preamble().id());
 
   std::vector<std::string> invalid_reasons;
+
+  if (IsElementUnused(table->preamble().annotations())) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, "Table entry for table '", table_name,
+                     "' has @unused annotation."));
+  }
 
   // Validate and translate the matches
   absl::flat_hash_set<std::string> used_field_names, mandatory_matches;

@@ -364,9 +364,20 @@ tables {
     bitwidth: 48
     match_type: TERNARY
   }
+  match_fields {
+    id: 5
+    name: "unused_field"
+    annotations: "@unused"
+    bitwidth: 1
+    match_type: TERNARY
+  }
   action_refs {
     id: 16777219
     annotations: "@proto_id(1)"
+  }
+  action_refs {
+    id: 16777223
+    annotations: "@proto_id(2)"
   }
   action_refs {
     id: 21257015
@@ -673,6 +684,35 @@ tables {
   const_default_action_id: 21257015
   size: 1024
 }
+tables {
+  preamble {
+    id: 33554447
+    name: "ingress.unused_table"
+    alias: "unused_table"
+    annotations: "@unused"
+  }
+  match_fields {
+    id: 2
+    name: "ipv4"
+    annotations: "@format(IPV4_ADDRESS)"
+    bitwidth: 32
+    match_type: EXACT
+  }
+  match_fields {
+    id: 1
+    name: "ipv6"
+    annotations: "@format(IPV6_ADDRESS)"
+    bitwidth: 128
+    match_type: EXACT
+  }
+  action_refs {
+    id: 21257015
+    annotations: "@defaultonly"
+    scope: DEFAULT_ONLY
+  }
+  const_default_action_id: 21257015
+  size: 1024
+}
 actions {
   preamble {
     id: 16777217
@@ -750,6 +790,14 @@ actions {
     id: 2
     name: "arg2"
     bitwidth: 32
+  }
+}
+actions {
+  preamble {
+    id: 16777223
+    name: "unused_action"
+    alias: "unused_action"
+    annotations: "@unused"
   }
 }
 actions {
@@ -1367,6 +1415,18 @@ tables_by_id {
         format: MAC
       }
     }
+    match_fields_by_id {
+      key: 5
+      value {
+        match_field {
+          id: 5
+          name: "unused_field"
+          annotations: "@unused"
+          bitwidth: 1
+          match_type: TERNARY
+        }
+      }
+    }
     match_fields_by_name {
       key: "ipv4"
       value {
@@ -1413,6 +1473,18 @@ tables_by_id {
           id: 1
           name: "normal"
           bitwidth: 10
+          match_type: TERNARY
+        }
+      }
+    }
+    match_fields_by_name {
+      key: "unused_field"
+      value {
+        match_field {
+          id: 5
+          name: "unused_field"
+          annotations: "@unused"
+          bitwidth: 1
           match_type: TERNARY
         }
       }
@@ -1470,6 +1542,21 @@ tables_by_id {
         }
       }
       proto_id: 1
+    }
+    entry_actions {
+      ref {
+        id: 16777223
+        annotations: "@proto_id(2)"
+      }
+      action {
+        preamble {
+          id: 16777223
+          name: "unused_action"
+          alias: "unused_action"
+          annotations: "@unused"
+        }
+      }
+      proto_id: 2
     }
     default_only_actions {
       ref {
@@ -2661,6 +2748,93 @@ tables_by_id {
         }
       }
       proto_id: 1
+    }
+    default_only_actions {
+      ref {
+        id: 21257015
+        annotations: "@defaultonly"
+        scope: DEFAULT_ONLY
+      }
+      action {
+        preamble {
+          id: 21257015
+          name: "NoAction"
+          alias: "NoAction"
+          annotations: "@noWarn(\"unused\")"
+        }
+      }
+    }
+    size: 1024
+    const_default_action {
+      preamble {
+        id: 21257015
+        name: "NoAction"
+        alias: "NoAction"
+        annotations: "@noWarn(\"unused\")"
+      }
+    }
+  }
+}
+tables_by_id {
+  key: 33554447
+  value {
+    preamble {
+      id: 33554447
+      name: "ingress.unused_table"
+      alias: "unused_table"
+      annotations: "@unused"
+    }
+    match_fields_by_id {
+      key: 1
+      value {
+        match_field {
+          id: 1
+          name: "ipv6"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 128
+          match_type: EXACT
+        }
+        format: IPV6
+      }
+    }
+    match_fields_by_id {
+      key: 2
+      value {
+        match_field {
+          id: 2
+          name: "ipv4"
+          annotations: "@format(IPV4_ADDRESS)"
+          bitwidth: 32
+          match_type: EXACT
+        }
+        format: IPV4
+      }
+    }
+    match_fields_by_name {
+      key: "ipv4"
+      value {
+        match_field {
+          id: 2
+          name: "ipv4"
+          annotations: "@format(IPV4_ADDRESS)"
+          bitwidth: 32
+          match_type: EXACT
+        }
+        format: IPV4
+      }
+    }
+    match_fields_by_name {
+      key: "ipv6"
+      value {
+        match_field {
+          id: 1
+          name: "ipv6"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 128
+          match_type: EXACT
+        }
+        format: IPV6
+      }
     }
     default_only_actions {
       ref {
@@ -4018,6 +4192,18 @@ tables_by_name {
         format: MAC
       }
     }
+    match_fields_by_id {
+      key: 5
+      value {
+        match_field {
+          id: 5
+          name: "unused_field"
+          annotations: "@unused"
+          bitwidth: 1
+          match_type: TERNARY
+        }
+      }
+    }
     match_fields_by_name {
       key: "ipv4"
       value {
@@ -4064,6 +4250,18 @@ tables_by_name {
           id: 1
           name: "normal"
           bitwidth: 10
+          match_type: TERNARY
+        }
+      }
+    }
+    match_fields_by_name {
+      key: "unused_field"
+      value {
+        match_field {
+          id: 5
+          name: "unused_field"
+          annotations: "@unused"
+          bitwidth: 1
           match_type: TERNARY
         }
       }
@@ -4122,6 +4320,21 @@ tables_by_name {
       }
       proto_id: 1
     }
+    entry_actions {
+      ref {
+        id: 16777223
+        annotations: "@proto_id(2)"
+      }
+      action {
+        preamble {
+          id: 16777223
+          name: "unused_action"
+          alias: "unused_action"
+          annotations: "@unused"
+        }
+      }
+      proto_id: 2
+    }
     default_only_actions {
       ref {
         id: 21257015
@@ -4139,6 +4352,93 @@ tables_by_name {
     }
     size: 1024
     requires_priority: true
+    const_default_action {
+      preamble {
+        id: 21257015
+        name: "NoAction"
+        alias: "NoAction"
+        annotations: "@noWarn(\"unused\")"
+      }
+    }
+  }
+}
+tables_by_name {
+  key: "unused_table"
+  value {
+    preamble {
+      id: 33554447
+      name: "ingress.unused_table"
+      alias: "unused_table"
+      annotations: "@unused"
+    }
+    match_fields_by_id {
+      key: 1
+      value {
+        match_field {
+          id: 1
+          name: "ipv6"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 128
+          match_type: EXACT
+        }
+        format: IPV6
+      }
+    }
+    match_fields_by_id {
+      key: 2
+      value {
+        match_field {
+          id: 2
+          name: "ipv4"
+          annotations: "@format(IPV4_ADDRESS)"
+          bitwidth: 32
+          match_type: EXACT
+        }
+        format: IPV4
+      }
+    }
+    match_fields_by_name {
+      key: "ipv4"
+      value {
+        match_field {
+          id: 2
+          name: "ipv4"
+          annotations: "@format(IPV4_ADDRESS)"
+          bitwidth: 32
+          match_type: EXACT
+        }
+        format: IPV4
+      }
+    }
+    match_fields_by_name {
+      key: "ipv6"
+      value {
+        match_field {
+          id: 1
+          name: "ipv6"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 128
+          match_type: EXACT
+        }
+        format: IPV6
+      }
+    }
+    default_only_actions {
+      ref {
+        id: 21257015
+        annotations: "@defaultonly"
+        scope: DEFAULT_ONLY
+      }
+      action {
+        preamble {
+          id: 21257015
+          name: "NoAction"
+          alias: "NoAction"
+          annotations: "@noWarn(\"unused\")"
+        }
+      }
+    }
+    size: 1024
     const_default_action {
       preamble {
         id: 21257015
@@ -4832,6 +5132,17 @@ actions_by_id {
   }
 }
 actions_by_id {
+  key: 16777223
+  value {
+    preamble {
+      id: 16777223
+      name: "unused_action"
+      alias: "unused_action"
+      annotations: "@unused"
+    }
+  }
+}
+actions_by_id {
   key: 21257015
   value {
     preamble {
@@ -5180,6 +5491,17 @@ actions_by_name {
           match_field: "id"
         }
       }
+    }
+  }
+}
+actions_by_name {
+  key: "unused_action"
+  value {
+    preamble {
+      id: 16777223
+      name: "unused_action"
+      alias: "unused_action"
+      annotations: "@unused"
     }
   }
 }

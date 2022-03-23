@@ -517,6 +517,11 @@ static absl::Status IrMatchEntryToPd(const IrTableDefinition &ir_table_info,
       continue;
     }
     const auto *ir_match_info = *status_or_ir_match_info;
+    if (IsElementUnused((ir_match_info->match_field().annotations()))) {
+      invalid_match_reasons.push_back(
+          absl::StrCat(kNewBullet, "Match field has @unused annotation."));
+    }
+
     switch (ir_match_info->match_field().match_type()) {
       case MatchField::EXACT: {
         const absl::StatusOr<std::string> &pd_value =
@@ -673,6 +678,11 @@ static absl::Status IrActionInvocationToPd(
         absl::StrCat(kNewBullet, pd_action.status().message())));
   }
   std::vector<std::string> invalid_reasons;
+  if (IsElementUnused((ir_action_info->preamble().annotations()))) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, "Action has @unused annotation."));
+  }
+
   for (const auto &ir_param : ir_action.params()) {
     const auto &status_or_param_info = gutil::FindPtrOrStatus(
         ir_action_info->params_by_name(), ir_param.name());
@@ -787,6 +797,12 @@ absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
   auto *pd_table = *status_or_pd_table;
 
   std::vector<std::string> invalid_reasons;
+
+  if (IsElementUnused((ir_table_info->preamble().annotations()))) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, "Table entry for table '", ir.table_name(),
+                     "' has @unused annotation."));
+  }
 
   const absl::StatusOr<google::protobuf::Message *> &pd_match =
       GetMutableMessage(pd_table, "match");
@@ -1344,6 +1360,11 @@ static absl::Status PdMatchEntryToIr(const IrTableDefinition &ir_table_info,
       continue;
     }
 
+    if (IsElementUnused(ir_match_info->match_field().annotations())) {
+      invalid_match_reasons.push_back(
+          absl::StrCat(kNewBullet, "Match field has @unused annotation."));
+    }
+
     auto *ir_match = ir_table_entry->add_matches();
     ir_match->set_name(pd_match_name);
     switch (ir_match_info->match_field().match_type()) {
@@ -1526,6 +1547,12 @@ static absl::StatusOr<IrActionInvocation> PdActionInvocationToIr(
   IrActionInvocation ir_action;
   ir_action.set_name(action_name);
   std::vector<std::string> invalid_reasons;
+
+  if (IsElementUnused((*status_or_ir_action_info)->preamble().annotations())) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, "Action has @unused annotation."));
+  }
+
   for (const auto &pd_arg_name : GetAllFieldNames(*pd_action)) {
     const auto &status_or_param_info = gutil::FindPtrOrStatus(
         (*status_or_ir_action_info)->params_by_name(), pd_arg_name);
@@ -1634,6 +1661,13 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
   ir.set_table_name(*p4_table_name);
 
   std::vector<std::string> invalid_reasons;
+
+  if (IsElementUnused(ir_table_info->preamble().annotations())) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, "Table entry for table '", *p4_table_name,
+                     "' has @unused annotation."));
+  }
+
   const auto &status_or_pd_table = GetMessageField(pd, *pd_table_field_name);
   if (!status_or_pd_table.ok()) {
     return absl::InvalidArgumentError(GenerateFormattedError(

@@ -541,6 +541,44 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                         }
                         action { action_profile_member_id: 12 }
                       )pb"));
+
+  RunPiTableEntryTest(info, "unused table used",
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
+                        table_id: 33554447
+                        match {
+                          field_id: 1
+                          exact { value: "\xff\x22" }
+                        }
+                        match {
+                          field_id: 2
+                          exact { value: "\x10\x24\x32\x52" }
+                        }
+                      )pb"));
+
+  RunPiTableEntryTest(info, "ternary table - unused action used",
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
+                        table_id: 33554435
+                        match {
+                          field_id: 1
+                          ternary { value: "\xd0" mask: "\x00\xff" }
+                        }
+                        action { action { action_id: 16777223 } }
+                        priority: 32
+                      )pb"));
+
+  RunPiTableEntryTest(info, "ternary table - unused match field used",
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
+                        table_id: 33554435
+                        match {
+                          field_id: 1
+                          ternary { value: "\xd0" mask: "\x00\xff" }
+                        }
+                        match {
+                          field_id: 5
+                          ternary { value: "0" }
+                        }
+                        priority: 32
+                      )pb"));
 }
 
 static void RunIrNoActionTableTests(const pdpi::IrP4Info& info) {
@@ -564,6 +602,40 @@ static void RunIrNoActionTableTests(const pdpi::IrP4Info& info) {
                             value { hex_str: "0x01234567" }
                           }
                         })pb"));
+}
+
+static void RunIrTernaryTableTests(const pdpi::IrP4Info info) {
+  RunIrTableEntryTest(info, "unused table used",
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
+                        table_name: "unused_table"
+                        matches {
+                          name: "ipv4"
+                          exact { ipv4: "10.10.10.10" }
+                        }
+                        matches {
+                          name: "ipv6"
+                          exact { ipv6: "::ff22" }
+                        }
+                      )pb"));
+  RunIrTableEntryTest(info, "ternary table - unused action used",
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
+                        table_name: "ternary_table"
+                        matches {
+                          name: "normal"
+                          ternary { value { hex_str: "0x00" } }
+                        }
+                        action { name: "unused_action" }
+                        priority: 32
+                      )pb"));
+  RunIrTableEntryTest(info, "ternary table - unused match field used",
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
+                        table_name: "ternary_table"
+                        matches {
+                          name: "unused_field"
+                          ternary { value { hex_str: "0x00" } }
+                        }
+                        priority: 32
+                      )pb"));
 }
 
 static void RunIrTests(const pdpi::IrP4Info info) {
@@ -1088,6 +1160,7 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                         counter_data { byte_count: 4213 }
                       )pb"));
   RunIrNoActionTableTests(info);
+  RunIrTernaryTableTests(info);
 }
 
 static void RunPdTests(const pdpi::IrP4Info info) {
@@ -1613,6 +1686,32 @@ static void RunPdTestsOnlyKey(const pdpi::IrP4Info info) {
         }
       )pb"),
       INPUT_IS_INVALID, /*key_only=*/true);
+
+  RunPdTableEntryTest(
+      info, "unused table used", gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
+        unused_table_entry { match { ipv4: "10.10.10.10" ipv6: "::ff22" } }
+      )pb"),
+      INPUT_IS_INVALID);
+
+  RunPdTableEntryTest(info, "ternary table - unused action used",
+                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
+                        ternary_table_entry {
+                          match { normal { value: "0x052" mask: "0x273" } }
+                          priority: 32
+                          action { unused_action {} }
+                        }
+                      )pb"),
+                      INPUT_IS_INVALID);
+
+  RunPdTableEntryTest(info, "ternary table - unused match field used",
+                      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
+                        ternary_table_entry {
+                          match { unused_field { value: "0x052" } }
+                          priority: 32
+                          action { do_thing_3 { arg1: "0x23" arg2: "0x0251" } }
+                        }
+                      )pb"),
+                      INPUT_IS_INVALID);
 
   RunPdTableEntryTest(
       info, "ipv4 LPM table with key_only=true",

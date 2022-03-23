@@ -80,10 +80,14 @@ message TernaryTableEntry {
     Ternary ipv4 = 2; // ternary match / Format::IPV4
     Ternary ipv6 = 3; // ternary match / Format::IPV6
     Ternary mac = 4; // ternary match / Format::MAC
+    Ternary unused_field = 5; // ternary match / Format::HEX_STRING / 1 bits
   }
   Match match = 1;
   message Action {
+  oneof action {
     DoThing3Action do_thing_3 = 1;
+    UnusedAction unused_action = 2;
+  }
   }
   Action action = 2;
   int32 priority = 3;
@@ -242,6 +246,18 @@ message ReferringToReferring2TableEntry {
   bytes controller_metadata = 8;
 }
 
+message UnusedTableEntry {
+  message Match {
+    string ipv6 = 1; // exact match / Format::IPV6
+    string ipv4 = 2; // exact match / Format::IPV4
+  }
+  Match match = 1;
+  message Action {
+  }
+  Action action = 2;
+  bytes controller_metadata = 8;
+}
+
 
 // -- Actions ------------------------------------------------------------------
 
@@ -276,6 +292,9 @@ message ReferringAction {
   string referring_id_2 = 2; // Format::STRING
 }
 
+message UnusedAction {
+}
+
 message NoAction {
 }
 
@@ -298,6 +317,7 @@ message TableEntry {
     Referring2TableEntry referring2_table_entry = 12;
     NoActionTableEntry no_action_table_entry = 13;
     ReferringToReferring2TableEntry referring_to_referring2_table_entry = 14;
+    UnusedTableEntry unused_table_entry = 15;
   }
 }
 

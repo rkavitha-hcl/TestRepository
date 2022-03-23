@@ -65,6 +65,10 @@ action do_thing_3(@id(1) bit<32> arg1, @id(2) bit<32> arg2) {
 action do_thing_4() {
 }
 
+@id(7) @unused
+action unused_action() {
+}
+
 
 control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_t standard_metadata) {
 
@@ -109,9 +113,11 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
       meta.ipv4 : ternary @id(2) @format(IPV4_ADDRESS) @name("ipv4");
       meta.ipv6 : ternary @id(3) @format(IPV6_ADDRESS) @name("ipv6");
       meta.mac : ternary @id(4) @format(MAC_ADDRESS) @name("mac");
+      meta.val : ternary @id(5) @name("unused_field") @unused;
     }
     actions = {
       @proto_id(1) do_thing_3;
+      @proto_id(2) unused_action;
       @defaultonly NoAction();
     }
     const default_action = NoAction();
@@ -290,6 +296,18 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
       const default_action = NoAction();
   }
 
+  // Unused table
+  @id(15) @unused
+  table unused_table {
+      key = {
+        meta.ipv4 : exact @id(2) @format(IPV4_ADDRESS) @name("ipv4");
+        meta.ipv6 : exact @id(1) @format(IPV6_ADDRESS) @name("ipv6");
+      }
+      actions = {
+        @defaultonly NoAction();
+      }
+      const default_action = NoAction();
+  }
 
   apply {
     id_test_table.apply();
@@ -306,6 +324,7 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
     referring2_table.apply();
     no_action_table.apply();
     referring_to_referring2_table.apply();
+    unused_table.apply();
   }
 }
 
