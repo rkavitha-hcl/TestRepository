@@ -16,11 +16,9 @@ def pins_infra_deps():
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
             name = "com_github_grpc_grpc",
-            # TODO: Temporary workaround for compilation error seen in some versions of gcc.
-            # Use https://github.com/grpc/grpc after https://github.com/grpc/grpc/pull/28196 merges.
-            url = "https://github.com/shak5009/grpc/archive/74106d4b44541596f0d3a502a3b2f6c5245c88d8.zip",
-            strip_prefix = "grpc-74106d4b44541596f0d3a502a3b2f6c5245c88d8",
-            sha256 = "b726aa682af97f4dc527a307222c7b4bc944900b0bfb07f17d9445943bcf2142",
+            url = "https://github.com/grpc/grpc/archive/v1.44.0.tar.gz",
+            strip_prefix = "grpc-1.44.0",
+            sha256 = "8c05641b9f91cbc92f51cc4a5b3a226788d7a63f20af4ca7aaca50d92cc94a0d",
         )
     if not native.existing_rule("com_google_absl"):
         http_archive(
@@ -102,9 +100,9 @@ def pins_infra_deps():
         http_archive(
             name = "com_github_p4lang_p4c",
             # Newest commit on main on 2021-12-07.
-            url = "https://github.com/p4lang/p4c/archive/37cd30ee9dc79c65b057a1aa168b961d7aba4701.zip",
-            strip_prefix = "p4c-37cd30ee9dc79c65b057a1aa168b961d7aba4701",
-            sha256 = "788fd5278d0580a7a0bf50a52231bbea79741a5ea82c5a9c9d256df6b02c1eb1",
+            url = "https://github.com/p4lang/p4c/archive/a9aa5ff46affe8fd5dde78c2411d1bc58a715b33.zip",
+            strip_prefix = "p4c-a9aa5ff46affe8fd5dde78c2411d1bc58a715b33",
+            sha256 = "fa22c3d2b3105a39a73fc3938cbc6cd5d7895113a3e6ed6c5a48fbbd958a28af",
         )
     if not native.existing_rule("com_github_p4lang_p4runtime"):
         # We frequently need bleeding-edge, unreleased version of P4Runtime, so we use a commit
@@ -112,9 +110,9 @@ def pins_infra_deps():
         http_archive(
             name = "com_github_p4lang_p4runtime",
             # 0332e is the newest commit on main as of 2021-04-29.
-            urls = ["https://github.com/p4lang/p4runtime/archive/0332e999c24c6bb6795181ad407cbb759bfa827d.zip"],
-            strip_prefix = "p4runtime-0332e999c24c6bb6795181ad407cbb759bfa827d/proto",
-            sha256 = "50a2251a5250bcfba3037fb7712e232b3581684a7cbd983840fc97363243921f",
+            urls = ["https://github.com/p4lang/p4runtime/archive/d85e95de0aa0ee5905478b05eb5ce961491082eb.zip"],
+            strip_prefix = "p4runtime-d85e95de0aa0ee5905478b05eb5ce961491082eb/proto",
+            sha256 = "3f7472cfd916fe64e659adf593827f23cbd6032b6abe78f41e98761c29b9be57",
         )
     if not native.existing_rule("com_github_p4lang_p4_constraints"):
         http_archive(
