@@ -670,12 +670,14 @@ TEST_P(HashConfigTest, HashSeedSettingsAffectPacketHash) {
       "0a584c71-a701-4ea5-b4f3-5e4e37171d9c");
 
   p4::config::v1::P4Info modified_p4info = GetP4Info();
-  ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(
-      modified_p4info, R"re(sai_hash_seed\([^)]*\))re", "sai_hash_seed(7)"));
+  ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(modified_p4info,
+                                            R"re(sai_hash_seed\([^)]*\))re",
+                                            "sai_hash_seed(2821017091)"));
   // If we happen to match, attempt with another seed.
   if (Matches(EqualsProto(GetP4Info()))(modified_p4info)) {
-    ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(
-        modified_p4info, R"re(sai_hash_seed\([^)]*\))re", "sai_hash_seed(8)"));
+    ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(modified_p4info,
+                                              R"re(sai_hash_seed\([^)]*\))re",
+                                              "sai_hash_seed(2821017092)"));
   }
   ASSERT_THAT(modified_p4info, Not(EqualsProto(GetP4Info())))
       << "Failed to modify the hash seed in the P4Info.";
