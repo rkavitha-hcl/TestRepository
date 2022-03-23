@@ -207,9 +207,7 @@ std::string DumpJson(const nlohmann::json& value) {
 }
 
 nlohmann::json ReplaceNamesinJsonObject(
-    const nlohmann::json& source,
-    const absl::flat_hash_map<std::string, std::string>&
-        old_name_to_new_name_map) {
+    const nlohmann::json& source, const StringMap& old_name_to_new_name_map) {
   switch (source.type()) {
     case nlohmann::json::value_t::object: {
       nlohmann::json target(nlohmann::json::value_t::object);
@@ -237,6 +235,40 @@ nlohmann::json ReplaceNamesinJsonObject(
     default:
       // Leaf value or null. Nothing to replace.
       return source;
+  }
+}
+
+void ReplaceNamesinJsonObject(const StringMap& old_name_to_new_name_map,
+                              nlohmann::json& root) {
+  switch (root.type()) {
+    case nlohmann::json::value_t::object: {
+      for (const auto& [old_name, new_name] : old_name_to_new_name_map) {
+        if (!root.contains(old_name)) continue;
+
+        // Create an empty JSON with the new name (erases any existing value).
+        root[new_name] = nlohmann::json(nlohmann::json::value_t::null);
+        // Swap with JSON values between the old and new names.
+        root[old_name].swap(root[new_name]);
+        // Erase the old name.
+        root.erase(old_name);
+      }
+      for (auto& [_, value] : root.items()) {
+        // Traverse through all the members recursively.
+        ReplaceNamesinJsonObject(old_name_to_new_name_map, value);
+      }
+      break;
+    }
+    case nlohmann::json::value_t::array: {
+      nlohmann::json target(nlohmann::json::value_t::array);
+      for (int i = 0; i < root.size(); ++i) {
+        // Traverse through all array elements recursively.
+        ReplaceNamesinJsonObject(old_name_to_new_name_map, root[i]);
+      }
+      break;
+    }
+    default:
+      // Primitive value or null. Nothing to replace.
+      break;
   }
 }
 
