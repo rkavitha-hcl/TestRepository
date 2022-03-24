@@ -135,8 +135,8 @@ struct SaiHeaders {
   SaiEthernet ethernet;
 
   // Not extracted during parsing.
-  SaiIpv6 tunnel_ipv6;
-  SaiGre tunnel_gre;
+  SaiIpv6 tunnel_encap_ipv6;
+  SaiGre tunnel_encap_gre;
 
   SaiIpv4 ipv4;
   SaiIpv6 ipv6;

@@ -88,13 +88,26 @@ tables {
 tables {
   name: "nexthop_table"
   match_fields { name: "nexthop_id" format: STRING type: EXACT }
+  # Deprecated. Use `set_ip_nexthop` instead.
+  # TODO: Remove once migration to `set_ip_nexthop` is completed.
   actions {
     name: "set_nexthop"
     parameters { name: "neighbor_id" format: STRING }
     parameters { name: "router_interface_id" format: STRING }
   }
   actions {
-    name: "set_tunnel_nexthop"
+    name: "set_ip_nexthop"
+    parameters {
+      name: "router_interface_id"
+      format: STRING
+    }
+    parameters {
+      name: "neighbor_id"
+      format: STRING
+    }
+  }
+  actions {
+    name: "set_tunnel_encap_nexthop"
     parameters { name: "neighbor_id" format: STRING }
     parameters { name: "tunnel_id" format: STRING }
   }
@@ -114,8 +127,8 @@ tables {
   actions {
     name: "mark_for_tunnel_encap"
     parameters { name: "router_interface_id" format: STRING }
-    parameters { name: "tunnel_outer_dst_ip" format: IPV6 }
-    parameters { name: "tunnel_outer_src_ip" format: IPV6 }
+    parameters { name: "encap_dst_ip" format: IPV6 }
+    parameters { name: "encap_src_ip" format: IPV6 }
   }
 }
 tables {

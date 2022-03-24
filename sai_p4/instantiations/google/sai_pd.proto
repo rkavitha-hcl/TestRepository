@@ -79,7 +79,8 @@ message NexthopTableEntry {
   message Action {
     oneof action {
       SetNexthopAction set_nexthop = 1;
-      SetTunnelNexthopAction set_tunnel_nexthop = 2;
+      SetTunnelEncapNexthopAction set_tunnel_encap_nexthop = 2;
+      SetIpNexthopAction set_ip_nexthop = 3;
     }
   }
   Action action = 2;
@@ -445,7 +446,7 @@ message SetWcmpGroupIdAndMetadataAction {
   string route_metadata = 2;  // Format::HEX_STRING / 6 bits
 }
 
-message SetTunnelNexthopAction {
+message SetTunnelEncapNexthopAction {
   // Refers to 'neighbor_table.neighbor_id'.
   string neighbor_id = 1;  // Format::STRING
   // Refers to 'tunnel_table.tunnel_id'.
@@ -453,10 +454,18 @@ message SetTunnelNexthopAction {
 }
 
 message MarkForTunnelEncapAction {
-  string tunnel_outer_src_ip = 1;  // Format::IPV6
-  string tunnel_outer_dst_ip = 2;  // Format::IPV6
+  string encap_src_ip = 1;  // Format::IPV6
+  string encap_dst_ip = 2;  // Format::IPV6
   // Refers to 'router_interface_table.router_interface_id'.
   string router_interface_id = 3;  // Format::STRING
+}
+
+message SetIpNexthopAction {
+  // Refers to 'router_interface_table.router_interface_id'.
+  // Refers to 'neighbor_table.router_interface_id'.
+  string router_interface_id = 1;  // Format::STRING
+  // Refers to 'neighbor_table.neighbor_id'.
+  string neighbor_id = 2;  // Format::STRING
 }
 
 message SetVrfAction {

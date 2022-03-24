@@ -95,9 +95,9 @@ struct headers_t {
   ethernet_t ethernet;
 
   // Not extracted during parsing.
-  ipv6_t tunnel_ipv6;
-  gre_t tunnel_gre;
-  
+  ipv6_t tunnel_encap_ipv6;
+  gre_t tunnel_encap_gre;
+
   ipv4_t ipv4;
   ipv6_t ipv6;
   icmp_t icmp;
@@ -124,8 +124,8 @@ struct local_metadata_t {
   bit<WCMP_SELECTOR_INPUT_BITWIDTH> wcmp_selector_input;
   // GRE tunnel encap related fields.
   bool apply_tunnel_encap_at_egress;
-  ipv6_addr_t tunnel_outer_src_ipv6;
-  ipv6_addr_t tunnel_outer_dst_ipv6;
+  ipv6_addr_t tunnel_encap_src_ipv6;
+  ipv6_addr_t tunnel_encap_dst_ipv6;
   // mirroring data, we can't group the into a struct, because BMv2 doesn't
   // support passing structs in clone3.
   bool mirror_session_id_valid;

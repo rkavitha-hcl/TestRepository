@@ -31,12 +31,13 @@
 #define ROUTING_SET_DST_MAC_ACTION_ID 0x01000001                     // 16777217
 #define ROUTING_SET_PORT_AND_SRC_MAC_ACTION_ID 0x01000002            // 16777218
 #define ROUTING_SET_NEXTHOP_ACTION_ID 0x01000003                     // 16777219
+#define ROUTING_SET_IP_NEXTHOP_ACTION_ID 0x01000014                  // 16777236
 #define ROUTING_SET_WCMP_GROUP_ID_ACTION_ID 0x01000004               // 16777220
 #define ROUTING_SET_WCMP_GROUP_ID_AND_METADATA_ACTION_ID 0x01000011  // 16777233
 #define ROUTING_SET_NEXTHOP_ID_ACTION_ID 0x01000005                  // 16777221
 #define ROUTING_SET_NEXTHOP_ID_AND_METADATA_ACTION_ID 0x01000010     // 16777232
 #define ROUTING_DROP_ACTION_ID 0x01000006                            // 16777222
-#define ROUTING_SET_TUNNEL_NEXTHOP_ACTION_ID 0x01000012              // 16777234
+#define ROUTING_SET_TUNNEL_ENCAP_NEXTHOP_ACTION_ID 0x01000012        // 16777234
 #define ROUTING_MARK_FOR_TUNNEL_ENCAP_ACTION_ID 0x01000013           // 16777235
 #define MIRRORING_MIRROR_AS_IPV4_ERSPAN_ACTION_ID 0x01000007         // 16777223
 #define L3_ADMIT_ACTION_ID 0x01000008                                // 16777224
@@ -47,7 +48,7 @@
 #define COMPUTE_LAG_HASH_IPV4_ACTION_ID 0x0100000D                   // 16777229
 #define COMPUTE_LAG_HASH_IPV6_ACTION_ID 0x0100000E                   // 16777230
 #define TRAP_ACTION_ID 0x0100000F                                    // 16777231
-// Next available action id: 0x01000014
+// Next available action id: 0x01000015
 
 // --- Action Profiles and Selectors (8 most significant bits = 0x11) ----------
 // This value should ideally be 0x11000001, but we currently have this value for

@@ -196,7 +196,7 @@ TEST_F(FixedL3TableTest, SupportNexthopTableTunnelActionFlows) {
                                  nexthop_table_entry {
                                    match { nexthop_id: "8" }
                                    action {
-                                     set_tunnel_nexthop {
+                                     set_tunnel_encap_nexthop {
                                        neighbor_id: "fe80::021a:11ff:fe17:5f80"
                                        tunnel_id: "tunnel-1"
                                      }
@@ -208,45 +208,44 @@ TEST_F(FixedL3TableTest, SupportNexthopTableTunnelActionFlows) {
                            ir_p4_info_));
 
   // Expected P4RT AppDb entries.
-  auto tunnel_nexthop_entry =
+  auto tunnel_encap_nexthop_entry =
       test_lib::AppDbEntryBuilder{}
           .SetTableName("FIXED_NEXTHOP_TABLE")
           .AddMatchField("nexthop_id", "8")
-          .SetAction("set_tunnel_nexthop")
+          .SetAction("set_tunnel_encap_nexthop")
           .AddActionParam("neighbor_id", "fe80::021a:11ff:fe17:5f80")
           .AddActionParam("tunnel_id", "tunnel-1");
 
   EXPECT_OK(
       pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
   EXPECT_THAT(p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(
-                  tunnel_nexthop_entry.GetKey()),
+                  tunnel_encap_nexthop_entry.GetKey()),
               IsOkAndHolds(UnorderedElementsAreArray(
-                  tunnel_nexthop_entry.GetValueMap())));
+                  tunnel_encap_nexthop_entry.GetValueMap())));
 }
 
 TEST_F(FixedL3TableTest, SupportTunnelTableFlows) {
   // P4 write request.
-  ASSERT_OK_AND_ASSIGN(
-      p4::v1::WriteRequest request,
-      test_lib::PdWriteRequestToPi(
-          R"pb(
-            updates {
-              type: INSERT
-              table_entry {
-                tunnel_table_entry {
-                  match { tunnel_id: "tunnel-1" }
-                  action {
-                    mark_for_tunnel_encap {
-                      tunnel_outer_src_ip: "2002:a17:506:c114::1"
-                      tunnel_outer_dst_ip: "2002:a17:506:c114::2"
-                      router_interface_id: "1"
-                    }
-                  }
-                }
-              }
-            }
-          )pb",
-          ir_p4_info_));
+  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 tunnel_table_entry {
+                                   match { tunnel_id: "tunnel-1" }
+                                   action {
+                                     mark_for_tunnel_encap {
+                                       encap_src_ip: "2002:a17:506:c114::1"
+                                       encap_dst_ip: "2002:a17:506:c114::2"
+                                       router_interface_id: "1"
+                                     }
+                                   }
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
 
   // Expected P4RT AppDb entry.
   auto expected_entry =
@@ -254,8 +253,8 @@ TEST_F(FixedL3TableTest, SupportTunnelTableFlows) {
           .SetTableName("FIXED_TUNNEL_TABLE")
           .AddMatchField("tunnel_id", "tunnel-1")
           .SetAction("mark_for_tunnel_encap")
-          .AddActionParam("tunnel_outer_src_ip", "2002:a17:506:c114::1")
-          .AddActionParam("tunnel_outer_dst_ip", "2002:a17:506:c114::2")
+          .AddActionParam("encap_src_ip", "2002:a17:506:c114::1")
+          .AddActionParam("encap_dst_ip", "2002:a17:506:c114::2")
           .AddActionParam("router_interface_id", "1");
 
   EXPECT_OK(

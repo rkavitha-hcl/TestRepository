@@ -4,15 +4,16 @@
 # program tests and updating all files that are directly derived from the P4
 # program such as P4Infos or PD protos.
 
-# Abort on first error.
-set -e
-
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" &> /dev/null && pwd )"
 cd $DIR
 
 # To speed things up, we first build everything in parallel before testing
-# things sequentially.
+# things sequentially. Some failures here are expected, since generated files
+# may need updating first.
 bazel build '...'
+
+# Abort on first error.
+set -e
 
 # Update the individual p4info files. Exclude special files that are covered
 # after this loop.

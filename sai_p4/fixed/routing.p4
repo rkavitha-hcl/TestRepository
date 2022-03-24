@@ -111,15 +111,15 @@ control routing(in headers_t headers,
   // and SAI_TUNNEL_ATTR_UNDERLAY_INTERFACE.
   @id(ROUTING_MARK_FOR_TUNNEL_ENCAP_ACTION_ID)
   action mark_for_tunnel_encap(@id(1) @format(IPV6_ADDRESS)
-                              ipv6_addr_t tunnel_outer_src_ip,
+                              ipv6_addr_t encap_src_ip,
                               @id(2) @format(IPV6_ADDRESS)
-                              ipv6_addr_t tunnel_outer_dst_ip,
+                              ipv6_addr_t encap_dst_ip,
                               @id(3)
                               @refers_to(router_interface_table,
                               router_interface_id)
                               router_interface_id_t router_interface_id) {
-    local_metadata.tunnel_outer_src_ipv6 = tunnel_outer_src_ip;
-    local_metadata.tunnel_outer_dst_ipv6 = tunnel_outer_dst_ip;
+    local_metadata.tunnel_encap_src_ipv6 = encap_src_ip;
+    local_metadata.tunnel_encap_dst_ipv6 = encap_dst_ip;
     local_metadata.apply_tunnel_encap_at_egress = true;
     router_interface_id_valid = true;
     router_interface_id_value = router_interface_id;
@@ -152,17 +152,30 @@ control routing(in headers_t headers,
   // specifying that the pair (router_interface_id, neighbor_id) refers to the
   // two match fields in neighbor_table. This is still correct, but less
   // precise.
+  @id(ROUTING_SET_IP_NEXTHOP_ACTION_ID)
+  action set_ip_nexthop(@id(1)
+                        @refers_to(router_interface_table, router_interface_id)
+                        @refers_to(neighbor_table, router_interface_id)
+                        router_interface_id_t router_interface_id,
+                        @id(2) @refers_to(neighbor_table, neighbor_id)
+                        neighbor_id_t neighbor_id) {
+    router_interface_id_valid = true;
+    router_interface_id_value = router_interface_id;
+    neighbor_id_valid = true;
+    neighbor_id_value = neighbor_id;
+  }
+
   @id(ROUTING_SET_NEXTHOP_ACTION_ID)
+  @deprecated("Use set_ip_nexthop instead.")
+  // TODO: Remove this action once migration to `set_ip_nexthop`
+  // is complete & rolled out.
   action set_nexthop(@id(1)
                      @refers_to(router_interface_table, router_interface_id)
                      @refers_to(neighbor_table, router_interface_id)
                      router_interface_id_t router_interface_id,
                      @id(2) @refers_to(neighbor_table, neighbor_id)
                      neighbor_id_t neighbor_id) {
-    router_interface_id_valid = true;
-    router_interface_id_value = router_interface_id;
-    neighbor_id_valid = true;
-    neighbor_id_value = neighbor_id;
+    set_ip_nexthop(router_interface_id, neighbor_id);
   }
 
   // Sets SAI_NEXT_HOP_ATTR_TYPE to SAI_NEXT_HOP_TYPE_TUNNEL_ENCAP, and
@@ -170,13 +183,13 @@ control routing(in headers_t headers,
   //
   //  This action can only refer to `neighbor_id`s that are programmed in the
   // `neighbor_table`.
-  @id(ROUTING_SET_TUNNEL_NEXTHOP_ACTION_ID)
-  action set_tunnel_nexthop(@id(1)
-                            @refers_to(neighbor_table, neighbor_id)
-                            neighbor_id_t neighbor_id,
-                            @id(2)
-                            @refers_to(tunnel_table, tunnel_id)
-                            tunnel_id_t tunnel_id) {
+  @id(ROUTING_SET_TUNNEL_ENCAP_NEXTHOP_ACTION_ID)
+  action set_tunnel_encap_nexthop(@id(1)
+                                  @refers_to(neighbor_table, neighbor_id)
+                                  neighbor_id_t neighbor_id,
+                                  @id(2)
+                                  @refers_to(tunnel_table, tunnel_id)
+                                  tunnel_id_t tunnel_id) {
     tunnel_id_valid = true;
     tunnel_id_value = tunnel_id;
     // The other key `router_interface_id` required for the
@@ -193,7 +206,8 @@ control routing(in headers_t headers,
     }
     actions = {
       @proto_id(1) set_nexthop;
-      @proto_id(2) set_tunnel_nexthop;
+      @proto_id(2) set_tunnel_encap_nexthop;
+      @proto_id(3) set_ip_nexthop;
       @defaultonly NoAction;
     }
     const default_action = NoAction;
