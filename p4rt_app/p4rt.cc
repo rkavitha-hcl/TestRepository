@@ -1,4 +1,4 @@
-// Copyright 2020 Google LLC
+// Copyright 2022 Google LLC
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -84,6 +84,7 @@ DEFINE_bool(
     "is false and mTLS is configured.");
 DEFINE_string(authorization_policy_file, "/keys/authorization_policy.json",
               "File name of the JSON authorization policy file.");
+DEFINE_string(cert_crl_dir, "", "Path to the CRL directory. Disable if empty");
 
 // P4Runtime options:
 DEFINE_bool(use_genetlink, false,
@@ -140,6 +141,12 @@ absl::StatusOr<std::shared_ptr<ServerCredentials>> BuildServerCredentials() {
       opts.set_identity_cert_name(kIdentityCertName);
       opts.set_cert_request_type(
           GRPC_SSL_REQUEST_AND_REQUIRE_CLIENT_CERTIFICATE_AND_VERIFY);
+
+      // Set CRL Directory if it's not empty
+      if (!FLAGS_cert_crl_dir.empty()) {
+        opts.set_crl_directory(FLAGS_cert_crl_dir);
+        LOG(INFO) << "CRL directory has been set";
+      }
       creds = grpc::experimental::TlsServerCredentials(opts);
     }
     if (creds == nullptr) {
