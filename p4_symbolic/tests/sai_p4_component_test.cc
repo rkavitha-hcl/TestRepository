@@ -54,6 +54,16 @@ constexpr absl::string_view kTableEntries = R"pb(
     }
   }
   entries {
+    l3_admit_table_entry {
+      match {
+        dst_mac { value: "66:55:44:33:22:10" mask: "ff:ff:ff:ff:ff:ff" }
+        in_port { value: "0x005" }
+      }
+      action { admit_to_l3 {} }
+      priority: 1
+    }
+  }
+  entries {
     ipv4_table_entry {
       match { vrf_id: "vrf-80" }
       action { set_nexthop_id { nexthop_id: "nexthop-1" } }
