@@ -111,8 +111,7 @@ absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>> P4InfoPush(
     thinkit::GenericTestbed& testbed) {
   std::optional<p4::config::v1::P4Info> p4info = std::nullopt;
   if (absl::GetFlag(FLAGS_push_p4_info)) {
-    std::optional<p4::config::v1::P4Info> p4info =
-        sai::GetP4Info(sai::Instantiation::kMiddleblock);
+    p4info = sai::GetP4Info(sai::Instantiation::kMiddleblock);
   }
   return ConfigureSwitchAndReturnP4RuntimeSession(
       testbed.Sut(), /*gnmi_config=*/std::nullopt, p4info);
