@@ -148,6 +148,8 @@ struct local_metadata_t {
   // has port_id_t as the type for all fields that match on ports. This allows
   // tools to treat ports specially (e.g. a fuzzer).
   port_id_t ingress_port;
+  // The following field corresponds to SAI_ROUTE_ENTRY_ATTR_META_DATA/
+  // SAI_ACL_TABLE_ATTR_FIELD_ROUTE_DST_USER_META.
   route_metadata_t route_metadata;
 }
 

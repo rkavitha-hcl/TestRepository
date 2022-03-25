@@ -224,6 +224,7 @@ absl::StatusOr<SaiFields> GetSaiFields(const SymbolicPerPacketState& state) {
       .l4_dst_port = get_metadata_field("l4_dst_port"),
       .mirror_session_id_valid = get_metadata_field("mirror_session_id_valid"),
       .ingress_port = get_metadata_field("ingress_port"),
+      .route_metadata = get_metadata_field("route_metadata"),
   };
   auto standard_metadata = V1ModelStandardMetadata{
       .ingress_port = get_field("standard_metadata.ingress_port"),

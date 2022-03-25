@@ -155,6 +155,7 @@ struct SaiLocalMetadata {
   z3::expr l4_dst_port;
   z3::expr mirror_session_id_valid;
   z3::expr ingress_port;
+  z3::expr route_metadata;
 };
 
 // Symbolic version of `struct standard_metadata_t` in v1model.p4

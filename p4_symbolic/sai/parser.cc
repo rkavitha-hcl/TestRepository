@@ -63,6 +63,7 @@ absl::StatusOr<std::vector<z3::expr>> EvaluateSaiParser(
   constraints.push_back(local_metadata.mirror_session_id_valid == bv_false);
   constraints.push_back(local_metadata.ingress_port ==
                         standard_metadata.ingress_port);
+  constraints.push_back(local_metadata.route_metadata == 0);
 
   // `parse_ethernet` state.
   constraints.push_back(ethernet.valid == Z3Context().bool_val(true));
