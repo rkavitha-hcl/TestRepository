@@ -188,13 +188,16 @@ absl::StatusOr<nlohmann::json> ParseJson(absl::string_view json_str) {
   // Return a null json if the input is an empty string.
   if (json_str.empty()) return nlohmann::json(nullptr);
 
-  try {
-    return nlohmann::json::parse(std::string(json_str), /*cb =*/nullptr,
-                                 /*allow_exceptions =*/true);
-  } catch (const nlohmann::json::parse_error& e) {
+  // TODO: Enable exception after we find out why test crashes instead of
+  // catching the error.
+  nlohmann::json json =
+      nlohmann::json::parse(std::string(json_str), /*cb =*/nullptr,
+                            /*allow_exceptions =*/false);
+  if (json.is_discarded()) {
     return absl::InvalidArgumentError(
-        absl::StrCat("json parse error: ", e.what()));
+        absl::StrCat("json parse error. Json value is:\n", json_str));
   }
+  return json;
 }
 
 std::string DumpJson(const nlohmann::json& value) {
