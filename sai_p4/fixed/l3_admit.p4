@@ -33,9 +33,12 @@ control l3_admit(in headers_t headers,
   }
 
   apply {
-    // If a dataplane is applying this L3 admit table we assume the packet is
-    // not admitted by default.
-    local_metadata.admit_to_l3 = false;
+    // TODO: Currently, ALL unicast DMACs
+    // are admitted for L3 routing. At the moment, this is hardcoded in the
+    // switch (i.e. not controlled by the controller).
+    // local_metadata.admit_to_l3 = false;
+    local_metadata.admit_to_l3 =
+      (headers.ethernet.dst_addr & 0x01_00_00_00_00_00) == 0;
 
     l3_admit_table.apply();
   }
