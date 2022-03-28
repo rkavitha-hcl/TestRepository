@@ -71,6 +71,7 @@
 #include "tests/lib/switch_test_setup_helpers.h"
 #include "tests/qos/gnmi_parsers.h"
 #include "tests/qos/openconfig.pb.h"
+#include "tests/qos/packet_in_receiver.h"
 #include "tests/qos/qos_test_util.h"
 #include "thinkit/control_device.h"
 #include "thinkit/generic_testbed.h"
@@ -102,47 +103,6 @@ constexpr absl::Duration kMaxQueueCounterUpdateTime = absl::Seconds(25);
 // TODO: Instead of hard-coding this time, tests should dynamically
 // poll the state of the switch to ensure config has been applied.
 constexpr absl::Duration kTimeToWaitForGnmiConfigToApply = absl::Seconds(30);
-
-// Packet receiver thread to receive punted packets from switch over a P4
-// session. The callback is invoked serially for every packet received.
-// Example:
-// PacketInReceiver receiver(
-//      p4_session,
-//      [&num_packets_punted]() -> absl::Status {
-//          num_packets_punted++;
-//      });
-//      .. do stuff
-//      receiver.Destroy();
-class PacketInReceiver final {
- public:
-  PacketInReceiver(pdpi::P4RuntimeSession &session,
-                   std::function<void(p4::v1::PacketIn)> callback)
-      : session_(session), receiver_([this, callback = std::move(callback)]() {
-          p4::v1::StreamMessageResponse pi_response;
-          // To break out of this loop invoke Destroy().
-          while (session_.StreamChannelRead(pi_response)) {
-            if (pi_response.has_packet()) {
-              callback(std::move(pi_response.packet()));
-            }
-          }
-        }) {}
-
-  PacketInReceiver() = delete;
-
-  // It's ok to call this function multiple times.
-  void Destroy() {
-    session_.TryCancel();
-    if (receiver_.joinable()) {
-      receiver_.join();
-    }
-  }
-
-  ~PacketInReceiver() { Destroy(); }
-
- private:
-  pdpi::P4RuntimeSession &session_;
-  std::thread receiver_;
-};
 
 struct QueueInfo {
   std::string gnmi_queue_name;      // Openconfig queue name.
@@ -623,14 +583,15 @@ TEST_P(CpuQosTestWithoutIxia,
 
   // Ensure tha the switch does not punt packets to the controller via P4RT.
   PacketInReceiver sut_packet_receiver(
-      *sut_p4rt_session, [&](const p4::v1::PacketIn &packet) {
+      *sut_p4rt_session, [&](const p4::v1::StreamMessageResponse pi_response) {
         sai::PacketIn pd_packet;
-        EXPECT_OK(pdpi::PiPacketInToPd(ir_p4info, packet, &pd_packet))
-            << "where packet = " << packet.DebugString();
+        EXPECT_OK(
+            pdpi::PiPacketInToPd(ir_p4info, pi_response.packet(), &pd_packet))
+            << "where packet = " << pi_response.packet().DebugString();
         ADD_FAILURE() << "SUT punted the following packet to the controller "
                          "via P4Runtime: "
                       << (pd_packet.ByteSizeLong() == 0  // Translation failed.
-                              ? packet.DebugString()
+                              ? pi_response.packet().DebugString()
                               : pd_packet.DebugString());
       });
 
