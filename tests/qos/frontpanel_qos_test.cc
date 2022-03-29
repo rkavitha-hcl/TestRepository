@@ -341,7 +341,7 @@ TEST_P(FrontpanelQosTest, TestWredEcnMarking) {
   // Look up the port IDs used by P4RT for the SUT interfaces
   absl::flat_hash_map<std::string, std::string> port_id_by_interface;
   ASSERT_OK_AND_ASSIGN(port_id_by_interface,
-                       GetAllInterfaceNameToPortId(GetParam().gnmi_config));
+                       GetAllInterfaceNameToPortId(*gnmi_stub));
 
   ASSERT_OK_AND_ASSIGN(const std::string kSutInPort1Id,
                        gutil::FindOrStatus(port_id_by_interface, kSutInPort1));
