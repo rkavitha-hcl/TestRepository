@@ -264,31 +264,6 @@ absl::Status SendUdpPacket(pdpi::P4RuntimeSession& session,
 
 }  // namespace
 
-void L3AdmitTestFixture::SetUp() {
-  thinkit::MirrorTestbedFixture::SetUp();
-
-  // Push gNMI configs.
-  ASSERT_OK(
-      pins_test::PushGnmiConfig(GetMirrorTestbed().Sut(), GetGnmiConfig()));
-  ASSERT_OK(pins_test::PushGnmiConfig(GetMirrorTestbed().ControlSwitch(),
-                                      GetGnmiConfig()));
-
-  // Wait for the port ID state to converge.
-  ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
-      GetMirrorTestbed().Sut(), GetGnmiConfig(), /*timeout=*/absl::Minutes(3)));
-  ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
-      GetMirrorTestbed().ControlSwitch(), GetGnmiConfig(),
-      /*timeout=*/absl::Minutes(3)));
-
-  // Create P4RT sessions.
-  ASSERT_OK_AND_ASSIGN(p4rt_sut_switch_session_,
-                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-                           GetMirrorTestbed().Sut(), GetP4Info()));
-  ASSERT_OK_AND_ASSIGN(p4rt_control_switch_session_,
-                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-                           GetMirrorTestbed().ControlSwitch(), GetP4Info()));
-}
-
 // TODO: greenlight.
 TEST_P(L3AdmitTestFixture,
        DISABLED_L3PacketsAreRoutedOnlyWhenMacAddressIsInMyStation) {
@@ -298,10 +273,10 @@ TEST_P(L3AdmitTestFixture,
   // Punt all traffic arriving at the control switch, and collect them to verify
   // forwarding.
   std::unique_ptr<PacketInHelper> packetio_control =
-      std::make_unique<PacketInHelper>(p4rt_control_switch_session_.get(),
+      std::make_unique<PacketInHelper>(&GetControlP4RuntimeSession(),
                                        PacketInHelper::NoFilter);
   ASSERT_OK(
-      PuntAllPacketsToController(*p4rt_control_switch_session_, GetIrP4Info()));
+      PuntAllPacketsToController(GetControlP4RuntimeSession(), GetIrP4Info()));
 
   // Add an L3 route to enable forwarding.
   L3Route l3_route{
@@ -314,13 +289,13 @@ TEST_P(L3AdmitTestFixture,
       .router_interface_id = "rif-1",
       .nexthop_id = "nexthop-1",
   };
-  ASSERT_OK(AddAndSetDefaultVrf(*p4rt_sut_switch_session_, GetIrP4Info(),
+  ASSERT_OK(AddAndSetDefaultVrf(GetSutP4RuntimeSession(), GetIrP4Info(),
                                 l3_route.vrf_id));
-  ASSERT_OK(AddL3Route(*p4rt_sut_switch_session_, GetIrP4Info(), l3_route));
+  ASSERT_OK(AddL3Route(GetSutP4RuntimeSession(), GetIrP4Info(), l3_route));
 
   // Admit only 1 MAC address to the forwaring pipeline.
   ASSERT_OK(AdmitL3Route(
-      *p4rt_sut_switch_session_, GetIrP4Info(),
+      GetSutP4RuntimeSession(), GetIrP4Info(),
       L3AdmitOptions{
           .priority = 2070,
           .dst_mac = std ::make_pair("00:01:02:03:04:05", "FF:FF:FF:FF:FF:FF"),
@@ -334,7 +309,7 @@ TEST_P(L3AdmitTestFixture,
   // Send the "bad" packets first to give them the most time.
   const std::string kBadPayload =
       "Testing L3 forwarding. This packet should be dropped.";
-  ASSERT_OK(SendUdpPacket(*p4rt_control_switch_session_, GetIrP4Info(),
+  ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), GetIrP4Info(),
                           /*port_id=*/"1", kNumberOfTestPacket,
                           /*dst_mac=*/"00:aa:bb:cc:cc:dd",
                           /*dst_ip=*/"10.0.0.1", kBadPayload));
@@ -342,7 +317,7 @@ TEST_P(L3AdmitTestFixture,
   // Then send the "good" packets.
   const std::string kGoodPayload =
       "Testing L3 forwarding. This packet should arrive to packet in.";
-  ASSERT_OK(SendUdpPacket(*p4rt_control_switch_session_, GetIrP4Info(),
+  ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), GetIrP4Info(),
                           /*port_id=*/"1", kNumberOfTestPacket,
                           /*dst_mac=*/"00:01:02:03:04:05",
                           /*dst_ip=*/"10.0.0.1", kGoodPayload));
@@ -388,10 +363,10 @@ TEST_P(L3AdmitTestFixture, L3AdmitCanUseMaskToAllowMultipleMacAddresses) {
   // Punt all traffic arriving at the control switch, and collect them to verify
   // forwarding.
   std::unique_ptr<PacketInHelper> packetio_control =
-      std::make_unique<PacketInHelper>(p4rt_control_switch_session_.get(),
+      std::make_unique<PacketInHelper>(&GetControlP4RuntimeSession(),
                                        PacketInHelper::NoFilter);
   ASSERT_OK(
-      PuntAllPacketsToController(*p4rt_control_switch_session_, GetIrP4Info()));
+      PuntAllPacketsToController(GetControlP4RuntimeSession(), GetIrP4Info()));
 
   // Add an L3 route to enable forwarding.
   L3Route l3_route{
@@ -404,13 +379,13 @@ TEST_P(L3AdmitTestFixture, L3AdmitCanUseMaskToAllowMultipleMacAddresses) {
       .router_interface_id = "rif-1",
       .nexthop_id = "nexthop-1",
   };
-  ASSERT_OK(AddAndSetDefaultVrf(*p4rt_sut_switch_session_, GetIrP4Info(),
+  ASSERT_OK(AddAndSetDefaultVrf(GetSutP4RuntimeSession(), GetIrP4Info(),
                                 l3_route.vrf_id));
-  ASSERT_OK(AddL3Route(*p4rt_sut_switch_session_, GetIrP4Info(), l3_route));
+  ASSERT_OK(AddL3Route(GetSutP4RuntimeSession(), GetIrP4Info(), l3_route));
 
   // Admit multiple MAC addresses into L3 routing with a single L3 admit rule.
   ASSERT_OK(AdmitL3Route(
-      *p4rt_sut_switch_session_, GetIrP4Info(),
+      GetSutP4RuntimeSession(), GetIrP4Info(),
       L3AdmitOptions{
           .priority = 2070,
           .dst_mac = std ::make_pair("00:01:02:03:00:05", "FF:FF:FF:FF:F0:FF"),
@@ -423,7 +398,7 @@ TEST_P(L3AdmitTestFixture, L3AdmitCanUseMaskToAllowMultipleMacAddresses) {
       "Testing L3 forwarding. This packet should arrive to packet in.";
   for (int i = 0; i < 5; ++i) {
     std::string dst_mac = absl::StrFormat("00:01:02:03:%02d:05", i);
-    ASSERT_OK(SendUdpPacket(*p4rt_control_switch_session_, GetIrP4Info(),
+    ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), GetIrP4Info(),
                             /*port_id=*/"1", kNumberOfTestPacket, dst_mac,
                             /*dst_ip=*/"10.0.0.1", kGoodPayload));
   }
@@ -464,10 +439,10 @@ TEST_P(L3AdmitTestFixture, DISABLED_L3AdmitCanUseInPortToRestrictMacAddresses) {
   // Punt all traffic arriving at the control switch, and collect them to verify
   // forwarding.
   std::unique_ptr<PacketInHelper> packetio_control =
-      std::make_unique<PacketInHelper>(p4rt_control_switch_session_.get(),
+      std::make_unique<PacketInHelper>(&GetControlP4RuntimeSession(),
                                        PacketInHelper::NoFilter);
   ASSERT_OK(
-      PuntAllPacketsToController(*p4rt_control_switch_session_, GetIrP4Info()));
+      PuntAllPacketsToController(GetControlP4RuntimeSession(), GetIrP4Info()));
 
   // Add an L3 route to enable forwarding.
   L3Route l3_route{
@@ -480,13 +455,13 @@ TEST_P(L3AdmitTestFixture, DISABLED_L3AdmitCanUseInPortToRestrictMacAddresses) {
       .router_interface_id = "rif-1",
       .nexthop_id = "nexthop-1",
   };
-  ASSERT_OK(AddAndSetDefaultVrf(*p4rt_sut_switch_session_, GetIrP4Info(),
+  ASSERT_OK(AddAndSetDefaultVrf(GetSutP4RuntimeSession(), GetIrP4Info(),
                                 l3_route.vrf_id));
-  ASSERT_OK(AddL3Route(*p4rt_sut_switch_session_, GetIrP4Info(), l3_route));
+  ASSERT_OK(AddL3Route(GetSutP4RuntimeSession(), GetIrP4Info(), l3_route));
 
   // Admit the MAC addresses only on port XYZ
   ASSERT_OK(AdmitL3Route(
-      *p4rt_sut_switch_session_, GetIrP4Info(),
+      GetSutP4RuntimeSession(), GetIrP4Info(),
       L3AdmitOptions{
           .priority = 2070,
           .dst_mac = std ::make_pair("00:01:02:03:00:05", "FF:FF:FF:FF:F0:FF"),
@@ -501,7 +476,7 @@ TEST_P(L3AdmitTestFixture, DISABLED_L3AdmitCanUseInPortToRestrictMacAddresses) {
   // Send the "bad" packets first to give them the most time.
   const std::string kBadPayload =
       "Testing L3 forwarding. This packet should be dropped.";
-  ASSERT_OK(SendUdpPacket(*p4rt_control_switch_session_, GetIrP4Info(),
+  ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), GetIrP4Info(),
                           /*port_id=*/"1", kNumberOfTestPacket,
                           /*dst_mac=*/"00:01:02:03:04:05",
                           /*dst_ip=*/"10.0.0.1", kBadPayload));
@@ -509,7 +484,7 @@ TEST_P(L3AdmitTestFixture, DISABLED_L3AdmitCanUseInPortToRestrictMacAddresses) {
   // Then send the "good" packets.
   const std::string kGoodPayload =
       "Testing L3 forwarding. This packet should arrive to packet in.";
-  ASSERT_OK(SendUdpPacket(*p4rt_control_switch_session_, GetIrP4Info(),
+  ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), GetIrP4Info(),
                           /*port_id=*/"2", kNumberOfTestPacket,
                           /*dst_mac=*/"00:01:02:03:04:05",
                           /*dst_ip=*/"10.0.0.1", kGoodPayload));
@@ -555,10 +530,10 @@ TEST_P(L3AdmitTestFixture, L3PacketsCanBeRoutedWithOnlyARouterInterface) {
   // Punt all traffic arriving at the control switch, and collect them to verify
   // forwarding.
   std::unique_ptr<PacketInHelper> packetio_control =
-      std::make_unique<PacketInHelper>(p4rt_control_switch_session_.get(),
+      std::make_unique<PacketInHelper>(&GetControlP4RuntimeSession(),
                                        PacketInHelper::NoFilter);
   ASSERT_OK(
-      PuntAllPacketsToController(*p4rt_control_switch_session_, GetIrP4Info()));
+      PuntAllPacketsToController(GetControlP4RuntimeSession(), GetIrP4Info()));
 
   // Add an L3 route to enable forwarding, but do not add an explicit L3Admit
   // rule.
@@ -572,16 +547,16 @@ TEST_P(L3AdmitTestFixture, L3PacketsCanBeRoutedWithOnlyARouterInterface) {
       .router_interface_id = "rif-1",
       .nexthop_id = "nexthop-1",
   };
-  ASSERT_OK(AddAndSetDefaultVrf(*p4rt_sut_switch_session_, GetIrP4Info(),
+  ASSERT_OK(AddAndSetDefaultVrf(GetSutP4RuntimeSession(), GetIrP4Info(),
                                 l3_route.vrf_id));
-  ASSERT_OK(AddL3Route(*p4rt_sut_switch_session_, GetIrP4Info(), l3_route));
+  ASSERT_OK(AddL3Route(GetSutP4RuntimeSession(), GetIrP4Info(), l3_route));
 
   // Send 1 set of packets to the switch using the switch's MAC address from the
   // L3 route.
   const int kNumberOfTestPacket = 100;
   const std::string kGoodPayload =
       "Testing L3 forwarding. This packet should arrive to packet in.";
-  ASSERT_OK(SendUdpPacket(*p4rt_control_switch_session_, GetIrP4Info(),
+  ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), GetIrP4Info(),
                           /*port_id=*/"1", kNumberOfTestPacket,
                           /*dst_mac=*/"00:00:00:00:00:01",
                           /*dst_ip=*/"10.0.0.1", kGoodPayload));
@@ -628,10 +603,10 @@ TEST_P(L3AdmitTestFixture, L3PacketsCanBeClassifiedByDestinationMac) {
   // Punt all traffic arriving at the control switch, and collect them to verify
   // forwarding.
   std::unique_ptr<PacketInHelper> packetio_control =
-      std::make_unique<PacketInHelper>(p4rt_control_switch_session_.get(),
+      std::make_unique<PacketInHelper>(&GetControlP4RuntimeSession(),
                                        PacketInHelper::NoFilter);
   ASSERT_OK(
-      PuntAllPacketsToController(*p4rt_control_switch_session_, GetIrP4Info()));
+      PuntAllPacketsToController(GetControlP4RuntimeSession(), GetIrP4Info()));
 
   // This test uses 2 MAC addresses. Both will be admitted to L3 routing, but
   // only one will get assigned a VRF ID. We expect packets receiving the
@@ -640,16 +615,16 @@ TEST_P(L3AdmitTestFixture, L3PacketsCanBeClassifiedByDestinationMac) {
   std::string vrf_id = "vrf-1";
   std::string good_dst_mac = "00:00:00:00:00:03";
   std::string drop_dst_mac = "00:00:00:00:00:04";
-  ASSERT_OK(AllowVrfTrafficToDstMac(*p4rt_sut_switch_session_, GetIrP4Info(),
+  ASSERT_OK(AllowVrfTrafficToDstMac(GetSutP4RuntimeSession(), GetIrP4Info(),
                                     good_dst_mac, vrf_id));
   ASSERT_OK(AdmitL3Route(
-      *p4rt_sut_switch_session_, GetIrP4Info(),
+      GetSutP4RuntimeSession(), GetIrP4Info(),
       L3AdmitOptions{
           .priority = 2070,
           .dst_mac = std ::make_pair(good_dst_mac, "FF:FF:FF:FF:FF:FF"),
       }));
   ASSERT_OK(AdmitL3Route(
-      *p4rt_sut_switch_session_, GetIrP4Info(),
+      GetSutP4RuntimeSession(), GetIrP4Info(),
       L3AdmitOptions{
           .priority = 2070,
           .dst_mac = std ::make_pair(drop_dst_mac, "FF:FF:FF:FF:FF:FF"),
@@ -666,7 +641,7 @@ TEST_P(L3AdmitTestFixture, L3PacketsCanBeClassifiedByDestinationMac) {
       .router_interface_id = "rif-1",
       .nexthop_id = "nexthop-1",
   };
-  ASSERT_OK(AddL3Route(*p4rt_sut_switch_session_, GetIrP4Info(), l3_route));
+  ASSERT_OK(AddL3Route(GetSutP4RuntimeSession(), GetIrP4Info(), l3_route));
 
   // Send 2 set of packets to the switch. One using the expected destination
   // MAC (gets forwarded), and another using an unexpected destination MAC
@@ -678,10 +653,10 @@ TEST_P(L3AdmitTestFixture, L3PacketsCanBeClassifiedByDestinationMac) {
       "Testing L3 forwarding. This packet should be dropped.";
 
   // Send the "bad" packets first to give them the most time.
-  ASSERT_OK(SendUdpPacket(*p4rt_control_switch_session_, GetIrP4Info(),
+  ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), GetIrP4Info(),
                           /*port_id=*/"1", kNumberOfTestPacket, drop_dst_mac,
                           /*dst_ip=*/"10.0.0.1", kBadPayload));
-  ASSERT_OK(SendUdpPacket(*p4rt_control_switch_session_, GetIrP4Info(),
+  ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), GetIrP4Info(),
                           /*port_id=*/"1", kNumberOfTestPacket, good_dst_mac,
                           /*dst_ip=*/"10.0.0.1", kGoodPayload));
 
