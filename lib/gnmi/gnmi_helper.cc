@@ -877,6 +877,10 @@ GetTransceiverPartInformation(gnmi::gNMI::StubInterface& gnmi_stub) {
     }
 
     ASSIGN_OR_RETURN(json state, GetField(component.value(), "state"));
+    ASSIGN_OR_RETURN(json empty, GetField(state, "empty"));
+    if (empty.get<bool>()) {
+      continue;
+    }
     ASSIGN_OR_RETURN(json vendor,
                      GetField(state, "openconfig-platform-ext:vendor-name"));
     ASSIGN_OR_RETURN(json part_number, GetField(state, "part-no"));

@@ -1411,6 +1411,7 @@ TEST(TransceiverPartInformation, WorksProperly) {
           {
             "name": "Ethernet1",
             "state": {
+              "empty": false,
               "openconfig-platform-ext:vendor-name": "Vendor",
               "part-no": "123"
             }
@@ -1426,6 +1427,35 @@ TEST(TransceiverPartInformation, WorksProperly) {
       {"Ethernet1", TransceiverPart{.vendor = "Vendor", .part_number = "123"}}};
   EXPECT_THAT(GetTransceiverPartInformation(mock_stub),
               IsOkAndHolds(UnorderedPointwise(Eq(), expected_map)));
+}
+
+TEST(TransceiverPartInformation, EmptyTransceiver) {
+  gnmi::GetResponse response;
+  *response.add_notification()
+       ->add_update()
+       ->mutable_val()
+       ->mutable_json_ietf_val() = R"(
+    {
+      "openconfig-platform:components": {
+        "component": [
+          {
+            "name": "1/1"
+          },
+          {
+            "name": "Ethernet1",
+            "state": {
+              "empty": true
+            }
+          }
+        ]
+      }
+    })";
+  gnmi::MockgNMIStub mock_stub;
+  EXPECT_CALL(mock_stub, Get)
+      .WillRepeatedly(
+          DoAll(SetArgPointee<2>(response), Return(grpc::Status::OK)));
+  EXPECT_THAT(GetTransceiverPartInformation(mock_stub),
+              IsOkAndHolds(IsEmpty()));
 }
 
 }  // namespace
