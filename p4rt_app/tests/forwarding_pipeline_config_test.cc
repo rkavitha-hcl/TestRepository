@@ -171,8 +171,14 @@ TEST_F(VerifyTest, DoesNotUpdateAppDbState) {
   // being written to the AppDb tables.
   SetForwardingPipelineConfigResponse response;
   grpc::ClientContext context;
+  // This is the first test that runs verify against the P4info so it's the most
+  // visible failure. Therefore, annotate this failure with suggestions for
+  // fixing verification issues.
   EXPECT_OK(p4rt_session_->Stub().SetForwardingPipelineConfig(&context, request,
-                                                              &response));
+                                                              &response))
+      << "Is the p4info_verification_schema updated? If not, run: "
+      << "p4rt_app/scripts/"
+      << "update_p4info_verification_schema.sh";
   EXPECT_THAT(p4rt_service_->GetP4rtAppDbTable().GetAllKeys(), IsEmpty());
 }
 
