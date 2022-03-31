@@ -30,12 +30,5 @@ bazel run :union_p4info_up_to_date_test -- --update
 # sai_pd generates sai_pd files based on the union_p4info.
 bazel run :sai_pd_up_to_date_test -- --update
 
-# copybara:strip_begin(this is an internal test)
-bazel build //platforms/networking/orion/p4/ofpd:all
-bazel run //platforms/networking/orion/p4/ofpd:sai_to_orion_test -- --test_update_golden_files
-bazel run //platforms/networking/orion/p4/ofpd:orion_to_sai_test -- --test_update_golden_files
-bazel test //third_party/pins_infra/p4rt_app/tests:forwarding_pipeline_config_test
-# copybara:strip_end
-
 # Check P4 program.
 bazel test :sai_p4info_test
