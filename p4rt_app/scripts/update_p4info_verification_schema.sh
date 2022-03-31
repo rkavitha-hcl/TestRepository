@@ -1,4 +1,5 @@
 #!/bin/bash
+
 readonly BASE_PATH="$(pwd)"
 readonly PINS_INFRA="${BASE_PATH%%/pins_infra*}/pins_infra"
 readonly P4INFO_FILE="${PINS_INFRA}/sai_p4/instantiations/google/unioned_p4info.pb.txt"
