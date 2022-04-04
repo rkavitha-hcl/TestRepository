@@ -623,7 +623,7 @@ absl::StatusOr<std::string> FuzzValue(
   if (IsNeighbor(type_name) && references.empty()) {
     std::bitset<128> ipv6_bits;
     for (int i = 0; i < 128; ++i) {
-      ipv6_bits.set(i, absl::Uniform<int>(*gen, 0, 1));
+      ipv6_bits.set(i, absl::Bernoulli(*gen, 0.5));
     }
     return netaddr::Ipv6Address::OfBitset(ipv6_bits).ToString();
   }
