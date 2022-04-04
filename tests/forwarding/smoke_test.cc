@@ -101,7 +101,7 @@ TEST_P(SmokeTestFixture, AclTableAddDeleteOkButModifyFails) {
   // ACL table entries are expected to contain counter data. However, it's
   // updated periodically and may not be avaialable immediatly after writing so
   // we poll the entry for a few seconds until we see the data.
-  absl::Time timeout = absl::Now() + absl::Seconds(5);
+  absl::Time timeout = absl::Now() + absl::Seconds(11);
   p4::v1::ReadResponse pi_read_response;
   p4::v1::ReadRequest pi_read_request;
   pi_read_request.add_entities()->mutable_table_entry();
