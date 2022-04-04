@@ -766,7 +766,10 @@ TEST_P(CpuQosTestWithoutIxia, PerEntryAclCounterIncrementsWhenEntryIsHit) {
 }
 
 // Purpose: Verify DSCP-to-queue mapping for traffic to switch loopback IP.
-TEST_P(CpuQosTestWithoutIxia, TrafficToLoopackIpGetsMappedToCorrectQueues) {
+// TODO (b/221007285) : Re-enable after fixing the test to check for queue
+// assignment based on protocol instead of DSCP.
+TEST_P(CpuQosTestWithoutIxia,
+       DISABLED_TrafficToLoopackIpGetsMappedToCorrectQueues) {
   LOG(INFO) << "-- START OF TEST ---------------------------------------------";
   Testbed().Environment().SetTestCaseID("61bb0173-0c49-4067-b15a-5c3dd7823126");
 
