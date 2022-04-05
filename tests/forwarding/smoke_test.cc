@@ -412,11 +412,9 @@ TEST_P(SmokeTestFixture, EnsureClearTables) {
   ASSERT_OK(pdpi::CheckNoTableEntries(session2.get()));
 }
 
-// TODO: Enable the test once the bug is unblocked, indicating that
-// the functionality is in place.
 // Ensures that a GNMI Config can be pushed even with programmed flows already
 // on the switch.
-TEST_P(SmokeTestFixture, DISABLED_PushGnmiConfigWithFlows) {
+TEST_P(SmokeTestFixture, PushGnmiConfigWithFlows) {
   // All tables should be clear after setup.
   ASSERT_OK(pdpi::CheckNoTableEntries(&GetSutP4RuntimeSession()));
 
