@@ -102,7 +102,8 @@ control acl_ingress(in headers_t headers,
     dscp::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);
     ecn::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);
     ip_protocol::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);
-    // Only allow l4_dst_port matches for TCP/UDP packets.
+    // Only allow l4_dst_port and l4_src_port matches for TCP/UDP packets.
+    l4_src_port::mask != 0 -> (ip_protocol == 6 || ip_protocol == 17);
     l4_dst_port::mask != 0 -> (ip_protocol == 6 || ip_protocol == 17);
 #ifdef SAI_INSTANTIATION_MIDDLEBLOCK
     // Only allow arp_tpa matches for ARP packets.
@@ -159,6 +160,8 @@ control acl_ingress(in headers_t headers,
 #endif
       headers.icmp.type : ternary @name("icmpv6_type") @id(14)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_ICMPV6_TYPE);
+      local_metadata.l4_src_port : ternary @name("l4_src_port") @id(20)
+          @sai_field(SAI_ACL_TABLE_ATTR_FIELD_L4_SRC_PORT);
       local_metadata.l4_dst_port : ternary @name("l4_dst_port") @id(15)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_L4_DST_PORT);
 #ifdef SAI_INSTANTIATION_MIDDLEBLOCK
