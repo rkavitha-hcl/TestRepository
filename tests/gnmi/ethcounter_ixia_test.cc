@@ -785,9 +785,6 @@ TEST_P(ExampleIxiaTestFixture, TestIPv4Pkts) {
   // Hook up to GNMI
   ASSERT_OK_AND_ASSIGN(auto gnmi_stub, generic_testbed->Sut().CreateGnmiStub());
 
-  // Install the configuration needed
-  ASSERT_OK(pins_test::PushGnmiConfig(generic_testbed->Sut(), GetGnmiConfig()));
-
   // go through all the ports that interface to the Ixia and set them
   // to 200GB since the Ixia ports are all 200GB.
   for (const auto &[interface, info] : interface_info) {
@@ -1072,9 +1069,6 @@ TEST_P(ExampleIxiaTestFixture, TestOutDiscards) {
 
   // Hook up to GNMI
   ASSERT_OK_AND_ASSIGN(auto gnmi_stub, generic_testbed->Sut().CreateGnmiStub());
-
-  // Install the configuration needed
-  ASSERT_OK(pins_test::PushGnmiConfig(generic_testbed->Sut(), GetGnmiConfig()));
 
   // go through all the ports that interface to the Ixia and set them
   // to 100GB since the Ixia ports are all 100GB.
@@ -1364,9 +1358,6 @@ TEST_P(ExampleIxiaTestFixture, TestIPv6Pkts) {
   // Hook up to GNMI
   ASSERT_OK_AND_ASSIGN(auto gnmi_stub, generic_testbed->Sut().CreateGnmiStub());
 
-  // Install the configuration needed
-  ASSERT_OK(pins_test::PushGnmiConfig(generic_testbed->Sut(), GetGnmiConfig()));
-
   // go through all the ports that interface to the Ixia and set them
   // to 200GB since the Ixia ports are all 200GB.
   for (const auto &[interface, info] : interface_info) {
@@ -1651,9 +1642,6 @@ TEST_P(ExampleIxiaTestFixture, TestCPUOutDiscards) {
 
   // Hook up to GNMI
   ASSERT_OK_AND_ASSIGN(auto gnmi_stub, generic_testbed->Sut().CreateGnmiStub());
-
-  // Install the configuration needed
-  ASSERT_OK(pins_test::PushGnmiConfig(generic_testbed->Sut(), GetGnmiConfig()));
 
   // go through all the ports that interface to the Ixia and set them
   // to 100GB since the Ixia ports are all 100GB.
