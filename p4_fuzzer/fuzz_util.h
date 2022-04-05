@@ -146,8 +146,10 @@ std::string FuzzBits(absl::BitGen* gen, int bits);
 // Generates a `bits` long uint64 in host byte order.
 uint64_t FuzzUint64(absl::BitGen* gen, int bits);
 
-// Returns a random ID.
-std::string FuzzRandomId(absl::BitGen* gen);
+// Returns a random ID with a length in the closed interval
+// [`min_chars`, `max_chars`].
+std::string FuzzRandomId(absl::BitGen* gen, int min_chars = 0,
+                         int max_chars = 10);
 
 // Randomly generates a ternary field match with a bitwidth of `bits`.
 // Does not set the match field id. See "9.1.1. Match Format" in the P4Runtime

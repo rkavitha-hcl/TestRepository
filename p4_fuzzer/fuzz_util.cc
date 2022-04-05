@@ -492,11 +492,14 @@ const std::vector<uint32_t> AllMatchFieldIds(const FuzzerConfig& config,
   return match_ids;
 }
 
-std::string FuzzRandomId(absl::BitGen* gen) {
+std::string FuzzRandomId(absl::BitGen* gen, int min_chars, int max_chars) {
   // Only sample from printable/readable characters, to make debugging easier.
   // There is a smoke test that uses crazy characters.
   static constexpr char kIdChars[] = "abcdefghijklmnopqrstuvwxyz0123456789-";
-  int num_chars = absl::Uniform(*gen, 0, 10);
+
+  CHECK_LE(min_chars, max_chars);  // Crash OK
+  int num_chars =
+      absl::Uniform(absl::IntervalClosedClosed, *gen, min_chars, max_chars);
   std::string id;
   for (int i = 0; i < num_chars; i++) {
     id += kIdChars[absl::Uniform<int>(*gen, 0, sizeof(kIdChars) - 1)];
@@ -630,7 +633,7 @@ absl::StatusOr<std::string> FuzzValue(
 
   // A string ID (not referring to anything): Pick a fresh random ID.
   if (bits == 0 && references.empty()) {
-    return FuzzRandomId(gen);
+    return FuzzRandomId(gen, /*min_chars=*/non_zero ? 1 : 0);
   }
 
   // An ID that refers to another match field: pick any ID that already exists
