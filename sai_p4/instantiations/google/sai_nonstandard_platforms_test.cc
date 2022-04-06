@@ -68,5 +68,23 @@ TEST_F(NonstandardPlatformsTest,
     }
   }
 }
+
+TEST(NonstandardPlatformsFlagTest, ParsingValidNameSucceeds) {
+  NonstandardPlatform platform;
+  std::string error;
+  ASSERT_TRUE(AbslParseFlag("bmv2", &platform, &error));
+  ASSERT_THAT(platform, testing::Eq(NonstandardPlatform::kBmv2));
+}
+
+TEST(NonstandardPlatformsFlagTest, ParsingInvalidNameFails) {
+  NonstandardPlatform platform;
+  std::string error;
+  ASSERT_FALSE(AbslParseFlag("non-existing-platform-name", &platform, &error));
+}
+
+TEST(NonstandardPlatformsFlagTest, UnparsingWorks) {
+  ASSERT_THAT(AbslUnparseFlag(NonstandardPlatform::kBmv2), testing::Eq("bmv2"));
+}
+
 }  // namespace
 }  // namespace sai

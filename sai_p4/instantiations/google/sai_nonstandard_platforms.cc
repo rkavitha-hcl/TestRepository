@@ -1,8 +1,11 @@
 #include "sai_p4/instantiations/google/sai_nonstandard_platforms.h"
 
+#include <algorithm>
+
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/str_replace.h"
+#include "absl/strings/substitute.h"
 #include "glog/logging.h"
 #include "google/protobuf/text_format.h"
 #include "p4/config/v1/p4info.pb.h"
@@ -46,15 +49,34 @@ std::string P4InfoName(Instantiation instantiation,
 
 }  // namespace
 
-std::string PlatformName(NonstandardPlatform platform) {
-  switch (platform) {
-    case NonstandardPlatform::kBmv2:
-      return "bmv2";
-    case NonstandardPlatform::kP4Symbolic:
-      return "p4_symbolic";
+bool AbslParseFlag(absl::string_view platform_name,
+                   NonstandardPlatform* platform, std::string* error) {
+  const auto platform_names = NonstandardPlatformNames();
+  const auto it =
+      std::find_if(platform_names.begin(), platform_names.end(),
+                   [=](auto& p) { return p.second == platform_name; });
+  if (it == platform_names.end()) {
+    absl::StrAppend(error, "unknown platform name: '", platform_name, "'");
+    return false;
   }
-  LOG(DFATAL) << "invalid NonstandardPlattform: " << static_cast<int>(platform);
-  return "";
+
+  *platform = it->first;
+  return true;
+}
+
+std::string AbslUnparseFlag(NonstandardPlatform platform) {
+  const auto platform_names = NonstandardPlatformNames();
+  if (!platform_names.contains(platform)) {
+    LOG(DFATAL) << "Invalid NonstandardPlattform: "
+                << static_cast<int>(platform);
+    return "<invalid-platform>";
+  }
+
+  return platform_names.at(platform);
+}
+
+std::string PlatformName(NonstandardPlatform platform) {
+  return AbslUnparseFlag(platform);
 }
 
 std::string GetNonstandardP4Config(Instantiation instantiation,
