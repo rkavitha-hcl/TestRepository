@@ -757,6 +757,8 @@ absl::Status P4RuntimeImpl::AddPortTranslation(const std::string& port_name,
            << "Could not add port '" << port_name << "' with ID '" << port_id
            << "' because an entry already exists.";
   }
+  LOG(INFO) << "Adding translation for '" << port_name << "' with ID '"
+            << port_id << "'.";
 
   // Add the port to Packet I/O.
   return packetio_impl_->AddPacketIoPort(port_name);
@@ -774,6 +776,8 @@ absl::Status P4RuntimeImpl::RemovePortTranslation(
 
   if (auto port = port_translation_map_.left.find(port_name);
       port != port_translation_map_.left.end()) {
+    LOG(INFO) << "Removing translation for '" << port->first << "' with ID '"
+              << port->second << "'.";
     port_translation_map_.left.erase(port);
 
     // Remove port from Packet I/O.

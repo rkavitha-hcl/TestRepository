@@ -55,13 +55,11 @@ absl::Status PortChangeEvents::WaitForEventAndUpdateP4Runtime() {
     if (id.empty()) {
       // If no id field is found we should try to remove it from the P4RT app
       // regardless of the Redis operation.
-      LOG(WARNING) << "Removing '" << key << "' because it has no ID field.";
+      LOG(WARNING) << "'" << key << "' does not have an ID field.";
       status = p4runtime_.RemovePortTranslation(key);
     } else if (op == "SET") {
-      LOG(INFO) << "Adding '" << key << "' with ID '" << id << "'.";
       status = p4runtime_.AddPortTranslation(key, id);
     } else if (op == "DEL") {
-      LOG(INFO) << "Removing '" << key << "' with ID '" << id << "'.";
       status = p4runtime_.RemovePortTranslation(key);
     } else {
       LOG(ERROR) << "Unexpected operand '" << op << "'.";
