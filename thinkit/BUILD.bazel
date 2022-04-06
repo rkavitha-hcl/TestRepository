@@ -158,6 +158,7 @@ cc_library(
     name = "test_environment",
     hdrs = ["test_environment.h"],
     deps = [
+        "//thinkit/proto:metrics_cc_proto",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_protobuf//:protobuf",
@@ -170,6 +171,7 @@ cc_library(
     hdrs = ["mock_test_environment.h"],
     deps = [
         ":test_environment",
+        "//thinkit/proto:metrics_cc_proto",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest",
