@@ -79,6 +79,7 @@ class HashConfigTest : public thinkit::MirrorTestbedFixture {
 
   void TearDown() override;
 
+ protected:
   // Record the P4Info file for debugging.
   absl::Status RecordP4Info(absl::string_view test_stage,
                             const p4::config::v1::P4Info& p4info);
@@ -104,7 +105,15 @@ class HashConfigTest : public thinkit::MirrorTestbedFixture {
 
   // Run a test with the modified P4Info to compare the hash output with the
   // output from the original P4Info.
-  void TestHashDifference(const p4::config::v1::P4Info& modified_p4info);
+  void TestHashDifference(const p4::config::v1::P4Info& modified_p4info,
+                          absl::string_view stage = "1_modified");
+
+  // Run the TestHashDifference but don't fail if modified_p4info does not
+  // hash differently. Allow for another chance with the backup_p4info and mark
+  // failures for backup_p4info instead.
+  void TestHashDifferenceWithBackup(
+      const p4::config::v1::P4Info& modified_p4info,
+      const p4::config::v1::P4Info& backup_p4info);
 
   void InitializeOriginalP4InfoTestDataIfNeeded();
   static const absl::node_hash_map<std::string, TestData>&
@@ -112,7 +121,6 @@ class HashConfigTest : public thinkit::MirrorTestbedFixture {
     return *original_p4info_test_data_;
   }
 
- protected:
   // Set of interfaces to hash against. There is a 1:1 mapping of interfaces_ to
   // port_ids_, but we don't care about the mapping in the test.
   std::vector<std::string> interfaces_;

@@ -583,16 +583,15 @@ void HashConfigTest::InitializeOriginalP4InfoTestDataIfNeeded() {
 }
 
 void HashConfigTest::TestHashDifference(
-    const p4::config::v1::P4Info& modified_p4info) {
+    const p4::config::v1::P4Info& modified_p4info, absl::string_view stage) {
   absl::node_hash_map<std::string, TestData> modified_hash_test_data;
   {
     SCOPED_TRACE("Failed to test modified p4info.");
-    std::string test_stage = "1_modified";
-    EXPECT_OK(RecordP4Info(test_stage, modified_p4info));
+    EXPECT_OK(RecordP4Info(stage, modified_p4info));
     ASSERT_NO_FATAL_FAILURE(
         ProgramHashingEntities(GetMirrorTestbed(), modified_p4info, port_ids_));
     ASSERT_NO_FATAL_FAILURE(SendPacketsAndRecordResultsPerTestConfig(
-        modified_p4info, test_stage, modified_hash_test_data));
+        modified_p4info, stage, modified_hash_test_data));
   }
 
   for (const auto& config : TestConfigNames()) {
@@ -600,6 +599,34 @@ void HashConfigTest::TestHashDifference(
                 Not(UnorderedElementsAreArray(
                     OriginalP4InfoTestData().at(config).Results())))
         << "No hash diff found for config: " << config;
+  }
+}
+
+void HashConfigTest::TestHashDifferenceWithBackup(
+    const p4::config::v1::P4Info& modified_p4info,
+    const p4::config::v1::P4Info& backup_p4info) {
+  absl::node_hash_map<std::string, TestData> modified_hash_test_data;
+  {
+    SCOPED_TRACE("Failed to test modified p4info.");
+    std::string stage = "1_modified";
+    EXPECT_OK(RecordP4Info(stage, modified_p4info));
+    ASSERT_NO_FATAL_FAILURE(
+        ProgramHashingEntities(GetMirrorTestbed(), modified_p4info, port_ids_));
+    ASSERT_NO_FATAL_FAILURE(SendPacketsAndRecordResultsPerTestConfig(
+        modified_p4info, stage, modified_hash_test_data));
+  }
+
+  for (const auto& config : TestConfigNames()) {
+    if (Matches(UnorderedElementsAreArray(
+            OriginalP4InfoTestData().at(config).Results()))(
+            modified_hash_test_data.at(config).Results())) {
+      LOG(WARNING) << "No hash diff found for config: " << config
+                   << ". Retesting with backup config.";
+      // If any test fails, use the backup config.
+      ASSERT_NO_FATAL_FAILURE(RebootSut());
+      TestHashDifference(backup_p4info, "2_backup");
+      return;
+    }
   }
 }
 
@@ -682,7 +709,23 @@ TEST_P(HashConfigTest, HashSeedSettingsAffectPacketHash) {
   ASSERT_THAT(modified_p4info, Not(EqualsProto(GetP4Info())))
       << "Failed to modify the hash seed in the P4Info.";
 
-  ASSERT_NO_FATAL_FAILURE(TestHashDifference(modified_p4info));
+  // Because we start with a random hash seed, there is some inherent
+  // undeterminism in this test. We'll allow for a backup test seed in case the
+  // original seed doesn't produce a difference.
+  p4::config::v1::P4Info backup_p4info = GetP4Info();
+  ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(backup_p4info,
+                                            R"re(sai_hash_seed\([^)]*\))re",
+                                            "sai_hash_seed(1111111111)"));
+  if (Matches(EqualsProto(GetP4Info()))(backup_p4info)) {
+    ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(backup_p4info,
+                                              R"re(sai_hash_seed\([^)]*\))re",
+                                              "sai_hash_seed(1111111112)"));
+  }
+  ASSERT_THAT(backup_p4info, Not(EqualsProto(GetP4Info())))
+      << "Failed to modify the hash seed in the P4Info.";
+
+  ASSERT_NO_FATAL_FAILURE(
+      TestHashDifferenceWithBackup(modified_p4info, backup_p4info));
 }
 
 }  // namespace pins_test
