@@ -692,6 +692,10 @@ TEST_P(HashConfigTest, HashOffsetSettingsAffectPacketHash) {
   ASSERT_NO_FATAL_FAILURE(TestHashDifference(modified_p4info));
 }
 
+// Tests that the hash seed impacts the hash result. Does not require that each
+// hash seed produces a unique result but most seed differences should result
+// in a hash difference. The test offers some leniency to prevent flakiness
+// due to the lack of a uniqueness requirement.
 TEST_P(HashConfigTest, HashSeedSettingsAffectPacketHash) {
   GetMirrorTestbed().Environment().SetTestCaseID(
       "0a584c71-a701-4ea5-b4f3-5e4e37171d9c");
@@ -710,7 +714,8 @@ TEST_P(HashConfigTest, HashSeedSettingsAffectPacketHash) {
       << "Failed to modify the hash seed in the P4Info.";
 
   // Because we start with a random hash seed, there is some inherent
-  // undeterminism in this test. We'll allow for a backup test seed in case the
+  // undeterminism in this test. We don't require that each hash seed results
+  // in a unique hash. Instead, we allow for a backup test seed in case the
   // original seed doesn't produce a difference.
   p4::config::v1::P4Info backup_p4info = GetP4Info();
   ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(backup_p4info,
