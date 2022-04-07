@@ -176,11 +176,9 @@ absl::StatusOr<absl::btree_set<std::string>> GetPortsUsed(
   absl::btree_set<std::string> ports;
   p4::config::v1::P4NamedType port_type;
   port_type.set_name(kPortNamedType);
-  RETURN_IF_ERROR(pdpi::TransformValuesOfType(info, port_type, entries,
-                                              [&](absl::string_view port) {
-                                                ports.insert(std::string(port));
-                                                return std::string(port);
-                                              }));
+  RETURN_IF_ERROR(pdpi::VisitValuesOfType(
+      info, port_type, entries,
+      [&](absl::string_view port) { ports.insert(std::string(port)); }));
 
   // Watch ports do not have a named type, but we still consider them ports so
   // we have to deal with them specifically rather than using the generic

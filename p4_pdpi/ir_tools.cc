@@ -131,4 +131,19 @@ absl::Status TransformValuesOfType(
   return absl::OkStatus();
 }
 
+// This implementation is inefficient because it uses `TransformValuesOfType`,
+// which also means that it needs to copy its input entries, in order to not
+// transform them.
+// TODO: Implement a more efficient version if required.
+absl::Status VisitValuesOfType(
+    const IrP4Info& info, const p4::config::v1::P4NamedType& target_type,
+    std::vector<IrTableEntry> entries,
+    const std::function<void(absl::string_view)>& visitor) {
+  return TransformValuesOfType(info, target_type, entries,
+                               /*transformer=*/[&](absl::string_view input) {
+                                 visitor(input);
+                                 return "";
+                               });
+}
+
 }  // namespace pdpi

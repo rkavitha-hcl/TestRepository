@@ -101,7 +101,7 @@ TEST(TransformValuesOfTypeTest, RewriteActionStrings) {
 
 // Collects all the strings (with named type `string_id_t`) in a list of
 // entries' match fields and action parameters.
-TEST(TransformValuesOfTypeTest, CollectStrings) {
+TEST(VisitValuesOfTypeTest, CollectStrings) {
   const IrP4Info info = GetTestIrP4Info();
   p4::config::v1::P4NamedType target_type;
   target_type.set_name("string_id_t");
@@ -129,16 +129,13 @@ TEST(TransformValuesOfTypeTest, CollectStrings) {
                        )pb")));
 
   std::vector<IrTableEntry> entries{entry1, entry2};
-  absl::flat_hash_set<absl::string_view> string_collection;
+  absl::flat_hash_set<std::string> string_collection;
 
-  // Note that the transformer here does not transform the string (or more
-  // accurately, returns an equivalent string), but is instead used to collect
-  // seen strings.
-  ASSERT_OK(TransformValuesOfType(info, target_type, entries,
-                                  /*transformer=*/[&](absl::string_view input) {
-                                    string_collection.insert(input);
-                                    return std::string(input);
-                                  }));
+  ASSERT_OK(VisitValuesOfType(info, target_type, entries,
+                              /*visitor=*/[&](absl::string_view input) {
+                                string_collection.insert(std::string(input));
+                              }));
+
   EXPECT_THAT(string_collection,
               UnorderedElementsAreArray({"string1", "string2", "string3"}));
 }
