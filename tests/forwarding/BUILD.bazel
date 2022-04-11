@@ -266,7 +266,6 @@ cc_library(
         "//tests:thinkit_sanity_tests",
         "//thinkit:mirror_testbed_fixture",
         "//thinkit:test_environment",
-        "@com_github_gnoi//system:system_cc_proto",
         "@com_github_grpc_grpc//:grpc++",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
         "@com_google_absl//absl/base:core_headers",

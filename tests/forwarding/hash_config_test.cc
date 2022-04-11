@@ -51,7 +51,6 @@
 #include "p4_pdpi/string_encodings/decimal_string.h"
 #include "re2/re2.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
-#include "system/system.pb.h"
 #include "tests/forwarding/group_programming_util.h"
 #include "tests/forwarding/packet_test_util.h"
 #include "tests/forwarding/util.h"
@@ -278,13 +277,12 @@ void InitializeTestbed(thinkit::MirrorTestbed& testbed,
   ASSERT_OK(WaitForGnmiPortIdConvergence(testbed.ControlSwitch(), gnmi_config,
                                          /*timeout=*/absl::Minutes(3)));
 
-  // Give time for all the ports to come up before testing.
-  ASSERT_OK_AND_ASSIGN(auto gnmi_stub, testbed.Sut().CreateGnmiStub());
-  auto all_interfaces_up_status = CheckAllInterfaceOperStateOverGnmi(
-      *gnmi_stub, /*interface_oper_state=*/"UP",
-      /*skip_non_ethernet_interfaces=*/false,
-      /*timeout=*/absl::Minutes(3));
-  if (!all_interfaces_up_status.ok()) {
+  // Wait for ports to come up before the test. We don't need all the ports to
+  // be up, but it helps with reproducibility. We're using a short timeout (1
+  // minute) so the impact is small if the testbed doesn't bring up every port.
+  if (auto all_interfaces_up_status =
+          WaitForCondition(AllPortsUp, absl::Minutes(1), testbed.Sut());
+      !all_interfaces_up_status.ok()) {
     LOG(WARNING) << "Some ports are down at the start of the test. Continuing "
                  << "with only the UP ports. " << all_interfaces_up_status;
   }
@@ -501,12 +499,9 @@ void HashConfigTest::RebootSut() {
   ASSERT_OK(
       WaitForGnmiPortIdConvergence(GetMirrorTestbed().Sut(), GetGnmiConfig(),
                                    /*timeout=*/reboot_deadline - absl::Now()));
-  ASSERT_OK_AND_ASSIGN(auto gnmi_stub, sut.CreateGnmiStub());
-  ASSERT_OK(CheckInterfaceOperStateOverGnmi(
-      *gnmi_stub, /*interface_oper_state=*/"UP", interfaces_,
-      /*timeout=*/reboot_deadline - absl::Now()))
-      << "Switch ports failed to come up after reboot within "
-      << kRebootTimeout;
+  ASSERT_OK(WaitForCondition(PortsUp,
+                             /*timeout=*/reboot_deadline - absl::Now(),
+                             GetMirrorTestbed().Sut(), interfaces_));
 
   // Wait for P4Runtime to be reachable.
   absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>> status_or_p4_session;
