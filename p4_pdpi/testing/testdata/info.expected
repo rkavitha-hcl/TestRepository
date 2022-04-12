@@ -358,6 +358,20 @@ tables {
     match_type: TERNARY
   }
   match_fields {
+    id: 6
+    name: "ipv6_upper_64_bits"
+    annotations: "@format(IPV6_ADDRESS)"
+    bitwidth: 64
+    match_type: TERNARY
+  }
+  match_fields {
+    id: 7
+    name: "ipv6_upper_63_bits"
+    annotations: "@format(IPV6_ADDRESS)"
+    bitwidth: 63
+    match_type: TERNARY
+  }
+  match_fields {
     id: 4
     name: "mac"
     annotations: "@format(MAC_ADDRESS)"
@@ -1427,6 +1441,32 @@ tables_by_id {
         }
       }
     }
+    match_fields_by_id {
+      key: 6
+      value {
+        match_field {
+          id: 6
+          name: "ipv6_upper_64_bits"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 64
+          match_type: TERNARY
+        }
+        format: IPV6
+      }
+    }
+    match_fields_by_id {
+      key: 7
+      value {
+        match_field {
+          id: 7
+          name: "ipv6_upper_63_bits"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 63
+          match_type: TERNARY
+        }
+        format: IPV6
+      }
+    }
     match_fields_by_name {
       key: "ipv4"
       value {
@@ -1448,6 +1488,32 @@ tables_by_id {
           name: "ipv6"
           annotations: "@format(IPV6_ADDRESS)"
           bitwidth: 128
+          match_type: TERNARY
+        }
+        format: IPV6
+      }
+    }
+    match_fields_by_name {
+      key: "ipv6_upper_63_bits"
+      value {
+        match_field {
+          id: 7
+          name: "ipv6_upper_63_bits"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 63
+          match_type: TERNARY
+        }
+        format: IPV6
+      }
+    }
+    match_fields_by_name {
+      key: "ipv6_upper_64_bits"
+      value {
+        match_field {
+          id: 6
+          name: "ipv6_upper_64_bits"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 64
           match_type: TERNARY
         }
         format: IPV6
@@ -4204,6 +4270,32 @@ tables_by_name {
         }
       }
     }
+    match_fields_by_id {
+      key: 6
+      value {
+        match_field {
+          id: 6
+          name: "ipv6_upper_64_bits"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 64
+          match_type: TERNARY
+        }
+        format: IPV6
+      }
+    }
+    match_fields_by_id {
+      key: 7
+      value {
+        match_field {
+          id: 7
+          name: "ipv6_upper_63_bits"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 63
+          match_type: TERNARY
+        }
+        format: IPV6
+      }
+    }
     match_fields_by_name {
       key: "ipv4"
       value {
@@ -4225,6 +4317,32 @@ tables_by_name {
           name: "ipv6"
           annotations: "@format(IPV6_ADDRESS)"
           bitwidth: 128
+          match_type: TERNARY
+        }
+        format: IPV6
+      }
+    }
+    match_fields_by_name {
+      key: "ipv6_upper_63_bits"
+      value {
+        match_field {
+          id: 7
+          name: "ipv6_upper_63_bits"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 63
+          match_type: TERNARY
+        }
+        format: IPV6
+      }
+    }
+    match_fields_by_name {
+      key: "ipv6_upper_64_bits"
+      value {
+        match_field {
+          id: 6
+          name: "ipv6_upper_64_bits"
+          annotations: "@format(IPV6_ADDRESS)"
+          bitwidth: 64
           match_type: TERNARY
         }
         format: IPV6

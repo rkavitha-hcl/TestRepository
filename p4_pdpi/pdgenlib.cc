@@ -63,6 +63,9 @@ std::string GetFormatComment(Format format, int32_t bitwidth) {
   std::string bitwidth_str = "";
   if (format == Format::HEX_STRING) {
     bitwidth_str = absl::StrCat(" / ", bitwidth, " bits");
+  } else if (format == Format::IPV6) {
+    bitwidth_str =
+        absl::StrCat(" / ", bitwidth == 128 ? "" : "upper ", bitwidth, " bits");
   }
   return absl::StrCat("Format::", Format_Name(format), bitwidth_str);
 }

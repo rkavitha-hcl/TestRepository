@@ -201,7 +201,30 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                         }
                         priority: 32
                       )pb"));
-
+  RunPiTableEntryTest(info, "ternary IPv6 64-bit value too long",
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
+                        table_id: 33554435
+                        match {
+                          field_id: 6
+                          ternary {
+                            value: "\x01\x00\x00\x00\x00\x00\x00\x00\x00"
+                            mask: "\x01\xff\xff\xff\xff\xff\xff\xff\xff"
+                          }
+                        }
+                        priority: 32
+                      )pb"));
+  RunPiTableEntryTest(info, "ternary IPv6 63-bit value too long",
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
+                        table_id: 33554435
+                        match {
+                          field_id: 7
+                          ternary {
+                            value: "\x80\x00\x00\x00\x00\x00\x00\x00"
+                            mask: "\xff\xff\xff\xff\xff\xff\xff\xff"
+                          }
+                        }
+                        priority: 32
+                      )pb"));
   RunPiTableEntryTest(info, "ternary value and mask too long",
                       gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
                         table_id: 33554435
@@ -698,6 +721,34 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                         priority: 32
                       )pb"));
 
+  RunIrTableEntryTest(
+      info, "invalid value - address not in bounds for upper 64 bits of ipv6",
+      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
+        table_name: "ternary_table"
+        matches {
+          name: "ipv6_upper_64_bits"
+          ternary {
+            value { ipv6: "::ff22" }
+            mask { ipv6: "::ffff" }
+          }
+        }
+        priority: 32
+      )pb"));
+
+  RunIrTableEntryTest(
+      info, "invalid value - address not in bounds for upper 63 bits of ipv6",
+      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
+        table_name: "ternary_table"
+        matches {
+          name: "ipv6_upper_63_bits"
+          ternary {
+            value { ipv6: "ff::" }
+            mask { ipv6: "ffff:ffff:ffff:ffff::" }
+          }
+        }
+        priority: 32
+      )pb"));
+
   RunIrTableEntryTest(info, "invalid match field name",
                       gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
                         table_name: "id_test_table"
@@ -1161,7 +1212,7 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                       )pb"));
   RunIrNoActionTableTests(info);
   RunIrTernaryTableTests(info);
-}
+}  // NOLINT(readability/fn_size)
 
 static void RunPdTests(const pdpi::IrP4Info info) {
   RunPdTableEntryTest(info, "empty PD",
@@ -1464,6 +1515,14 @@ static void RunPdTests(const pdpi::IrP4Info info) {
             normal { value: "0x052" mask: "0x273" }
             ipv4 { value: "10.43.12.4" mask: "10.43.12.5" }
             ipv6 { value: "::ee66" mask: "::ff77" }
+            ipv6_upper_64_bits {
+              value: "0:1fff:ee66:aabb::"
+              mask: "0:ffff:ffff:ffff::"
+            }
+            ipv6_upper_63_bits {
+              value: "0:1fff:ee66:aafe::"
+              mask: "0:ffff:ffff:fffe::"
+            }
             mac { value: "11:22:33:44:55:66" mask: "33:66:77:66:77:77" }
           }
           priority: 32

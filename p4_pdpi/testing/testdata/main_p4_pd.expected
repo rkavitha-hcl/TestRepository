@@ -44,7 +44,7 @@ message Optional {
 
 message IdTestTableEntry {
   message Match {
-    string ipv6 = 1; // exact match / Format::IPV6
+    string ipv6 = 1; // exact match / Format::IPV6 / 128 bits
     string ipv4 = 2; // exact match / Format::IPV4
   }
   Match match = 1;
@@ -62,7 +62,7 @@ message ExactTableEntry {
   message Match {
     string normal = 1; // exact match / Format::HEX_STRING / 10 bits
     string ipv4 = 2; // exact match / Format::IPV4
-    string ipv6 = 3; // exact match / Format::IPV6
+    string ipv6 = 3; // exact match / Format::IPV6 / 128 bits
     string mac = 4; // exact match / Format::MAC
     string str = 5; // exact match / Format::STRING
   }
@@ -78,9 +78,11 @@ message TernaryTableEntry {
   message Match {
     Ternary normal = 1; // ternary match / Format::HEX_STRING / 10 bits
     Ternary ipv4 = 2; // ternary match / Format::IPV4
-    Ternary ipv6 = 3; // ternary match / Format::IPV6
+    Ternary ipv6 = 3; // ternary match / Format::IPV6 / 128 bits
     Ternary mac = 4; // ternary match / Format::MAC
     Ternary unused_field = 5; // ternary match / Format::HEX_STRING / 1 bits
+    Ternary ipv6_upper_64_bits = 6; // ternary match / Format::IPV6 / upper 64 bits
+    Ternary ipv6_upper_63_bits = 7; // ternary match / Format::IPV6 / upper 63 bits
   }
   Match match = 1;
   message Action {
@@ -108,7 +110,7 @@ message Lpm1TableEntry {
 
 message Lpm2TableEntry {
   message Match {
-    Lpm ipv6 = 1; // lpm match / Format::IPV6
+    Lpm ipv6 = 1; // lpm match / Format::IPV6 / 128 bits
   }
   Match match = 1;
   message Action {
@@ -171,7 +173,7 @@ message Wcmp2TableEntry {
 
 message OptionalTableEntry {
   message Match {
-    Optional ipv6 = 1; // optional match / Format::IPV6
+    Optional ipv6 = 1; // optional match / Format::IPV6 / 128 bits
     Optional ipv4 = 2; // optional match / Format::IPV4
     Optional str = 3; // optional match / Format::STRING
   }
@@ -223,7 +225,7 @@ message Referring2TableEntry {
 
 message NoActionTableEntry {
   message Match {
-    string ipv6 = 1; // exact match / Format::IPV6
+    string ipv6 = 1; // exact match / Format::IPV6 / 128 bits
     string ipv4 = 2; // exact match / Format::IPV4
   }
   Match match = 1;
@@ -248,7 +250,7 @@ message ReferringToReferring2TableEntry {
 
 message UnusedTableEntry {
   message Match {
-    string ipv6 = 1; // exact match / Format::IPV6
+    string ipv6 = 1; // exact match / Format::IPV6 / 128 bits
     string ipv4 = 2; // exact match / Format::IPV4
   }
   Match match = 1;
@@ -269,7 +271,7 @@ message DoThing1Action {
 message DoThing2Action {
   string normal = 1; // Format::HEX_STRING / 10 bits
   string ipv4 = 2; // Format::IPV4
-  string ipv6 = 3; // Format::IPV6
+  string ipv6 = 3; // Format::IPV6 / 128 bits
   string mac = 4; // Format::MAC
   string str = 5; // Format::STRING
 }

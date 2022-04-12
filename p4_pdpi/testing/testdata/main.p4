@@ -112,6 +112,10 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
       meta.normal : ternary @id(1) @name("normal");
       meta.ipv4 : ternary @id(2) @format(IPV4_ADDRESS) @name("ipv4");
       meta.ipv6 : ternary @id(3) @format(IPV6_ADDRESS) @name("ipv6");
+      meta.ipv6[127:64] :
+          ternary @id(6) @format(IPV6_ADDRESS) @name("ipv6_upper_64_bits");
+      meta.ipv6[127:65] :
+          ternary @id(7) @format(IPV6_ADDRESS) @name("ipv6_upper_63_bits");
       meta.mac : ternary @id(4) @format(MAC_ADDRESS) @name("mac");
       meta.val : ternary @id(5) @name("unused_field") @unused;
     }

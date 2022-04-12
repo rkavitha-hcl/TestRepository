@@ -229,6 +229,46 @@ INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following r
   - Action is required.
 
 =========================================================================
+ternary IPv6 64-bit value too long
+=========================================================================
+
+--- PI (Input):
+table_id: 33554435
+match {
+  field_id: 6
+  ternary {
+    value: "\001\000\000\000\000\000\000\000\000"
+    mask: "\001\377\377\377\377\377\377\377\377"
+  }
+}
+priority: 32
+
+--- PI is invalid/unsupported:
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Match field 'ipv6_upper_64_bits' is invalid: Bytestring of length 65 bits does not fit in 64 bits.
+  - Action is required.
+
+=========================================================================
+ternary IPv6 63-bit value too long
+=========================================================================
+
+--- PI (Input):
+table_id: 33554435
+match {
+  field_id: 7
+  ternary {
+    value: "\200\000\000\000\000\000\000\000"
+    mask: "\377\377\377\377\377\377\377\377"
+  }
+}
+priority: 32
+
+--- PI is invalid/unsupported:
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Match field 'ipv6_upper_63_bits' is invalid: Bytestring of length 64 bits does not fit in 63 bits.
+  - Action is required.
+
+=========================================================================
 ternary value and mask too long
 =========================================================================
 
@@ -1038,6 +1078,54 @@ priority: 32
 --- IR (converting to PI) is invalid/unsupported:
 INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
   - Match field 'ipv6' is invalid: Must be a ternary match type.
+  - Action is required.
+
+=========================================================================
+invalid value - address not in bounds for upper 64 bits of ipv6
+=========================================================================
+
+--- IR (Input):
+table_name: "ternary_table"
+matches {
+  name: "ipv6_upper_64_bits"
+  ternary {
+    value {
+      ipv6: "::ff22"
+    }
+    mask {
+      ipv6: "::ffff"
+    }
+  }
+}
+priority: 32
+
+--- IR (converting to PI) is invalid/unsupported:
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Match field 'ipv6_upper_64_bits' is invalid: IPv6 address '::ff22' does not fit within the required prefix length '64' (defined by bitwidth).
+  - Action is required.
+
+=========================================================================
+invalid value - address not in bounds for upper 63 bits of ipv6
+=========================================================================
+
+--- IR (Input):
+table_name: "ternary_table"
+matches {
+  name: "ipv6_upper_63_bits"
+  ternary {
+    value {
+      ipv6: "ff::"
+    }
+    mask {
+      ipv6: "ffff:ffff:ffff:ffff::"
+    }
+  }
+}
+priority: 32
+
+--- IR (converting to PI) is invalid/unsupported:
+INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following reasons:
+  - Match field 'ipv6_upper_63_bits' is invalid: IPv6 address 'ffff:ffff:ffff:ffff::' does not fit within the required prefix length '63' (defined by bitwidth).
   - Action is required.
 
 =========================================================================
@@ -3015,6 +3103,14 @@ ternary_table_entry {
       value: "11:22:33:44:55:66"
       mask: "33:66:77:66:77:77"
     }
+    ipv6_upper_64_bits {
+      value: "0:1fff:ee66:aabb::"
+      mask: "0:ffff:ffff:ffff::"
+    }
+    ipv6_upper_63_bits {
+      value: "0:1fff:ee66:aafe::"
+      mask: "0:ffff:ffff:fffe::"
+    }
   }
   action {
     do_thing_3 {
@@ -3071,6 +3167,28 @@ matches {
     }
   }
 }
+matches {
+  name: "ipv6_upper_64_bits"
+  ternary {
+    value {
+      ipv6: "0:1fff:ee66:aabb::"
+    }
+    mask {
+      ipv6: "0:ffff:ffff:ffff::"
+    }
+  }
+}
+matches {
+  name: "ipv6_upper_63_bits"
+  ternary {
+    value {
+      ipv6: "0:1fff:ee66:aafe::"
+    }
+    mask {
+      ipv6: "0:ffff:ffff:fffe::"
+    }
+  }
+}
 priority: 32
 action {
   name: "do_thing_3"
@@ -3116,6 +3234,20 @@ match {
   ternary {
     value: "\021\"3DUf"
     mask: "3fwfww"
+  }
+}
+match {
+  field_id: 6
+  ternary {
+    value: "\037\377\356f\252\273"
+    mask: "\377\377\377\377\377\377"
+  }
+}
+match {
+  field_id: 7
+  ternary {
+    value: "\017\377\3673U\177"
+    mask: "\177\377\377\377\377\377"
   }
 }
 action {

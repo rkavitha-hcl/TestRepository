@@ -129,7 +129,7 @@ message Ipv6TableEntry {
   message Match {
     // Refers to 'vrf_table.vrf_id'.
     string vrf_id = 1;  // exact match / Format::STRING
-    Lpm ipv6_dst = 2;   // lpm match / Format::IPV6
+    Lpm ipv6_dst = 2;   // lpm match / Format::IPV6 / 128 bits
   }
   Match match = 1;
   message Action {
@@ -236,8 +236,8 @@ message AclIngressTableEntry {
     Ternary dst_mac = 5;       // ternary match / Format::MAC
     Ternary src_ip = 6;        // ternary match / Format::IPV4
     Ternary dst_ip = 7;        // ternary match / Format::IPV4
-    Ternary src_ipv6 = 8;      // ternary match / Format::IPV6
-    Ternary dst_ipv6 = 9;      // ternary match / Format::IPV6
+    Ternary src_ipv6 = 8;      // ternary match / Format::IPV6 / 128 bits
+    Ternary dst_ipv6 = 9;      // ternary match / Format::IPV6 / 128 bits
     Ternary ttl = 10;          // ternary match / Format::HEX_STRING / 8 bits
     Ternary dscp = 11;         // ternary match / Format::HEX_STRING / 6 bits
     Ternary ecn = 12;          // ternary match / Format::HEX_STRING / 2 bits
@@ -291,7 +291,7 @@ message AclPreIngressTableEntry {
     Optional is_ipv6 = 3;  // optional match / Format::HEX_STRING / 1 bits
     Ternary src_mac = 4;   // ternary match / Format::MAC
     Ternary dst_ip = 5;    // ternary match / Format::IPV4
-    Ternary dst_ipv6 = 6;  // ternary match / Format::IPV6
+    Ternary dst_ipv6 = 6;  // ternary match / Format::IPV6 / 128 bits
     Ternary dscp = 7;      // ternary match / Format::HEX_STRING / 6 bits
     Optional in_port = 8;  // optional match / Format::STRING
     Ternary dst_mac = 9;   // ternary match / Format::MAC
@@ -456,8 +456,8 @@ message SetTunnelEncapNexthopAction {
 }
 
 message MarkForTunnelEncapAction {
-  string encap_src_ip = 1;  // Format::IPV6
-  string encap_dst_ip = 2;  // Format::IPV6
+  string encap_src_ip = 1;  // Format::IPV6 / 128 bits
+  string encap_dst_ip = 2;  // Format::IPV6 / 128 bits
   // Refers to 'router_interface_table.router_interface_id'.
   string router_interface_id = 3;  // Format::STRING
 }
