@@ -26,6 +26,8 @@
 
 namespace thinkit {
 
+struct GenericTestbedFixtureParams;
+
 // The ThinKit `GenericTestbedInterface` defines an interface every test
 // platform should implement. The expectations are such that the GenericTestbed
 // should only be accessed after SetUp() is called and before TearDown() is
@@ -41,6 +43,13 @@ class GenericTestbedInterface {
   // support them.
   virtual absl::StatusOr<std::unique_ptr<GenericTestbed>>
   GetTestbedWithRequirements(const thinkit::TestRequirements& requirements) = 0;
+
+  void SetParams(const GenericTestbedFixtureParams& params) {
+    params_ = &params;
+  }
+
+ protected:
+  const GenericTestbedFixtureParams* params_;
 };
 
 // The Thinkit `TestParams` defines test parameters to
@@ -82,7 +91,10 @@ class GenericTestbedFixture
   // A derived class that needs/wants to do its own setup can override this
   // method. However, it should take care to call this base setup first. That
   // will ensure the platform is ready, and in a healthy state.
-  void SetUp() override { generic_testbed_interface_->SetUp(); }
+  void SetUp() override {
+    generic_testbed_interface_->SetParams(GetParam());
+    generic_testbed_interface_->SetUp();
+  }
 
   // A derived class that needs/wants to do its own teardown can override this
   // method. However, it should take care to call this base teardown last. Once
