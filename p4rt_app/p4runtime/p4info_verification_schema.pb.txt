@@ -4,6 +4,10 @@ tables {
   match_fields { name: "vrf_id" format: STRING type: EXACT }
   actions { name: "drop" }
   actions {
+    name: "set_metadata_and_drop"
+    parameters { name: "route_metadata" bitwidth: 6 }
+  }
+  actions {
     name: "set_nexthop_id"
     parameters { name: "nexthop_id" format: STRING }
   }
@@ -28,6 +32,10 @@ tables {
   match_fields { name: "ipv6_dst" format: IPV6 type: LPM }
   match_fields { name: "vrf_id" format: STRING type: EXACT }
   actions { name: "drop" }
+  actions {
+    name: "set_metadata_and_drop"
+    parameters { name: "route_metadata" bitwidth: 6 }
+  }
   actions {
     name: "set_nexthop_id"
     parameters { name: "nexthop_id" format: STRING }
