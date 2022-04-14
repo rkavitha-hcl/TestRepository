@@ -344,10 +344,6 @@ tables {
     id: 16777233
     annotations: "@proto_id(6)"
   }
-  action_refs {
-    id: 16777237
-    annotations: "@proto_id(7)"
-  }
   const_default_action_id: 16777222
   size: 32768
 }
@@ -397,10 +393,6 @@ tables {
   action_refs {
     id: 16777233
     annotations: "@proto_id(6)"
-  }
-  action_refs {
-    id: 16777237
-    annotations: "@proto_id(7)"
   }
   const_default_action_id: 16777222
   size: 4096
@@ -923,18 +915,6 @@ actions {
     id: 16777231
     name: "ingress.routing.trap"
     alias: "trap"
-  }
-}
-actions {
-  preamble {
-    id: 16777237
-    name: "ingress.routing.set_metadata_and_drop"
-    alias: "set_metadata_and_drop"
-  }
-  params {
-    id: 1
-    name: "route_metadata"
-    bitwidth: 6
   }
 }
 actions {

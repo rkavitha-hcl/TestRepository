@@ -354,15 +354,7 @@ control routing(in headers_t headers,
     mark_to_drop(standard_metadata);
   }
 
-  // Set the metadata of the packet and mark the packet to drop at the end of
-  // the ingress pipeline.
-  @id(ROUTING_SET_METADATA_AND_DROP_ACTION_ID)
-  action set_metadata_and_drop(@id(1) route_metadata_t route_metadata) {
-    local_metadata.route_metadata = route_metadata;
-    mark_to_drop(standard_metadata);
-  }
-
-   @p4runtime_role(P4RUNTIME_ROLE_ROUTING)
+  @p4runtime_role(P4RUNTIME_ROLE_ROUTING)
   @id(ROUTING_IPV4_TABLE_ID)
   table ipv4_table {
     key = {
@@ -380,7 +372,6 @@ control routing(in headers_t headers,
       @proto_id(4) trap;
       @proto_id(5) set_nexthop_id_and_metadata;
       @proto_id(6) set_wcmp_group_id_and_metadata;
-      @proto_id(7) set_metadata_and_drop;
     }
     const default_action = drop;
     size = ROUTING_IPV4_TABLE_MINIMUM_GUARANTEED_SIZE;
@@ -404,7 +395,6 @@ control routing(in headers_t headers,
       @proto_id(4) trap;
       @proto_id(5) set_nexthop_id_and_metadata;
       @proto_id(6) set_wcmp_group_id_and_metadata;
-      @proto_id(7) set_metadata_and_drop;
     }
     const default_action = drop;
     size = ROUTING_IPV6_TABLE_MINIMUM_GUARANTEED_SIZE;
