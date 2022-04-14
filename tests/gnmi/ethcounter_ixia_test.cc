@@ -885,7 +885,7 @@ TEST_P(ExampleIxiaTestFixture, TestIPv4Pkts) {
   EXPECT_OK(SetLoopback(true, sut_out_interface, gnmi_stub.get()));
 
   ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
-      generic_testbed->Sut(), GetParam().gnmi_config,
+      generic_testbed->Sut(), gnmi_config(),
       /*timeout=*/absl::Minutes(3)));
 
   // Set up the switch to forward inbound IPv4 packets to the egress port
@@ -1171,7 +1171,7 @@ TEST_P(ExampleIxiaTestFixture, TestOutDiscards) {
   EXPECT_THAT(out_status_speed, IsOkAndHolds(kSpeed40GB));
 
   ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
-      generic_testbed->Sut(), GetParam().gnmi_config,
+      generic_testbed->Sut(), gnmi_config(),
       /*timeout=*/absl::Minutes(3)));
 
   // Set up the switch to forward inbound packets to the egress port
@@ -1458,7 +1458,7 @@ TEST_P(ExampleIxiaTestFixture, TestIPv6Pkts) {
   EXPECT_OK(SetLoopback(true, sut_out_interface, gnmi_stub.get()));
 
   ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
-      generic_testbed->Sut(), GetParam().gnmi_config,
+      generic_testbed->Sut(), gnmi_config(),
       /*timeout=*/absl::Minutes(3)));
 
   // Set up the switch to forward inbound packets to the egress port

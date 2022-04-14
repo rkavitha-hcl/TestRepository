@@ -16,7 +16,7 @@ void MirrorBlackboxTestFixture::SetUp() {
       std::tie(sut_p4rt_session_, control_switch_p4rt_session_),
       pins_test::ConfigureSwitchPairAndReturnP4RuntimeSessionPair(
           GetMirrorTestbed().Sut(), GetMirrorTestbed().ControlSwitch(),
-          GetGnmiConfig(), GetP4Info()));
+          gnmi_config(), p4_info()));
 }
 
 void MirrorBlackboxTestFixture::TearDown() {

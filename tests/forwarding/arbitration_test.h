@@ -45,9 +45,9 @@ class ArbitrationTestFixture : public thinkit::MirrorTestbedFixture {
     MirrorTestbedFixture::SetUp();
     // Push the gnmi configuration.
     ASSERT_OK(
-        pins_test::PushGnmiConfig(GetMirrorTestbed().Sut(), GetGnmiConfig()));
+        pins_test::PushGnmiConfig(GetMirrorTestbed().Sut(), gnmi_config()));
     ASSERT_OK(pins_test::PushGnmiConfig(GetMirrorTestbed().ControlSwitch(),
-                                        GetGnmiConfig()));
+                                        gnmi_config()));
 
     device_id_ = GetMirrorTestbed().Sut().DeviceId();
     //  Sleep for one second, so that we are guaranteed to get a higher
@@ -65,7 +65,7 @@ class ArbitrationTestFixture : public thinkit::MirrorTestbedFixture {
     RETURN_IF_ERROR(pdpi::SetForwardingPipelineConfig(
         p4rt_session,
         p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
-        GetP4Info()));
+        p4_info()));
 
     // Clear entries here in case the previous test did not (e.g. because it
     // crashed).

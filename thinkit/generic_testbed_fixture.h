@@ -59,7 +59,7 @@ struct GenericTestbedFixtureParams {
   GenericTestbedInterface* generic_testbed;
   std::string gnmi_config;
   p4::config::v1::P4Info p4_info;
-  absl::optional<std::vector<int>> port_ids;
+  std::optional<std::vector<int>> port_ids = std::nullopt;
 };
 
 // The ThinKit `GenericTestbedFixture` class acts as a base test fixture for
@@ -109,7 +109,7 @@ class GenericTestbedFixture
     return generic_testbed_interface_->GetTestbedWithRequirements(requirements);
   }
 
-  const std::string& GetGnmiConfig() { return GetParam().gnmi_config; }
+  const std::string& gnmi_config() { return GetParam().gnmi_config; }
   const p4::config::v1::P4Info& p4_info() { return GetParam().p4_info; }
 
  private:

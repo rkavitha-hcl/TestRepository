@@ -54,6 +54,7 @@
 #include "tests/forwarding/group_programming_util.h"
 #include "tests/forwarding/packet_test_util.h"
 #include "tests/forwarding/util.h"
+#include "tests/lib/switch_test_setup_helpers.h"
 #include "tests/thinkit_sanity_tests.h"
 #include "thinkit/mirror_testbed_fixture.h"
 #include "thinkit/test_environment.h"
@@ -208,9 +209,9 @@ void ProgramHashingEntities(thinkit::MirrorTestbed& testbed,
     members.push_back({.weight = 1, .port = port_id});
   }
   ASSERT_OK_AND_ASSIGN(auto ir_p4info, pdpi::CreateIrP4Info(p4info));
-  ASSERT_OK_AND_ASSIGN(auto session,
-                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-                           testbed.Sut(), p4info));
+  ASSERT_OK_AND_ASSIGN(
+      auto session, pins_test::ConfigureSwitchAndReturnP4RuntimeSession(
+                        testbed.Sut(), /*gnmi_config=*/std::nullopt, p4info));
   ASSERT_OK(gpins::ProgramNextHops(testbed.Environment(), *session, ir_p4info,
                                    members));
 
@@ -290,8 +291,8 @@ void InitializeTestbed(thinkit::MirrorTestbed& testbed,
   // Setup control switch P4 state.
   ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<pdpi::P4RuntimeSession> control_p4_session,
-      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-          testbed.ControlSwitch(), p4info));
+      pins_test::ConfigureSwitchAndReturnP4RuntimeSession(
+          testbed.ControlSwitch(), /*gnmi_config=*/std::nullopt, p4info));
 
   // Trap all packets on control switch.
   ASSERT_OK_AND_ASSIGN(pdpi::IrP4Info ir_p4info, pdpi::CreateIrP4Info(p4info));
@@ -449,7 +450,7 @@ void HashConfigTest::SetUp() {
   MirrorTestbedFixture::SetUp();
 
   ASSERT_NO_FATAL_FAILURE(
-      InitializeTestbed(GetMirrorTestbed(), GetGnmiConfig(), GetP4Info()));
+      InitializeTestbed(GetMirrorTestbed(), gnmi_config(), p4_info()));
 
   ASSERT_NO_FATAL_FAILURE(
       GetPortIds(GetMirrorTestbed().Sut(), interfaces_, port_ids_));
@@ -493,11 +494,11 @@ void HashConfigTest::RebootSut() {
   ASSERT_NO_FATAL_FAILURE(TestGnoiSystemColdReboot(sut));
 
   // Wait for port set-up to complete from coldboot config push recovery.
-  ASSERT_OK(PushGnmiConfig(sut, GetGnmiConfig()))
+  ASSERT_OK(PushGnmiConfig(sut, gnmi_config()))
       << "Failed to push config after reboot.";
 
   ASSERT_OK(
-      WaitForGnmiPortIdConvergence(GetMirrorTestbed().Sut(), GetGnmiConfig(),
+      WaitForGnmiPortIdConvergence(GetMirrorTestbed().Sut(), gnmi_config(),
                                    /*timeout=*/reboot_deadline - absl::Now()));
   ASSERT_OK(WaitForCondition(PortsUp,
                              /*timeout=*/reboot_deadline - absl::Now(),
@@ -567,13 +568,13 @@ void HashConfigTest::InitializeOriginalP4InfoTestDataIfNeeded() {
   if (original_p4info_test_data_ != nullptr) return;
 
   std::string test_stage = "0_original";
-  EXPECT_OK(RecordP4Info(test_stage, GetP4Info()));
+  EXPECT_OK(RecordP4Info(test_stage, p4_info()));
   ASSERT_NO_FATAL_FAILURE(
-      ProgramHashingEntities(GetMirrorTestbed(), GetP4Info(), port_ids_));
+      ProgramHashingEntities(GetMirrorTestbed(), p4_info(), port_ids_));
 
   original_p4info_test_data_ = new absl::node_hash_map<std::string, TestData>();
   ASSERT_NO_FATAL_FAILURE(SendPacketsAndRecordResultsPerTestConfig(
-      GetP4Info(), test_stage, *original_p4info_test_data_));
+      p4_info(), test_stage, *original_p4info_test_data_));
   ASSERT_NO_FATAL_FAILURE(RebootSut());
 }
 
@@ -628,14 +629,14 @@ void HashConfigTest::TestHashDifferenceWithBackup(
 TEST_P(HashConfigTest, HashIsStableWithSameP4Info) {
   // Set up the switch with the original P4Info.
   std::string test_stage = "1_original";
-  EXPECT_OK(RecordP4Info(test_stage, GetP4Info()));
+  EXPECT_OK(RecordP4Info(test_stage, p4_info()));
   ASSERT_NO_FATAL_FAILURE(
-      ProgramHashingEntities(GetMirrorTestbed(), GetP4Info(), port_ids_));
+      ProgramHashingEntities(GetMirrorTestbed(), p4_info(), port_ids_));
 
   // Send packets and record hash results.
   absl::node_hash_map<std::string, TestData> hash_test_data;
   ASSERT_NO_FATAL_FAILURE(SendPacketsAndRecordResultsPerTestConfig(
-      GetP4Info(), test_stage, hash_test_data));
+      p4_info(), test_stage, hash_test_data));
 
   // Ensure that the same packet set with the same hash parameters produces
   // the same result.
@@ -651,17 +652,17 @@ TEST_P(HashConfigTest, HashAlgorithmSettingsAffectPacketHash) {
   GetMirrorTestbed().Environment().SetTestCaseID(
       "0a584c71-a701-4ea5-b4f3-5e4e37171d9c");
 
-  p4::config::v1::P4Info modified_p4info = GetP4Info();
+  p4::config::v1::P4Info modified_p4info = p4_info();
   ASSERT_NO_FATAL_FAILURE(
       RegexModifyP4Info(modified_p4info, R"re(sai_hash_algorithm\([^)]*\))re",
                         "sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)"));
   // If we happen to match, attempt with another algorithm.
-  if (Matches(EqualsProto(GetP4Info()))(modified_p4info)) {
+  if (Matches(EqualsProto(p4_info()))(modified_p4info)) {
     ASSERT_NO_FATAL_FAILURE(
         RegexModifyP4Info(modified_p4info, R"re(sai_hash_algorithm\([^)]*\))re",
                           "sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_CCITT)"));
   }
-  ASSERT_THAT(modified_p4info, Not(EqualsProto(GetP4Info())))
+  ASSERT_THAT(modified_p4info, Not(EqualsProto(p4_info())))
       << "Failed to modify the hash algorithm in the P4Info.";
 
   ASSERT_NO_FATAL_FAILURE(TestHashDifference(modified_p4info));
@@ -671,17 +672,17 @@ TEST_P(HashConfigTest, HashOffsetSettingsAffectPacketHash) {
   GetMirrorTestbed().Environment().SetTestCaseID(
       "0a584c71-a701-4ea5-b4f3-5e4e37171d9c");
 
-  p4::config::v1::P4Info modified_p4info = GetP4Info();
+  p4::config::v1::P4Info modified_p4info = p4_info();
   ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(modified_p4info,
                                             R"re(sai_hash_offset\([^)]*\))re",
                                             "sai_hash_offset(3)"));
   // If we happen to match, attempt with another offset.
-  if (Matches(EqualsProto(GetP4Info()))(modified_p4info)) {
+  if (Matches(EqualsProto(p4_info()))(modified_p4info)) {
     ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(modified_p4info,
                                               R"re(sai_hash_offset\([^)]*\))re",
                                               "sai_hash_offset(4)"));
   }
-  ASSERT_THAT(modified_p4info, Not(EqualsProto(GetP4Info())))
+  ASSERT_THAT(modified_p4info, Not(EqualsProto(p4_info())))
       << "Failed to modify the hash offset in the P4Info.";
 
   ASSERT_NO_FATAL_FAILURE(TestHashDifference(modified_p4info));
@@ -695,33 +696,33 @@ TEST_P(HashConfigTest, HashSeedSettingsAffectPacketHash) {
   GetMirrorTestbed().Environment().SetTestCaseID(
       "0a584c71-a701-4ea5-b4f3-5e4e37171d9c");
 
-  p4::config::v1::P4Info modified_p4info = GetP4Info();
+  p4::config::v1::P4Info modified_p4info = p4_info();
   ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(modified_p4info,
                                             R"re(sai_hash_seed\([^)]*\))re",
                                             "sai_hash_seed(2821017091)"));
   // If we happen to match, attempt with another seed.
-  if (Matches(EqualsProto(GetP4Info()))(modified_p4info)) {
+  if (Matches(EqualsProto(p4_info()))(modified_p4info)) {
     ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(modified_p4info,
                                               R"re(sai_hash_seed\([^)]*\))re",
                                               "sai_hash_seed(2821017092)"));
   }
-  ASSERT_THAT(modified_p4info, Not(EqualsProto(GetP4Info())))
+  ASSERT_THAT(modified_p4info, Not(EqualsProto(p4_info())))
       << "Failed to modify the hash seed in the P4Info.";
 
   // Because we start with a random hash seed, there is some inherent
   // undeterminism in this test. We don't require that each hash seed results
   // in a unique hash. Instead, we allow for a backup test seed in case the
   // original seed doesn't produce a difference.
-  p4::config::v1::P4Info backup_p4info = GetP4Info();
+  p4::config::v1::P4Info backup_p4info = p4_info();
   ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(backup_p4info,
                                             R"re(sai_hash_seed\([^)]*\))re",
                                             "sai_hash_seed(1111111111)"));
-  if (Matches(EqualsProto(GetP4Info()))(backup_p4info)) {
+  if (Matches(EqualsProto(p4_info()))(backup_p4info)) {
     ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(backup_p4info,
                                               R"re(sai_hash_seed\([^)]*\))re",
                                               "sai_hash_seed(1111111112)"));
   }
-  ASSERT_THAT(backup_p4info, Not(EqualsProto(GetP4Info())))
+  ASSERT_THAT(backup_p4info, Not(EqualsProto(p4_info())))
       << "Failed to modify the hash seed in the P4Info.";
 
   ASSERT_NO_FATAL_FAILURE(
