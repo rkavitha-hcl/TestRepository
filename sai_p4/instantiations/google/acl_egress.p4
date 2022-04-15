@@ -12,6 +12,8 @@
 control acl_egress(in headers_t headers,
                     inout local_metadata_t local_metadata,
                     inout standard_metadata_t standard_metadata) {
+  // First 6 bits of IPv4 TOS or IPv6 traffic class (or 0, for non-IP packets)
+  bit<6> dscp = 0;
   // IPv4 IP protocol or IPv6 next_header (or 0, for non-IP packets)
   bit<8> ip_protocol = 0;
 
@@ -21,9 +23,10 @@ control acl_egress(in headers_t headers,
   @entry_restriction("
     // Forbid using ether_type for IP packets (by convention, use is_ip* instead).
     ether_type != 0x0800 && ether_type != 0x86dd;
+    dscp::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);
     // Only allow IP field matches for IP packets.
     // TODO: Enable once p4-constraints bug is fixed.
-    // ip_protocol::mask != 0 -> (ether_type == 0x0800 || ether_type == 0x86dd);
+    // ip_protocol::mask != 0 -> (is_ip == 1 || is_ipv4 == 1 || is_ipv6 == 1);
     // Only allow l4_dst_port matches for TCP/UDP packets.
     l4_dst_port::mask != 0 -> (ip_protocol == 6 || ip_protocol == 17);
     // Forbid illegal combinations of IP_TYPE fields.
@@ -50,6 +53,9 @@ control acl_egress(in headers_t headers,
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_ACL_IP_TYPE/IPV4ANY);
       headers.ipv6.isValid() : optional @name("is_ipv6") @id(7)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_ACL_IP_TYPE/IPV6ANY);
+      // Field for v4 and v6 DSCP bits.
+      dscp : ternary @name("dscp") @id(8)
+          @sai_field(SAI_ACL_TABLE_ATTR_FIELD_DSCP);
     }
     actions = {
       @proto_id(1) acl_drop(standard_metadata);
@@ -61,8 +67,10 @@ control acl_egress(in headers_t headers,
 
   apply {
     if (headers.ipv4.isValid()) {
+      dscp = headers.ipv4.dscp;
       ip_protocol = headers.ipv4.protocol;
     } else if (headers.ipv6.isValid()) {
+      dscp = headers.ipv6.dscp;
       ip_protocol = headers.ipv6.next_header;
     } else {
       ip_protocol = 0;
