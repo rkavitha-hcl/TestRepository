@@ -18,6 +18,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "glog/logging.h"
+#include "gutil/proto.h"
 #include "gutil/status.h"
 #include "gutil/testing.h"
 #include "p4/config/v1/p4info.pb.h"
@@ -29,6 +30,7 @@
 #include "p4_pdpi/testing/main_p4_pd.pb.h"
 #include "p4_pdpi/testing/test_helper.h"
 
+using ::gutil::PrintTextProto;
 using ::p4::config::v1::P4Info;
 using ::p4::v1::Update;
 using ::p4::v1::WriteRequest;
@@ -71,7 +73,7 @@ void SequenceTest(const pdpi::IrP4Info& info, const std::string& test_name,
 
   // Output results.
   for (const auto& update : pd_updates) {
-    std::cout << update.DebugString() << std::endl;
+    std::cout << PrintTextProto(update) << std::endl;
   }
   std::cout << "--- Write requests (output):" << std::endl;
   if (result.empty()) std::cout << "<empty>" << std::endl << std::endl;
@@ -86,7 +88,7 @@ void SequenceTest(const pdpi::IrP4Info& info, const std::string& test_name,
     }
     std::cout << "WriteRequest #" << i << std::endl;
     i += 1;
-    std::cout << pd_write_request.DebugString() << std::endl;
+    std::cout << PrintTextProto(pd_write_request) << std::endl;
   }
 }
 
@@ -115,7 +117,7 @@ void SortTest(const pdpi::IrP4Info& info, const std::string& test_name,
   std::cout << "--- PD entries (input):" << std::endl;
   if (pd_entries.empty()) std::cout << "<empty>" << std::endl << std::endl;
   for (const auto& entry : pd_entries) {
-    std::cout << entry.DebugString() << std::endl;
+    std::cout << PrintTextProto(entry) << std::endl;
   }
 
   // Run sorting.
@@ -135,7 +137,7 @@ void SortTest(const pdpi::IrP4Info& info, const std::string& test_name,
       std::cerr << "Unable to convert TableEntry from PI to PD." << std::endl;
       return;
     }
-    std::cout << pd_entry.DebugString() << std::endl;
+    std::cout << PrintTextProto(pd_entry) << std::endl;
   }
 }
 
@@ -166,7 +168,7 @@ void GetEntriesUnreachableFromRootsTest(
   std::cout << "--- PD entries (input):" << std::endl;
   if (pd_entries.empty()) std::cout << "<empty>" << std::endl << std::endl;
   for (const auto& entry : pd_entries) {
-    std::cout << entry.DebugString() << std::endl;
+    std::cout << PrintTextProto(entry) << std::endl;
   }
 
   // We use the entry metadata to determine whether to treat it as a root entry
@@ -196,7 +198,7 @@ void GetEntriesUnreachableFromRootsTest(
       std::cerr << "Unable to convert TableEntry from PI to PD." << std::endl;
       return;
     }
-    std::cout << pd_entry.DebugString() << std::endl;
+    std::cout << PrintTextProto(pd_entry) << std::endl;
   }
 }
 

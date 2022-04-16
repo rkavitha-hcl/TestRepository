@@ -38,6 +38,7 @@
 #include "google/rpc/code.pb.h"
 #include "google/rpc/status.pb.h"
 #include "gutil/collections.h"
+#include "gutil/proto.h"
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/config/v1/p4types.pb.h"
@@ -49,6 +50,8 @@ namespace pdpi {
 
 using ::absl::StatusOr;
 using ::gutil::InvalidArgumentErrorBuilder;
+using ::gutil::PrintShortTextProto;
+using ::gutil::PrintTextProto;
 using ::gutil::UnimplementedErrorBuilder;
 using ::p4::config::v1::MatchField;
 using ::p4::config::v1::P4TypeInfo;
@@ -169,7 +172,7 @@ absl::Status ValidateMatchFieldDefinition(const IrMatchFieldDefinition &match) {
         return InvalidArgumentErrorBuilder()
                << "Only EXACT and OPTIONAL match fields can use "
                   "Format::STRING: "
-               << match.match_field().ShortDebugString();
+               << PrintShortTextProto(match.match_field());
       }
       return absl::OkStatus();
     case p4::config::v1::MatchField::EXACT:
@@ -178,7 +181,7 @@ absl::Status ValidateMatchFieldDefinition(const IrMatchFieldDefinition &match) {
     default:
       return InvalidArgumentErrorBuilder()
              << "Match field match type not supported: "
-             << match.match_field().ShortDebugString();
+             << PrintShortTextProto(match.match_field());
   }
 }
 
@@ -734,7 +737,7 @@ StatusOr<p4::v1::FieldMatch> IrMatchFieldToPi(
       if (*value != *intersection) {
         invalid_reasons.push_back(absl::StrCat(
             kNewBullet, "Lpm value has masked bits that are set. Value: ",
-            ir_match.lpm().value().DebugString(),
+            PrintTextProto(ir_match.lpm().value()),
             "Prefix Length: ", prefix_len));
         break;
       }
@@ -798,8 +801,8 @@ StatusOr<p4::v1::FieldMatch> IrMatchFieldToPi(
       if (*value != *intersection) {
         invalid_reasons.push_back(absl::StrCat(
             kNewBullet, "Ternary value has masked bits that are set. Value: ",
-            ir_match.ternary().value().DebugString(),
-            "Mask: ", ir_match.ternary().mask().DebugString()));
+            PrintTextProto(ir_match.ternary().value()),
+            "Mask: ", PrintTextProto(ir_match.ternary().mask())));
         break;
       }
       match_entry.mutable_ternary()->set_value(
@@ -2226,7 +2229,7 @@ absl::StatusOr<IrWriteRpcStatus> GrpcStatusToIrWriteRpcStatus(
       if (!inner_rpc_status_detail.UnpackTo(&p4_error)) {
         return gutil::InvalidArgumentErrorBuilder()
                << "Can not parse google::rpc::Status contained in grpc_status: "
-               << inner_rpc_status_detail.DebugString();
+               << PrintTextProto(inner_rpc_status_detail);
       }
       RETURN_IF_ERROR(IsGoogleRpcCode(p4_error.canonical_code()));
       RETURN_IF_ERROR(ValidateGenericUpdateStatus(
@@ -2313,7 +2316,7 @@ absl::StatusOr<grpc::Status> IrWriteRpcStatusToGrpcStatus(
       break;
   }
   return gutil::InvalidArgumentErrorBuilder()
-         << "Invalid IrWriteRpcStatus: " << ir_write_status.DebugString();
+         << "Invalid IrWriteRpcStatus: " << PrintTextProto(ir_write_status);
 }
 
 absl::Status WriteRpcGrpcStatusToAbslStatus(
@@ -2348,7 +2351,7 @@ absl::Status WriteRpcGrpcStatusToAbslStatus(
   }
   return gutil::InternalErrorBuilder()
          << "GrpcStatusToIrWriteRpcStatus returned invalid IrWriteRpcStatus: "
-         << write_rpc_status.DebugString();
+         << PrintTextProto(write_rpc_status);
 }
 
 }  // namespace pdpi

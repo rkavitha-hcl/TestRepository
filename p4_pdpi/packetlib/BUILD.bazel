@@ -87,6 +87,7 @@ cc_test(
     linkstatic = True,
     deps = [
         ":packetlib",
+        "//gutil:proto",
         "//gutil:testing",
         "//p4_pdpi/string_encodings:readable_byte_string",
         "@com_google_absl//absl/status",

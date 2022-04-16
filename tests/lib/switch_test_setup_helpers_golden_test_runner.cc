@@ -22,6 +22,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/types/span.h"
 #include "google/protobuf/util/message_differencer.h"
+#include "gutil/proto.h"
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "p4_pdpi/ir.pb.h"
@@ -30,6 +31,8 @@
 #include "tests/lib/switch_test_setup_helpers.h"
 
 namespace {
+
+using ::gutil::PrintTextProto;
 
 constexpr char kBanner[] =
     "=========================================================================="
@@ -51,7 +54,7 @@ std::string TestHeader(absl::string_view test_name,
 void CompareTableEntry(const pdpi::IrTableEntry& original_entry,
                        const pdpi::IrTableEntry& rewritten_entry) {
   std::cout << kInputHeader;
-  std::cout << original_entry.DebugString();
+  std::cout << PrintTextProto(original_entry);
   std::string diff;
   google::protobuf::util::MessageDifferencer differencer;
   differencer.ReportDifferencesToString(&diff);

@@ -132,6 +132,7 @@ cc_library(
     hdrs = ["test_vector.h"],
     deps = [
         ":test_vector_cc_proto",
+        "//gutil:proto",
         "//gutil:status",
         "//p4_pdpi/packetlib:packetlib_cc_proto",
         "//sai_p4/instantiations/google:sai_pd_cc_proto",

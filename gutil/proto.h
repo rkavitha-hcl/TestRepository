@@ -77,5 +77,12 @@ absl::StatusOr<std::string> ProtoDiff(
 // EXPECT_EQ(name, "hex_str");
 absl::StatusOr<std::string> GetOneOfFieldName(
     const google::protobuf::Message &message, const std::string &oneof_name);
+
+// Print proto in TextFormat.
+std::string PrintTextProto(const google::protobuf::Message &message);
+
+// Print proto in TextFormat in a single line.
+std::string PrintShortTextProto(const google::protobuf::Message &message);
+
 }  // namespace gutil
 #endif  // GUTIL_PROTO_H

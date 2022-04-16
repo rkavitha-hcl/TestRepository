@@ -122,4 +122,33 @@ absl::StatusOr<std::string> GetOneOfFieldName(
   }
   return field->name();
 }
+
+std::string PrintTextProto(const google::protobuf::Message &message) {
+  std::string message_text;
+
+  google::protobuf::TextFormat::Printer printer;
+  printer.SetExpandAny(true);
+
+  printer.PrintToString(message, &message_text);
+
+  return message_text;
+}
+
+// Print proto in TextFormat with single line mode enabled.
+std::string PrintShortTextProto(const google::protobuf::Message &message) {
+  std::string message_short_text;
+
+  google::protobuf::TextFormat::Printer printer;
+  printer.SetSingleLineMode(true);
+  printer.SetExpandAny(true);
+
+  printer.PrintToString(message, &message_short_text);
+  // Single line mode currently might have an extra space at the end.
+  if (!message_short_text.empty() && message_short_text.back() == ' ') {
+    message_short_text.pop_back();
+  }
+
+  return message_short_text;
+}
+
 }  // namespace gutil

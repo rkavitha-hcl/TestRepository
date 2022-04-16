@@ -32,6 +32,7 @@
 #include "google/protobuf/descriptor.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gtest/gtest.h"
+#include "gutil/proto.h"
 #include "gutil/status.h"
 #include "p4_pdpi/packetlib/packetlib.pb.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
@@ -41,6 +42,7 @@ namespace gpins {
 namespace {
 
 using ::google::protobuf::util::MessageDifferencer;
+using ::gutil::PrintTextProto;
 using ::testing::MatchResultListener;
 
 // -- Detailed comparison of actual vs expected `SwitchOutput`s ----------------
@@ -310,11 +312,12 @@ absl::optional<std::string> CheckForTestVectorFailure(
 
   // Dump input.
   absl::StrAppend(&failure, kInputBanner, "\n",
-                  test_vector.input().DebugString());
+                  PrintTextProto(test_vector.input()));
 
   // Dump actual output, if any.
   if (!IsCharacterizedAsDrop(actual_output_characterization)) {
-    absl::StrAppend(&failure, kActualBanner, "\n", actual_output.DebugString());
+    absl::StrAppend(&failure, kActualBanner, "\n",
+                    PrintTextProto(actual_output));
   }
 
   // Dump expected output, if any.
@@ -323,7 +326,7 @@ absl::optional<std::string> CheckForTestVectorFailure(
     for (int i = 0; i < test_vector.acceptable_outputs_size(); ++i) {
       absl::StrAppendFormat(
           &failure, "-- Acceptable output: Alternative #%d --\n%s", (i + 1),
-          test_vector.acceptable_outputs(i).DebugString());
+          PrintTextProto(test_vector.acceptable_outputs(i)));
     }
   }
 

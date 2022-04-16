@@ -21,11 +21,15 @@
 #include "absl/strings/escaping.h"
 #include "absl/strings/str_cat.h"
 #include "google/protobuf/util/message_differencer.h"
+#include "gutil/proto.h"
 #include "gutil/testing.h"
 #include "p4_pdpi/packetlib/packetlib.h"
 #include "p4_pdpi/string_encodings/readable_byte_string.h"
 
 namespace packetlib {
+
+using ::gutil::PrintShortTextProto;
+using ::gutil::PrintTextProto;
 
 constexpr char kBanner[] =
     "=========================================================================="
@@ -68,7 +72,7 @@ void RunPacketParseTest(const std::string& name,
     return;
   }
   Packet packet = ParsePacket(*byte_string);
-  std::cout << packet.DebugString() << "\n";
+  std::cout << PrintTextProto(packet) << "\n";
 
   // Check roundtrip if parsing succeeded, or try to fix packet otherwise.
   if (packet.reasons_invalid().empty()) {
@@ -117,7 +121,7 @@ void RunPacketParseTest(const std::string& name,
 void RunProtoPacketTest(const std::string& name, Packet packet) {
   std::cout << kBanner << "Proto packet test: " << name << "\n" << kBanner;
   std::cout << kInputHeader << "packet =" << std::endl
-            << packet.DebugString() << std::endl
+            << PrintTextProto(packet) << std::endl
             << kOutputHeader;
 
   auto valid = ValidatePacket(packet);
@@ -133,7 +137,7 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
         // empty packet.
         Packet payload_only;
         payload_only.set_payload(packet.payload());
-        std::cout << "new " << payload_only.ShortDebugString() << std::endl;
+        std::cout << "new " << PrintShortTextProto(payload_only) << std::endl;
       }
     } else {
       std::cout << StatusToStableString(padded.status()) << std::endl;
@@ -144,7 +148,7 @@ void RunProtoPacketTest(const std::string& name, Packet packet) {
       std::cout << (*updated ? "true" : "false") << std::endl;
       if (*updated) {
         std::cout << "packet =" << std::endl
-                  << packet.DebugString() << std::endl;
+                  << PrintTextProto(packet) << std::endl;
         // Try validating once more.
         std::cout << "ValidatePacket(packet) = "
                   << StatusToStableString(ValidatePacket(packet)) << std::endl;

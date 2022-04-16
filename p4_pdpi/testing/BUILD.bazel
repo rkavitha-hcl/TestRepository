@@ -143,6 +143,7 @@ cc_test(
     deps = [
         ":main_p4_pd_cc_proto",
         ":test_helper",
+        "//gutil:proto",
         "//gutil:status",
         "//gutil:testing",
         "//p4_pdpi:ir",
@@ -177,6 +178,7 @@ cc_test(
     linkstatic = True,
     deps = [
         ":test_helper",
+        "//gutil:proto",
         "//gutil:status",
         "//gutil:testing",
         "//p4_pdpi:ir",
@@ -208,6 +210,7 @@ cc_test(
     deps = [
         ":main_p4_pd_cc_proto",
         ":test_helper",
+        "//gutil:proto",
         "//gutil:status",
         "//gutil:testing",
         "//p4_pdpi:ir",

@@ -84,5 +84,21 @@ TEST(ProtoDiff, ReturnsNonEmptyDiffForUnequalMessages) {
   EXPECT_THAT(ProtoDiff(message1, message2), IsOkAndHolds(Not(IsEmpty())));
 }
 
+TEST(TextProtoHelpers, PrintTextProto) {
+  TestMessage message;
+  message.set_int_field(42);
+  message.set_string_field("bye");
+  EXPECT_THAT(PrintTextProto(message),
+              "int_field: 42\nstring_field: \"bye\"\n");
+}
+
+TEST(TextProtoHelpers, PrintShortTextProto) {
+  TestMessage message;
+  message.set_int_field(42);
+  message.set_string_field("bye");
+  EXPECT_THAT(PrintShortTextProto(message),
+              "int_field: 42 string_field: \"bye\"");
+}
+
 }  // namespace
 }  // namespace gutil
