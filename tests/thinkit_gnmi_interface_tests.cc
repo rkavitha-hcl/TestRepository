@@ -44,7 +44,6 @@
 #include "p4_pdpi/pd.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
 #include "sai_p4/instantiations/google/instantiations.h"
-#include "sai_p4/instantiations/google/sai_p4info.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
 #include "tests/thinkit_gnmi_interface_util.h"
 #include "tests/thinkit_util.h"

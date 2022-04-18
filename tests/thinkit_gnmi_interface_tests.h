@@ -20,7 +20,6 @@
 #include "absl/strings/string_view.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "sai_p4/instantiations/google/instantiations.h"
-#include "sai_p4/instantiations/google/sai_p4info.h"
 #include "tests/thinkit_gnmi_interface_util.h"
 #include "thinkit/ssh_client.h"
 #include "thinkit/switch.h"
