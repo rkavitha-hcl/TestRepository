@@ -14,10 +14,13 @@
 #include "p4rt_app/event_monitoring/state_event_monitor.h"
 
 #include <deque>
+#include <memory>
+#include <utility>
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/str_format.h"
+#include "absl/strings/string_view.h"
 #include "absl/time/time.h"
 #include "glog/logging.h"
 #include "gutil/status.h"
@@ -30,67 +33,85 @@ namespace p4rt_app {
 namespace sonic {
 namespace {
 
-absl::Status WaitForSubscribeEvent(std::optional<int> timeout_ms,
-                                   swss::SubscriberStateTable* state_table) {
-  swss::Select select;
-  select.addSelectable(state_table);
-
-  // If not timeout was set then wait indefinitely. Otherwise, we fail after the
-  // timeout is reached.
-  int error_code = swss::Select::OBJECT;
+absl::StatusOr<swss::Selectable*> WaitForSubscribeEvent(
+    swss::Select& select, absl::string_view db_name) {
+  // Wait indefinitely for an event.
   swss::Selectable* selectable = nullptr;
-  if (timeout_ms.has_value()) {
-    error_code = select.select(&selectable, *timeout_ms);
-  } else {
-    error_code = select.select(&selectable);
-  }
+  int error_code = select.select(&selectable);
 
   // Translate swss::Select error code to absl::Status.
   switch (error_code) {
     case swss::Select::OBJECT:
-      return absl::OkStatus();
+      return selectable;
     case swss::Select::ERROR:
       return gutil::UnknownErrorBuilder()
-             << absl::StreamFormat("Waiting for event from '%s'.",
-                                   state_table->getDbConnector()->getDbName());
+             << absl::StreamFormat("Waiting for event from '%s'.", db_name);
     case swss::Select::TIMEOUT:
       return gutil::DeadlineExceededErrorBuilder()
-             << absl::StreamFormat("Waiting for event from '%s'.",
-                                   state_table->getDbConnector()->getDbName());
+             << absl::StreamFormat("Waiting for event from '%s'.", db_name);
   }
 
-  LOG(ERROR) << "Unhandled swss::Select enum value '" << error_code << "'.";
   return gutil::InternalErrorBuilder() << absl::StreamFormat(
              "Unexpected error code '%d' encountered while waiting for an "
              "event from '%s'.",
-             error_code, state_table->getDbConnector()->getDbName());
+             error_code, db_name);
 }
 
 }  // namespace
 
-StateEventMonitor::StateEventMonitor(swss::DBConnector* db,
-                                     const std::string& table_name)
-    : subscriber_state_table_(
-          std::make_unique<swss::SubscriberStateTable>(db, table_name)) {
+StateEventMonitor::StateEventMonitor(swss::DBConnector& db) : redis_db_(db) {
   // do nothing.
 }
 
-absl::StatusOr<std::deque<swss::KeyOpFieldsValuesTuple>>
-StateEventMonitor::GetNextEvents() {
-  std::deque<swss::KeyOpFieldsValuesTuple> results;
-  RETURN_IF_ERROR(
-      WaitForSubscribeEvent(/*timeout_ms=*/{}, subscriber_state_table_.get()));
-  subscriber_state_table_->pops(results);
-  return results;
+absl::Status StateEventMonitor::RegisterTableHandler(
+    const std::string& table_name, StateEventHandler& handler) {
+  auto [iter, success] = monitored_tables_by_name_.emplace(
+      table_name,
+      TableHandler{
+          .subscriber_table = std::make_unique<swss::SubscriberStateTable>(
+              &redis_db_, table_name),
+          .event_handler = handler,
+      });
+
+  if (!success) {
+    return gutil::AlreadyExistsErrorBuilder()
+           << "Could not add event monitor for " << table_name << " in "
+           << redis_db_.getDbName();
+  }
+  LOG(INFO) << "Adding event monitor for " << table_name << " in "
+            << redis_db_.getDbName();
+  selector_.addSelectable(iter->second.subscriber_table.get());
+  return absl::OkStatus();
 }
 
-absl::StatusOr<std::deque<swss::KeyOpFieldsValuesTuple>>
-StateEventMonitor::GetNextEventsWithTimeout(absl::Duration timeout) {
-  std::deque<swss::KeyOpFieldsValuesTuple> results;
-  RETURN_IF_ERROR(WaitForSubscribeEvent(absl::ToInt64Milliseconds(timeout),
-                                        subscriber_state_table_.get()));
-  subscriber_state_table_->pops(results);
-  return results;
+absl::Status StateEventMonitor::WaitForNextEventAndHandle() {
+  swss::Selectable* selectable = nullptr;
+  ASSIGN_OR_RETURN(selectable,
+                   WaitForSubscribeEvent(selector_, redis_db_.getDbName()));
+
+  for (auto& [table_name, handler] : monitored_tables_by_name_) {
+    // Only pop events for the selectable that raised the event.
+    if (selectable != handler.subscriber_table.get()) {
+      continue;
+    }
+
+    std::deque<swss::KeyOpFieldsValuesTuple> events;
+    handler.subscriber_table->pops(events);
+    for (const auto& event : events) {
+      absl::Status status = handler.event_handler.HandleEvent(
+          kfvOp(event), kfvKey(event), kfvFieldsValues(event));
+      if (!status.ok()) {
+        LOG(ERROR) << "Could not handle " << table_name << " change in "
+                   << redis_db_.getDbName() << ": " << status;
+      }
+    }
+
+    return absl::OkStatus();
+  }
+
+  return gutil::InternalErrorBuilder()
+         << "Detected an event for " << redis_db_.getDbName()
+         << ", but it was not handled?";
 }
 
 }  // namespace sonic

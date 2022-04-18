@@ -22,13 +22,10 @@ cc_library(
     hdrs = ["port_change_events.h"],
     deps = [
         ":state_event_monitor",
-        "//gutil:status",
         "//p4rt_app/p4runtime:p4runtime_impl",
         "@com_github_google_glog//:glog",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
-        "@com_google_absl//absl/strings:str_format",
-        "@sonic_swss_common//:libswsscommon",
     ],
 )
 
@@ -36,13 +33,11 @@ cc_test(
     name = "port_change_events_test",
     srcs = ["port_change_events_test.cc"],
     deps = [
-        ":mock_state_event_monitor",
         ":port_change_events",
         "//gutil:status_matchers",
         "//p4rt_app/p4runtime:mock_p4runtime_impl",
         "@com_google_absl//absl/status",
         "@com_google_googletest//:gtest_main",
-        "@sonic_swss_common//:libswsscommon",
     ],
 )
 
@@ -53,23 +48,12 @@ cc_library(
     deps = [
         "//gutil:status",
         "@com_github_google_glog//:glog",
+        "@com_google_absl//absl/container:flat_hash_map",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
-        "@sonic_swss_common//:libswsscommon",
-    ],
-)
-
-cc_library(
-    name = "mock_state_event_monitor",
-    testonly = True,
-    hdrs = ["mock_state_event_monitor.h"],
-    deps = [
-        ":state_event_monitor",
-        "@com_google_absl//absl/status:statusor",
-        "@com_google_absl//absl/time",
-        "@com_google_googletest//:gtest",
         "@sonic_swss_common//:libswsscommon",
     ],
 )

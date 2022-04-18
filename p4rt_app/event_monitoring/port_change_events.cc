@@ -17,68 +17,39 @@
 
 #include "absl/status/status.h"
 #include "absl/strings/str_cat.h"
-#include "absl/strings/str_format.h"
-#include "absl/strings/str_join.h"
 #include "glog/logging.h"
-#include "gutil/status.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
-#include "swss/rediscommand.h"
-#include "swss/select.h"
-#include "swss/selectable.h"
-#include "swss/table.h"
 
 namespace p4rt_app {
 
-PortChangeEvents::PortChangeEvents(
-    P4RuntimeImpl& p4runtime, sonic::StateEventMonitor& state_event_monitor)
-    : p4runtime_(p4runtime), state_event_monitor_(state_event_monitor) {
+AppStateDbPortTableEventHandler::AppStateDbPortTableEventHandler(
+    P4RuntimeImpl& p4runtime)
+    : p4runtime_(p4runtime) {
   // Do nothing.
 }
 
-absl::Status PortChangeEvents::WaitForEventAndUpdateP4Runtime() {
-  ASSIGN_OR_RETURN(std::deque<swss::KeyOpFieldsValuesTuple> events,
-                   state_event_monitor_.GetNextEvents());
-
-  std::vector<std::string> failures = {"Port change event failures:"};
-  for (const auto& event : events) {
-    std::string op = kfvOp(event);
-    std::string key = kfvKey(event);
-
-    // Check for and "id" field in the event.
-    std::string id;
-    for (const auto& [field, value] : kfvFieldsValues(event)) {
-      if (field == "id") id = value;
-    }
-
-    // We will try to apply all port events, and will not stop on a failure.
-    absl::Status status;
-    if (id.empty()) {
-      // If no id field is found we should try to remove it from the P4RT app
-      // regardless of the Redis operation.
-      LOG(WARNING) << "'" << key << "' does not have an ID field.";
-      status = p4runtime_.RemovePortTranslation(key);
-    } else if (op == "SET") {
-      status = p4runtime_.AddPortTranslation(key, id);
-    } else if (op == "DEL") {
-      status = p4runtime_.RemovePortTranslation(key);
-    } else {
-      LOG(ERROR) << "Unexpected operand '" << op << "'.";
-      status = absl::InvalidArgumentError(
-          absl::StrCat("unhandled SWSS operand '", op, "'"));
-    }
-
-    // Collect any status failures so we can report them up later.
-    if (!status.ok()) {
-      LOG(ERROR) << "Couldn't handle port event for '" << key
-                 << "': " << status;
-      failures.push_back(status.ToString());
-    }
+absl::Status AppStateDbPortTableEventHandler::HandleEvent(
+    const std::string& operation, const std::string& key,
+    const std::vector<std::pair<std::string, std::string>>& values) {
+  // Check the event for an ID field.
+  std::string id;
+  for (const auto& [field, value] : values) {
+    if (field == "id") id = value;
   }
 
-  if (failures.size() > 1) {
-    return gutil::UnknownErrorBuilder() << absl::StrJoin(failures, "\n  ");
+  // If it doesn't exist then we should try to remove it from the P4RT app.
+  // Otherwise, apply the event's operation.
+  if (id.empty()) {
+    LOG(WARNING) << "'" << key << "' does not have an ID field.";
+    return p4runtime_.RemovePortTranslation(key);
+  } else if (operation == "SET") {
+    return p4runtime_.AddPortTranslation(key, id);
+  } else if (operation == "DEL") {
+    return p4runtime_.RemovePortTranslation(key);
   }
-  return absl::OkStatus();
+
+  return absl::InvalidArgumentError(
+      absl::StrCat("Unhandled SWSS operand '", operation, "'"));
 }
 
 }  // namespace p4rt_app

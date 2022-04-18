@@ -20,60 +20,37 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/status_matchers.h"
-#include "p4rt_app/event_monitoring/mock_state_event_monitor.h"
 #include "p4rt_app/p4runtime/mock_p4runtime_impl.h"
-#include "swss/rediscommand.h"
-#include "swss/table.h"
 
 namespace p4rt_app {
 namespace {
 
 using ::gutil::StatusIs;
+using ::testing::HasSubstr;
 using ::testing::Return;
 
 // Expected SONiC commands assumed by PortChangeEvents.
 constexpr char kSetCommand[] = "SET";
 constexpr char kDelCommand[] = "DEL";
 
-// Helper method to format a SONiC event.
-swss::KeyOpFieldsValuesTuple SonicEvent(
-    const std::string& op, const std::string& key,
-    const std::vector<swss::FieldValueTuple>& field_values) {
-  swss::KeyOpFieldsValuesTuple result;
-  kfvOp(result) = op;
-  kfvKey(result) = key;
-  kfvFieldsValues(result) = field_values;
-  return result;
-}
-
 TEST(PortChangeEventsTest, SetPortEvent) {
   MockP4RuntimeImpl mock_p4runtime_impl;
-  sonic::MockStateEventMonitor mock_state_events;
-  PortChangeEvents port_change_events(mock_p4runtime_impl, mock_state_events);
+  AppStateDbPortTableEventHandler port_change_events(mock_p4runtime_impl);
 
-  EXPECT_CALL(mock_state_events, GetNextEvents)
-      .WillOnce(Return(std::deque<swss::KeyOpFieldsValuesTuple>{
-          SonicEvent(kSetCommand, "eth0", {{"id", "1"}, {"status", "up"}}),
-          SonicEvent(kSetCommand, "eth1", {{"id", "4"}, {"status", "down"}}),
-      }));
   EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation("eth0", "1"))
       .WillOnce(Return(absl::OkStatus()));
   EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation("eth1", "4"))
       .WillOnce(Return(absl::OkStatus()));
 
-  EXPECT_OK(port_change_events.WaitForEventAndUpdateP4Runtime());
+  EXPECT_OK(port_change_events.HandleEvent(kSetCommand, "eth0",
+                                           {{"id", "1"}, {"status", "up"}}));
+  EXPECT_OK(port_change_events.HandleEvent(kSetCommand, "eth1",
+                                           {{"id", "4"}, {"status", "down"}}));
 }
 
 TEST(PortChangeEventsTest, SetPortEventMissingIdField) {
   MockP4RuntimeImpl mock_p4runtime_impl;
-  sonic::MockStateEventMonitor mock_state_events;
-  PortChangeEvents port_change_events(mock_p4runtime_impl, mock_state_events);
-
-  EXPECT_CALL(mock_state_events, GetNextEvents)
-      .WillOnce(Return(std::deque<swss::KeyOpFieldsValuesTuple>{
-          SonicEvent(kSetCommand, "eth0", {{"status", "up"}}),
-          SonicEvent(kSetCommand, "eth1", {{"status", "down"}}),
-      }));
+  AppStateDbPortTableEventHandler port_change_events(mock_p4runtime_impl);
 
   // Because there is no ID field we remove the port from P4Runtime.
   EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation("eth0"))
@@ -81,140 +58,77 @@ TEST(PortChangeEventsTest, SetPortEventMissingIdField) {
   EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation("eth1"))
       .WillOnce(Return(absl::OkStatus()));
 
-  EXPECT_OK(port_change_events.WaitForEventAndUpdateP4Runtime());
+  EXPECT_OK(
+      port_change_events.HandleEvent(kSetCommand, "eth0", {{"status", "up"}}));
+  EXPECT_OK(port_change_events.HandleEvent(kSetCommand, "eth1",
+                                           {{"status", "down"}}));
 }
 
 TEST(PortChangeEventsTest, DelPortEvent) {
   MockP4RuntimeImpl mock_p4runtime_impl;
-  sonic::MockStateEventMonitor mock_state_events;
-  PortChangeEvents port_change_events(mock_p4runtime_impl, mock_state_events);
+  AppStateDbPortTableEventHandler port_change_events(mock_p4runtime_impl);
 
-  EXPECT_CALL(mock_state_events, GetNextEvents)
-      .WillOnce(Return(std::deque<swss::KeyOpFieldsValuesTuple>{
-          SonicEvent(kDelCommand, "eth0", {{"id", "1"}, {"status", "up"}}),
-          SonicEvent(kDelCommand, "eth1", {{"id", "4"}, {"status", "down"}}),
-      }));
   EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation("eth0"))
       .WillOnce(Return(absl::OkStatus()));
   EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation("eth1"))
       .WillOnce(Return(absl::OkStatus()));
 
-  EXPECT_OK(port_change_events.WaitForEventAndUpdateP4Runtime());
+  EXPECT_OK(port_change_events.HandleEvent(kDelCommand, "eth0",
+                                           {{"id", "1"}, {"status", "up"}}));
+  EXPECT_OK(port_change_events.HandleEvent(kDelCommand, "eth1",
+                                           {{"id", "4"}, {"status", "down"}}));
 }
 
 TEST(PortChangeEventsTest, UnknownPortEvent) {
   MockP4RuntimeImpl mock_p4runtime_impl;
-  sonic::MockStateEventMonitor mock_state_events;
-  PortChangeEvents port_change_events(mock_p4runtime_impl, mock_state_events);
+  AppStateDbPortTableEventHandler port_change_events(mock_p4runtime_impl);
 
-  EXPECT_CALL(mock_state_events, GetNextEvents)
-      .WillOnce(Return(std::deque<swss::KeyOpFieldsValuesTuple>{
-          SonicEvent(/*op=*/"UNKNOWN", "eth0", {{"id", "1"}, {"status", "up"}}),
-      }));
   EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation).Times(0);
   EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation).Times(0);
 
-  EXPECT_THAT(port_change_events.WaitForEventAndUpdateP4Runtime(),
-              StatusIs(absl::StatusCode::kUnknown));
-}
-
-TEST(PortChangeEventsTest, PortEventFailsWithUnknownError) {
-  MockP4RuntimeImpl mock_p4runtime_impl;
-  sonic::MockStateEventMonitor mock_state_events;
-  PortChangeEvents port_change_events(mock_p4runtime_impl, mock_state_events);
-
-  EXPECT_CALL(mock_state_events, GetNextEvents)
-      .WillOnce(Return(absl::UnknownError("my error")));
-  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation).Times(0);
-  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation).Times(0);
-
-  EXPECT_THAT(port_change_events.WaitForEventAndUpdateP4Runtime(),
-              StatusIs(absl::StatusCode::kUnknown));
-}
-
-TEST(PortChangeEventsTest, PortEventFailsWithTimeoutError) {
-  MockP4RuntimeImpl mock_p4runtime_impl;
-  sonic::MockStateEventMonitor mock_state_events;
-  PortChangeEvents port_change_events(mock_p4runtime_impl, mock_state_events);
-
-  EXPECT_CALL(mock_state_events, GetNextEvents)
-      .WillOnce(Return(absl::DeadlineExceededError("my error")));
-  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation).Times(0);
-  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation).Times(0);
-
-  EXPECT_THAT(port_change_events.WaitForEventAndUpdateP4Runtime(),
-              StatusIs(absl::StatusCode::kDeadlineExceeded));
+  EXPECT_THAT(port_change_events.HandleEvent(/*op=*/"UNKNOWN", "eth0",
+                                             {{"id", "1"}, {"status", "up"}}),
+              StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST(PortChangeEventsTest, P4RuntimeAddPortFails) {
   MockP4RuntimeImpl mock_p4runtime_impl;
-  sonic::MockStateEventMonitor mock_state_events;
-  PortChangeEvents port_change_events(mock_p4runtime_impl, mock_state_events);
+  AppStateDbPortTableEventHandler port_change_events(mock_p4runtime_impl);
 
-  EXPECT_CALL(mock_state_events, GetNextEvents)
-      .WillOnce(Return(std::deque<swss::KeyOpFieldsValuesTuple>{
-          SonicEvent(kSetCommand, "eth0", {{"id", "1"}, {"status", "up"}}),
-      }));
   EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation)
       .WillOnce(Return(absl::InvalidArgumentError("something was bad")));
 
-  EXPECT_THAT(port_change_events.WaitForEventAndUpdateP4Runtime(),
-              StatusIs(absl::StatusCode::kUnknown));
+  EXPECT_THAT(port_change_events.HandleEvent(kSetCommand, "eth0",
+                                             {{"id", "1"}, {"status", "up"}}),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("something was bad")));
 }
 
 TEST(PortChangeEventsTest, P4RuntimeRemovePortFails) {
   MockP4RuntimeImpl mock_p4runtime_impl;
-  sonic::MockStateEventMonitor mock_state_events;
-  PortChangeEvents port_change_events(mock_p4runtime_impl, mock_state_events);
+  AppStateDbPortTableEventHandler port_change_events(mock_p4runtime_impl);
 
-  EXPECT_CALL(mock_state_events, GetNextEvents)
-      .WillOnce(Return(std::deque<swss::KeyOpFieldsValuesTuple>{
-          SonicEvent(kDelCommand, "eth0", {{"id", "1"}, {"status", "up"}}),
-      }));
   EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation)
       .WillOnce(Return(absl::InvalidArgumentError("something was bad")));
 
-  EXPECT_THAT(port_change_events.WaitForEventAndUpdateP4Runtime(),
-              StatusIs(absl::StatusCode::kUnknown));
+  EXPECT_THAT(port_change_events.HandleEvent(kDelCommand, "eth0",
+                                             {{"id", "1"}, {"status", "up"}}),
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("something was bad")));
 }
 
 TEST(PortChangeEventsTest, P4RuntimeRemovePortFailsWhenIdIsMissing) {
   MockP4RuntimeImpl mock_p4runtime_impl;
-  sonic::MockStateEventMonitor mock_state_events;
-  PortChangeEvents port_change_events(mock_p4runtime_impl, mock_state_events);
+  AppStateDbPortTableEventHandler port_change_events(mock_p4runtime_impl);
 
-  EXPECT_CALL(mock_state_events, GetNextEvents)
-      .WillOnce(Return(std::deque<swss::KeyOpFieldsValuesTuple>{
-          SonicEvent(kSetCommand, "eth0", {{"status", "up"}}),
-      }));
   // No ID field means we will try to remove the port.
   EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation)
       .WillOnce(Return(absl::InvalidArgumentError("something was bad")));
 
-  EXPECT_THAT(port_change_events.WaitForEventAndUpdateP4Runtime(),
-              StatusIs(absl::StatusCode::kUnknown));
-}
-
-TEST(PortChangeEventsTest, P4RuntimeMultiplePortUpdateFailures) {
-  MockP4RuntimeImpl mock_p4runtime_impl;
-  sonic::MockStateEventMonitor mock_state_events;
-  PortChangeEvents port_change_events(mock_p4runtime_impl, mock_state_events);
-
-  EXPECT_CALL(mock_state_events, GetNextEvents)
-      .WillOnce(Return(std::deque<swss::KeyOpFieldsValuesTuple>{
-          SonicEvent(kSetCommand, "eth0", {{"id", "1"}, {"status", "up"}}),
-          SonicEvent(kSetCommand, "eth4", {{"status", "up"}}),
-          SonicEvent(kDelCommand, "eth8", {{"id", "8"}, {"status", "up"}}),
-      }));
-  // No ID field means we will try to remove the port.
-  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation)
-      .WillOnce(Return(absl::InvalidArgumentError("something not good")));
-  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation)
-      .WillOnce(Return(absl::InvalidArgumentError("something was bad")))
-      .WillOnce(Return(absl::InvalidArgumentError("something was ugly")));
-
-  EXPECT_THAT(port_change_events.WaitForEventAndUpdateP4Runtime(),
-              StatusIs(absl::StatusCode::kUnknown));
+  EXPECT_THAT(
+      port_change_events.HandleEvent(kSetCommand, "eth0", {{"status", "up"}}),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("something was bad")));
 }
 
 }  // namespace

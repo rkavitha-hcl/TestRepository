@@ -20,22 +20,19 @@
 
 namespace p4rt_app {
 
-// Monitors a table in the RedisDB for any state changes to the ports. When a
-// change is noticed it will notify the P4RT App.
-//
-// Events that are monitored:
-//   * Port addition/removal.
-//   * Port ID field changes.
-class PortChangeEvents {
+// Reacts to PORT_TABLE changes in the APP_STATE_DB:
+//  * Add/Remove port IDs from the P4Runtime application.
+//  * Create/Destroy PacketIO interfaces.
+class AppStateDbPortTableEventHandler : public sonic::StateEventHandler {
  public:
-  PortChangeEvents(P4RuntimeImpl& p4runtime_,
-                   sonic::StateEventMonitor& state_event_monitor);
+  AppStateDbPortTableEventHandler(P4RuntimeImpl& p4runtime_);
 
-  absl::Status WaitForEventAndUpdateP4Runtime();
+  absl::Status HandleEvent(
+      const std::string& operation, const std::string& key,
+      const std::vector<std::pair<std::string, std::string>>& values) override;
 
  private:
   P4RuntimeImpl& p4runtime_;
-  sonic::StateEventMonitor& state_event_monitor_;
 };
 
 }  // namespace p4rt_app

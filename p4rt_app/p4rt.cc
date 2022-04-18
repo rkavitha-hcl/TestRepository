@@ -344,23 +344,29 @@ int main(int argc, char** argv) {
         &p4runtime_server);
   }
 
-  // Spawn a separate thread that can react to any port change events.
-  bool monitor_port_events = true;
-  auto port_events_thread =
-      std::thread([&p4runtime_server, &monitor_port_events]() {
-        swss::DBConnector state_db(APPL_STATE_DB, kRedisDbHost, kRedisDbPort,
-                                   /*timeout=*/0);
-        p4rt_app::sonic::StateEventMonitor port_state_monitor(&state_db,
-                                                              "PORT_TABLE");
-        p4rt_app::PortChangeEvents port_event_handler(p4runtime_server,
-                                                      port_state_monitor);
+  // Spawn a separate thread that can react to AppStateDb changes.
+  bool monitor_app_state_db_events = true;
+  auto app_state_db_event_loop =
+      std::thread([&p4runtime_server, &monitor_app_state_db_events]() {
+        swss::DBConnector app_state_db("APPL_STATE_DB", /*timeout=*/0);
+        p4rt_app::AppStateDbPortTableEventHandler port_table_handler(
+            p4runtime_server);
 
-        // Continue to monitor port events for the life of the P4RT service.
-        while (monitor_port_events) {
-          absl::Status status =
-              port_event_handler.WaitForEventAndUpdateP4Runtime();
+        p4rt_app::sonic::StateEventMonitor port_state_monitor(app_state_db);
+        auto status = port_state_monitor.RegisterTableHandler(
+            "PORT_TABLE", port_table_handler);
+        if (!status.ok()) {
+          LOG(FATAL)
+              << "APPL_STATE_DB event monitor could not register 'PORT_TABLE': "
+              << status;
+        }
+
+        while (monitor_app_state_db_events) {
+          absl::Status status = port_state_monitor.WaitForNextEventAndHandle();
           if (!status.ok()) {
-            LOG(ERROR) << status;
+            LOG(ERROR)
+                << "APPL_STATE_DB event monitor failed waiting for an event: "
+                << status;
           }
         }
       });
@@ -417,8 +423,8 @@ int main(int argc, char** argv) {
   server->Wait();
 
   LOG(INFO) << "Stopping monitoring of port events.";
-  monitor_port_events = false;
-  port_events_thread.join();
+  monitor_app_state_db_events = false;
+  app_state_db_event_loop.join();
 
   return 0;
 }
