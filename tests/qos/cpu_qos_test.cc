@@ -835,10 +835,13 @@ TEST_P(CpuQosTestWithoutIxia, TrafficToLoopackIpGetsMappedToCorrectQueues) {
 
     ASSERT_OK_AND_ASSIGN(std::string raw_packet,
                          packetlib::SerializePacket(test_packet.packet));
-    ASSERT_OK(gpins::InjectEgressPacket(
-        /*port=*/link_used_for_test_packets.control_device_port_p4rt_name,
-        /*packet=*/raw_packet, ir_p4info, control_p4rt_session.get()));
 
+    const int kPacketCount = 50;
+    for (int iter = 0; iter < kPacketCount; iter++) {
+      ASSERT_OK(gpins::InjectEgressPacket(
+          /*port=*/link_used_for_test_packets.control_device_port_p4rt_name,
+          /*packet=*/raw_packet, ir_p4info, control_p4rt_session.get()));
+    }
     // Read counter of the target queue again.
     absl::Time time_packet_sent = absl::Now();
     QueueCounters queue_counters_after_test_packet;
@@ -856,9 +859,9 @@ TEST_P(CpuQosTestWithoutIxia, TrafficToLoopackIpGetsMappedToCorrectQueues) {
     // We terminate early if this fails, as that can cause this loop to get
     // out of sync when counters increment after a long delay, resulting in
     // confusing error messages where counters increment by 2.
-    ASSERT_EQ(
-        CumulativeNumPacketsEnqueued(queue_counters_after_test_packet),
-        CumulativeNumPacketsEnqueued(queue_counters_before_test_packet) + 1)
+    ASSERT_EQ(CumulativeNumPacketsEnqueued(queue_counters_after_test_packet),
+              CumulativeNumPacketsEnqueued(queue_counters_before_test_packet) +
+                  kPacketCount)
         << "Counters for queue " << target_queue << " did not increment within "
         << kMaxQueueCounterUpdateTime
         << " after injecting the following test packet:\n"
