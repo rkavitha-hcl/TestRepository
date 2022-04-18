@@ -119,6 +119,7 @@ message Ipv4TableEntry {
       TrapAction trap = 4;
       SetNexthopIdAndMetadataAction set_nexthop_id_and_metadata = 5;
       SetWcmpGroupIdAndMetadataAction set_wcmp_group_id_and_metadata = 6;
+      SetMetadataAndDropAction set_metadata_and_drop = 7;
     }
   }
   Action action = 2;
@@ -140,6 +141,7 @@ message Ipv6TableEntry {
       TrapAction trap = 4;
       SetNexthopIdAndMetadataAction set_nexthop_id_and_metadata = 5;
       SetWcmpGroupIdAndMetadataAction set_wcmp_group_id_and_metadata = 6;
+      SetMetadataAndDropAction set_metadata_and_drop = 7;
     }
   }
   Action action = 2;
@@ -470,6 +472,10 @@ message SetIpNexthopAction {
   string router_interface_id = 1;  // Format::STRING
   // Refers to 'neighbor_table.neighbor_id'.
   string neighbor_id = 2;  // Format::STRING
+}
+
+message SetMetadataAndDropAction {
+  string route_metadata = 1;  // Format::HEX_STRING / 6 bits
 }
 
 message SetVrfAction {
