@@ -4,6 +4,7 @@
 #include "absl/status/statusor.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
+#include "gutil/proto_matchers.h"
 #include "gutil/proto_test.pb.h"
 #include "gutil/status_matchers.h"
 
@@ -98,6 +99,35 @@ TEST(TextProtoHelpers, PrintShortTextProto) {
   message.set_string_field("bye");
   EXPECT_THAT(PrintShortTextProto(message),
               "int_field: 42 string_field: \"bye\"");
+}
+
+TEST(ParseJsonAsProto, ParsesTestMessage) {
+  EXPECT_THAT(ParseJsonAsProto<TestMessage>(R"json({
+                                              "int_field" : 42,
+                                              "string_field" : "bye"
+                                            })json"),
+              IsOkAndHolds(EqualsProto(R"pb(
+                int_field: 42 string_field: "bye"
+              )pb")));
+}
+
+TEST(ParseJsonAsProto, CanIgnoreUnknownFields) {
+  EXPECT_THAT(ParseJsonAsProto<TestMessage>(R"json({
+                                              "int_field" : 42,
+                                              "string_field" : "bye",
+                                              "unknown_field": "please ignore"
+                                            })json",
+                                            /*ignore_unknown_field=*/false),
+              Not(IsOk()));
+  EXPECT_THAT(ParseJsonAsProto<TestMessage>(R"json({
+                                              "int_field" : 42,
+                                              "string_field" : "bye",
+                                              "unknown_field": "please ignore"
+                                            })json",
+                                            /*ignore_unknown_field=*/true),
+              IsOkAndHolds(EqualsProto(R"pb(
+                int_field: 42 string_field: "bye"
+              )pb")));
 }
 
 }  // namespace

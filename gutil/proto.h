@@ -98,9 +98,15 @@ absl::StatusOr<T> ParseJsonAsProto(absl::string_view raw_json_string,
   google::protobuf::util::JsonParseOptions options;
   options.ignore_unknown_fields = ignore_unknown_fields;
   T proto;
+  // OS protobuf uses its own `Status`-like and `string_view`-like classes, so
+  // some gymnastics are required here:
+  // - ToAbslStatus converts any `Status`-like type to an absl::Status.
+  // - We pass in `{raw_json_string.data(), raw_json_string.size()}` instead of
+  // `raw_json_string`, constructing a new object of the appropriate
+  // `string_view`-like type implicitly.
   RETURN_IF_ERROR(
       gutil::ToAbslStatus(google::protobuf::util::JsonStringToMessage(
-          raw_json_string, &proto, options)));
+          {raw_json_string.data(), raw_json_string.size()}, &proto, options)));
   return proto;
 }
 

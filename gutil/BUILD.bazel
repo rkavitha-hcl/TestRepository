@@ -180,6 +180,7 @@ cc_test(
     srcs = ["proto_test.cc"],
     deps = [
         ":proto",
+        ":proto_matchers",
         ":proto_test_cc_proto",
         ":status_matchers",
         "@com_google_absl//absl/status",
