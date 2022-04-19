@@ -890,7 +890,7 @@ constexpr int kTotalFrames = 10000000;
 constexpr absl::Duration kTrafficDuration =
     absl::Seconds(kTotalFrames / kFramesPerSecond);
 constexpr int kDefaultFrameSize = 1514;
-constexpr int kMaxFrameSize = 9000;
+constexpr int kMaxFrameSize = 9216;
 constexpr int kMinFrameSize = 64;
 
 struct PacketReceiveInfo {
