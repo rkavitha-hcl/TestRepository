@@ -21,6 +21,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "google/protobuf/message.h"
+#include "google/protobuf/util/json_util.h"
 #include "google/protobuf/util/message_differencer.h"
 #include "gutil/status.h"
 
@@ -84,5 +85,25 @@ std::string PrintTextProto(const google::protobuf::Message &message);
 // Print proto in TextFormat in a single line.
 std::string PrintShortTextProto(const google::protobuf::Message &message);
 
+// Parses the given JSON string into a proto of type `T`.
+template <class T>
+absl::StatusOr<T> ParseJsonAsProto(absl::string_view raw_json_string,
+                                   bool ignore_unknown_fields = false);
+
+// -- END OF PUBLIC INTERFACE - Implementation details follow ------------------
+
+template <class T>
+absl::StatusOr<T> ParseJsonAsProto(absl::string_view raw_json_string,
+                                   bool ignore_unknown_fields) {
+  google::protobuf::util::JsonParseOptions options;
+  options.ignore_unknown_fields = ignore_unknown_fields;
+  T proto;
+  RETURN_IF_ERROR(
+      gutil::ToAbslStatus(google::protobuf::util::JsonStringToMessage(
+          raw_json_string, &proto, options)));
+  return proto;
+}
+
 }  // namespace gutil
+
 #endif  // GUTIL_PROTO_H
