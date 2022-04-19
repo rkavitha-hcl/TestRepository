@@ -56,10 +56,6 @@ namespace {
 
 using ::nlohmann::json;
 
-// Splits string in format "component[name=integrated_circuit0]" to three
-// tokens.
-const LazyRE2 kSplitNameValueRE = {R"((\w+)\[(\w+)=([\S+]+)\])"};
-
 // Splits string to tokens seperated by a char '/' as long as '/' is not
 // included in [].
 const LazyRE2 kSplitBreakSquareBraceRE = {R"(([^\[\/]+(\[[^\]]+\])?)\/?)"};
@@ -198,6 +194,9 @@ gnmi::Path ConvertOCStringToPath(absl::string_view oc_path) {
   }
   gnmi::Path path;
   for (absl::string_view node : elements) {
+    // Splits string in format "component[name=integrated_circuit0]" to three
+    // tokens.
+    static constexpr LazyRE2 kSplitNameValueRE = {R"((.+)\[(.+)=(.+)\])"};
     std::string key;
     std::string attribute;
     std::string value;
