@@ -16,12 +16,14 @@
 #define GUTIL_COLLECTIONS_H
 
 #include <string>
+#include <type_traits>
 #include <vector>
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/str_cat.h"
 #include "glog/logging.h"
 #include "google/protobuf/map.h"
 #include "gutil/status.h"
@@ -45,7 +47,11 @@ absl::StatusOr<const typename M::mapped_type> FindOrStatus(
     const M &m, const typename M::key_type &k) {
   auto it = m.find(k);
   if (it != m.end()) return it->second;
-  return absl::NotFoundError("Key not found");
+  if constexpr (std::is_same_v<typename M::key_type, std::string>) {
+    return absl::NotFoundError(absl::StrCat("Key not found: '", k, "'"));
+  } else {
+    return absl::NotFoundError("Key not found");
+  }
 }
 
 // Returns a non-null pointer of the value associated with a given key
@@ -55,7 +61,11 @@ absl::StatusOr<const typename M::mapped_type *> FindPtrOrStatus(
     M &m, const typename M::key_type &k) {
   auto it = m.find(k);
   if (it != m.end()) return &it->second;
-  return absl::NotFoundError("Key not found");
+  if constexpr (std::is_same_v<typename M::key_type, std::string>) {
+    return absl::NotFoundError(absl::StrCat("Key not found: '", k, "'"));
+  } else {
+    return absl::NotFoundError("Key not found");
+  }
 }
 
 // Returns a const pointer of the value associated with a given key if it
