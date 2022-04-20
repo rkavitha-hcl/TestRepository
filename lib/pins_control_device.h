@@ -59,6 +59,8 @@ class PinsControlDevice : public thinkit::ControlDevice {
   absl::Status SendPacket(absl::string_view interface,
                           absl::string_view packet) override;
 
+  bool SupportsSendPacket() const override { return true; }
+
   absl::Status SendPackets(absl::string_view interface,
                            absl::Span<const std::string> packets) override;
 
