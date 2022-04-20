@@ -61,7 +61,6 @@
 #include "proto/gnmi/gnmi.pb.h"
 #include "sai_p4/fixed/roles.h"
 #include "sai_p4/instantiations/google/instantiations.h"
-#include "sai_p4/instantiations/google/sai_p4info.h"
 #include "thinkit/generic_testbed.h"
 #include "thinkit/proto/generic_testbed.pb.h"
 #include "thinkit/switch.h"
@@ -130,8 +129,9 @@ TEST_P(RandomBlackboxEventsTest, ControlPlaneWithTrafficWithoutValidation) {
   port_ids.reserve(port_id_map.size());
   absl::c_transform(port_id_map, std::back_inserter(port_ids),
                     [](const auto& pair) { return pair.second; });
+  ASSERT_OK_AND_ASSIGN(auto ir_p4info, pdpi::CreateIrP4Info(p4_info()));
   p4_fuzzer::FuzzerConfig config = {
-      .info = sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
+      .info = std::move(ir_p4info),
       .ports = std::move(port_ids),
       .qos_queues = {"0x0", "0x1", "0x2", "0x3", "0x4", "0x5", "0x6", "0x7"},
       .tables_for_which_to_not_exceed_resource_guarantees =
@@ -139,10 +139,9 @@ TEST_P(RandomBlackboxEventsTest, ControlPlaneWithTrafficWithoutValidation) {
       .role = "sdn_controller",
       .mutate_update_probability = 0.1,
   };
-  ASSERT_OK_AND_ASSIGN(
-      auto p4rt_session,
-      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-          testbed->Sut(), sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+  ASSERT_OK_AND_ASSIGN(auto p4rt_session,
+                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+                           testbed->Sut(), p4_info()));
   {
     ScopedThread p4rt_fuzzer([&config,
                               &p4rt_session](const bool& time_to_exit) {

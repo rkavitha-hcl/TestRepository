@@ -96,7 +96,6 @@ cc_library(
         "//lib/gnmi:gnmi_helper",
         "//p4_pdpi:pd",
         "//sai_p4/instantiations/google:instantiations",
-        "//sai_p4/instantiations/google:sai_p4info_cc",
         "//sai_p4/instantiations/google:sai_pd_cc_proto",
         "//thinkit:ssh_client",
         "//thinkit:switch",

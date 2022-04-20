@@ -43,6 +43,7 @@
 #include "lib/basic_traffic/basic_traffic.h"
 #include "lib/gnmi/gnmi_helper.h"
 #include "lib/utils/generic_testbed_utils.h"
+#include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/netaddr/ipv4_address.h"
@@ -52,7 +53,6 @@
 #include "p4_pdpi/packetlib/packetlib.pb.h"
 #include "p4_pdpi/pd.h"
 #include "sai_p4/instantiations/google/instantiations.h"
-#include "sai_p4/instantiations/google/sai_p4info.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
 #include "tests/lib/switch_test_setup_helpers.h"
 #include "thinkit/control_device.h"
@@ -108,10 +108,10 @@ absl::Status SetupRoute(pdpi::P4RuntimeSession& p4_session, int src_port_id,
 // Pushes the P4 Info to SUT if the flag push_p4_info is set to true and returns
 // the P4 Runtime Session
 absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>> P4InfoPush(
-    thinkit::GenericTestbed& testbed) {
+    const p4::config::v1::P4Info& p4_info, thinkit::GenericTestbed& testbed) {
   std::optional<p4::config::v1::P4Info> p4info = std::nullopt;
   if (absl::GetFlag(FLAGS_push_p4_info)) {
-    p4info = sai::GetP4Info(sai::Instantiation::kMiddleblock);
+    p4info = p4_info;
   }
   return ConfigureSwitchAndReturnP4RuntimeSession(
       testbed.Sut(), /*gnmi_config=*/std::nullopt, p4info);
@@ -156,7 +156,7 @@ TEST_P(PacketForwardingTestFixture, PacketForwardingTest) {
             << " port id: " << destination_port_id;
 
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
-                       P4InfoPush(*testbed));
+                       P4InfoPush(p4_info(), *testbed));
 
   // Set up a route between the source and destination interfaces.
   ASSERT_OK(SetupRoute(*p4_session, source_port_id, destination_port_id));
@@ -216,7 +216,7 @@ TEST_P(PacketForwardingTestFixture, AllPortsPacketForwardingTest) {
       GetSutInterfaces(FromTestbed(GetAllControlLinks, *testbed));
 
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
-                       P4InfoPush(*testbed));
+                       P4InfoPush(p4_info(), *testbed));
 
   const auto test_packet =
       gutil::ParseProtoOrDie<packetlib::Packet>(kTestPacket);
@@ -249,7 +249,7 @@ TEST_P(PacketForwardingTestFixture, MtuPacketForwardingTest) {
       GetSutInterfaces(FromTestbed(GetAllControlLinks, *testbed));
 
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
-                       P4InfoPush(*testbed));
+                       P4InfoPush(p4_info(), *testbed));
 
   for (int mtu : kMtu) {
     LOG(INFO) << "MTU: " << mtu;
