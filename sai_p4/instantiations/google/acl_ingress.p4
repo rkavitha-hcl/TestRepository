@@ -138,10 +138,16 @@ control acl_ingress(in headers_t headers,
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_SRC_IP) @format(IPV4_ADDRESS);
       headers.ipv4.dst_addr : ternary @name("dst_ip") @id(7)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_DST_IP) @format(IPV4_ADDRESS);
-      headers.ipv6.src_addr : ternary @name("src_ipv6") @id(8)
-          @sai_field(SAI_ACL_TABLE_ATTR_FIELD_SRC_IPV6) @format(IPV6_ADDRESS);
-      headers.ipv6.dst_addr : ternary @name("dst_ipv6") @id(9)
-          @sai_field(SAI_ACL_TABLE_ATTR_FIELD_DST_IPV6) @format(IPV6_ADDRESS);
+      headers.ipv6.src_addr[127:64] : ternary @name("src_ipv6") @id(8)
+          @composite_field(
+              @sai_field(SAI_ACL_TABLE_ATTR_FIELD_SRC_IPV6_WORD3),
+              @sai_field(SAI_ACL_TABLE_ATTR_FIELD_SRC_IPV6_WORD2)
+          ) @format(IPV6_ADDRESS);
+      headers.ipv6.dst_addr[127:64] : ternary @name("dst_ipv6") @id(9)
+          @composite_field(
+              @sai_field(SAI_ACL_TABLE_ATTR_FIELD_DST_IPV6_WORD3),
+              @sai_field(SAI_ACL_TABLE_ATTR_FIELD_DST_IPV6_WORD2)
+          ) @format(IPV6_ADDRESS);
       // Field for v4 TTL and v6 hop_limit
       ttl : ternary @name("ttl") @id(10)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_TTL);

@@ -238,8 +238,8 @@ message AclIngressTableEntry {
     Ternary dst_mac = 5;       // ternary match / Format::MAC
     Ternary src_ip = 6;        // ternary match / Format::IPV4
     Ternary dst_ip = 7;        // ternary match / Format::IPV4
-    Ternary src_ipv6 = 8;      // ternary match / Format::IPV6 / 128 bits
-    Ternary dst_ipv6 = 9;      // ternary match / Format::IPV6 / 128 bits
+    Ternary src_ipv6 = 8;      // ternary match / Format::IPV6 / upper 64 bits
+    Ternary dst_ipv6 = 9;      // ternary match / Format::IPV6 / upper 64 bits
     Ternary ttl = 10;          // ternary match / Format::HEX_STRING / 8 bits
     Ternary dscp = 11;         // ternary match / Format::HEX_STRING / 6 bits
     Ternary ecn = 12;          // ternary match / Format::HEX_STRING / 2 bits
@@ -293,7 +293,7 @@ message AclPreIngressTableEntry {
     Optional is_ipv6 = 3;  // optional match / Format::HEX_STRING / 1 bits
     Ternary src_mac = 4;   // ternary match / Format::MAC
     Ternary dst_ip = 5;    // ternary match / Format::IPV4
-    Ternary dst_ipv6 = 6;  // ternary match / Format::IPV6 / 128 bits
+    Ternary dst_ipv6 = 6;  // ternary match / Format::IPV6 / upper 64 bits
     Ternary dscp = 7;      // ternary match / Format::HEX_STRING / 6 bits
     Optional in_port = 8;  // optional match / Format::STRING
     Ternary dst_mac = 9;   // ternary match / Format::MAC

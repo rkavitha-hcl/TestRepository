@@ -62,8 +62,11 @@ control acl_pre_ingress(in headers_t headers,
 #endif
       headers.ipv4.dst_addr : ternary @name("dst_ip") @id(5)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_DST_IP) @format(IPV4_ADDRESS);
-      headers.ipv6.dst_addr : ternary @name("dst_ipv6") @id(6)
-          @sai_field(SAI_ACL_TABLE_ATTR_FIELD_DST_IPV6) @format(IPV6_ADDRESS);
+      headers.ipv6.dst_addr[127:64] : ternary @name("dst_ipv6") @id(6)
+          @composite_field(
+              @sai_field(SAI_ACL_TABLE_ATTR_FIELD_DST_IPV6_WORD3),
+              @sai_field(SAI_ACL_TABLE_ATTR_FIELD_DST_IPV6_WORD2)
+          ) @format(IPV6_ADDRESS);
       dscp : ternary @name("dscp") @id(7)
           @sai_field(SAI_ACL_TABLE_ATTR_FIELD_DSCP);
       local_metadata.ingress_port : optional @name("in_port") @id(8)
