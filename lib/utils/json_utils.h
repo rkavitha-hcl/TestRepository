@@ -147,6 +147,10 @@ absl::StatusOr<bool> AreJsonEqual(
     const absl::flat_hash_map<std::string, std::string>& yang_path_key_name_map,
     std::vector<std::string>& differences);
 
+// Helper function to return the simple JSON value (number, boolean, string).
+// - returns an empty string if not a simple JSON value (object, array, null).
+std::string GetSimpleJsonValueAsString(const nlohmann::json& source);
+
 }  // namespace json_yang
 
 #endif  // PLATFORMS_NETWORKING_GPINS_CONFIG_UTILS_JSON_UTILS_H_

@@ -2616,6 +2616,52 @@ TEST(AreJsonEqual, TestNotEqualMissingRhs) {
                   "lhs_leaf2] with value 'lhs_value2'.")));
 }
 
+TEST(GetSimpleJsonValue, TestGetSimpleJsonValue) {
+  constexpr absl::string_view kJsonStr = R"JSON({
+   "outer_element" : {
+      "container1" : {
+        "name": "key1"
+      },
+      "container2" : {
+        "inner_container2" : {
+          "bool" : true
+        },
+        "inner_containers" : {
+          "inner_container" : [
+            {
+              "inner_array_element" : {
+                "int" : 1234,
+                "float" : 1234.56
+              }
+            }
+          ]
+        }
+      }
+   }
+  })JSON";
+  ASSERT_OK_AND_ASSIGN(nlohmann::json source, ParseJson(kJsonStr));
+
+  EXPECT_THAT(
+      GetSimpleJsonValueAsString(source["outer_element"]["container1"]["name"]),
+      "key1");
+  EXPECT_THAT(
+      GetSimpleJsonValueAsString(
+          source["outer_element"]["container2"]["inner_container2"]["bool"]),
+      "true");
+  EXPECT_THAT(GetSimpleJsonValueAsString(
+                  source["outer_element"]["container2"]["inner_containers"]
+                        ["inner_container"][0]["inner_array_element"]["int"]),
+              "1234");
+  EXPECT_THAT(GetSimpleJsonValueAsString(
+                  source["outer_element"]["container2"]["inner_containers"]
+                        ["inner_container"][0]["inner_array_element"]["float"]),
+              "1234.56");
+  EXPECT_THAT(
+      GetSimpleJsonValueAsString(
+          source["outer_element"]["inner_containers"]["inner_container"][0]),
+      "");
+}
+
 }  // namespace
 
 }  // namespace json_yang
