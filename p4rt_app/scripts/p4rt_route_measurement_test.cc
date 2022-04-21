@@ -16,11 +16,15 @@
 #include <vector>
 
 #include "absl/numeric/int128.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/substitute.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "gflags/gflags.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "google/protobuf/text_format.h"
+#include "grpcpp/client_context.h"
 #include "grpcpp/grpcpp.h"
 #include "gtest/gtest.h"
 #include "gutil/io.h"
@@ -28,6 +32,8 @@
 #include "gutil/proto_matchers.h"
 #include "gutil/status_matchers.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
+#include "p4/v1/p4runtime.pb.h"
+#include "p4_pdpi/ir.h"
 #include "p4_pdpi/netaddr/ipv4_address.h"
 #include "p4_pdpi/p4_runtime_session.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
@@ -45,9 +51,6 @@ DEFINE_string(server_cert_file, "", "Server certificate file");
 // server_address should have format of <IP_address>:9559 if not unix socket
 DEFINE_string(server_address, "unix:/sock/p4rt.sock",
               "The address of the server to connect to");
-DEFINE_int32(min_silent_time, 0, "Min silent time in second");
-DEFINE_int32(max_silent_time, 0, "Max silent time in second");
-DEFINE_int32(delta_silent_time, 0, "Delta silent time in second");
 
 namespace p4rt_app {
 namespace {
@@ -244,21 +247,26 @@ class P4rtRouteTest : public Test {
 
   void TearDown() override {
     if (p4rt_session_ == nullptr) return;
+
     // Remove table entries that were created.
     ASSERT_OK(pdpi::ClearTableEntries(p4rt_session_.get()));
   }
 
-  absl::Status SendBatchRequest(absl::string_view iptable_entry,
-                                absl::string_view update_type,
-                                uint32_t number_batches, uint32_t batch_size,
-                                uint32_t min_silent_time,
-                                uint32_t max_silent_time,
-                                uint32_t delta_silent_time) {
+  absl::StatusOr<absl::Duration> SendBatchRequest(
+      absl::string_view iptable_entry, absl::string_view update_type,
+      uint32_t number_batches, uint32_t batch_size) {
+    // Pre-compute all requests so they can be sent as quickly as possible to
+    // the switch under test.
     uint32_t ip_prefix = 0x14000000;
     uint32_t subnet0, subnet1, subnet2, subnet3;
-    uint32_t silent_time = min_silent_time;
+    std::vector<p4::v1::WriteRequest> requests(number_batches);
     for (uint32_t i = 0; i < number_batches; i++) {
-      p4::v1::WriteRequest request;
+      // Set connection & switch IDs so the request will not be rejected by the
+      // switch.
+      requests[i].set_device_id(p4rt_session_->DeviceId());
+      requests[i].set_role(p4rt_session_->Role());
+      *requests[i].mutable_election_id() = p4rt_session_->ElectionId();
+
       for (uint32_t j = 0; j < batch_size; j++) {
         subnet3 = ip_prefix & 0xff;
         subnet2 = (ip_prefix >> 8) & 0xff;
@@ -269,7 +277,7 @@ class P4rtRouteTest : public Test {
         ASSIGN_OR_RETURN(const auto ip_address,
                          netaddr::Ipv4Address::OfString(ip_str));
         const auto ip_byte_str = ip_address.ToP4RuntimeByteString();
-        auto* ptr = request.add_updates();
+        auto* ptr = requests[i].add_updates();
         if (!google::protobuf::TextFormat::ParseFromString(
                 absl::Substitute(iptable_entry, update_type), ptr)) {
           return gutil::InvalidArgumentErrorBuilder()
@@ -283,20 +291,26 @@ class P4rtRouteTest : public Test {
             ->set_value(ip_byte_str);
         ip_prefix++;
       }
-      // Send a batch of requests to the server.
-      RETURN_IF_ERROR(
-          pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
-
-      // Below is to introduce some silent time between batches, if needed
-      if (silent_time > 0) {
-        absl::SleepFor(absl::Seconds(silent_time));
-        silent_time += delta_silent_time;
-        if (silent_time > max_silent_time) {
-          silent_time = min_silent_time;  // wrap around
-        }
-      }
     }
-    return absl::OkStatus();
+
+    absl::Duration total_execution_time;
+    for (const auto& request : requests) {
+      grpc::ClientContext context;
+      p4::v1::WriteResponse response;
+
+      // Send a batch of requests to the server and measure the response time.
+      absl::Time start = absl::Now();
+      grpc::Status grpc_status =
+          p4rt_session_->Stub().Write(&context, request, &response);
+      total_execution_time += absl::Now() - start;
+
+      // We don't expect any errors in the test. So if we see one we invalidate
+      // the run.
+      RETURN_IF_ERROR(pdpi::WriteRpcGrpcStatusToAbslStatus(
+          grpc_status, request.updates_size()));
+    }
+
+    return total_execution_time;
   }
 
   const pdpi::IrP4Info& IrP4Info() const { return ir_p4info_; }
@@ -307,24 +321,14 @@ class P4rtRouteTest : public Test {
 };
 
 TEST_F(P4rtRouteTest, ProgramIp4RouteEntries) {
-  auto start = absl::Now();
-  auto status = SendBatchRequest(
-      ip4table_entry, "INSERT", FLAGS_number_batches, FLAGS_batch_size,
-      FLAGS_min_silent_time, FLAGS_max_silent_time, FLAGS_delta_silent_time);
-  auto delta_time = absl::Now() - start;
-  if (status.ok()) {
-    // Send to stdout so that callers can parse the output.
-    std::cout << "Successfully wrote IpTable entries to the switch, time: "
-              << ToInt64Milliseconds(delta_time) << "(msecs)" << std::endl;
-  }
-  EXPECT_OK(status) << "Failed to add batch request";
+  ASSERT_OK_AND_ASSIGN(
+      absl::Duration execution_time,
+      SendBatchRequest(ip4table_entry, "INSERT", FLAGS_number_batches,
+                       FLAGS_batch_size));
 
-  // Delete all batches, no matter the create passed or failed.
-  status.Update(SendBatchRequest(ip4table_entry, "DELETE", FLAGS_number_batches,
-                                 FLAGS_batch_size, /*min_silent_time=*/0,
-                                 /*max_silent_time=*/0,
-                                 /*delta_silent_time=*/0));
-  EXPECT_OK(status) << "Failed to delete batch request";
+  // Send to stdout so that callers can parse the output.
+  std::cout << "Successfully wrote IpTable entries to the switch, time: "
+            << ToInt64Milliseconds(execution_time) << "(msecs)" << std::endl;
 }
 
 }  // namespace
