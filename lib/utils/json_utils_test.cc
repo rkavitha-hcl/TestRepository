@@ -530,7 +530,9 @@ namespace {
 
 using StringMap = absl::flat_hash_map<std::string, std::string>;
 
+using ::gutil::IsOkAndHolds;
 using ::gutil::StatusIs;
+using ::testing::Eq;
 using ::testing::HasSubstr;
 
 TEST(ParseJson, TestInvalidJson) {
@@ -569,6 +571,33 @@ TEST(DumpJson, TestInvalidJson) {
 TEST(DumpJson, TestEmptyJson) {
   nlohmann::json null_json(nlohmann::json::value_t::null);
   EXPECT_EQ(DumpJson(null_json), "");
+}
+
+TEST(FormatJsonBestEffort, IsIdentityFunctionOnEmptyString) {
+  EXPECT_EQ(FormatJsonBestEffort(""), "");
+}
+
+TEST(FormatJsonBestEffort, IsIdentityFunctionOnNonJsonStrings) {
+  constexpr absl::string_view kNonJsonString = "{ definitely not valid JSON }";
+  EXPECT_EQ(FormatJsonBestEffort(kNonJsonString), kNonJsonString);
+}
+
+TEST(FormatJsonBestEffort,
+     PreservesSemanticsOfJsonStringsAndCanonicalizesThem) {
+  nlohmann::json json;
+  json["some field"] = 42;
+  // We give `FormatJsonBestEffort` some liberty in formatting JSON so this test
+  // is not too brittle, but we want to make sure it  at least (i) preserves
+  // the semantics, and (ii) returns a canonical JSON string that is independent
+  // of the formatting details of the input string.
+  EXPECT_THAT(ParseJson(FormatJsonBestEffort(json.dump())),
+              IsOkAndHolds(Eq(json)));
+  EXPECT_EQ(
+      FormatJsonBestEffort(json.dump(/*indent =*/0, /*indent_char =*/' ')),
+      FormatJsonBestEffort(json.dump(/*indent =*/2, /*indent_char =*/' ')));
+  EXPECT_EQ(
+      FormatJsonBestEffort(json.dump(/*indent =*/2, /*indent_char =*/' ')),
+      FormatJsonBestEffort(json.dump(/*indent =*/1, /*indent_char =*/'\t')));
 }
 
 constexpr char kExpectedDump[] = R"({

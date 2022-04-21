@@ -190,6 +190,12 @@ std::string DumpJson(const nlohmann::json& value) {
       /*error_handler =*/nlohmann::json::error_handler_t::replace);
 }
 
+std::string FormatJsonBestEffort(absl::string_view raw_json) {
+  using Json = nlohmann::json;
+  Json json = Json::parse(raw_json, /*cb=*/nullptr, /*allow_exceptions=*/false);
+  return json.is_discarded() ? std::string(raw_json) : DumpJson(json);
+}
+
 nlohmann::json ReplaceNamesinJsonObject(
     const nlohmann::json& source, const StringMap& old_name_to_new_name_map) {
   switch (source.type()) {
