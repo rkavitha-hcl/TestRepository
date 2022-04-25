@@ -11,6 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -42,14 +43,13 @@ using ::gutil::StatusIs;
 using ::testing::HasSubstr;
 
 absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>> StartP4rtSession(
-    const test_lib::P4RuntimeGrpcService& p4rt_service) {
+    const test_lib::P4RuntimeGrpcService& p4rt_service, uint64_t device_id) {
   std::string address = absl::StrCat("localhost:", p4rt_service.GrpcPort());
   auto stub =
       pdpi::CreateP4RuntimeStub(address, grpc::InsecureChannelCredentials());
 
   ASSIGN_OR_RETURN(auto p4rt_session,
-                   pdpi::P4RuntimeSession::Create(std::move(stub),
-                                                  /*device_id=*/183807201));
+                   pdpi::P4RuntimeSession::Create(std::move(stub), device_id));
   return p4rt_session;
 }
 
@@ -59,11 +59,13 @@ class PortNameAndIdTest : public testing::Test {
       sai::GetP4Info(sai::Instantiation::kMiddleblock);
   const pdpi::IrP4Info ir_p4_info_ =
       sai::GetIrP4Info(sai::Instantiation::kMiddleblock);
+  const uint64_t device_id_ = 100405;
 };
 
 TEST_F(PortNameAndIdTest, AddAThenDeletePortTranslation) {
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
+  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
 
   EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
   EXPECT_OK(p4rt_service.RemovePortTranslation("Ethernet0"));
@@ -72,6 +74,7 @@ TEST_F(PortNameAndIdTest, AddAThenDeletePortTranslation) {
 TEST_F(PortNameAndIdTest, AllowDuplicatePortTranslations) {
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
+  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
 
   EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
   EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
@@ -80,6 +83,7 @@ TEST_F(PortNameAndIdTest, AllowDuplicatePortTranslations) {
 TEST_F(PortNameAndIdTest, CannotReusePortTranslationsValues) {
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
+  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
 
   EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
 
@@ -93,6 +97,7 @@ TEST_F(PortNameAndIdTest, CannotReusePortTranslationsValues) {
 TEST_F(PortNameAndIdTest, CannotAddPortTranslationWithEmptyValues) {
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
+  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
 
   EXPECT_THAT(p4rt_service.AddPortTranslation("", "1"),
               StatusIs(absl::StatusCode::kInvalidArgument));
@@ -103,6 +108,7 @@ TEST_F(PortNameAndIdTest, CannotAddPortTranslationWithEmptyValues) {
 TEST_F(PortNameAndIdTest, RemovingNonExistantPortTranslationPasses) {
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
+  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
 
   EXPECT_OK(p4rt_service.RemovePortTranslation("Ethernet0"));
 }
@@ -110,6 +116,7 @@ TEST_F(PortNameAndIdTest, RemovingNonExistantPortTranslationPasses) {
 TEST_F(PortNameAndIdTest, CannotRemovePortTranslationWithEmptyValues) {
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
+  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
 
   EXPECT_THAT(p4rt_service.RemovePortTranslation(""),
               StatusIs(absl::StatusCode::kInvalidArgument));
@@ -120,9 +127,11 @@ TEST_F(PortNameAndIdTest, ExpectingName) {
   // to NOT have an ID field.
   test_lib::P4RuntimeGrpcService p4rt_service = test_lib::P4RuntimeGrpcService(
       P4RuntimeImplOptions{.translate_port_ids = false});
+  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
 
   // Connect to the P4RT server and push a P4Info file.
-  ASSERT_OK_AND_ASSIGN(auto p4rt_session, StartP4rtSession(p4rt_service));
+  ASSERT_OK_AND_ASSIGN(auto p4rt_session,
+                       StartP4rtSession(p4rt_service, device_id_));
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
       p4rt_session.get(),
       p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
@@ -157,10 +166,12 @@ TEST_F(PortNameAndIdTest, ExpectingIdGetId) {
   // with an ID field.
   test_lib::P4RuntimeGrpcService p4rt_service = test_lib::P4RuntimeGrpcService(
       P4RuntimeImplOptions{.translate_port_ids = true});
+  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
   ASSERT_OK(p4rt_service.AddPortTranslation("Ethernet0", "1"));
 
   // Connect to the P4RT server and push a P4Info file.
-  ASSERT_OK_AND_ASSIGN(auto p4rt_session, StartP4rtSession(p4rt_service));
+  ASSERT_OK_AND_ASSIGN(auto p4rt_session,
+                       StartP4rtSession(p4rt_service, device_id_));
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
       p4rt_session.get(),
       p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
@@ -195,10 +206,12 @@ TEST_F(PortNameAndIdTest, ExpectingIdGetName) {
   // with an ID field.
   test_lib::P4RuntimeGrpcService p4rt_service = test_lib::P4RuntimeGrpcService(
       P4RuntimeImplOptions{.translate_port_ids = true});
+  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
   ASSERT_OK(p4rt_service.AddPortTranslation("Ethernet0", "1"));
 
   // Connect to the P4RT server and push a P4Info file.
-  ASSERT_OK_AND_ASSIGN(auto p4rt_session, StartP4rtSession(p4rt_service));
+  ASSERT_OK_AND_ASSIGN(auto p4rt_session,
+                       StartP4rtSession(p4rt_service, device_id_));
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
       p4rt_session.get(),
       p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,

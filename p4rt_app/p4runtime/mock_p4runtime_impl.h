@@ -54,6 +54,8 @@ class MockP4RuntimeImpl final : public P4RuntimeImpl {
                p4::v1::GetForwardingPipelineConfigResponse* response),
               (override));
 
+  MOCK_METHOD(absl::Status, UpdateDeviceId, (uint64_t device_id), (override));
+
   MOCK_METHOD(absl::Status, AddPortTranslation,
               (const std::string& port_name, const std::string& port_id),
               (override));

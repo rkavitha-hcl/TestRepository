@@ -39,6 +39,7 @@
 #include "grpcpp/support/channel_arguments.h"
 #include "gutil/status.h"
 #include "p4/config/v1/p4info.pb.h"
+#include "p4rt_app/event_monitoring/config_db_node_cfg_table_event.h"
 #include "p4rt_app/event_monitoring/port_change_events.h"
 #include "p4rt_app/event_monitoring/state_event_monitor.h"
 #include "p4rt_app/event_monitoring/state_verification_events.h"
@@ -356,7 +357,7 @@ int main(int argc, char** argv) {
         auto status = port_state_monitor.RegisterTableHandler(
             "PORT_TABLE", port_table_handler);
         if (!status.ok()) {
-          LOG(FATAL)
+          LOG(FATAL)  // Crash OK: only fails on startup.
               << "APPL_STATE_DB event monitor could not register 'PORT_TABLE': "
               << status;
         }
@@ -370,6 +371,32 @@ int main(int argc, char** argv) {
           }
         }
       });
+
+  // Spawn a separate thread that can react to ConfigDb changes.
+  bool monitor_config_db_events = true;
+  auto config_db_event_loop = std::thread([&p4runtime_server,
+                                           &monitor_config_db_events]() {
+    swss::DBConnector config_db("CONFIG_DB", /*timeout=*/0);
+    p4rt_app::ConfigDbNodeCfgTableEventHandler node_table_handler(
+        &p4runtime_server);
+
+    p4rt_app::sonic::StateEventMonitor config_db_monitor(config_db);
+    auto status =
+        config_db_monitor.RegisterTableHandler("NODE_CFG", node_table_handler);
+    if (!status.ok()) {
+      LOG(FATAL)  // Crash OK: only fails on startup.
+          << "CONFIG_DB event monitor could not register 'NODE_CFG': "
+          << status;
+    }
+
+    while (monitor_config_db_events) {
+      absl::Status status = config_db_monitor.WaitForNextEventAndHandle();
+      if (!status.ok()) {
+        LOG(ERROR) << "CONFIG_DB event monitor failed waiting for an event: "
+                   << status;
+      }
+    }
+  });
 
   // Start listening for state verification events, and update StateDb for P4RT.
   swss::DBConnector state_verification_db(STATE_DB, kRedisDbHost, kRedisDbPort,
@@ -424,7 +451,9 @@ int main(int argc, char** argv) {
 
   LOG(INFO) << "Stopping monitoring of port events.";
   monitor_app_state_db_events = false;
+  monitor_config_db_events = false;
   app_state_db_event_loop.join();
+  config_db_event_loop.join();
 
   return 0;
 }
