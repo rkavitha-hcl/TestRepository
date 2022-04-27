@@ -81,13 +81,13 @@ std::vector<p4::v1::StreamMessageResponse> ReadResponses(
 class FakePacketIoTest : public testing::Test {
  protected:
   void SetUp() override {
-    ASSERT_OK(p4rt_service_.SetDeviceId(device_id_));
     const std::string address =
         absl::StrCat("localhost:", p4rt_service_.GrpcPort());
     auto stub =
         pdpi::CreateP4RuntimeStub(address, grpc::InsecureChannelCredentials());
-    ASSERT_OK_AND_ASSIGN(p4rt_session_, pdpi::P4RuntimeSession::Create(
-                                            std::move(stub), device_id_));
+    ASSERT_OK_AND_ASSIGN(
+        p4rt_session_, pdpi::P4RuntimeSession::Create(std::move(stub),
+                                                      /*device_id=*/183807201));
   }
 
   // Form PacketOut message and write to stream channel.
@@ -112,7 +112,6 @@ class FakePacketIoTest : public testing::Test {
   test_lib::P4RuntimeGrpcService p4rt_service_ =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
   std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session_;
-  uint64_t device_id_ = 100406;
 };
 
 TEST_F(FakePacketIoTest, VerifyPacketIn) {
@@ -337,11 +336,11 @@ TEST_F(FakePacketIoTest, PacketInCanBeSentToMultiplePrimaries) {
   // Create a second primary client with the default role ("").
   const std::string address =
       absl::StrCat("localhost:", p4rt_service_.GrpcPort());
-  ASSERT_OK_AND_ASSIGN(
-      auto default_role,
-      pdpi::P4RuntimeSession::Create(
-          address, grpc::InsecureChannelCredentials(), device_id_,
-          pdpi::P4RuntimeSessionOptionalArgs{.role = ""}));
+  ASSERT_OK_AND_ASSIGN(auto default_role,
+                       pdpi::P4RuntimeSession::Create(
+                           address, grpc::InsecureChannelCredentials(),
+                           /*device_id=*/183807201,
+                           pdpi::P4RuntimeSessionOptionalArgs{.role = ""}));
 
   // Listener for packets on the "sdn_controller" client.
   std::vector<p4::v1::StreamMessageResponse>
@@ -400,7 +399,8 @@ TEST_F(FakePacketIoTest, PacketInMessageFailsWhenPrimaryHasNonAuthorizeRole) {
   ASSERT_OK_AND_ASSIGN(
       auto default_role,
       pdpi::P4RuntimeSession::Create(
-          address, grpc::InsecureChannelCredentials(), device_id_,
+          address, grpc::InsecureChannelCredentials(),
+          /*device_id=*/183807201,
           pdpi::P4RuntimeSessionOptionalArgs{.role = "NonAuthorized"}));
 
   // Push a dummy PacketIn message.

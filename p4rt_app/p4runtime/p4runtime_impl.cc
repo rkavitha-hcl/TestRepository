@@ -730,11 +730,6 @@ grpc::Status P4RuntimeImpl::GetForwardingPipelineConfig(
   return grpc::Status(grpc::StatusCode::OK, "");
 }
 
-absl::Status P4RuntimeImpl::UpdateDeviceId(uint64_t device_id) {
-  absl::MutexLock l(&server_state_lock_);
-  return controller_manager_->SetDeviceId(device_id);
-}
-
 absl::Status P4RuntimeImpl::AddPortTranslation(const std::string& port_name,
                                                const std::string& port_id) {
   absl::MutexLock l(&server_state_lock_);

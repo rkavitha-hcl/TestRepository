@@ -13,9 +13,6 @@
 // limitations under the License.
 #include "p4rt_app/p4runtime/sdn_controller_manager.h"
 
-#include <cstdint>
-#include <optional>
-
 #include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include "absl/strings/str_format.h"
@@ -111,13 +108,8 @@ grpc::Status SdnControllerManager::HandleArbitrationUpdate(
     const p4::v1::MasterArbitrationUpdate& update, SdnConnection* controller) {
   absl::MutexLock l(&lock_);
 
-  // If the Device ID has not been set then we don't allow any connections.
-  if (!device_id_.has_value()) {
-    return grpc::Status(
-        grpc::StatusCode::FAILED_PRECONDITION,
-        "Switch does not have a Device ID. Has a config been pushed?");
-  }
-  uint64_t device_id = *device_id_;
+  // TODO: arbitration should fail with invalid device id.
+  device_id_ = update.device_id();
 
   // If the role name is not set then we assume the connection is a 'root'
   // connection.
@@ -139,13 +131,13 @@ grpc::Status SdnControllerManager::HandleArbitrationUpdate(
     // First arbitration message sent by this controller.
 
     // Verify the request's device ID is being sent to the correct device.
-    if (update.device_id() != device_id) {
+    if (update.device_id() != device_id_) {
       return grpc::Status(
           grpc::StatusCode::NOT_FOUND,
           absl::StrCat("Arbitration request has the wrong device ID '",
                        update.device_id(),
                        "'. Cannot establish connection to this device '",
-                       device_id, "'."));
+                       device_id_, "'."));
     }
 
     // Check if the election ID is being use by another connection.
@@ -164,11 +156,11 @@ grpc::Status SdnControllerManager::HandleArbitrationUpdate(
     // Update arbitration message sent from the controller.
 
     // The device ID cannot change.
-    if (update.device_id() != device_id) {
+    if (update.device_id() != device_id_) {
       return grpc::Status(
           grpc::StatusCode::FAILED_PRECONDITION,
           absl::StrCat("Arbitration request cannot change the device ID from '",
-                       device_id, "' to '", update.device_id(), "'."));
+                       device_id_, "' to '", update.device_id(), "'."));
     }
 
     // The role cannot change without closing the connection.
@@ -268,38 +260,6 @@ void SdnControllerManager::Disconnect(SdnConnection* connection) {
   }
 }
 
-absl::Status SdnControllerManager::SetDeviceId(uint64_t device_id) {
-  absl::MutexLock l(&lock_);
-
-  // Ignore no-ops on Device ID values.
-  if (device_id_.has_value() && *device_id_ == device_id) {
-    return absl::OkStatus();
-  }
-
-  // Cannot change the Device ID while we have any active connections.
-  if (!connections_.empty()) {
-    return gutil::FailedPreconditionErrorBuilder()
-           << "Device ID cannot be changed while a controller is connected.";
-  }
-
-  // Zero is an assumed default for proto3 so we treat it as if the device ID is
-  // unset.
-  if (device_id == 0) {
-    LOG(WARNING) << "Removing Device ID.";
-    device_id_ = std::nullopt;
-    return absl::OkStatus();
-  }
-
-  if (device_id_.has_value()) {
-    LOG(WARNING) << "Changing device ID from " << *device_id_ << " to "
-                 << device_id << ".";
-  } else {
-    LOG(INFO) << "Setting device ID to " << device_id << ".";
-  }
-  device_id_ = device_id;
-  return absl::OkStatus();
-}
-
 grpc::Status SdnControllerManager::AllowRequest(
     const absl::optional<std::string>& role_name,
     const absl::optional<absl::uint128>& election_id) const {
@@ -384,10 +344,8 @@ void SdnControllerManager::SendArbitrationResponse(SdnConnection* connection) {
   p4::v1::StreamMessageResponse response;
   auto arbitration = response.mutable_arbitration();
 
-  // Only set the device ID if it has been configed.
-  if (device_id_.has_value()) {
-    arbitration->set_device_id(*device_id_);
-  }
+  // Always set device ID.
+  arbitration->set_device_id(device_id_);
 
   // Populate the role only if the connection has set one.
   if (connection->GetRoleName().has_value()) {

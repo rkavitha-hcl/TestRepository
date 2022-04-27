@@ -16,9 +16,6 @@
 #ifndef GOOGLE_P4RT_APP_P4RUNTIME_SDN_CONTROLLER_MANAGER_H_
 #define GOOGLE_P4RT_APP_P4RUNTIME_SDN_CONTROLLER_MANAGER_H_
 
-#include <optional>
-
-#include "absl/base/thread_annotations.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/numeric/int128.h"
@@ -75,13 +72,16 @@ class SdnConnection {
 
 class SdnControllerManager {
  public:
+  // TODO: Set device ID through gNMI.
+  SdnControllerManager() : device_id_(183807201) {}
+
   grpc::Status HandleArbitrationUpdate(
       const p4::v1::MasterArbitrationUpdate& update, SdnConnection* controller)
       ABSL_LOCKS_EXCLUDED(lock_);
+  // G3_WARN : ABSL_EXCLUSIVE_LOCKS_REQUIRED(P4RuntimeImpl::server_state_lock_);
 
   void Disconnect(SdnConnection* connection) ABSL_LOCKS_EXCLUDED(lock_);
-
-  absl::Status SetDeviceId(uint64_t device_id) ABSL_LOCKS_EXCLUDED(lock_);
+  // G3_WARN ABSL_EXCLUSIVE_LOCKS_REQUIRED(P4RuntimeImpl::server_state_lock_);
 
   grpc::Status AllowRequest(const absl::optional<std::string>& role_name,
                             const absl::optional<absl::uint128>& election_id)
@@ -118,7 +118,7 @@ class SdnControllerManager {
 
   // Device ID is used to ensure all requests are connecting to the intended
   // place.
-  std::optional<uint64_t> device_id_ ABSL_GUARDED_BY(lock_);
+  uint64_t device_id_;
 
   // We maintain a list of all active connections. The P4 runtime spec requires
   // a number of edge cases based on values existing or not that makes

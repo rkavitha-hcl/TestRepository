@@ -27,7 +27,6 @@ cc_binary(
     srcs = ["p4rt.cc"],
     deps = [
         "//gutil:status",
-        "//p4rt_app/event_monitoring:config_db_node_cfg_table_event",
         "//p4rt_app/event_monitoring:port_change_events",
         "//p4rt_app/event_monitoring:state_event_monitor",
         "//p4rt_app/event_monitoring:state_verification_events",

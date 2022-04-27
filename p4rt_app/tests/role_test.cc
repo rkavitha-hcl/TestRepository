@@ -95,7 +95,6 @@ absl::StatusOr<p4::v1::StreamMessageResponse> ReadNextArbitrationResponse(
 class RoleTest : public testing::Test {
  protected:
   void SetUp() override {
-    ASSERT_OK(p4rt_service_.SetDeviceId(p4rt_device_id_));
     p4rt_grpc_address_ = absl::StrCat("localhost:", p4rt_service_.GrpcPort());
     p4rt_stub_ = p4::v1::P4Runtime::NewStub(grpc::CreateChannel(
         p4rt_grpc_address_, grpc::InsecureChannelCredentials()));

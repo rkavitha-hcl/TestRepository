@@ -25,7 +25,7 @@ namespace p4rt_app {
 //  * Create/Destroy PacketIO interfaces.
 class AppStateDbPortTableEventHandler : public sonic::StateEventHandler {
  public:
-  AppStateDbPortTableEventHandler(P4RuntimeImpl& p4runtime);
+  AppStateDbPortTableEventHandler(P4RuntimeImpl& p4runtime_);
 
   absl::Status HandleEvent(
       const std::string& operation, const std::string& key,

@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include <cstdint>
 #include <memory>
 #include <string>
 #include <tuple>
@@ -55,18 +54,16 @@ using EcmpHashingTest = testing::TestWithParam<sai::Instantiation>;
 
 TEST_P(EcmpHashingTest, MustConfigureEcmpHashing) {
   // Start the P4RT service
-  uint64_t device_id = 100400;
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
-  ASSERT_OK(p4rt_service.SetDeviceId(device_id));
 
   // Create a P4RT session, and connect.
   std::string address = absl::StrCat("localhost:", p4rt_service.GrpcPort());
   auto stub =
       pdpi::CreateP4RuntimeStub(address, grpc::InsecureChannelCredentials());
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session,
-      pdpi::P4RuntimeSession::Create(std::move(stub), device_id));
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session,
+                       pdpi::P4RuntimeSession::Create(std::move(stub),
+                                                      /*device_id=*/183807201));
 
   // Push the P4Info for the instance under test.
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
@@ -114,18 +111,16 @@ using LagHashingTest = testing::TestWithParam<sai::Instantiation>;
 // TODO: enable lag hash testing for FBR.
 TEST_P(LagHashingTest, DISABLED_MustConfigureLagHashing) {
   // Start the P4RT service
-  uint64_t device_id = 100400;
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
-  ASSERT_OK(p4rt_service.SetDeviceId(device_id));
 
   // Create a P4RT session, and connect.
   std::string address = absl::StrCat("localhost:", p4rt_service.GrpcPort());
   auto stub =
       pdpi::CreateP4RuntimeStub(address, grpc::InsecureChannelCredentials());
-  ASSERT_OK_AND_ASSIGN(
-      std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session,
-      pdpi::P4RuntimeSession::Create(std::move(stub), device_id));
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session,
+                       pdpi::P4RuntimeSession::Create(std::move(stub),
+                                                      /*device_id=*/183807201));
 
   // Push the P4Info for the instance under test.
   ASSERT_OK(pdpi::SetForwardingPipelineConfig(
@@ -168,15 +163,13 @@ INSTANTIATE_TEST_SUITE_P(
 class HashingTest : public testing::Test {
  protected:
   void SetUp() override {
-    uint64_t device_id = 100401;
-    ASSERT_OK(p4rt_service_.SetDeviceId(device_id));
-
     std::string address = absl::StrCat("localhost:", p4rt_service_.GrpcPort());
     LOG(INFO) << "Opening P4RT connection to " << address << ".";
     auto stub =
         pdpi::CreateP4RuntimeStub(address, grpc::InsecureChannelCredentials());
-    ASSERT_OK_AND_ASSIGN(p4rt_session_, pdpi::P4RuntimeSession::Create(
-                                            std::move(stub), device_id));
+    ASSERT_OK_AND_ASSIGN(
+        p4rt_session_, pdpi::P4RuntimeSession::Create(std::move(stub),
+                                                      /*device_id=*/183807201));
   }
 
   test_lib::P4RuntimeGrpcService p4rt_service_ =

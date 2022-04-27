@@ -36,7 +36,6 @@ class P4RuntimeGrpcService {
 
   int GrpcPort() const;
 
-  absl::Status SetDeviceId(uint64_t device_id);
   absl::Status AddPortTranslation(const std::string& port_name,
                                   const std::string& port_id);
   absl::Status RemovePortTranslation(const std::string& port_name);

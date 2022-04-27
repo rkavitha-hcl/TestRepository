@@ -11,7 +11,6 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include <cstdint>
 #include <vector>
 
 #include "absl/strings/str_cat.h"
@@ -68,15 +67,13 @@ bool IsCompositeUdfMatchField(
 class P4ProgramsTest : public testing::TestWithParam<sai::Instantiation> {
  protected:
   void SetUp() override {
-    uint64_t device_id = 100402;
-    ASSERT_OK(p4rt_service_.SetDeviceId(device_id));
-
     // Create a P4RT session, and connect.
     std::string address = absl::StrCat("localhost:", p4rt_service_.GrpcPort());
     auto stub =
         pdpi::CreateP4RuntimeStub(address, grpc::InsecureChannelCredentials());
-    ASSERT_OK_AND_ASSIGN(p4rt_session_, pdpi::P4RuntimeSession::Create(
-                                            std::move(stub), device_id));
+    ASSERT_OK_AND_ASSIGN(
+        p4rt_session_, pdpi::P4RuntimeSession::Create(std::move(stub),
+                                                      /*device_id=*/183807201));
   }
 
   test_lib::P4RuntimeGrpcService p4rt_service_ =

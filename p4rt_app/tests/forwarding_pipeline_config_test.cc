@@ -95,8 +95,6 @@ class ForwardingPipelineConfigTest : public testing::Test {
   }
 
   absl::Status ResetGrpcServerAndClient() {
-    uint64_t device_id = 100500;
-
     // The P4RT service will wait for the client to close before stopping.
     // Therefore, we need to close the client connection first if it exists.
     if (p4rt_session_ != nullptr) RETURN_IF_ERROR(p4rt_session_->Finish());
@@ -106,15 +104,15 @@ class ForwardingPipelineConfigTest : public testing::Test {
         std::make_unique<test_lib::P4RuntimeGrpcService>(P4RuntimeImplOptions{
             .forwarding_config_full_path = config_save_path_,
         });
-    RETURN_IF_ERROR(p4rt_service_->SetDeviceId(device_id));
 
     // Reset the P4RT client.
     std::string address = absl::StrCat("localhost:", p4rt_service_->GrpcPort());
     LOG(INFO) << "Opening P4RT connection to " << address << ".";
     auto stub =
         pdpi::CreateP4RuntimeStub(address, grpc::InsecureChannelCredentials());
-    ASSIGN_OR_RETURN(p4rt_session_, pdpi::P4RuntimeSession::Create(
-                                        std::move(stub), device_id));
+    ASSIGN_OR_RETURN(p4rt_session_,
+                     pdpi::P4RuntimeSession::Create(std::move(stub),
+                                                    /*device_id=*/183807201));
 
     return absl::OkStatus();
   }
