@@ -890,4 +890,15 @@ GetTransceiverPartInformation(gnmi::gNMI::StubInterface& gnmi_stub) {
   return part_information;
 }
 
+absl::Status SetDeviceId(gnmi::gNMI::StubInterface& gnmi_stub,
+                         uint32_t device_id) {
+  constexpr char node_id_path[] =
+      "components/component[name=integrated_circuit0]/integrated-circuit/"
+      "config/node-id";
+  RETURN_IF_ERROR(SetGnmiConfigPath(
+      &gnmi_stub, node_id_path, GnmiSetType::kUpdate,
+      absl::Substitute("{\"integrated-circuit:node-id\":\"$0\"}", device_id)));
+  return absl::OkStatus();
+}
+
 }  // namespace pins_test
