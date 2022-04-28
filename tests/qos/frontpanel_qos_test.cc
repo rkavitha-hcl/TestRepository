@@ -573,9 +573,21 @@ TEST_P(FrontpanelQosTest, TestWredEcnMarking) {
                     << packet_receive_info.num_packets_ecn_marked;
 
           if (is_congestion && is_ect) {
-            // All egress packets must be ECN marked.
-            ASSERT_EQ(packet_receive_info.num_packets_punted,
-                      packet_receive_info.num_packets_ecn_marked);
+            // TODO: Currently we are unable to keep queue usage
+            // constantly above threshold. The queue usage starts going down in
+            // a few sconds. Till we understand this, we will allow for
+            // tolerance in packets marked for ECN.
+            constexpr float kTolerancePercent = 20.0;
+            if (testbed->Environment().MaskKnownFailures()) {
+              // Egress packets must be ECN marked. Tolerance of 20%.
+              ASSERT_GE(packet_receive_info.num_packets_ecn_marked,
+                        packet_receive_info.num_packets_punted *
+                            (1 - kTolerancePercent / 100));
+            } else {
+              // All egress packets must be ECN marked.
+              ASSERT_EQ(packet_receive_info.num_packets_punted,
+                        packet_receive_info.num_packets_ecn_marked);
+            }
           } else {
             // No egress packets must be ECN marked.
             ASSERT_EQ(packet_receive_info.num_packets_ecn_marked, 0);
