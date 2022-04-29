@@ -246,7 +246,7 @@ matches {
   }
 }
 action {
-  name: "set_nexthop"
+  name: "set_ip_nexthop"
   params {
     name: "router_interface_id"
     value {
