@@ -49,6 +49,7 @@ DEFINE_string(server_cert_file, "", "Server certificate file");
 // server_address should have format of <IP_address>:9559 if not unix socket
 DEFINE_string(server_address, "unix:/sock/p4rt.sock",
               "The address of the server to connect to");
+DEFINE_int32(p4rt_device_id, 1, "P4RT device ID");
 
 namespace p4rt_app {
 namespace {
@@ -214,8 +215,7 @@ class P4rtRouteTest : public Test {
     ASSERT_OK_AND_ASSIGN(
         p4rt_session_,
         pdpi::P4RuntimeSession::Create(
-            std::move(stub),
-            /*device_id=*/183807201,
+            std::move(stub), FLAGS_p4rt_device_id,
             pdpi::P4RuntimeSessionOptionalArgs{.election_id = election_id}));
     ASSERT_OK_AND_ASSIGN(p4::v1::GetForwardingPipelineConfigResponse response,
                          pdpi::GetForwardingPipelineConfig(
