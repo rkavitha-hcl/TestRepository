@@ -15,6 +15,7 @@
 #ifndef GOOGLE_THINKIT_GENERIC_TESTBED_H_
 #define GOOGLE_THINKIT_GENERIC_TESTBED_H_
 
+#include <ostream>
 #include <string>
 
 #include "absl/container/flat_hash_map.h"
@@ -32,6 +33,11 @@ struct HttpResponse {
   int response_code;
   std::string response;
 };
+
+inline std::ostream& operator<<(std::ostream& os,
+                                const HttpResponse& response) {
+  return os << response.response_code << ": " << response.response;
+}
 
 // HTTP request types.
 enum class RequestType {

@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+
 package(
     default_visibility = ["//visibility:public"],
     licenses = ["notice"],
@@ -70,20 +71,50 @@ cc_library(
     srcs = ["ixia_helper.cc"],
     hdrs = ["ixia_helper.h"],
     deps = [
+        ":ixia_helper_cc_proto",
+        "//gutil:collections",
         "//gutil:overload",
+        "//gutil:proto",
         "//gutil:status",
         "//gutil:testing",
         "//lib/gnmi:gnmi_helper",
+        "//lib/utils:json_utils",
         "//p4_pdpi/netaddr:ipv4_address",
         "//p4_pdpi/netaddr:ipv6_address",
         "//p4_pdpi/netaddr:mac_address",
         "//thinkit:generic_testbed",
         "@com_github_google_glog//:glog",
         "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/random",
+        "@com_google_absl//absl/random:distributions",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",
         "@com_google_absl//absl/time",
+        "@com_google_protobuf//:protobuf",
     ],
+)
+
+cc_test(
+    name = "ixia_helper_test",
+    srcs = ["ixia_helper_test.cc"],
+    deps = [
+        ":ixia_helper",
+        "//gutil:proto_matchers",
+        "//gutil:status_matchers",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+proto_library(
+    name = "ixia_helper_proto",
+    srcs = ["ixia_helper.proto"],
+    deps = ["@com_google_protobuf//:struct_proto"],
+)
+
+cc_proto_library(
+    name = "ixia_helper_cc_proto",
+    deps = [":ixia_helper_proto"],
 )
