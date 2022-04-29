@@ -134,7 +134,7 @@ absl::Status SetUpForwardingAndCopyEgressToCpu(
             nexthop_table_entry {
               match { nexthop_id: "$2" }
               action {
-                set_nexthop { router_interface_id: "$0" neighbor_id: "$1" }
+                set_ip_nexthop { router_interface_id: "$0" neighbor_id: "$1" }
               }
             }
           )pb",

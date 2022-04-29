@@ -297,7 +297,7 @@ TEST(BasicTraffic, SendTraffic) {
                                 }
                                 action {
                                   action {
-                                    action_id: 16777219
+                                    action_id: 16777236
                                     params {
                                       param_id: 1
                                       value: "traffic-router-interface-$0"
@@ -408,7 +408,7 @@ TEST(BasicTraffic, SendTraffic) {
                                 }
                                 action {
                                   action {
-                                    action_id: 16777219
+                                    action_id: 16777236
                                     params {
                                       param_id: 1
                                       value: "traffic-router-interface-$0"

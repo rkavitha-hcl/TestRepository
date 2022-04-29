@@ -153,7 +153,7 @@ TEST(BasicTraffic, ProgramIPv4Route) {
                   }
                   action {
                     action {
-                      action_id: 16777219
+                      action_id: 16777236
                       params { param_id: 1 value: "traffic-router-interface-5" }
                       params { param_id: 2 value: "10.0.0.5" }
                     }

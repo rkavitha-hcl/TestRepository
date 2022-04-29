@@ -167,6 +167,7 @@ control routing(in headers_t headers,
 
   @id(ROUTING_SET_NEXTHOP_ACTION_ID)
   @deprecated("Use set_ip_nexthop instead.")
+  @unused
   // TODO: Remove this action once migration to `set_ip_nexthop`
   // is complete & rolled out.
   action set_nexthop(@id(1)

@@ -86,7 +86,7 @@ absl::Status ProgramNextHops(thinkit::TestEnvironment& test_environment,
               nexthop_table_entry {
                 match { nexthop_id: "$0" }
                 action {
-                  set_nexthop { router_interface_id: "$1" neighbor_id: "$2" }
+                  set_ip_nexthop { router_interface_id: "$1" neighbor_id: "$2" }
                 }
               })pb",
             nexthop_id, absl::StrCat("rif-", member.port), neighbor_id));

@@ -201,7 +201,9 @@ absl::Status ForwardToEgress(uint32_t in_port, uint32_t out_port, bool is_ipv6,
       R"pb(
         nexthop_table_entry {
           match { nexthop_id: "$2" }
-          action { set_nexthop { router_interface_id: "$0" neighbor_id: "$1" } }
+          action {
+            set_ip_nexthop { router_interface_id: "$0" neighbor_id: "$1" }
+          }
         }
       )pb",
       kRifOutId, nborid, kNhopId));

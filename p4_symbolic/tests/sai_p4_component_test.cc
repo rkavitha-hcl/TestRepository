@@ -63,7 +63,7 @@ constexpr absl::string_view kTableEntries = R"pb(
     nexthop_table_entry {
       match { nexthop_id: "nexthop-1" }
       action {
-        set_nexthop {
+        set_ip_nexthop {
           router_interface_id: "router-interface-1"
           neighbor_id: "neighbor-1"
         }

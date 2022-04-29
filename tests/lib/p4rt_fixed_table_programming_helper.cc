@@ -104,7 +104,7 @@ absl::StatusOr<p4::v1::Update> NexthopTableUpdate(
                              exact { str: "$1" }
                            }
                            action {
-                             name: "set_nexthop"
+                             name: "set_ip_nexthop"
                              params {
                                name: "router_interface_id"
                                value { str: "$2" }

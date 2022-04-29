@@ -158,7 +158,7 @@ TEST_F(FixedL3TableTest, SupportNexthopTableRouterInterfaceActionFlows) {
                                  nexthop_table_entry {
                                    match { nexthop_id: "8" }
                                    action {
-                                     set_nexthop {
+                                     set_ip_nexthop {
                                        router_interface_id: "8"
                                        neighbor_id: "fe80::021a:11ff:fe17:5f80"
                                      }
@@ -174,7 +174,7 @@ TEST_F(FixedL3TableTest, SupportNexthopTableRouterInterfaceActionFlows) {
       test_lib::AppDbEntryBuilder{}
           .SetTableName("FIXED_NEXTHOP_TABLE")
           .AddMatchField("nexthop_id", "8")
-          .SetAction("set_nexthop")
+          .SetAction("set_ip_nexthop")
           .AddActionParam("router_interface_id", "8")
           .AddActionParam("neighbor_id", "fe80::021a:11ff:fe17:5f80");
 

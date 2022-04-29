@@ -143,7 +143,7 @@ absl::Status ProgramIPv4Route(
                 nexthop_table_entry {
                   match { nexthop_id: "traffic-nexthop-$0" }
                   action {
-                    set_nexthop {
+                    set_ip_nexthop {
                       router_interface_id: "traffic-router-interface-$0"
                       neighbor_id: "$1"
                     }

@@ -116,7 +116,7 @@ static constexpr absl::string_view nexthop_entry = R"pb(
         }
         action {
           action {
-            action_id: 16777219
+            action_id: 16777236
             params { param_id: 1 value: "1" }
             params { param_id: 2 value: "10.0.0.1" }
           }
