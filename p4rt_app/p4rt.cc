@@ -415,6 +415,11 @@ int main(int argc, char** argv) {
   // connection might not be able to connect to P4RT with the same election id.
   builder.AddChannelArgument(GRPC_ARG_KEEPALIVE_TIME_MS, 1000);
 
+  // Keepalive should fail relatively fast to let P4RT find out disconnect
+  // quickly and yield primaryship to allow other controller to connect as
+  // primary.
+  builder.AddChannelArgument(GRPC_ARG_KEEPALIVE_TIMEOUT_MS, 2000);
+
   // Sends KA pings even when existing streaming RPC is not active.
   builder.AddChannelArgument(GRPC_ARG_HTTP2_MAX_PINGS_WITHOUT_DATA, 0);
 
