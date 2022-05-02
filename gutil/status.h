@@ -104,6 +104,7 @@
   return gutil::InternalErrorBuilder() << "(" << #cond << ") failed"
 
 namespace gutil {
+
 // Protobuf and some other Google projects use Status classes that are isomorph,
 // but not equal to absl::Status (outside of google3).
 // This auxiliary function converts such Status classes to absl::Status.
@@ -113,6 +114,9 @@ absl::Status ToAbslStatus(T status) {
       static_cast<absl::StatusCode>(status.code()),
       absl::string_view(status.message().data(), status.message().size()));
 }
+
+grpc::Status AbslStatusToGrpcStatus(const absl::Status& status);
+absl::Status GrpcStatusToAbslStatus(const grpc::Status& status);
 
 // StatusBuilder facilitates easier construction of Status objects with streamed
 // message building.
@@ -285,9 +289,6 @@ class UnauthenticatedErrorBuilder : public StatusBuilder {
   UnauthenticatedErrorBuilder()
       : StatusBuilder(absl::StatusCode::kUnauthenticated) {}
 };
-
-grpc::Status AbslStatusToGrpcStatus(const absl::Status& status);
-absl::Status GrpcStatusToAbslStatus(const grpc::Status& status);
 
 // status.h internal classes. Not for public use.
 namespace status_internal {
