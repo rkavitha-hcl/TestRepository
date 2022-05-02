@@ -96,13 +96,6 @@ tables {
 tables {
   name: "nexthop_table"
   match_fields { name: "nexthop_id" format: STRING type: EXACT }
-  # Deprecated. Use `set_ip_nexthop` instead.
-  # TODO: Remove once migration to `set_ip_nexthop` is completed.
-  actions {
-    name: "set_nexthop"
-    parameters { name: "neighbor_id" format: STRING }
-    parameters { name: "router_interface_id" format: STRING }
-  }
   actions {
     name: "set_ip_nexthop"
     parameters {
