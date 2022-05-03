@@ -14,6 +14,7 @@
 
 #include "lib/gnmi/gnmi_helper.h"
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <utility>
@@ -27,6 +28,7 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
+#include "absl/strings/str_format.h"
 #include "absl/strings/str_join.h"
 #include "absl/strings/str_split.h"
 #include "absl/strings/string_view.h"
@@ -37,18 +39,16 @@
 #include "absl/types/span.h"
 #include "github.com/openconfig/gnoi/types/types.pb.h"
 #include "glog/logging.h"
+#include "google/protobuf/any.pb.h"
 #include "google/protobuf/map.h"
 #include "grpcpp/impl/codegen/client_context.h"
-#include "grpcpp/impl/codegen/string_ref.h"
 #include "gutil/status.h"
 #include "include/nlohmann/json.hpp"
-#include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
 #include "proto/gnmi/gnmi.grpc.pb.h"
 #include "proto/gnmi/gnmi.pb.h"
 #include "proto/gnmi_ext/gnmi_ext.pb.h"
 #include "re2/re2.h"
-#include "thinkit/ssh_client.h"
 #include "thinkit/switch.h"
 
 namespace pins_test {
@@ -489,19 +489,30 @@ GetInterfaceToOperStatusMapOverGnmi(gnmi::gNMI::StubInterface& stub,
 
 absl::Status CheckInterfaceOperStateOverGnmi(
     gnmi::gNMI::StubInterface& stub, absl::string_view interface_oper_state,
-    absl::Span<const std::string> interfaces, absl::Duration timeout) {
+    absl::Span<const std::string> interfaces, bool skip_non_ethernet_interfaces,
+    absl::Duration timeout) {
   ASSIGN_OR_RETURN(const auto interface_to_oper_status_map,
                    GetInterfaceToOperStatusMapOverGnmi(stub, timeout));
 
+  std::vector<std::string> all_interfaces;
   absl::flat_hash_set<std::string> matching_interfaces;
   for (const auto& [interface, oper_status] : interface_to_oper_status_map) {
+    all_interfaces.push_back(interface);
     if (oper_status == interface_oper_state) {
       matching_interfaces.insert(interface);
     }
   }
+  if (interfaces.empty()) {
+    interfaces = all_interfaces;
+  }
 
   std::vector<std::string> unavailable_interfaces;
   for (const std::string& interface : interfaces) {
+    if (skip_non_ethernet_interfaces &&
+        !absl::StrContains(interface, "Ethernet")) {
+      LOG(INFO) << "Skipping check on interface: " << interface;
+      continue;
+    }
     if (!matching_interfaces.contains(interface)) {
       LOG(INFO) << "Interface "
                 << interface << " not found in interfaces that are "
@@ -515,34 +526,6 @@ absl::Status CheckInterfaceOperStateOverGnmi(
         "Some interfaces are not in the expected state ", interface_oper_state,
         ": \n", absl::StrJoin(unavailable_interfaces, "\n"),
         "\n\nInterfaces provided: \n", absl::StrJoin(interfaces, "\n")));
-  }
-  return absl::OkStatus();
-}
-
-absl::Status CheckAllInterfaceOperStateOverGnmi(
-    gnmi::gNMI::StubInterface& stub, absl::string_view interface_oper_state,
-    bool skip_non_ethernet_interfaces, absl::Duration timeout) {
-  ASSIGN_OR_RETURN(const auto interface_to_oper_status_map,
-                   GetInterfaceToOperStatusMapOverGnmi(stub, timeout));
-
-  std::vector<std::string> unavailable_interfaces;
-  for (const auto& [interface, oper_status] : interface_to_oper_status_map) {
-    if (skip_non_ethernet_interfaces &&
-        !absl::StrContains(interface, "Ethernet")) {
-      LOG(INFO) << "Skipping check on interface: " << interface;
-      continue;
-    }
-    if (oper_status != interface_oper_state) {
-      LOG(INFO) << "Interface "
-                << interface << " not found in interfaces that are "
-                << interface_oper_state;
-      unavailable_interfaces.push_back(interface);
-    }
-  }
-  if (!unavailable_interfaces.empty()) {
-    return absl::UnavailableError(
-        absl::StrCat("Interfaces are not ready. ",
-                     absl::StrJoin(unavailable_interfaces, "\n")));
   }
   return absl::OkStatus();
 }

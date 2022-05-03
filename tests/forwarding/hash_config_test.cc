@@ -281,8 +281,8 @@ void InitializeTestbed(thinkit::MirrorTestbed& testbed,
   // Wait for ports to come up before the test. We don't need all the ports to
   // be up, but it helps with reproducibility. We're using a short timeout (1
   // minute) so the impact is small if the testbed doesn't bring up every port.
-  if (auto all_interfaces_up_status =
-          WaitForCondition(AllPortsUp, absl::Minutes(1), testbed.Sut());
+  if (auto all_interfaces_up_status = WaitForCondition(
+          AllPortsUp, absl::Minutes(1), testbed.Sut(), /*with_healthz=*/false);
       !all_interfaces_up_status.ok()) {
     LOG(WARNING) << "Some ports are down at the start of the test. Continuing "
                  << "with only the UP ports. " << all_interfaces_up_status;
@@ -502,7 +502,8 @@ void HashConfigTest::RebootSut() {
                                    /*timeout=*/reboot_deadline - absl::Now()));
   ASSERT_OK(WaitForCondition(PortsUp,
                              /*timeout=*/reboot_deadline - absl::Now(),
-                             GetMirrorTestbed().Sut(), interfaces_));
+                             GetMirrorTestbed().Sut(), interfaces_,
+                             /*with_healthz=*/false));
 
   // Wait for P4Runtime to be reachable.
   absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>> status_or_p4_session;

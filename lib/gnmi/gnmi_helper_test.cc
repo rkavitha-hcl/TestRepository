@@ -17,24 +17,27 @@
 #include <string>
 #include <tuple>
 #include <type_traits>
+#include <utility>
 #include <vector>
 
+#include "absl/container/btree_set.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/escaping.h"
-#include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
 #include "absl/strings/substitute.h"
 #include "absl/time/time.h"
+#include "absl/types/span.h"
+#include "github.com/openconfig/gnoi/types/types.pb.h"
+#include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
-#include "gutil/proto.h"
 #include "gutil/proto_matchers.h"
+#include "gutil/status.h"
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "include/nlohmann/json.hpp"
-#include "lib/utils/json_utils.h"
-#include "p4/v1/p4runtime.grpc.pb.h"
 #include "proto/gnmi/gnmi.pb.h"
 #include "proto/gnmi/gnmi_mock.grpc.pb.h"
 
@@ -974,7 +977,7 @@ TEST(CheckAllInterfaceOperState, FailsToGetInterfaceOperStatusMap) {
   EXPECT_CALL(stub, Get).WillOnce(
       Return(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "")));
   EXPECT_THAT(
-      CheckAllInterfaceOperStateOverGnmi(stub, /*interface_oper_state=*/"UP"),
+      CheckInterfaceOperStateOverGnmi(stub, /*interface_oper_state=*/"UP"),
       StatusIs(absl::StatusCode::kDeadlineExceeded));
 }
 
@@ -995,9 +998,9 @@ TEST(CheckAllInterfaceOperState, InterfaceNotUp) {
       Return(grpc::Status::OK)));
 
   EXPECT_THAT(
-      CheckAllInterfaceOperStateOverGnmi(stub, /*interface_oper_state=*/"UP"),
+      CheckInterfaceOperStateOverGnmi(stub, /*interface_oper_state=*/"UP"),
       StatusIs(absl::StatusCode::kUnavailable,
-               HasSubstr("Interfaces are not ready")));
+               HasSubstr("Some interfaces are not in the expected state UP")));
 }
 
 TEST(CheckAllInterfaceOperState, InterfaceNotDown) {
@@ -1017,9 +1020,10 @@ TEST(CheckAllInterfaceOperState, InterfaceNotDown) {
       Return(grpc::Status::OK)));
 
   EXPECT_THAT(
-      CheckAllInterfaceOperStateOverGnmi(stub, /*interface_oper_state=*/"DOWN"),
-      StatusIs(absl::StatusCode::kUnavailable,
-               HasSubstr("Interfaces are not ready")));
+      CheckInterfaceOperStateOverGnmi(stub, /*interface_oper_state=*/"DOWN"),
+      StatusIs(
+          absl::StatusCode::kUnavailable,
+          HasSubstr("Some interfaces are not in the expected state DOWN")));
 }
 
 TEST(CheckAllInterfaceOperState, AllInterfacesUp) {
@@ -1039,7 +1043,7 @@ TEST(CheckAllInterfaceOperState, AllInterfacesUp) {
       Return(grpc::Status::OK)));
 
   ASSERT_OK(
-      CheckAllInterfaceOperStateOverGnmi(stub, /*interface_oper_state=*/"UP"));
+      CheckInterfaceOperStateOverGnmi(stub, /*interface_oper_state=*/"UP"));
 }
 
 TEST(CheckInterfaceOperState, FailsToGetInterfaceOperStatusMap) {

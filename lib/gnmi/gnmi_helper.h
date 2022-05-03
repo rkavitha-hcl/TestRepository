@@ -15,6 +15,7 @@
 #ifndef GOOGLE_LIB_GNMI_GNMI_HELPER_H_
 #define GOOGLE_LIB_GNMI_GNMI_HELPER_H_
 
+#include <cstdint>
 #include <string>
 #include <tuple>
 #include <type_traits>
@@ -172,15 +173,11 @@ absl::StatusOr<absl::flat_hash_map<std::string, std::string>>
 GetInterfaceToOperStatusMapOverGnmi(gnmi::gNMI::StubInterface& stub,
                                     absl::Duration timeout);
 
-// Checks if given interfaces' oper-status is up/down.
+// Checks if given interfaces' oper-status is up/down. Passing in nothing for
+// `interfaces` will check for all interfaces.
 absl::Status CheckInterfaceOperStateOverGnmi(
     gnmi::gNMI::StubInterface& stub, absl::string_view interface_oper_state,
-    absl::Span<const std::string> interfaces,
-    absl::Duration timeout = absl::Seconds(60));
-
-// Checks if all interfaces oper-status is up/down.
-absl::Status CheckAllInterfaceOperStateOverGnmi(
-    gnmi::gNMI::StubInterface& stub, absl::string_view interface_oper_state,
+    absl::Span<const std::string> interfaces = {},
     bool skip_non_ethernet_interfaces = false,
     absl::Duration timeout = absl::Seconds(60));
 
