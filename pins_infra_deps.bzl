@@ -34,16 +34,16 @@ def pins_infra_deps():
     if not native.existing_rule("com_google_absl"):
         http_archive(
             name = "com_google_absl",
-            url = "https://github.com/abseil/abseil-cpp/archive/refs/tags/20210324.rc1.tar.gz",
-            strip_prefix = "abseil-cpp-20210324.rc1",
-            sha256 = "7e0cf185ddd0459e8e55a9c51a548e859d98c0d7533de374bf038e4c7434f682",
+            url = "https://github.com/abseil/abseil-cpp/archive/refs/tags/20211102.0.tar.gz",
+            strip_prefix = "abseil-cpp-20211102.0",
+            sha256 = "dcf71b9cba8dc0ca9940c4b316a0c796be8fab42b070bb6b7cab62b48f0e66c4",
         )
     if not native.existing_rule("com_google_googletest"):
         http_archive(
             name = "com_google_googletest",
-            urls = ["https://github.com/google/googletest/archive/release-1.10.0.tar.gz"],
-            strip_prefix = "googletest-release-1.10.0",
-            sha256 = "9dc9157a9a1551ec7a7e43daea9a694a0bb5fb8bec81235d8a1e6ef64c716dcb",
+            urls = ["https://github.com/google/googletest/archive/release-1.11.0.tar.gz"],
+            strip_prefix = "googletest-release-1.11.0",
+            sha256 = "b4870bf121ff7795ba20d20bcdd8627b8e088f2d1dab299a031c1034eddc93d5",
         )
     if not native.existing_rule("com_google_benchmark"):
         http_archive(
