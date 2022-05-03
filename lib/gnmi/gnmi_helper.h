@@ -251,5 +251,16 @@ GetTransceiverPartInformation(gnmi::gNMI::StubInterface& gnmi_stub);
 absl::Status SetDeviceId(gnmi::gNMI::StubInterface& gnmi_stub,
                          uint32_t device_id);
 
+// Returns a map from physical transceiver names to ethernet PMD type.
+absl::StatusOr<absl::flat_hash_map<std::string, std::string>>
+GetTransceiverToEthernetPmdMap(gnmi::gNMI::StubInterface& gnmi_stub);
+
+// Returns a map from interfaces names to the speed of each lane in the port,
+// as an integer in Kbps.
+// Example: for a 4-lane 200G interface, this mapping would give a lane speed of
+// 50'000'000 (50G).
+absl::StatusOr<absl::flat_hash_map<std::string, int>>
+GetInterfaceToLaneSpeedMap(gnmi::gNMI::StubInterface& gnmi_stub);
+
 }  // namespace pins_test
 #endif  // GOOGLE_LIB_GNMI_GNMI_HELPER_H_

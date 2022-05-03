@@ -1481,5 +1481,99 @@ TEST(TransceiverPartInformation, EmptyTransceiver) {
               IsOkAndHolds(IsEmpty()));
 }
 
+TEST(TransceiverEthernetPmdType, WorksProperly) {
+  gnmi::GetResponse response;
+  *response.add_notification()
+       ->add_update()
+       ->mutable_val()
+       ->mutable_json_ietf_val() = R"(
+    {
+      "openconfig-platform:components": {
+        "component": [
+          {
+            "name": "1/1"
+          },
+          {
+            "name": "Ethernet1",
+            "state": {
+              "empty": false
+            },
+            "openconfig-platform-transceiver:transceiver": {
+              "state": {
+                "ethernet-pmd": "openconfig-transport-types:ETH_10GBASE_LR"
+              }
+            }
+          }
+        ]
+      }
+    })";
+  gnmi::MockgNMIStub mock_stub;
+  EXPECT_CALL(mock_stub, Get)
+      .WillRepeatedly(
+          DoAll(SetArgPointee<2>(response), Return(grpc::Status::OK)));
+  absl::flat_hash_map<std::string, std::string> expected_map{
+      {"Ethernet1", "openconfig-transport-types:ETH_10GBASE_LR"}};
+  EXPECT_THAT(GetTransceiverToEthernetPmdMap(mock_stub),
+              IsOkAndHolds(UnorderedPointwise(Eq(), expected_map)));
+}
+
+TEST(InterfaceToSpeed, WorksProperly) {
+  gnmi::GetResponse response;
+  *response.add_notification()
+       ->add_update()
+       ->mutable_val()
+       ->mutable_json_ietf_val() = R"(
+    {
+      "openconfig-interfaces:interfaces": {
+        "interface": [
+          {
+            "name": "CPU"
+          },
+          {
+            "name": "Ethernet1/1/1",
+            "state": {
+              "openconfig-platform-transceiver:physical-channel": [0,1,2,3]
+            },
+            "openconfig-if-ethernet:ethernet": {
+              "state": {
+                "port-speed": "openconfig-if-ethernet:SPEED_10GB"
+              }
+            }
+          },
+          {
+            "name": "Ethernet1/2/1",
+            "state": {
+              "openconfig-platform-transceiver:physical-channel": []
+            },
+            "openconfig-if-ethernet:ethernet": {
+              "state": {
+                "port-speed": "openconfig-if-ethernet:SPEED_10GB"
+              }
+            }
+          },
+          {
+            "name": "Ethernet1/3/1",
+            "state": {
+              "openconfig-platform-transceiver:physical-channel": [7]
+            },
+            "openconfig-if-ethernet:ethernet": {
+              "state": {
+                "port-speed": "openconfig-if-ethernet:SPEED_100GB"
+              }
+            }
+          }
+        ]
+      }
+    })";
+  gnmi::MockgNMIStub mock_stub;
+  EXPECT_CALL(mock_stub, Get)
+      .WillRepeatedly(
+          DoAll(SetArgPointee<2>(response), Return(grpc::Status::OK)));
+  absl::flat_hash_map<std::string, int> expected_map{
+      {"Ethernet1/1/1", 10'000'000 / 4}, {"Ethernet1/3/1", 100'000'000}};
+  EXPECT_THAT(GetInterfaceToLaneSpeedMap(mock_stub),
+              IsOkAndHolds(UnorderedPointwise(Eq(), expected_map)));
+}
+
 }  // namespace
 }  // namespace pins_test
