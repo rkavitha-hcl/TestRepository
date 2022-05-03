@@ -479,11 +479,11 @@ absl::Status StartTraffic(absl::Span<const std::string> trefs,
   RET_CHECK(response.is_array()) << titem_response;
   for (const Json &traffic_item : response) {
     RET_CHECK(traffic_item.contains("warnings")) << titem_response;
-    if (traffic_item.at("warnings").empty()) continue;
-    return gutil::UnknownErrorBuilder()
-           << "Found traffic items with warnings, which may result in "
-              "unexpected behavior. Dump of traffic items:\n"
-           << json_yang::DumpJson(response);
+    if (!traffic_item.at("warnings").empty()) {
+      LOG(WARNING) << "Found traffic items with warnings, which may result in "
+                      "unexpected behavior. Dump of traffic items:\n"
+                   << json_yang::DumpJson(response);
+    }
   }
 
   return absl::OkStatus();

@@ -40,6 +40,7 @@
 #include "p4_pdpi/pd.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
 #include "tests/forwarding/test_vector.pb.h"
+#include "tests/forwarding/util.h"
 #include "tests/lib/switch_test_setup_helpers.h"
 #include "tests/qos/packet_in_receiver.h"
 #include "tests/qos/qos_test_util.h"
@@ -543,10 +544,11 @@ TEST_P(FrontpanelQosTest, TestWredEcnMarking) {
             const QueueCounters queue_counters_before_test_packet,
             GetGnmiQueueCounters(/*port=*/kSutOutPort, /*queue=*/target_queue,
                                  *gnmi_stub));
-
-        ASSERT_OK(pins_test::ixia::StartTraffic(ixia_setup_result.traffic_refs,
-                                                ixia_setup_result.topology_ref,
-                                                *testbed));
+        ASSERT_OK(gpins::TryUpToNTimes(3, /*delay=*/absl::Seconds(1), [&] {
+          return pins_test::ixia::StartTraffic(ixia_setup_result.traffic_refs,
+                                               ixia_setup_result.topology_ref,
+                                               *testbed);
+        }));
 
         // Time to allow initial burst and to reach steady state queue usage.
         constexpr absl::Duration kCongestionTime = absl::Seconds(2);
