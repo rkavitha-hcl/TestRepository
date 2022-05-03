@@ -1,4 +1,4 @@
-// Copyright (c) 2021, Google Inc.
+// Copyright (c) 2022, Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -178,6 +178,38 @@ absl::Status ProgramIPv4Route(
   RETURN_IF_ERROR(
       WritePdWriteRequest(write_request, instantiation, ipv4_request))
       << "Error writing IPv4 entry request.";
+  return absl::OkStatus();
+}
+
+absl::Status ProgramL3AdmitTableEntry(
+    const std::function<absl::Status(p4::v1::WriteRequest&)>& write_request,
+    sai::Instantiation instantiation) {
+  sai::TableEntry l3_admit_table_entry;
+  ASSIGN_OR_RETURN(
+      auto l3_admit_request,
+      gutil::ParseTextProto<sai::WriteRequest>(
+          R"pb(
+            updates {
+              type: INSERT
+              table_entry {
+                l3_admit_table_entry {
+                  match {
+                    dst_mac {
+                      value: "00:00:00:00:00:00"
+                      mask: "FF:FF:FF:FF:FF:FF"
+                    }
+                  }
+                  action { admit_to_l3 {} }
+                  priority: 1
+                  controller_metadata: "orion_type: VARIOUS_L3ADMIT_PUNTFLOW"
+                }
+              }
+            }
+          )pb"));
+
+  RETURN_IF_ERROR(
+      WritePdWriteRequest(write_request, instantiation, l3_admit_request))
+      << "Error writing l3 admit table entry request.";
   return absl::OkStatus();
 }
 

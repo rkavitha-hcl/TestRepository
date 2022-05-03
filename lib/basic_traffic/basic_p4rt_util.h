@@ -1,4 +1,4 @@
-// Copyright (c) 2021, Google Inc.
+// Copyright (c) 2022, Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -99,6 +99,23 @@ inline absl::Status ProgramIPv4Route(
         pdpi::SetMetadataAndSendPiWriteRequest) {
   return ProgramIPv4Route(absl::bind_front(write_request, session), port_id,
                           instantiation);
+}
+
+// Programs L3 admit table entry allowing packets to be routed. Takes in a
+// function that programs a `WriteRequest`.
+absl::Status ProgramL3AdmitTableEntry(
+    const std::function<absl::Status(p4::v1::WriteRequest&)>& write_request,
+    sai::Instantiation instantiation = sai::Instantiation::kMiddleblock);
+
+// Programs L3 admit table entry allowing packets to be routed. Takes in a
+// `P4RuntimeSession`.
+inline absl::Status ProgramL3AdmitTableEntry(
+    pdpi::P4RuntimeSession* session,
+    sai::Instantiation instantiation = sai::Instantiation::kMiddleblock,
+    const WriteRequestHandler& write_request =
+        pdpi::SetMetadataAndSendPiWriteRequest) {
+  return ProgramL3AdmitTableEntry(absl::bind_front(write_request, session),
+                                  instantiation);
 }
 
 }  // namespace pins_test::basic_traffic

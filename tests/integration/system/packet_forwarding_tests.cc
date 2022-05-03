@@ -42,6 +42,7 @@
 #include "lib/basic_traffic/basic_p4rt_util.h"
 #include "lib/basic_traffic/basic_traffic.h"
 #include "lib/gnmi/gnmi_helper.h"
+#include "lib/p4rt/p4rt_programming_context.h"
 #include "lib/utils/generic_testbed_utils.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.pb.h"
@@ -94,17 +95,6 @@ constexpr absl::string_view kTestPacket = R"pb(
   headers { udp_header { source_port: "0x0000" destination_port: "0x0000" } }
   payload: "Basic L3 test packet")pb";
 
-// Sets up route from source port to destination port on sut.
-absl::Status SetupRoute(pdpi::P4RuntimeSession& p4_session, int src_port_id,
-                        int dst_port_id) {
-  RETURN_IF_ERROR(basic_traffic::ProgramTrafficVrf(&p4_session));
-  RETURN_IF_ERROR(
-      basic_traffic::ProgramRouterInterface(&p4_session, src_port_id));
-  RETURN_IF_ERROR(
-      basic_traffic::ProgramRouterInterface(&p4_session, dst_port_id));
-  return basic_traffic::ProgramIPv4Route(&p4_session, dst_port_id);
-}
-
 // Pushes the P4 Info to SUT if the flag push_p4_info is set to true and returns
 // the P4 Runtime Session
 absl::StatusOr<std::unique_ptr<pdpi::P4RuntimeSession>> P4InfoPush(
@@ -138,28 +128,35 @@ TEST_P(PacketForwardingTestFixture, PacketForwardingTest) {
   ASSERT_OK_AND_ASSIGN(
       std::string source_port_id_value,
       gutil::FindOrStatus(port_id_by_interface, source_link.sut_interface));
-  int source_port_id;
-  ASSERT_TRUE(absl::SimpleAtoi(source_port_id_value, &source_port_id));
 
   // Set the `destination_link` to the second SUT control link.
   const InterfaceLink& destination_link = control_links[1];
   ASSERT_OK_AND_ASSIGN(std::string destination_port_id_value,
                        gutil::FindOrStatus(port_id_by_interface,
                                            destination_link.sut_interface));
-  int destination_port_id;
-  ASSERT_TRUE(
-      absl::SimpleAtoi(destination_port_id_value, &destination_port_id));
 
   LOG(INFO) << "Source port: " << source_link.sut_interface
-            << " port id: " << source_port_id;
+            << " port id: " << source_port_id_value;
   LOG(INFO) << "Destination port: " << destination_link.sut_interface
-            << " port id: " << destination_port_id;
+            << " port id: " << destination_port_id_value;
 
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
                        P4InfoPush(p4_info(), *testbed));
 
   // Set up a route between the source and destination interfaces.
-  ASSERT_OK(SetupRoute(*p4_session, source_port_id, destination_port_id));
+  ASSERT_OK_AND_ASSIGN(auto port_id_from_sut_interface,
+                       GetAllInterfaceNameToPortId(*stub));
+  P4rtProgrammingContext p4rt_context(p4_session.get(),
+                                      pdpi::SetMetadataAndSendPiWriteRequest);
+  ASSERT_OK(basic_traffic::ProgramRoutes(
+      p4rt_context.GetWriteRequestFunction(), sai::Instantiation::kMiddleblock,
+      port_id_from_sut_interface,
+      {{.ingress_interface = source_link.sut_interface,
+        .egress_interface = destination_link.sut_interface}}));
+
+  int destination_port_id;
+  ASSERT_TRUE(
+      absl::SimpleAtoi(destination_port_id_value, &destination_port_id));
 
   // Make test packet based on destination port ID.
   const auto test_packet =

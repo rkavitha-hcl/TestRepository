@@ -1,4 +1,4 @@
-// Copyright (c) 2021, Google Inc.
+// Copyright (c) 2022, Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -351,6 +351,54 @@ TEST(BasicTraffic, SendTraffic) {
             .WillOnce(Return(absl::OkStatus()));
   }
 
+  // Expect adding L3 admit table entry.
+  ExpectationSet add_l3_admit_table;
+  EXPECT_CALL(
+      mock_write_request,
+      Call(_, EqualsProto(R"pb(
+             updates {
+               type: INSERT
+               entity {
+                 table_entry {
+                   table_id: 33554503
+                   match {
+                     field_id: 1
+                     ternary { value: "\000" mask: "\377\377\377\377\377\377" }
+                   }
+                   action { action { action_id: 16777224 } }
+                   priority: 1
+                   metadata: "orion_type: VARIOUS_L3ADMIT_PUNTFLOW"
+                 }
+               }
+             }
+           )pb")))
+      .After(add_ipv4_routes)
+      .WillOnce(Return(absl::OkStatus()));
+
+  // Expect deleting L3 admit table entry.
+  ExpectationSet delete_l3_admit_table;
+  EXPECT_CALL(
+      mock_write_request,
+      Call(_, EqualsProto(R"pb(
+             updates {
+               type: DELETE
+               entity {
+                 table_entry {
+                   table_id: 33554503
+                   match {
+                     field_id: 1
+                     ternary { value: "\000" mask: "\377\377\377\377\377\377" }
+                   }
+                   action { action { action_id: 16777224 } }
+                   priority: 1
+                   metadata: "orion_type: VARIOUS_L3ADMIT_PUNTFLOW"
+                 }
+               }
+             }
+           )pb")))
+      .After(add_l3_admit_table)
+      .WillOnce(Return(absl::OkStatus()));
+
   // Expect deleting IPv4 routes for egress interfaces.
   ExpectationSet delete_ipv4_routes;
   for (int port_id : {1, 2}) {
@@ -388,7 +436,7 @@ TEST(BasicTraffic, SendTraffic) {
                        }
                      )pb",
                      port_id))))
-            .After(add_ipv4_routes)
+            .After(delete_l3_admit_table)
             .WillOnce(Return(absl::OkStatus()));
 
     // Nexthop entry.

@@ -1,4 +1,4 @@
-// Copyright (c) 2021, Google Inc.
+// Copyright (c) 2022, Google Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -194,6 +194,35 @@ TEST(BasicTraffic, ProgramIPv4Route) {
   EXPECT_OK(ProgramIPv4Route(/*session=*/nullptr, /*port_id=*/5,
                              sai::Instantiation::kMiddleblock,
                              mock_write_request.AsStdFunction()));
+}
+
+TEST(BasicTraffic, ProgramL3AdmitTableEntry) {
+  MockFunction<absl::Status(pdpi::P4RuntimeSession*, p4::v1::WriteRequest&)>
+      mock_write_request;
+  EXPECT_CALL(
+      mock_write_request,
+      Call(_, EqualsProto(R"pb(
+             updates {
+               type: INSERT
+               entity {
+                 table_entry {
+                   table_id: 33554503
+                   match {
+                     field_id: 1
+                     ternary { value: "\000" mask: "\377\377\377\377\377\377" }
+                   }
+                   action { action { action_id: 16777224 } }
+                   priority: 1
+                   metadata: "orion_type: VARIOUS_L3ADMIT_PUNTFLOW"
+                 }
+               }
+             }
+           )pb")))
+      .WillOnce(Return(absl::OkStatus()));
+
+  EXPECT_OK(ProgramL3AdmitTableEntry(
+      /*session=*/nullptr, sai::Instantiation::kMiddleblock,
+      mock_write_request.AsStdFunction()));
 }
 
 }  // namespace

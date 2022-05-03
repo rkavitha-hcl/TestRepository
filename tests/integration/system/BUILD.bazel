@@ -79,6 +79,7 @@ cc_library(
         "//lib/basic_traffic",
         "//lib/basic_traffic:basic_p4rt_util",
         "//lib/gnmi:gnmi_helper",
+        "//lib/p4rt:p4rt_programming_context",
         "//lib/utils:generic_testbed_utils",
         "//p4_pdpi:ir",
         "//p4_pdpi:p4_runtime_session",
