@@ -33,6 +33,7 @@
 #include "p4_pdpi/netaddr/ipv6_address.h"
 
 namespace pdpi {
+namespace {
 
 using ::google::protobuf::util::MessageDifferencer;
 using ::gutil::EqualsProto;
@@ -367,4 +368,34 @@ TEST_P(Ipv6BitwidthTest, ArbitraryByteStringToIrValueBitwidthTooLargeFails) {
 INSTANTIATE_TEST_SUITE_P(PerBitwidth, Ipv6BitwidthTest,
                          testing::Values(63, 64, 65, 128),
                          testing::PrintToStringParamName());
+
+TEST(AnnotationTests, IsElementUnusedTest) {
+  std::vector<std::string> annotations_with_unused = {"@irrelevant", "@unused",
+                                                      "@irrelevant2"};
+  EXPECT_TRUE(IsElementUnused(google::protobuf::RepeatedPtrField<std::string>(
+      annotations_with_unused.begin(), annotations_with_unused.end())));
+
+  std::vector<std::string> annotations_without_unused = {
+      "@irrelevant", "@deprecated", "@irrelevant2"};
+  EXPECT_FALSE(IsElementUnused(google::protobuf::RepeatedPtrField<std::string>(
+      annotations_without_unused.begin(), annotations_without_unused.end())));
+}
+
+TEST(AnnotationTests, IsElementDeprecatedTest) {
+  std::vector<std::string> annotations_with_deprecated = {
+      "@irrelevant", "@deprecated", "@irrelevant2"};
+  EXPECT_TRUE(
+      IsElementDeprecated(google::protobuf::RepeatedPtrField<std::string>(
+          annotations_with_deprecated.begin(),
+          annotations_with_deprecated.end())));
+
+  std::vector<std::string> annotations_without_deprecated = {
+      "@irrelevant", "@unused", "@irrelevant2"};
+  EXPECT_FALSE(
+      IsElementDeprecated(google::protobuf::RepeatedPtrField<std::string>(
+          annotations_without_deprecated.begin(),
+          annotations_without_deprecated.end())));
+}
+
+}  // namespace
 }  // namespace pdpi

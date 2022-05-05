@@ -29,6 +29,7 @@
 #include <string>
 #include <vector>
 
+#include "absl/algorithm/container.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/ascii.h"
@@ -550,12 +551,16 @@ std::string MetadataName(absl::string_view metadata_name) {
 
 bool IsElementUnused(
     const google::protobuf::RepeatedPtrField<std::string> &annotations) {
-  for (const std::string &annotation : annotations) {
-    if (annotation == "@unused") {
-      return true;
-    }
-  }
-  return false;
+  return absl::c_any_of(annotations, [](absl::string_view annotation) {
+    return annotation == "@unused";
+  });
+}
+
+bool IsElementDeprecated(
+    const google::protobuf::RepeatedPtrField<std::string> &annotations) {
+  return absl::c_any_of(annotations, [](absl::string_view annotation) {
+    return absl::StartsWith(annotation, "@deprecated");
+  });
 }
 
 }  // namespace pdpi

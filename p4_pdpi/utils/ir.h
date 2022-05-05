@@ -156,5 +156,9 @@ std::string MetadataName(absl::string_view metadata_name);
 bool IsElementUnused(
     const google::protobuf::RepeatedPtrField<std::string> &annotations);
 
+// Checks for an "@deprecated" annotation in the argument.
+bool IsElementDeprecated(
+    const google::protobuf::RepeatedPtrField<std::string> &annotations);
+
 }  // namespace pdpi
 #endif  // P4_PDPI_UTILS_IR_H
