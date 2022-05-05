@@ -31,16 +31,12 @@
 #include <vector>
 
 #include "absl/random/random.h"
-#include "absl/strings/match.h"
 #include "absl/types/optional.h"
 #include "absl/types/span.h"
 #include "glog/logging.h"
-#include "p4/config/v1/p4info.pb.h"
-#include "p4/v1/p4runtime.pb.h"
 #include "p4_fuzzer/fuzzer.pb.h"
 #include "p4_fuzzer/fuzzer_config.h"
 #include "p4_fuzzer/switch_state.h"
-#include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
 
 namespace p4_fuzzer {
@@ -86,17 +82,6 @@ const T& UniformFromSpan(absl::BitGen* gen, const std::vector<T>& vec) {
 // Gets the action profile corresponding to the given table from the IrP4Info.
 absl::StatusOr<p4::config::v1::ActionProfile> GetActionProfile(
     const pdpi::IrP4Info& ir_info, int table_id);
-
-// Returns the list of all table IDs in the underlying P4 program.
-const std::vector<uint32_t> AllTableIds(const FuzzerConfig& config);
-
-// Returns the list of all action IDs in the underlying P4 program.
-const std::vector<uint32_t> AllActionIds(const FuzzerConfig& config);
-
-// Returns the list of all match field IDs in the underlying P4 program for
-// table with id table_id.
-const std::vector<uint32_t> AllMatchFieldIds(const FuzzerConfig& config,
-                                             const uint32_t table_id);
 
 // Takes a string `data` that represents a number in network byte
 // order (big-endian), and masks off all but the least significant `used_bits`

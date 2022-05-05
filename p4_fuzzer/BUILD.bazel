@@ -124,7 +124,6 @@ cc_library(
         ":switch_state",
         "//gutil:collections",
         "//gutil:status",
-        "//p4_pdpi:ir",
         "//p4_pdpi:ir_cc_proto",
         "//p4_pdpi:pd",
         "//p4_pdpi/internal:ordered_map",
