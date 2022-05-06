@@ -25,7 +25,7 @@
 
 DEFINE_string(p4rt_server_address, "unix:/sock/p4rt.sock",
               "Server address of the P4RT service.");
-DEFINE_int32(p4rt_device_id, 183807201, "Device ID for the P4RT service");
+DEFINE_uint64(p4rt_device_id, 183807201, "Device ID for the P4RT service");
 DEFINE_bool(use_insecure_credentials, false,
             "Use insecure credentials when connecting to the P4RT service.");
 

@@ -23,7 +23,7 @@
 
 // Flags to configure the P4RT connection.
 DECLARE_string(p4rt_server_address);
-DECLARE_int32(p4rt_device_id);
+DECLARE_uint64(p4rt_device_id);
 DECLARE_bool(use_insecure_credentials);
 
 namespace p4rt_app {
