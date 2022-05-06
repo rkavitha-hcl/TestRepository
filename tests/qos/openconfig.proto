@@ -14,21 +14,10 @@ package pins_test.openconfig;
 
 // -- Proto messages mirroring YANG models -------------------------------------
 
-// Mirrors `container queues` in `openconfig-qos-elements.yang`.
-message Queues {
-  repeated Queue queues = 1 [json_name = "queue"];
-
-  // Mirrors `queues/queue` in `openconfig-qos-elements.yang`.
-  message Queue {
-    string name = 1;
-    State state = 2;
-
-    // Mirrors `queues/queue/state` in `openconfig-qos-elements.yang`.
-    message State {
-      string dropped_pkts = 1 [json_name = "dropped-pkts"];
-      string transmit_pkts = 2 [json_name = "transmit-pkts"];
-    }
-  }
+// Mirrors the root of the config tree.
+message Config {
+  Interfaces interfaces = 1 [json_name = "openconfig-interfaces:interfaces"];
+  Qos qos = 3 [json_name = "openconfig-qos:qos"];
 }
 
 // Mirrors `container interfaces` in `openconfig-interfaces.yang`.
@@ -72,9 +61,80 @@ message Addresses {
   }
 }
 
-// Mirrors the root of the config tree.
-message Config {
-  Interfaces interfaces = 1 [json_name = "openconfig-interfaces:interfaces"];
+// Mirrors `container queues` in `openconfig-qos-elements.yang`.
+message Queues {
+  repeated Queue queues = 1 [json_name = "queue"];
+
+  // Mirrors `queues/queue` in `openconfig-qos-elements.yang`.
+  message Queue {
+    string name = 1;
+    State state = 2;
+
+    // Mirrors `queues/queue/state` in `openconfig-qos-elements.yang`.
+    message State {
+      string dropped_pkts = 1 [json_name = "dropped-pkts"];
+      string transmit_pkts = 2 [json_name = "transmit-pkts"];
+    }
+  }
+}
+
+// Mirrors `openconfig-qos:qos`.
+// All leaves are `optional`, since JSON differentiates between absence vs
+// precense with default value.
+message Qos {
+  SchedulerPolicies scheduler_policies = 5 [json_name = "scheduler-policies"];
+
+  message SchedulerPolicies {
+    repeated SchedulerPolicy scheduler_policy = 1
+        [json_name = "scheduler-policy"];
+  }
+  message SchedulerPolicy {
+    string name = 1;  // List key.
+    Schedulers schedulers = 2;
+  }
+  message Schedulers {
+    repeated Scheduler scheduler = 1;
+  }
+  message Scheduler {
+    uint32 sequence = 1;  // List key.
+    Config config = 2;
+    Config state = 3;
+    Inputs inputs = 4;
+    TwoRateThreeColor two_rate_three_color = 5
+        [json_name = "two-rate-three-color"];
+
+    message Config {
+      optional string priority = 1;
+      optional uint32 sequence = 2;
+      optional string type = 3;
+    }
+    message Inputs {
+      repeated Input input = 1;
+    }
+    message Input {
+      string id = 1;  // List key.
+      Config config = 2;
+      Config state = 3;
+
+      message Config {
+        optional string id = 1;
+        optional string input_type = 2 [json_name = "input-type"];
+        optional string queue = 3;
+        optional string weight = 4;  // uint64
+      }
+    }
+    message TwoRateThreeColor {
+      Config config = 1;
+      Config state = 2;
+
+      message Config {
+        optional string cir = 1;  // uint64
+        optional string pir = 2;  // uint64
+        optional uint32 bc = 3;   // uint32
+        optional uint32 be = 4;   // uint32
+      }
+    }
+  }
 }
 
 // -- Proto messages defined for convenience -----------------------------------
