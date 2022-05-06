@@ -55,9 +55,9 @@ def pins_infra_deps():
     if not native.existing_rule("com_google_protobuf"):
         http_archive(
             name = "com_google_protobuf",
-            url = "https://github.com/protocolbuffers/protobuf/releases/download/v3.14.0/protobuf-all-3.14.0.tar.gz",
-            strip_prefix = "protobuf-3.14.0",
-            sha256 = "6dd0f6b20094910fbb7f1f7908688df01af2d4f6c5c21331b9f636048674aebf",
+            url = "https://github.com/protocolbuffers/protobuf/releases/download/v3.20.1/protobuf-all-3.20.1.tar.gz",
+            strip_prefix = "protobuf-3.20.1",
+            sha256 = "3a400163728db996e8e8d21c7dfb3c239df54d0813270f086c4030addeae2fad",
         )
     if not native.existing_rule("com_googlesource_code_re2"):
         http_archive(
@@ -202,9 +202,8 @@ def pins_infra_deps():
         # requiring SSH authentication.
         git_repository(
             name = "sonic_swss_common",
-            commit = "0b8cb7a0aebd391955de22d9795cd3f69225f122",
+            commit = "b281a44f9abc2945934517c2eaccbb102d2ab25f",
             remote = "git@github.com:pins/sonic-swss-common.git",
-            shallow_since = "1616719037 -0700",
         )
     if not native.existing_rule("rules_pkg"):
         http_archive(
