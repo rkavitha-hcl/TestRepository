@@ -139,6 +139,7 @@ qos {
       name: "scheduler_1gb"
       schedulers {
         scheduler {
+          sequence: 0
           config {
             priority: "STRICT"
             sequence: 0
@@ -686,6 +687,7 @@ qos {
       name: "scheduler_1gb"
       schedulers {
         scheduler {
+          sequence: 0
           config {
             priority: "STRICT"
             sequence: 0

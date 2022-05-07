@@ -89,14 +89,14 @@ message Qos {
         [json_name = "scheduler-policy"];
   }
   message SchedulerPolicy {
-    string name = 1;  // List key.
+    optional string name = 1;  // List key.
     Schedulers schedulers = 2;
   }
   message Schedulers {
     repeated Scheduler scheduler = 1;
   }
   message Scheduler {
-    uint32 sequence = 1;  // List key.
+    optional uint32 sequence = 1;  // List key.
     Config config = 2;
     Config state = 3;
     Inputs inputs = 4;
@@ -112,7 +112,7 @@ message Qos {
       repeated Input input = 1;
     }
     message Input {
-      string id = 1;  // List key.
+      optional string id = 1;  // List key.
       Config config = 2;
       Config state = 3;
 
