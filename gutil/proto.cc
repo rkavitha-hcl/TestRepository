@@ -151,4 +151,12 @@ std::string PrintShortTextProto(const google::protobuf::Message &message) {
   return message_short_text;
 }
 
+absl::StatusOr<std::string> SerializeProtoAsJson(
+    const google::protobuf::Message &proto) {
+  std::string json;
+  RETURN_IF_ERROR(gutil::ToAbslStatus(
+      google::protobuf::util::MessageToJsonString(proto, &json)));
+  return json;
+}
+
 }  // namespace gutil

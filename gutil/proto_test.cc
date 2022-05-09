@@ -130,5 +130,15 @@ TEST(ParseJsonAsProto, CanIgnoreUnknownFields) {
               )pb")));
 }
 
+TEST(SerializeProtoAsJson, RoundTripsWithParseJsonAsProto) {
+  ASSERT_OK_AND_ASSIGN(auto proto, ParseTextProto<TestMessage>(R"pb(
+                         int_field: 42
+                         string_field: "hello!"
+                       )pb"));
+  ASSERT_OK_AND_ASSIGN(std::string json, SerializeProtoAsJson(proto));
+  EXPECT_THAT(ParseJsonAsProto<TestMessage>(json),
+              IsOkAndHolds(EqualsProto(proto)));
+}
+
 }  // namespace
 }  // namespace gutil

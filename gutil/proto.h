@@ -90,6 +90,10 @@ template <class T>
 absl::StatusOr<T> ParseJsonAsProto(absl::string_view raw_json_string,
                                    bool ignore_unknown_fields = false);
 
+// Serializes the given proto message as a JSON string.
+absl::StatusOr<std::string> SerializeProtoAsJson(
+    const google::protobuf::Message &proto);
+
 // -- END OF PUBLIC INTERFACE - Implementation details follow ------------------
 
 template <class T>
