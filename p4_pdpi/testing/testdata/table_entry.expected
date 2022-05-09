@@ -962,6 +962,156 @@ INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following r
   - Action is required.
 
 =========================================================================
+meter counter data but missing color counter
+=========================================================================
+
+--- PI (Input):
+table_id: 33554439
+match {
+  field_id: 1
+  lpm {
+    value: "\020$2\000"
+    prefix_len: 24
+  }
+}
+action {
+  action {
+    action_id: 16777220
+  }
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+meter_counter_data {
+  yellow {
+    byte_count: 569
+    packet_count: 791
+  }
+  red {
+    byte_count: 570
+    packet_count: 792
+  }
+}
+
+
+=========================================================================
+meter counter data but no color counter
+=========================================================================
+
+--- PI (Input):
+table_id: 33554439
+match {
+  field_id: 1
+  lpm {
+    value: "\020$2\000"
+    prefix_len: 24
+  }
+}
+action {
+  action {
+    action_id: 16777220
+  }
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+meter_counter_data {
+}
+
+
+=========================================================================
+meter counter data but missing meter config
+=========================================================================
+
+--- PI (Input):
+table_id: 33554439
+match {
+  field_id: 1
+  lpm {
+    value: "\020$2\000"
+    prefix_len: 24
+  }
+}
+action {
+  action {
+    action_id: 16777220
+  }
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+meter_counter_data {
+  green {
+    byte_count: 568
+    packet_count: 790
+  }
+  yellow {
+    byte_count: 569
+    packet_count: 791
+  }
+  red {
+    byte_count: 570
+    packet_count: 792
+  }
+}
+
+--- PI is invalid/unsupported:
+INVALID_ARGUMENT: Table entry for 'count_and_meter_table' is invalid: Pi entry does not have a meter config, but table entry contained a meter counter.
+
+=========================================================================
+meter counter data in a table with no meters
+=========================================================================
+
+--- PI (Input):
+table_id: 33554440
+match {
+  field_id: 1
+  lpm {
+    value: "\020$2\000"
+    prefix_len: 24
+  }
+}
+action {
+  action {
+    action_id: 16777220
+  }
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+meter_counter_data {
+}
+
+--- PI is invalid/unsupported:
+INVALID_ARGUMENT: Table entry for 'wcmp2_table' is invalid for the following reasons:
+  - Table requires an action set since it uses oneshot. Got action instead.
+  - Table does not have a meter, but table entry contained a meter config.
+  - Table does not support meters, but table entry contained a meter counter.
+  - Table does not have a counter, but table entry contained counter data.
+
+=========================================================================
 empty IR
 =========================================================================
 
@@ -1982,6 +2132,253 @@ INVALID_ARGUMENT: Table entry for 'ternary_table' is invalid for the following r
     - Match field has @unused annotation.
     - Oneof field "format" is not set
   - Action is required.
+
+=========================================================================
+meter counter data in a table with no counters
+=========================================================================
+
+--- IR (Input):
+table_name: "wcmp_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "0.0.255.0"
+    }
+    prefix_length: 24
+  }
+}
+action_set {
+  actions {
+    action {
+      name: "do_thing_1"
+      params {
+        name: "arg2"
+        value {
+          hex_str: "0x00000008"
+        }
+      }
+      params {
+        name: "arg1"
+        value {
+          hex_str: "0x00000009"
+        }
+      }
+    }
+    weight: 24
+  }
+}
+meter_counter_data {
+  green {
+    byte_count: 568
+    packet_count: 790
+  }
+  yellow {
+    byte_count: 569
+    packet_count: 791
+  }
+  red {
+    byte_count: 570
+    packet_count: 792
+  }
+}
+
+--- IR (converting to PI) is invalid/unsupported:
+INVALID_ARGUMENT: Table entry for 'wcmp_table' is invalid for the following reasons:
+  - Table does not support meters but IR entry contained a meter counter.
+  - IR entry does not have a meter config but contained a meter counter.
+
+=========================================================================
+meter counter data with byte color counters
+=========================================================================
+
+--- IR (Input):
+table_name: "count_and_meter_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "16.36.50.0"
+    }
+    prefix_length: 24
+  }
+}
+action {
+  name: "count_and_meter"
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+}
+meter_counter_data {
+  green {
+    byte_count: 568
+  }
+  yellow {
+    byte_count: 569
+  }
+  red {
+    byte_count: 570
+  }
+}
+
+
+=========================================================================
+meter counter data with packet color counters
+=========================================================================
+
+--- IR (Input):
+table_name: "count_and_meter_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "16.36.50.0"
+    }
+    prefix_length: 24
+  }
+}
+action {
+  name: "count_and_meter"
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  packet_count: 789
+}
+meter_counter_data {
+  green {
+    packet_count: 790
+  }
+  yellow {
+    packet_count: 791
+  }
+  red {
+    packet_count: 792
+  }
+}
+
+
+=========================================================================
+meter counter data but missing color counters
+=========================================================================
+
+--- IR (Input):
+table_name: "count_and_meter_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "16.36.50.0"
+    }
+    prefix_length: 24
+  }
+}
+action {
+  name: "count_and_meter"
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+meter_counter_data {
+  green {
+    byte_count: 568
+    packet_count: 790
+  }
+  yellow {
+    byte_count: 569
+    packet_count: 791
+  }
+}
+
+
+=========================================================================
+meter counter data but no color counters
+=========================================================================
+
+--- IR (Input):
+table_name: "count_and_meter_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "16.36.50.0"
+    }
+    prefix_length: 24
+  }
+}
+action {
+  name: "count_and_meter"
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+meter_counter_data {
+}
+
+
+=========================================================================
+meter counter data but missing meter config
+=========================================================================
+
+--- IR (Input):
+table_name: "count_and_meter_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "16.36.50.0"
+    }
+    prefix_length: 24
+  }
+}
+action {
+  name: "count_and_meter"
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+meter_counter_data {
+  green {
+    byte_count: 568
+    packet_count: 790
+  }
+  yellow {
+    byte_count: 569
+    packet_count: 791
+  }
+  red {
+    byte_count: 570
+    packet_count: 792
+  }
+}
+
+--- IR (converting to PI) is invalid/unsupported:
+INVALID_ARGUMENT: Table entry for 'count_and_meter_table' is invalid: IR entry does not have a meter config but contained a meter counter.
 
 =========================================================================
 empty PD
@@ -4317,6 +4714,651 @@ optional_table_entry {
 
 --- PD is invalid/unsupported:
 INVALID_ARGUMENT: Table entry for 'optional_table' is invalid: Match field 'mac' is invalid: Match field does not exist in the P4Info.
+=========================================================================
+table entry with a meter counter data (packet counter)
+=========================================================================
+
+--- PD (Input):
+packet_count_and_meter_table_entry {
+  match {
+    ipv4 {
+      value: "16.36.50.0"
+      prefix_length: 24
+    }
+  }
+  action {
+    packet_count_and_meter {
+    }
+  }
+  meter_config {
+    bytes_per_second: 123
+    burst_bytes: 345
+  }
+  counter_data {
+    packet_count: 789
+  }
+  meter_counter_data {
+    green {
+      packet_count: 790
+    }
+    yellow {
+      packet_count: 791
+    }
+    red {
+      packet_count: 792
+    }
+  }
+}
+
+--- IR:
+table_name: "packet_count_and_meter_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "16.36.50.0"
+    }
+    prefix_length: 24
+  }
+}
+action {
+  name: "packet_count_and_meter"
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  packet_count: 789
+}
+meter_counter_data {
+  green {
+    packet_count: 790
+  }
+  yellow {
+    packet_count: 791
+  }
+  red {
+    packet_count: 792
+  }
+}
+
+--- PI:
+table_id: 33554451
+match {
+  field_id: 1
+  lpm {
+    value: "\020$2\000"
+    prefix_len: 24
+  }
+}
+action {
+  action {
+    action_id: 16777234
+  }
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  packet_count: 789
+}
+meter_counter_data {
+  green {
+    packet_count: 790
+  }
+  yellow {
+    packet_count: 791
+  }
+  red {
+    packet_count: 792
+  }
+}
+
+
+=========================================================================
+table entry with a meter counter data (byte counter)
+=========================================================================
+
+--- PD (Input):
+byte_count_and_meter_table_entry {
+  match {
+    ipv4 {
+      value: "16.36.50.0"
+      prefix_length: 24
+    }
+  }
+  action {
+    byte_count_and_meter {
+    }
+  }
+  meter_config {
+    bytes_per_second: 123
+    burst_bytes: 345
+  }
+  counter_data {
+    byte_count: 567
+  }
+  meter_counter_data {
+    green {
+      byte_count: 568
+    }
+    yellow {
+      byte_count: 569
+    }
+    red {
+      byte_count: 570
+    }
+  }
+}
+
+--- IR:
+table_name: "byte_count_and_meter_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "16.36.50.0"
+    }
+    prefix_length: 24
+  }
+}
+action {
+  name: "byte_count_and_meter"
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+}
+meter_counter_data {
+  green {
+    byte_count: 568
+  }
+  yellow {
+    byte_count: 569
+  }
+  red {
+    byte_count: 570
+  }
+}
+
+--- PI:
+table_id: 33554455
+match {
+  field_id: 1
+  lpm {
+    value: "\020$2\000"
+    prefix_len: 24
+  }
+}
+action {
+  action {
+    action_id: 16777238
+  }
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+}
+meter_counter_data {
+  green {
+    byte_count: 568
+  }
+  yellow {
+    byte_count: 569
+  }
+  red {
+    byte_count: 570
+  }
+}
+
+
+=========================================================================
+table entry with counters, meters and meter counter data
+=========================================================================
+
+--- PD (Input):
+count_and_meter_table_entry {
+  match {
+    ipv4 {
+      value: "16.36.50.0"
+      prefix_length: 24
+    }
+  }
+  action {
+    count_and_meter {
+    }
+  }
+  meter_config {
+    bytes_per_second: 123
+    burst_bytes: 345
+  }
+  counter_data {
+    byte_count: 567
+    packet_count: 789
+  }
+  meter_counter_data {
+    green {
+      byte_count: 568
+      packet_count: 790
+    }
+    yellow {
+      byte_count: 569
+      packet_count: 791
+    }
+    red {
+      byte_count: 570
+      packet_count: 792
+    }
+  }
+}
+
+--- IR:
+table_name: "count_and_meter_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "16.36.50.0"
+    }
+    prefix_length: 24
+  }
+}
+action {
+  name: "count_and_meter"
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+meter_counter_data {
+  green {
+    byte_count: 568
+    packet_count: 790
+  }
+  yellow {
+    byte_count: 569
+    packet_count: 791
+  }
+  red {
+    byte_count: 570
+    packet_count: 792
+  }
+}
+
+--- PI:
+table_id: 33554439
+match {
+  field_id: 1
+  lpm {
+    value: "\020$2\000"
+    prefix_len: 24
+  }
+}
+action {
+  action {
+    action_id: 16777220
+  }
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+meter_counter_data {
+  green {
+    byte_count: 568
+    packet_count: 790
+  }
+  yellow {
+    byte_count: 569
+    packet_count: 791
+  }
+  red {
+    byte_count: 570
+    packet_count: 792
+  }
+}
+
+
+=========================================================================
+table entry with counters, meter counter data but no meter config
+=========================================================================
+
+--- PD (Input):
+count_and_meter_table_entry {
+  match {
+    ipv4 {
+      value: "16.36.50.0"
+      prefix_length: 24
+    }
+  }
+  action {
+    count_and_meter {
+    }
+  }
+  counter_data {
+    byte_count: 567
+    packet_count: 789
+  }
+  meter_counter_data {
+    green {
+      byte_count: 568
+      packet_count: 790
+    }
+    yellow {
+      byte_count: 569
+      packet_count: 791
+    }
+    red {
+      byte_count: 570
+      packet_count: 792
+    }
+  }
+}
+
+--- PD is invalid/unsupported (detected when translating IR to PI):
+Table entry for 'count_and_meter_table' is invalid: IR entry does not have a meter config but contained a meter counter.
+=========================================================================
+table entry with meter counter data but no color counters
+=========================================================================
+
+--- PD (Input):
+count_and_meter_table_entry {
+  match {
+    ipv4 {
+      value: "16.36.50.0"
+      prefix_length: 24
+    }
+  }
+  action {
+    count_and_meter {
+    }
+  }
+  meter_config {
+    bytes_per_second: 123
+    burst_bytes: 345
+  }
+  counter_data {
+    byte_count: 567
+    packet_count: 789
+  }
+  meter_counter_data {
+  }
+}
+
+--- IR:
+table_name: "count_and_meter_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "16.36.50.0"
+    }
+    prefix_length: 24
+  }
+}
+action {
+  name: "count_and_meter"
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+meter_counter_data {
+  green {
+  }
+  yellow {
+  }
+  red {
+  }
+}
+
+--- PI:
+table_id: 33554439
+match {
+  field_id: 1
+  lpm {
+    value: "\020$2\000"
+    prefix_len: 24
+  }
+}
+action {
+  action {
+    action_id: 16777220
+  }
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+meter_counter_data {
+  green {
+  }
+  yellow {
+  }
+  red {
+  }
+}
+
+Differences: added: count_and_meter_table_entry.meter_counter_data.green: { }
+added: count_and_meter_table_entry.meter_counter_data.yellow: { }
+added: count_and_meter_table_entry.meter_counter_data.red: { }
+
+PD (after reverse translation):
+count_and_meter_table_entry {
+  match {
+    ipv4 {
+      value: "16.36.50.0"
+      prefix_length: 24
+    }
+  }
+  action {
+    count_and_meter {
+    }
+  }
+  meter_config {
+    bytes_per_second: 123
+    burst_bytes: 345
+  }
+  counter_data {
+    byte_count: 567
+    packet_count: 789
+  }
+  meter_counter_data {
+    green {
+    }
+    yellow {
+    }
+    red {
+    }
+  }
+}
+
+=========================================================================
+table entry with meter counter data but missing some colors
+=========================================================================
+
+--- PD (Input):
+count_and_meter_table_entry {
+  match {
+    ipv4 {
+      value: "16.36.50.0"
+      prefix_length: 24
+    }
+  }
+  action {
+    count_and_meter {
+    }
+  }
+  meter_config {
+    bytes_per_second: 123
+    burst_bytes: 345
+  }
+  counter_data {
+    byte_count: 567
+    packet_count: 789
+  }
+  meter_counter_data {
+    green {
+      byte_count: 568
+      packet_count: 790
+    }
+    red {
+      byte_count: 570
+      packet_count: 792
+    }
+  }
+}
+
+--- IR:
+table_name: "count_and_meter_table"
+matches {
+  name: "ipv4"
+  lpm {
+    value {
+      ipv4: "16.36.50.0"
+    }
+    prefix_length: 24
+  }
+}
+action {
+  name: "count_and_meter"
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+meter_counter_data {
+  green {
+    byte_count: 568
+    packet_count: 790
+  }
+  yellow {
+  }
+  red {
+    byte_count: 570
+    packet_count: 792
+  }
+}
+
+--- PI:
+table_id: 33554439
+match {
+  field_id: 1
+  lpm {
+    value: "\020$2\000"
+    prefix_len: 24
+  }
+}
+action {
+  action {
+    action_id: 16777220
+  }
+}
+meter_config {
+  cir: 123
+  cburst: 345
+  pir: 123
+  pburst: 345
+}
+counter_data {
+  byte_count: 567
+  packet_count: 789
+}
+meter_counter_data {
+  green {
+    byte_count: 568
+    packet_count: 790
+  }
+  yellow {
+  }
+  red {
+    byte_count: 570
+    packet_count: 792
+  }
+}
+
+Differences: added: count_and_meter_table_entry.meter_counter_data.yellow: { }
+
+PD (after reverse translation):
+count_and_meter_table_entry {
+  match {
+    ipv4 {
+      value: "16.36.50.0"
+      prefix_length: 24
+    }
+  }
+  action {
+    count_and_meter {
+    }
+  }
+  meter_config {
+    bytes_per_second: 123
+    burst_bytes: 345
+  }
+  counter_data {
+    byte_count: 567
+    packet_count: 789
+  }
+  meter_counter_data {
+    green {
+      byte_count: 568
+      packet_count: 790
+    }
+    yellow {
+    }
+    red {
+      byte_count: 570
+      packet_count: 792
+    }
+  }
+}
+
 =========================================================================
 missing matches with key_only=true
 =========================================================================

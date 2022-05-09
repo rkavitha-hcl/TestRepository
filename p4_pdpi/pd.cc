@@ -18,8 +18,10 @@
 
 #include <algorithm>
 #include <string>
+#include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_map.h"
 #include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
@@ -346,6 +348,181 @@ std::vector<std::string> GetAllFieldNames(
   }
   return field_names;
 }
+
+absl::Status AddIrMeterCounterDataToPdEntry(
+    const IrTableEntry &ir, const IrTableDefinition &ir_table_info,
+    google::protobuf::Message &pd_table) {
+  if (!ir_table_info.has_counter()) {
+    return absl::InvalidArgumentError(
+        absl::StrCat(kNewBullet,
+                     "Table has no counter support but IR table entry has "
+                     "a meter counter."));
+  }
+
+  const auto &pd_meter_counter_data =
+      GetMutableMessage(&pd_table, "meter_counter_data");
+  if (!pd_meter_counter_data.ok()) {
+    return absl::InvalidArgumentError(
+        absl::StrCat(kNewBullet, pd_meter_counter_data.status().message()));
+  }
+
+  std::vector<std::string> invalid_reasons;
+  absl::flat_hash_map<std::string, const p4::v1::CounterData>
+      ir_meter_colors_to_color_counter_data = {
+          {"green", ir.meter_counter_data().green()},
+          {"yellow", ir.meter_counter_data().yellow()},
+          {"red", ir.meter_counter_data().red()},
+      };
+  for (const auto &[color, ir_color_counter_data] :
+       ir_meter_colors_to_color_counter_data) {
+    const absl::StatusOr<google::protobuf::Message *> &pd_color_counter_data =
+        GetMutableMessage(*pd_meter_counter_data, color);
+    if (!pd_color_counter_data.ok()) {
+      invalid_reasons.push_back(absl::StrCat(
+          kNewBullet, color, pd_color_counter_data.status().message()));
+      continue;
+    }
+    // Use the same unit as counter data for meter counter data.
+    switch (ir_table_info.counter().unit()) {
+      case p4::config::v1::CounterSpec_Unit_BYTES: {
+        absl::Status byte_count_status =
+            SetInt64Field(*pd_color_counter_data, "byte_count",
+                          ir_color_counter_data.byte_count());
+        if (!byte_count_status.ok()) {
+          invalid_reasons.push_back(
+              absl::StrCat(kNewBullet, color, byte_count_status.message()));
+        }
+        break;
+      }
+      case p4::config::v1::CounterSpec_Unit_PACKETS: {
+        absl::Status packet_count_status =
+            SetInt64Field(*pd_color_counter_data, "packet_count",
+                          ir_color_counter_data.packet_count());
+        if (!packet_count_status.ok()) {
+          invalid_reasons.push_back(
+              absl::StrCat(kNewBullet, color, packet_count_status.message()));
+        }
+        break;
+      }
+      case p4::config::v1::CounterSpec_Unit_BOTH: {
+        absl::Status byte_count_status =
+            SetInt64Field(*pd_color_counter_data, "byte_count",
+                          ir_color_counter_data.byte_count());
+        if (!byte_count_status.ok()) {
+          invalid_reasons.push_back(
+              absl::StrCat(kNewBullet, color, byte_count_status.message()));
+        }
+        const auto &packet_count_status =
+            SetInt64Field(*pd_color_counter_data, "packet_count",
+                          ir_color_counter_data.packet_count());
+        if (!packet_count_status.ok()) {
+          invalid_reasons.push_back(
+              absl::StrCat(kNewBullet, color, packet_count_status.message()));
+        }
+        break;
+      }
+      default:
+        invalid_reasons.push_back(absl::StrCat(
+            kNewBullet,
+            "Invalid meter counter unit: ", ir_table_info.counter().unit()));
+    }
+  }
+
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(absl::StrJoin(invalid_reasons, "\n  "));
+  }
+  return absl::OkStatus();
+}
+
+absl::Status AddPdMeterCounterDataToIrEntry(
+    const google::protobuf::Message &pd_table,
+    const IrTableDefinition &ir_table_info, IrTableEntry &ir) {
+  // First check if "meter_counter_data" field exists and then get the
+  // field value.
+  std::vector<std::string> invalid_reasons;
+  const absl::StatusOr<bool> &pd_has_meter_counter_data =
+      HasField(pd_table, "meter_counter_data");
+  if (!pd_has_meter_counter_data.ok()) {
+    invalid_reasons.push_back(
+        absl::StrCat(kNewBullet, pd_has_meter_counter_data.status().message()));
+  } else if (*pd_has_meter_counter_data) {
+    const absl::StatusOr<const google::protobuf::Message *> &
+        pd_meter_counter_data = GetMessageField(pd_table, "meter_counter_data");
+    if (!pd_meter_counter_data.ok()) {
+      invalid_reasons.push_back(
+          absl::StrCat(kNewBullet, pd_meter_counter_data.status().message()));
+    } else {
+      absl::btree_map<std::string, p4::v1::CounterData *>
+          colors_to_ir_meter_color_counter_data = {
+              {"green", ir.mutable_meter_counter_data()->mutable_green()},
+              {"yellow", ir.mutable_meter_counter_data()->mutable_yellow()},
+              {"red", ir.mutable_meter_counter_data()->mutable_red()},
+          };
+      for (const auto &[color, ir_meter_color_counter_data] :
+           colors_to_ir_meter_color_counter_data) {
+        const auto &color_counter_data =
+            GetMessageField(**pd_meter_counter_data, color);
+        if (!color_counter_data.ok()) {
+          invalid_reasons.push_back(
+              absl::StrCat(kNewBullet, color_counter_data.status().message()));
+          continue;
+        }
+        switch (ir_table_info.counter().unit()) {
+          case p4::config::v1::CounterSpec_Unit_BYTES: {
+            const absl::StatusOr<int64_t> &pd_byte_counter =
+                GetInt64Field(**color_counter_data, "byte_count");
+            if (!pd_byte_counter.ok()) {
+              invalid_reasons.push_back(
+                  absl::StrCat(kNewBullet, pd_byte_counter.status().message()));
+            } else {
+              ir_meter_color_counter_data->set_byte_count(*pd_byte_counter);
+            }
+            break;
+          }
+          case p4::config::v1::CounterSpec_Unit_PACKETS: {
+            const absl::StatusOr<int64_t> &pd_packet_counter =
+                GetInt64Field(**color_counter_data, "packet_count");
+            if (!pd_packet_counter.ok()) {
+              invalid_reasons.push_back(absl::StrCat(
+                  kNewBullet, pd_packet_counter.status().message()));
+            } else {
+              ir_meter_color_counter_data->set_packet_count(*pd_packet_counter);
+            }
+            break;
+          }
+          case p4::config::v1::CounterSpec_Unit_BOTH: {
+            const absl::StatusOr<int64_t> &pd_byte_counter =
+                GetInt64Field(**color_counter_data, "byte_count");
+            if (!pd_byte_counter.ok()) {
+              invalid_reasons.push_back(
+                  absl::StrCat(kNewBullet, pd_byte_counter.status().message()));
+            } else {
+              ir_meter_color_counter_data->set_byte_count(*pd_byte_counter);
+            }
+            const absl::StatusOr<int64_t> &pd_packet_counter =
+                GetInt64Field(**color_counter_data, "packet_count");
+            if (!pd_packet_counter.ok()) {
+              invalid_reasons.push_back(absl::StrCat(
+                  kNewBullet, pd_packet_counter.status().message()));
+            } else {
+              ir_meter_color_counter_data->set_packet_count(*pd_packet_counter);
+            }
+            break;
+          }
+          default:
+            invalid_reasons.push_back(absl::StrCat(
+                kNewBullet,
+                "Invalid counter unit: ", ir_table_info.meter().unit()));
+        }
+      }
+    }
+  }
+  if (!invalid_reasons.empty()) {
+    return absl::InvalidArgumentError(absl::StrJoin(invalid_reasons, "\n  "));
+  }
+  return absl::OkStatus();
+}
+
 }  // namespace
 
 absl::StatusOr<std::string> P4NameToProtobufMessageName(
@@ -912,6 +1089,15 @@ absl::Status IrTableEntryToPd(const IrP4Info &ir_p4info, const IrTableEntry &ir,
                 "Invalid meter unit: ", ir_table_info->meter().unit()));
         }
       }
+
+      // Take care of meter_counter_data for the 3 colors.
+      if (ir.has_meter_counter_data()) {
+        absl::Status status =
+            AddIrMeterCounterDataToPdEntry(ir, *ir_table_info, *pd_table);
+        if (!status.ok()) {
+          invalid_reasons.push_back(std::string(status.message()));
+        }
+      }
     }
 
     if (ir_table_info->has_counter() && ir.has_counter_data()) {
@@ -1315,14 +1501,14 @@ absl::Status IrWriteRpcStatusToPd(const IrWriteRpcStatus &ir_write_status,
   return absl::OkStatus();
 }
 
-// Converts all PD matches to their IR form and stores them in the matches field
-// of ir_table_entry.
+// Converts all PD matches to their IR form and stores them in the matches
+// field of ir_table_entry.
 static absl::Status PdMatchEntryToIr(const IrTableDefinition &ir_table_info,
                                      const google::protobuf::Message &pd_match,
                                      IrTableEntry *ir_table_entry) {
-  // Verify that there are no matches in PD that are not supported by the P4Info
-  // provided. This could happen since if a P4Info that is a superset of P4Infos
-  // for different roles is used to generate the PD, but a role
+  // Verify that there are no matches in PD that are not supported by the
+  // P4Info provided. This could happen since if a P4Info that is a superset
+  // of P4Infos for different roles is used to generate the PD, but a role
   // specific P4Info is passed in to PDPI.
 
   std::vector<std::pair<uint64_t, std::string>> matches;
@@ -1845,6 +2031,14 @@ absl::StatusOr<IrTableEntry> PdTableEntryToIr(
                   "Invalid counter unit: ", ir_table_info->meter().unit()));
           }
         }
+      }
+    }
+
+    if (ir_table_info->has_meter() && ir_table_info->has_counter()) {
+      absl::Status status =
+          AddPdMeterCounterDataToIrEntry(*pd_table, *ir_table_info, ir);
+      if (!status.ok()) {
+        invalid_reasons.push_back(std::string(status.message()));
       }
     }
   }

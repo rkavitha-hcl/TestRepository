@@ -277,6 +277,29 @@ StatusOr<std::string> GetTableMessage(const IrTableDefinition& table) {
     }
   }
 
+  // Meter counters (if applicable), we re-use the counter unit defintion
+  // for meter counters as well.
+  if (table.has_meter() && table.has_counter()) {
+    switch (table.counter().unit()) {
+      case p4::config::v1::CounterSpec::BYTES:
+        absl::StrAppend(&result,
+                        "  MeterBytesCounterData meter_counter_data = 9;\n");
+        break;
+      case p4::config::v1::CounterSpec::PACKETS:
+        absl::StrAppend(&result,
+                        "  MeterPacketsCounterData meter_counter_data = 9;\n");
+        break;
+      case p4::config::v1::CounterSpec::BOTH:
+        absl::StrAppend(
+            &result,
+            "  MeterBytesAndPacketsCounterData meter_counter_data = 9;\n");
+        break;
+      default:
+        return InvalidArgumentErrorBuilder() << "Unsupported meter counter: "
+                                             << table.counter().DebugString();
+    }
+  }
+
   absl::StrAppend(&result, "  bytes controller_metadata = 8;\n");
 
   absl::StrAppend(&result, "}");
@@ -528,6 +551,31 @@ message BytesAndPacketsCounterData {
   int64 byte_count = 1;
   // Number of packets.
   int64 packet_count = 2;
+}
+)");
+
+  // Meter Counter messages.
+  absl::StrAppend(&result, HeaderComment("Meter counter data"));
+  absl::StrAppend(&result, R"(
+message MeterBytesCounterData {
+  // Number of bytes per color.
+  BytesCounterData green = 1;
+  BytesCounterData yellow = 2;
+  BytesCounterData red = 3;
+}
+
+message MeterPacketsCounterData {
+  // Number of packets per color.
+  PacketsCounterData green = 1;
+  PacketsCounterData yellow = 2;
+  PacketsCounterData red = 3;
+}
+
+message MeterBytesAndPacketsCounterData {
+  // Number of bytes and packets per color.
+  BytesAndPacketsCounterData green = 1;
+  BytesAndPacketsCounterData yellow = 2;
+  BytesAndPacketsCounterData red = 3;
 }
 )");
 

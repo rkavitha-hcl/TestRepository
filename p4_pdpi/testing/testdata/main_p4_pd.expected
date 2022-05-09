@@ -148,6 +148,7 @@ message CountAndMeterTableEntry {
   Action action = 2;
   BytesMeterConfig meter_config = 4;
   BytesAndPacketsCounterData counter_data = 6;
+  MeterBytesAndPacketsCounterData meter_counter_data = 9;
   bytes controller_metadata = 8;
 }
 
@@ -260,6 +261,36 @@ message UnusedTableEntry {
   bytes controller_metadata = 8;
 }
 
+message PacketCountAndMeterTableEntry {
+  message Match {
+    Lpm ipv4 = 1; // lpm match / Format::IPV4
+  }
+  Match match = 1;
+  message Action {
+    PacketCountAndMeterAction packet_count_and_meter = 1;
+  }
+  Action action = 2;
+  BytesMeterConfig meter_config = 4;
+  PacketsCounterData counter_data = 6;
+  MeterPacketsCounterData meter_counter_data = 9;
+  bytes controller_metadata = 8;
+}
+
+message ByteCountAndMeterTableEntry {
+  message Match {
+    Lpm ipv4 = 1; // lpm match / Format::IPV4
+  }
+  Match match = 1;
+  message Action {
+    ByteCountAndMeterAction byte_count_and_meter = 1;
+  }
+  Action action = 2;
+  BytesMeterConfig meter_config = 4;
+  BytesCounterData counter_data = 6;
+  MeterBytesCounterData meter_counter_data = 9;
+  bytes controller_metadata = 8;
+}
+
 
 // -- Actions ------------------------------------------------------------------
 
@@ -297,6 +328,12 @@ message ReferringAction {
 message UnusedAction {
 }
 
+message PacketCountAndMeterAction {
+}
+
+message ByteCountAndMeterAction {
+}
+
 message NoAction {
 }
 
@@ -320,6 +357,8 @@ message TableEntry {
     NoActionTableEntry no_action_table_entry = 13;
     ReferringToReferring2TableEntry referring_to_referring2_table_entry = 14;
     UnusedTableEntry unused_table_entry = 15;
+    PacketCountAndMeterTableEntry packet_count_and_meter_table_entry = 19;
+    ByteCountAndMeterTableEntry byte_count_and_meter_table_entry = 23;
   }
 }
 
@@ -383,6 +422,29 @@ message BytesAndPacketsCounterData {
   int64 byte_count = 1;
   // Number of packets.
   int64 packet_count = 2;
+}
+
+// -- Meter counter data -------------------------------------------------------
+
+message MeterBytesCounterData {
+  // Number of bytes per color.
+  BytesCounterData green = 1;
+  BytesCounterData yellow = 2;
+  BytesCounterData red = 3;
+}
+
+message MeterPacketsCounterData {
+  // Number of packets per color.
+  PacketsCounterData green = 1;
+  PacketsCounterData yellow = 2;
+  PacketsCounterData red = 3;
+}
+
+message MeterBytesAndPacketsCounterData {
+  // Number of bytes and packets per color.
+  BytesAndPacketsCounterData green = 1;
+  BytesAndPacketsCounterData yellow = 2;
+  BytesAndPacketsCounterData red = 3;
 }
 
 // -- RPC messages -------------------------------------------------------------

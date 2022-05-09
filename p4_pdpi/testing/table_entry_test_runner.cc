@@ -602,7 +602,67 @@ static void RunPiTests(const pdpi::IrP4Info info) {
                         }
                         priority: 32
                       )pb"));
-}
+
+  RunPiTableEntryTest(
+      info, "meter counter data but missing color counter",
+      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
+        table_id: 33554439
+        match {
+          field_id: 1
+          lpm { value: "\020$2\000" prefix_len: 24 }
+        }
+        action { action { action_id: 16777220 } }
+        meter_config { cir: 123 cburst: 345 pir: 123 pburst: 345 }
+        counter_data { byte_count: 567 packet_count: 789 }
+        meter_counter_data {
+          yellow { byte_count: 569 packet_count: 791 }
+          red { byte_count: 570 packet_count: 792 }
+        }
+      )pb"));
+
+  RunPiTableEntryTest(
+      info, "meter counter data but no color counter",
+      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
+        table_id: 33554439
+        match {
+          field_id: 1
+          lpm { value: "\020$2\000" prefix_len: 24 }
+        }
+        action { action { action_id: 16777220 } }
+        meter_config { cir: 123 cburst: 345 pir: 123 pburst: 345 }
+        counter_data { byte_count: 567 packet_count: 789 }
+        meter_counter_data {}
+      )pb"));
+
+  RunPiTableEntryTest(info, "meter counter data but missing meter config",
+                      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
+                        table_id: 33554439
+                        match {
+                          field_id: 1
+                          lpm { value: "\020$2\000" prefix_len: 24 }
+                        }
+                        action { action { action_id: 16777220 } }
+                        counter_data { byte_count: 567 packet_count: 789 }
+                        meter_counter_data {
+                          green { byte_count: 568 packet_count: 790 }
+                          yellow { byte_count: 569 packet_count: 791 }
+                          red { byte_count: 570 packet_count: 792 }
+                        }
+                      )pb"));
+  RunPiTableEntryTest(
+      info, "meter counter data in a table with no meters",
+      gutil::ParseProtoOrDie<p4::v1::TableEntry>(R"pb(
+        table_id: 33554440
+        match {
+          field_id: 1
+          lpm { value: "\020$2\000" prefix_len: 24 }
+        }
+        action { action { action_id: 16777220 } }
+        meter_config { cir: 123 cburst: 345 pir: 123 pburst: 345 }
+        counter_data { byte_count: 567 packet_count: 789 }
+        meter_counter_data {}
+      )pb"));
+}  // NOLINT(readability/fn_size)
 
 static void RunIrNoActionTableTests(const pdpi::IrP4Info& info) {
   // This function is defined separately and called from RunIrTests
@@ -658,6 +718,134 @@ static void RunIrTernaryTableTests(const pdpi::IrP4Info info) {
                           ternary { value { hex_str: "0x00" } }
                         }
                         priority: 32
+                      )pb"));
+}
+
+static void RunIrMeterCounterTableEntryTests(const pdpi::IrP4Info& info) {
+  RunIrTableEntryTest(info, "meter counter data in a table with no counters",
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
+                        table_name: "wcmp_table"
+                        matches {
+                          name: "ipv4"
+                          lpm {
+                            value { ipv4: "0.0.255.0" }
+                            prefix_length: 24
+                          }
+                        }
+                        action_set {
+                          actions {
+                            action {
+                              name: "do_thing_1"
+                              params {
+                                name: "arg2"
+                                value { hex_str: "0x00000008" }
+                              }
+                              params {
+                                name: "arg1"
+                                value { hex_str: "0x00000009" }
+                              }
+                            }
+                            weight: 24
+                          }
+                        }
+                        meter_counter_data {
+                          green { byte_count: 568 packet_count: 790 }
+                          yellow { byte_count: 569 packet_count: 791 }
+                          red { byte_count: 570 packet_count: 792 }
+                        }
+                      )pb"));
+  RunIrTableEntryTest(
+      info, "meter counter data with byte color counters",
+      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
+        table_name: "count_and_meter_table"
+        matches {
+          name: "ipv4"
+          lpm {
+            value { ipv4: "16.36.50.0" }
+            prefix_length: 24
+          }
+        }
+        action { name: "count_and_meter" }
+        meter_config { cir: 123 cburst: 345 pir: 123 pburst: 345 }
+        counter_data { byte_count: 567 }
+        meter_counter_data {
+          green { byte_count: 568 }
+          yellow { byte_count: 569 }
+          red { byte_count: 570 }
+        }
+      )pb"));
+  RunIrTableEntryTest(
+      info, "meter counter data with packet color counters",
+      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
+        table_name: "count_and_meter_table"
+        matches {
+          name: "ipv4"
+          lpm {
+            value { ipv4: "16.36.50.0" }
+            prefix_length: 24
+          }
+        }
+        action { name: "count_and_meter" }
+        meter_config { cir: 123 cburst: 345 pir: 123 pburst: 345 }
+        counter_data { packet_count: 789 }
+        meter_counter_data {
+          green { packet_count: 790 }
+          yellow { packet_count: 791 }
+          red { packet_count: 792 }
+        }
+      )pb"));
+  RunIrTableEntryTest(
+      info, "meter counter data but missing color counters",
+      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
+        table_name: "count_and_meter_table"
+        matches {
+          name: "ipv4"
+          lpm {
+            value { ipv4: "16.36.50.0" }
+            prefix_length: 24
+          }
+        }
+        action { name: "count_and_meter" }
+        meter_config { cir: 123 cburst: 345 pir: 123 pburst: 345 }
+        counter_data { byte_count: 567 packet_count: 789 }
+        meter_counter_data {
+          green { byte_count: 568 packet_count: 790 }
+          yellow { byte_count: 569 packet_count: 791 }
+        }
+      )pb"));
+  RunIrTableEntryTest(
+      info, "meter counter data but no color counters",
+      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
+        table_name: "count_and_meter_table"
+        matches {
+          name: "ipv4"
+          lpm {
+            value { ipv4: "16.36.50.0" }
+            prefix_length: 24
+          }
+        }
+        action { name: "count_and_meter" }
+        meter_config { cir: 123 cburst: 345 pir: 123 pburst: 345 }
+        counter_data { byte_count: 567 packet_count: 789 }
+        meter_counter_data {}
+      )pb"));
+  RunIrTableEntryTest(info, "meter counter data but missing meter config",
+                      gutil::ParseProtoOrDie<pdpi::IrTableEntry>(R"pb(
+                        table_name: "count_and_meter_table"
+                        matches {
+                          name: "ipv4"
+                          lpm {
+                            value { ipv4: "16.36.50.0" }
+                            prefix_length: 24
+                          }
+                        }
+                        action { name: "count_and_meter" }
+                        counter_data { byte_count: 567 packet_count: 789 }
+                        meter_counter_data {
+                          green { byte_count: 568 packet_count: 790 }
+                          yellow { byte_count: 569 packet_count: 791 }
+                          red { byte_count: 570 packet_count: 792 }
+                        }
                       )pb"));
 }
 
@@ -1212,7 +1400,106 @@ static void RunIrTests(const pdpi::IrP4Info info) {
                       )pb"));
   RunIrNoActionTableTests(info);
   RunIrTernaryTableTests(info);
+  RunIrMeterCounterTableEntryTests(info);
 }  // NOLINT(readability/fn_size)
+
+static void RunPdMeterCounterTableEntryTests(const pdpi::IrP4Info& info) {
+  RunPdTableEntryTest(
+      info, "table entry with a meter counter data (packet counter)",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
+        packet_count_and_meter_table_entry {
+          match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
+          action { packet_count_and_meter {} }
+          meter_config { bytes_per_second: 123 burst_bytes: 345 }
+          counter_data { packet_count: 789 }
+          meter_counter_data {
+            green { packet_count: 790 }
+            yellow { packet_count: 791 }
+            red { packet_count: 792 }
+          }
+        }
+      )pb"),
+      INPUT_IS_VALID);
+
+  RunPdTableEntryTest(
+      info, "table entry with a meter counter data (byte counter)",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
+        byte_count_and_meter_table_entry {
+          match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
+          action { byte_count_and_meter {} }
+          meter_config { bytes_per_second: 123 burst_bytes: 345 }
+          counter_data { byte_count: 567 }
+          meter_counter_data {
+            green { byte_count: 568 }
+            yellow { byte_count: 569 }
+            red { byte_count: 570 }
+          }
+        }
+      )pb"),
+      INPUT_IS_VALID);
+
+  RunPdTableEntryTest(
+      info, "table entry with counters, meters and meter counter data",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
+        count_and_meter_table_entry {
+          match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
+          action { count_and_meter {} }
+          meter_config { bytes_per_second: 123 burst_bytes: 345 }
+          counter_data { byte_count: 567 packet_count: 789 }
+          meter_counter_data {
+            green { byte_count: 568 packet_count: 790 }
+            yellow { byte_count: 569 packet_count: 791 }
+            red { byte_count: 570 packet_count: 792 }
+          }
+        }
+      )pb"),
+      INPUT_IS_VALID);
+
+  RunPdTableEntryTest(
+      info, "table entry with counters, meter counter data but no meter config",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
+        count_and_meter_table_entry {
+          match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
+          action { count_and_meter {} }
+          counter_data { byte_count: 567 packet_count: 789 }
+          meter_counter_data {
+            green { byte_count: 568 packet_count: 790 }
+            yellow { byte_count: 569 packet_count: 791 }
+            red { byte_count: 570 packet_count: 792 }
+          }
+        }
+      )pb"),
+      INPUT_IS_INVALID);
+
+  RunPdTableEntryTest(
+      info, "table entry with meter counter data but no color counters",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
+        count_and_meter_table_entry {
+          match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
+          action { count_and_meter {} }
+          meter_config { bytes_per_second: 123 burst_bytes: 345 }
+          counter_data { byte_count: 567 packet_count: 789 }
+          meter_counter_data {}
+        }
+      )pb"),
+      INPUT_IS_VALID);
+
+  RunPdTableEntryTest(
+      info, "table entry with meter counter data but missing some colors",
+      gutil::ParseProtoOrDie<pdpi::TableEntry>(R"pb(
+        count_and_meter_table_entry {
+          match { ipv4 { value: "16.36.50.0" prefix_length: 24 } }
+          action { count_and_meter {} }
+          meter_config { bytes_per_second: 123 burst_bytes: 345 }
+          counter_data { byte_count: 567 packet_count: 789 }
+          meter_counter_data {
+            green { byte_count: 568 packet_count: 790 }
+            red { byte_count: 570 packet_count: 792 }
+          }
+        }
+      )pb"),
+      INPUT_IS_VALID);
+}
 
 static void RunPdTests(const pdpi::IrP4Info info) {
   RunPdTableEntryTest(info, "empty PD",
@@ -1722,6 +2009,8 @@ static void RunPdTests(const pdpi::IrP4Info info) {
                           }
                         })pb"),
                       INPUT_IS_INVALID);
+
+  RunPdMeterCounterTableEntryTests(info);
 }
 
 static void RunPdTestsOnlyKey(const pdpi::IrP4Info info) {

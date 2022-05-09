@@ -313,6 +313,68 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
       const default_action = NoAction();
   }
 
+  // Packet only counter
+  @id(16)
+  direct_counter(CounterType.packets) my_packets_counter;
+
+  @id(17)
+  direct_meter<MeterColor_t>(MeterType.bytes) my_meter2;
+
+  // Packet only count action
+  @id(18)
+  @name("packet_count_and_meter")
+  action packet_count_and_meter() {
+    my_meter2.read(meta.color);
+    my_packets_counter.count();
+  }
+
+  // metered and packet only counted table
+  @id(19)
+  @weight_proto_id(1)
+  table packet_count_and_meter_table {
+    key = {
+      meta.ipv4 : lpm @id(1) @format(IPV4_ADDRESS) @name("ipv4");
+    }
+    actions = {
+      @proto_id(1) packet_count_and_meter;
+      @defaultonly NoAction();
+    }
+    meters = my_meter2;
+    counters = my_packets_counter;
+    const default_action = NoAction();
+  }
+
+  // Bytes only counter
+  @id(20)
+  direct_counter(CounterType.bytes) my_bytes_counter;
+
+  @id(21)
+  direct_meter<MeterColor_t>(MeterType.bytes) my_meter3;
+
+  // Bytes only count action
+  @id(22)
+  @name("byte_count_and_meter")
+  action byte_count_and_meter() {
+    my_meter3.read(meta.color);
+    my_bytes_counter.count();
+  }
+
+  // metered and bytes only counted table
+  @id(23)
+  @weight_proto_id(1)
+  table byte_count_and_meter_table {
+    key = {
+      meta.ipv4 : lpm @id(1) @format(IPV4_ADDRESS) @name("ipv4");
+    }
+    actions = {
+      @proto_id(1) byte_count_and_meter;
+      @defaultonly NoAction();
+    }
+    meters = my_meter3;
+    counters = my_bytes_counter;
+    const default_action = NoAction();
+  }
+
   apply {
     id_test_table.apply();
     exact_table.apply();
@@ -329,6 +391,8 @@ control ingress(inout headers hdr, inout metadata meta, inout standard_metadata_
     no_action_table.apply();
     referring_to_referring2_table.apply();
     unused_table.apply();
+    packet_count_and_meter_table.apply();
+    byte_count_and_meter_table.apply();
   }
 }
 

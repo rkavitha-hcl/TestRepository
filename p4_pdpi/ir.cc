@@ -1536,6 +1536,25 @@ StatusOr<IrTableEntry> PiTableEntryToIr(const IrP4Info &info,
       ir.mutable_meter_config()->set_pburst(pi.meter_config().pburst());
     }
 
+    // Validate and translate meter counter data.
+    if (pi.has_meter_counter_data()) {
+      if (!table->has_meter()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet,
+                         "Table does not support meters, but table entry "
+                         "contained a meter counter."));
+      }
+      if (!pi.has_meter_config()) {
+        invalid_reasons.push_back(absl::StrCat(
+            kNewBullet,
+            "Pi entry does not have a meter config, but table entry "
+            "contained a meter counter."));
+      }
+      if (table->has_meter() && pi.has_meter_config()) {
+        *ir.mutable_meter_counter_data() = pi.meter_counter_data();
+      }
+    }
+
     // Validate and translate counters.
     if (!table->has_counter() && pi.has_counter_data()) {
       invalid_reasons.push_back(
@@ -1937,6 +1956,25 @@ StatusOr<p4::v1::TableEntry> IrTableEntryToPi(const IrP4Info &info,
       pi.mutable_meter_config()->set_pburst(ir.meter_config().pburst());
     }
 
+    // Validate and translate meter counter data.
+    if (ir.has_meter_counter_data()) {
+      if (!table->has_meter()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet,
+                         "Table does not support meters but IR entry "
+                         "contained a meter counter."));
+      }
+      if (!ir.has_meter_config()) {
+        invalid_reasons.push_back(
+            absl::StrCat(kNewBullet,
+                         "IR entry does not have a meter config but "
+                         "contained a meter counter."));
+      }
+      if (table->has_meter() && ir.has_meter_config()) {
+        *pi.mutable_meter_counter_data() = ir.meter_counter_data();
+      }
+    }
+
     // Validate and translate counters.
     if (!table->has_counter() && ir.has_counter_data()) {
       invalid_reasons.push_back(
@@ -2173,9 +2211,9 @@ absl::StatusOr<IrWriteRpcStatus> GrpcStatusToIrWriteRpcStatus(
     const grpc::Status &grpc_status, int number_of_updates_in_write_request) {
   IrWriteRpcStatus ir_write_status;
   if (grpc_status.ok()) {
-    // If all batch updates succeeded, `status` is ok and neither error_message
-    // nor error_details is populated. If either error_message or error_details
-    // is populated, `status` is ill-formed and should return
+    // If all batch updates succeeded, `status` is ok and neither
+    // error_message nor error_details is populated. If either error_message
+    // or error_details is populated, `status` is ill-formed and should return
     // InvalidArgumentError.
     if (!grpc_status.error_message().empty() ||
         !grpc_status.error_details().empty()) {
