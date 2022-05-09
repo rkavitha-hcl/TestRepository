@@ -16,6 +16,7 @@
 #ifndef GOOGLE_P4RT_APP_P4RUNTIME_P4RUNTIME_IMPL_H_
 #define GOOGLE_P4RT_APP_P4RUNTIME_P4RUNTIME_IMPL_H_
 
+#include <cstdint>
 #include <memory>
 #include <string>
 #include <vector>
@@ -96,6 +97,11 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
       grpc::ServerContext* context,
       grpc::ServerReaderWriter<p4::v1::StreamMessageResponse,
                                p4::v1::StreamMessageRequest>* stream) override
+      ABSL_LOCKS_EXCLUDED(server_state_lock_);
+
+  // Updates the Device ID for the P4Runtime service if there is no active
+  // connections.
+  virtual absl::Status UpdateDeviceId(uint64_t device_id)
       ABSL_LOCKS_EXCLUDED(server_state_lock_);
 
   // Will add a new port translation for P4Runtime requests. Duplicate Name/ID

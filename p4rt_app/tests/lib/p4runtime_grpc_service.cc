@@ -153,6 +153,10 @@ P4RuntimeGrpcService::~P4RuntimeGrpcService() {
 
 int P4RuntimeGrpcService::GrpcPort() const { return grpc_port_; }
 
+absl::Status P4RuntimeGrpcService::SetDeviceId(uint64_t device_id) {
+  return p4runtime_server_->UpdateDeviceId(device_id);
+}
+
 absl::Status P4RuntimeGrpcService::AddPortTranslation(
     const std::string& port_name, const std::string& port_id) {
   return p4runtime_server_->AddPortTranslation(port_name, port_id);
