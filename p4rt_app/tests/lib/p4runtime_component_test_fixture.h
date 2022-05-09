@@ -36,6 +36,7 @@ namespace test_lib {
 class P4RuntimeComponentTestFixture : public testing::Test {
  protected:
   P4RuntimeComponentTestFixture(sai::Instantiation sai_instantiation);
+  P4RuntimeComponentTestFixture(p4::config::v1::P4Info p4info);
   void SetUp() override;
 
   // Component test configurations that should never change for the lifetime of

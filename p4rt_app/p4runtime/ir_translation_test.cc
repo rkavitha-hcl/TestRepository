@@ -481,5 +481,97 @@ TEST(P4RuntimeTweaksP4InfoTest, ForOrchAgentIgnoresCompositeNonUdfFields) {
   EXPECT_THAT(ir_p4_info, gutil::EqualsProto(unchanged_ir_p4_info));
 }
 
+// TODO: Remove tests below when P4Info uses 64-bit IPv6 ACL match
+// fields.
+TEST(Convert64BitIpv6AclMatchFieldsTo128BitTest, PadsSmallAddresses) {
+  pdpi::IrTableEntry ir_table_entry;
+  ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString(
+      R"pb(
+        table_name: "table"
+        matches {
+          name: "ipv6_src"
+          ternary {
+            value { ipv6: "::aaaa:aaaa:aaaa:aaaa" }
+            mask { ipv6: "::ffff:ffff:ffff:ffff" }
+          }
+        }
+        matches {
+          name: "ipv6_dst"
+          ternary {
+            value { ipv6: "::bbbb:bbbb:bbbb:bbbb" }
+            mask { ipv6: "::ffff:ffff:ffff:ffff" }
+          }
+        }
+      )pb",
+      &ir_table_entry));
+  Convert64BitIpv6AclMatchFieldsTo128Bit(ir_table_entry);
+  EXPECT_THAT(ir_table_entry, gutil::EqualsProto(
+                                  R"pb(
+                                    table_name: "table"
+                                    matches {
+                                      name: "ipv6_src"
+                                      ternary {
+                                        value { ipv6: "aaaa:aaaa:aaaa:aaaa::" }
+                                        mask { ipv6: "ffff:ffff:ffff:ffff::" }
+                                      }
+                                    }
+                                    matches {
+                                      name: "ipv6_dst"
+                                      ternary {
+                                        value { ipv6: "bbbb:bbbb:bbbb:bbbb::" }
+                                        mask { ipv6: "ffff:ffff:ffff:ffff::" }
+                                      }
+                                    }
+                                  )pb"));
+}
+
+TEST(Convert64BitIpv6AclMatchFieldsTo128BitTest, KeepsLargeAddresses) {
+  pdpi::IrTableEntry ir_table_entry;
+  ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString(
+      R"pb(
+        table_name: "table"
+        matches {
+          name: "ipv6_src"
+          ternary {
+            value { ipv6: "1::aaaa:aaaa:aaaa:aaaa" }
+            mask { ipv6: "1::ffff:ffff:ffff:ffff" }
+          }
+        }
+        matches {
+          name: "ipv6_dst"
+          ternary {
+            value { ipv6: "1::bbbb:bbbb:bbbb:bbbb" }
+            mask { ipv6: "1::ffff:ffff:ffff:ffff" }
+          }
+        }
+      )pb",
+      &ir_table_entry));
+
+  pdpi::IrTableEntry original_ir_table_entry = ir_table_entry;
+  Convert64BitIpv6AclMatchFieldsTo128Bit(ir_table_entry);
+  EXPECT_THAT(ir_table_entry, gutil::EqualsProto(original_ir_table_entry));
+}
+
+TEST(Convert64BitIpv6AclMatchFieldsTo128BitTest, KeepsNonTernaryAddresses) {
+  pdpi::IrTableEntry ir_table_entry;
+  ASSERT_TRUE(google::protobuf::TextFormat::ParseFromString(
+      R"pb(
+        table_name: "table"
+        matches {
+          name: "ipv6_src"
+          lpm { value { ipv6: "::ffff:ffff:ffff:ffff" } }
+        }
+        matches {
+          name: "ipv6_dst"
+          optional { value { ipv6: "::bbbb:bbbb:bbbb:bbbb" } }
+        }
+      )pb",
+      &ir_table_entry));
+
+  pdpi::IrTableEntry original_ir_table_entry = ir_table_entry;
+  Convert64BitIpv6AclMatchFieldsTo128Bit(ir_table_entry);
+  EXPECT_THAT(ir_table_entry, gutil::EqualsProto(original_ir_table_entry));
+}
+
 }  // namespace
 }  // namespace p4rt_app

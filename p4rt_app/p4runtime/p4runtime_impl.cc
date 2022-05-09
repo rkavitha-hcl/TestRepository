@@ -40,6 +40,7 @@
 #include "p4_constraints/backend/interpreter.h"
 #include "p4_pdpi/ir.h"
 #include "p4_pdpi/ir.pb.h"
+#include "p4_pdpi/netaddr/ipv6_address.h"
 #include "p4_pdpi/utils/annotation_parser.h"
 #include "p4_pdpi/utils/ir.h"
 #include "p4rt_app/p4runtime/ir_translation.h"
@@ -248,7 +249,12 @@ absl::StatusOr<pdpi::IrTableEntry> DoPiTableEntryToIr(
     return gutil::StatusBuilder(translate_status.status().code())
            << "[P4RT/PDPI] " << translate_status.status().message();
   }
+
   pdpi::IrTableEntry ir_table_entry = *translate_status;
+
+  // TODO: Remove this when P4Info uses 64-bit IPv6 ACL matchess.
+  // We don't allow overwriting of the p4info, so static is ok here.
+  Convert64BitIpv6AclMatchFieldsTo128Bit(ir_table_entry);
 
   // Verify the table entry can be written to the table.
   RETURN_IF_ERROR(

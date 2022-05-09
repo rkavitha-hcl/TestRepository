@@ -17,6 +17,7 @@
 
 #include "absl/strings/str_cat.h"
 #include "p4/v1/p4runtime.pb.h"
+#include "p4_pdpi/ir.h"
 #include "p4_pdpi/p4_runtime_session.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 
@@ -27,6 +28,13 @@ P4RuntimeComponentTestFixture::P4RuntimeComponentTestFixture(
     sai::Instantiation sai_instantiation)
     : p4_info_(sai::GetP4Info(sai_instantiation)),
       ir_p4_info_(sai::GetIrP4Info(sai_instantiation)) {
+  // do nothing.
+}
+
+P4RuntimeComponentTestFixture::P4RuntimeComponentTestFixture(
+    p4::config::v1::P4Info p4info)
+    : p4_info_(std::move(p4info)),
+      ir_p4_info_(*pdpi::CreateIrP4Info(p4_info_)) {
   // do nothing.
 }
 

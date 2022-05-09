@@ -18,6 +18,7 @@
 
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "glog/logging.h"
 #include "gmock/gmock.h"
@@ -37,6 +38,7 @@
 #include "p4rt_app/tests/lib/p4runtime_component_test_fixture.h"
 #include "p4rt_app/tests/lib/p4runtime_grpc_service.h"
 #include "p4rt_app/tests/lib/p4runtime_request_helpers.h"
+#include "p4rt_app/utils/table_utility.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_p4info.h"
 
@@ -197,6 +199,207 @@ TEST_F(FbrAclTableTest, VrfClassificationCanMatchOnDstMac) {
           .SetPriority(10)
           .AddMatchField("dst_mac", "00:00:aa:aa:00:00&ff:ff:ff:ff:ff:ff")
           .AddMatchField("is_ip", "0x1")
+          .SetAction("set_vrf")
+          .AddActionParam("vrf_id", "vrf-1");
+
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_THAT(
+      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(acl_entry.GetKey()),
+      IsOkAndHolds(UnorderedElementsAreArray(acl_entry.GetValueMap())));
+}
+
+// TODO: Remove below here P4Info uses 64-bit IPv6 ACL matches.
+
+p4::config::v1::P4Info P4InfoWithIpv6AclMatchFieldsOfNBits(int bitwidth) {
+  auto p4info = sai::GetP4Info(sai::Instantiation::kFabricBorderRouter);
+  for (auto& table : *p4info.mutable_tables()) {
+    pdpi::IrTableDefinition ir_table;
+    *ir_table.mutable_preamble() = table.preamble();
+    if (auto table_type = GetTableType(ir_table);
+        !table_type.ok() || *table_type != table::Type::kAcl) {
+      continue;
+    }
+    for (auto& match_field : *table.mutable_match_fields()) {
+      if (match_field.name() == "dst_ipv6" ||
+          match_field.name() == "src_ipv6") {
+        match_field.set_bitwidth(bitwidth);
+      }
+    }
+  }
+  return p4info;
+}
+
+class Ipv6128BitAclTableTest : public test_lib::P4RuntimeComponentTestFixture {
+ protected:
+  Ipv6128BitAclTableTest()
+      : test_lib::P4RuntimeComponentTestFixture(
+            P4InfoWithIpv6AclMatchFieldsOfNBits(128)) {}
+};
+
+TEST_F(Ipv6128BitAclTableTest,
+       Converts64BitAclIpv6MatchesTo128BitInAclPreIngress) {
+  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 acl_pre_ingress_table_entry {
+                                   match {
+                                     is_ipv6 { value: "0x1" }
+                                     dst_ipv6 {
+                                       value: "::aaaa:aaaa:aaaa:aaaa"
+                                       mask: "::ffff:ffff:ffff:ffff"
+                                     }
+                                   }
+                                   priority: 10
+                                   action { set_vrf { vrf_id: "vrf-1" } }
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
+
+  // Expected P4RT AppDb entries.
+  auto acl_entry =
+      test_lib::AppDbEntryBuilder{}
+          .SetTableName("ACL_ACL_PRE_INGRESS_TABLE")
+          .SetPriority(10)
+          .AddMatchField("dst_ipv6",
+                         "aaaa:aaaa:aaaa:aaaa::&ffff:ffff:ffff:ffff::")
+          .AddMatchField("is_ipv6", "0x1")
+          .SetAction("set_vrf")
+          .AddActionParam("vrf_id", "vrf-1");
+
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_THAT(
+      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(acl_entry.GetKey()),
+      IsOkAndHolds(UnorderedElementsAreArray(acl_entry.GetValueMap())));
+}
+
+// TODO: Remove this when P4Info uses 64-bit IPv6 ACL match fields.
+TEST_F(Ipv6128BitAclTableTest,
+       Converts64BitAclIpv6MatchesTo128BitInAclIngress) {
+  ASSERT_OK_AND_ASSIGN(
+      p4::v1::WriteRequest request,
+      test_lib::PdWriteRequestToPi(
+          R"pb(
+            updates {
+              type: INSERT
+              table_entry {
+                acl_ingress_table_entry {
+                  match {
+                    is_ipv6 { value: "0x1" }
+                    src_ipv6 { value: "::a000:0:0:0" mask: "::f000:0:0:0" }
+                    dst_ipv6 { value: "::1" mask: "::f" }
+                  }
+                  priority: 10
+                  action { acl_trap { qos_queue: "1" } }
+                }
+              }
+            }
+          )pb",
+          ir_p4_info_));
+
+  // Expected P4RT AppDb entries.
+  auto acl_entry = test_lib::AppDbEntryBuilder{}
+                       .SetTableName("ACL_ACL_INGRESS_TABLE")
+                       .SetPriority(10)
+                       .AddMatchField("dst_ipv6", "0:0:0:1::&0:0:0:f::")
+                       .AddMatchField("is_ipv6", "0x1")
+                       .AddMatchField("src_ipv6", "a000::&f000::")
+                       .SetAction("acl_trap")
+                       .AddActionParam("qos_queue", "1");
+
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_THAT(
+      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(acl_entry.GetKey()),
+      IsOkAndHolds(UnorderedElementsAreArray(acl_entry.GetValueMap())));
+}
+
+// TODO: Remove this when P4Info uses 64-bit IPv6 ACL match fields.
+TEST_F(Ipv6128BitAclTableTest, DoesNotConvert128BitIpv6Matches) {
+  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 acl_pre_ingress_table_entry {
+                                   match {
+                                     is_ipv6 { value: "0x1" }
+                                     dst_ipv6 {
+                                       value: "aaaa:aaaa:aaaa:aaaa::"
+                                       mask: "ffff:ffff:ffff:ffff::"
+                                     }
+                                   }
+                                   priority: 10
+                                   action { set_vrf { vrf_id: "vrf-1" } }
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
+
+  // Expected P4RT AppDb entries.
+  auto acl_entry =
+      test_lib::AppDbEntryBuilder{}
+          .SetTableName("ACL_ACL_PRE_INGRESS_TABLE")
+          .SetPriority(10)
+          .AddMatchField("dst_ipv6",
+                         "aaaa:aaaa:aaaa:aaaa::&ffff:ffff:ffff:ffff::")
+          .AddMatchField("is_ipv6", "0x1")
+          .SetAction("set_vrf")
+          .AddActionParam("vrf_id", "vrf-1");
+
+  EXPECT_OK(
+      pdpi::SetMetadataAndSendPiWriteRequest(p4rt_session_.get(), request));
+  EXPECT_THAT(
+      p4rt_service_.GetP4rtAppDbTable().ReadTableEntry(acl_entry.GetKey()),
+      IsOkAndHolds(UnorderedElementsAreArray(acl_entry.GetValueMap())));
+}
+
+class Ipv664BitAclTableTest : public test_lib::P4RuntimeComponentTestFixture {
+ protected:
+  Ipv664BitAclTableTest()
+      : test_lib::P4RuntimeComponentTestFixture(
+            P4InfoWithIpv6AclMatchFieldsOfNBits(64)) {}
+};
+
+TEST_F(Ipv664BitAclTableTest, DoesNotConvert64BitIpv6Matches) {
+  ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
+                       test_lib::PdWriteRequestToPi(
+                           R"pb(
+                             updates {
+                               type: INSERT
+                               table_entry {
+                                 acl_pre_ingress_table_entry {
+                                   match {
+                                     is_ipv6 { value: "0x1" }
+                                     dst_ipv6 {
+                                       value: "aaaa:aaaa:aaaa:aaaa::"
+                                       mask: "ffff:ffff:ffff:ffff::"
+                                     }
+                                   }
+                                   priority: 10
+                                   action { set_vrf { vrf_id: "vrf-1" } }
+                                 }
+                               }
+                             }
+                           )pb",
+                           ir_p4_info_));
+
+  // Expected P4RT AppDb entries.
+  auto acl_entry =
+      test_lib::AppDbEntryBuilder{}
+          .SetTableName("ACL_ACL_PRE_INGRESS_TABLE")
+          .SetPriority(10)
+          .AddMatchField("dst_ipv6",
+                         "aaaa:aaaa:aaaa:aaaa::&ffff:ffff:ffff:ffff::")
+          .AddMatchField("is_ipv6", "0x1")
           .SetAction("set_vrf")
           .AddActionParam("vrf_id", "vrf-1");
 
