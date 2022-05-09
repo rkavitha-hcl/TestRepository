@@ -407,7 +407,7 @@ TEST_P(FrontpanelQosTest, TestWredEcnMarking) {
 
   // Get port speed in bits per second.
   ASSERT_OK_AND_ASSIGN(int64_t in_port1_speed_bps,
-                       GetPortSpeed(kSutInPort1, *gnmi_stub));
+                       GetPortSpeedInBitsPerSecond(kSutInPort1, *gnmi_stub));
 
   constexpr int kDefaultFrameSizeinBytes = 1514;
 
@@ -430,7 +430,7 @@ TEST_P(FrontpanelQosTest, TestWredEcnMarking) {
 
   // Get port speed in bits per second.
   ASSERT_OK_AND_ASSIGN(auto in_port2_speed,
-                       GetPortSpeed(kSutInPort2, *gnmi_stub));
+                       GetPortSpeedInBitsPerSecond(kSutInPort2, *gnmi_stub));
 
   uint64_t frame_rate_at_line_speed_of_in_port2 =
       in_port2_speed / (kDefaultFrameSizeinBytes * 8);
@@ -611,8 +611,8 @@ TEST_P(FrontpanelQosTest, TestWredEcnMarking) {
         // This test expects WRED config to only mark packets and not drop.
         // Expect no drops in target queue and queue transmit counter
         // increments.
-        EXPECT_EQ(queue_counters_after_test_packet.num_packet_dropped,
-                  queue_counters_before_test_packet.num_packet_dropped);
+        EXPECT_EQ(queue_counters_after_test_packet.num_packets_dropped,
+                  queue_counters_before_test_packet.num_packets_dropped);
 
         EXPECT_GT(queue_counters_after_test_packet.num_packets_transmitted,
                   queue_counters_before_test_packet.num_packets_transmitted);

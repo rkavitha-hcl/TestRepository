@@ -92,12 +92,6 @@ using ::testing::Not;
 // frames.
 constexpr int kFrameCheckSequenceSize = 4;
 
-// The maximum time the switch is allowed to take before queue counters read via
-// gNMI have to be incremented after a packet hits a queue.
-// Empirically, for PINS, queue counters currently seem to get updated every
-// 10 seconds.
-constexpr absl::Duration kMaxQueueCounterUpdateTime = absl::Seconds(25);
-
 // After pushing gNMI config to a switch, the tests sleep for this duration
 // assuming that the gNMI config will have been fully applied afterwards.
 // TODO: Instead of hard-coding this time, tests should dynamically
@@ -852,16 +846,16 @@ TEST_P(CpuQosTestWithoutIxia, TrafficToLoopackIpGetsMappedToCorrectQueues) {
                                *sut_gnmi_stub));
     } while (
         // It may take several seconds for the queue counters to update.
-        CumulativeNumPacketsEnqueued(queue_counters_after_test_packet) ==
-            CumulativeNumPacketsEnqueued(queue_counters_before_test_packet) &&
+        TotalPacketsForQueue(queue_counters_after_test_packet) ==
+            TotalPacketsForQueue(queue_counters_before_test_packet) &&
         absl::Now() - time_packet_sent < kMaxQueueCounterUpdateTime);
 
     // We terminate early if this fails, as that can cause this loop to get
     // out of sync when counters increment after a long delay, resulting in
     // confusing error messages where counters increment by 2.
-    ASSERT_EQ(CumulativeNumPacketsEnqueued(queue_counters_after_test_packet),
-              CumulativeNumPacketsEnqueued(queue_counters_before_test_packet) +
-                  kPacketCount)
+    ASSERT_EQ(
+        TotalPacketsForQueue(queue_counters_after_test_packet),
+        TotalPacketsForQueue(queue_counters_before_test_packet) + kPacketCount)
         << "Counters for queue " << target_queue << " did not increment within "
         << kMaxQueueCounterUpdateTime
         << " after injecting the following test packet:\n"
@@ -981,8 +975,8 @@ TEST_P(CpuQosTestWithIxia, TestCPUQueueAssignmentAndQueueRateLimit) {
       generic_testbed->GetSutInterfaceInfo();
   for (const auto &[interface, info] : interface_info) {
     if (info.interface_mode == thinkit::TRAFFIC_GENERATOR) {
-      ASSERT_OK(SetPortSpeed("\"openconfig-if-ethernet:SPEED_200GB\"",
-                             interface, *gnmi_stub));
+      ASSERT_OK(SetPortSpeedInBitsPerSecond(
+          "\"openconfig-if-ethernet:SPEED_200GB\"", interface, *gnmi_stub));
       ASSERT_OK(SetPortMtu(kMaxFrameSize, interface, *gnmi_stub));
     }
   }
@@ -1004,8 +998,8 @@ TEST_P(CpuQosTestWithIxia, TestCPUQueueAssignmentAndQueueRateLimit) {
   if (ready_links.empty()) {
     for (const auto &[interface, info] : interface_info) {
       if (info.interface_mode == thinkit::TRAFFIC_GENERATOR) {
-        ASSERT_OK(SetPortSpeed("\"openconfig-if-ethernet:SPEED_100GB\"",
-                               interface, *gnmi_stub));
+        ASSERT_OK(SetPortSpeedInBitsPerSecond(
+            "\"openconfig-if-ethernet:SPEED_100GB\"", interface, *gnmi_stub));
       }
     }
     // Wait to let the links come up. Switch guarantees state paths to reflect
@@ -1144,20 +1138,20 @@ TEST_P(CpuQosTestWithIxia, TestCPUQueueAssignmentAndQueueRateLimit) {
       delta_counters = {
           .num_packets_transmitted = final_counters.num_packets_transmitted -
                                      initial_counters.num_packets_transmitted,
-          .num_packet_dropped = final_counters.num_packet_dropped -
-                                initial_counters.num_packet_dropped,
+          .num_packets_dropped = final_counters.num_packets_dropped -
+                                 initial_counters.num_packets_dropped,
       };
       LOG(INFO) << "Tx = " << delta_counters.num_packets_transmitted
-                << " Drop = " << delta_counters.num_packet_dropped;
+                << " Drop = " << delta_counters.num_packets_dropped;
       if (delta_counters.num_packets_transmitted +
-              delta_counters.num_packet_dropped ==
+              delta_counters.num_packets_dropped ==
           kTotalFrames) {
         break;
       }
       ASSERT_NE(gnmi_counters_check, kIterations - 1)
           << "GNMI packet count "
           << delta_counters.num_packets_transmitted +
-                 delta_counters.num_packet_dropped
+                 delta_counters.num_packets_dropped
           << " != Packets sent from Ixia " << kTotalFrames;
     }
 
@@ -1243,8 +1237,8 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
       interface_info = generic_testbed->GetSutInterfaceInfo();
   for (const auto &[interface, info] : interface_info) {
     if (info.interface_mode == thinkit::TRAFFIC_GENERATOR) {
-      ASSERT_OK(SetPortSpeed("\"openconfig-if-ethernet:SPEED_200GB\"",
-                             interface, *gnmi_stub));
+      ASSERT_OK(SetPortSpeedInBitsPerSecond(
+          "\"openconfig-if-ethernet:SPEED_200GB\"", interface, *gnmi_stub));
       ASSERT_OK(SetPortMtu(kMaxFrameSize, interface, *gnmi_stub));
     }
   }
@@ -1266,8 +1260,8 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
   if (ready_links.empty()) {
     for (const auto &[interface, info] : interface_info) {
       if (info.interface_mode == thinkit::TRAFFIC_GENERATOR) {
-        ASSERT_OK(SetPortSpeed("\"openconfig-if-ethernet:SPEED_100GB\"",
-                               interface, *gnmi_stub));
+        ASSERT_OK(SetPortSpeedInBitsPerSecond(
+            "\"openconfig-if-ethernet:SPEED_100GB\"", interface, *gnmi_stub));
       }
     }
     // Wait to let the links come up. Switch guarantees state paths to reflect
@@ -1440,8 +1434,8 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
       delta_counters = {
           .num_packets_transmitted = final_counters.num_packets_transmitted -
                                      initial_counters.num_packets_transmitted,
-          .num_packet_dropped = final_counters.num_packet_dropped -
-                                initial_counters.num_packet_dropped,
+          .num_packets_dropped = final_counters.num_packets_dropped -
+                                 initial_counters.num_packets_dropped,
       };
       LOG(INFO) << delta_counters;
       absl::MutexLock lock(&packet_receive_info.mutex);
@@ -1452,7 +1446,7 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
       ASSERT_NE(gnmi_counters_check, kIterations - 1)
           << "GNMI packet count "
           << delta_counters.num_packets_transmitted +
-                 delta_counters.num_packet_dropped
+                 delta_counters.num_packets_dropped
           << " != Packets received at controller "
           << packet_receive_info.num_packets_punted;
     }
