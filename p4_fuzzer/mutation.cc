@@ -186,7 +186,8 @@ absl::Status MutateInvalidTableImplementation(BitGen* gen, TableEntry* entry,
           *entry->mutable_action()->mutable_action(),
           FuzzAction(
               gen, config, switch_state,
-              ChooseNonDefaultActionRef(gen, config, ir_table_info).action()));
+              UniformFromSpan(gen, AllValidActions(config, ir_table_info))
+                  .action()));
       break;
     }
 

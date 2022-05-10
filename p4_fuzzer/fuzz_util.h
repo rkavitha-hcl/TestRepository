@@ -83,6 +83,18 @@ const T& UniformFromSpan(absl::BitGen* gen, const std::vector<T>& vec) {
 absl::StatusOr<p4::config::v1::ActionProfile> GetActionProfile(
     const pdpi::IrP4Info& ir_info, int table_id);
 
+// Returns the list of all "valid" actions in the underlying P4 program for
+// `table`. Valid actions are those that are legal for use in table entries and
+// not @deprecated, @unused, or disabled.
+const std::vector<pdpi::IrActionReference> AllValidActions(
+    const FuzzerConfig& config, const pdpi::IrTableDefinition& table);
+
+// Returns the list of all "valid" match fields in the underlying P4 program for
+// `table`. Valid match fields are those that are not @deprecated, @unused, or
+// disabled.
+const std::vector<pdpi::IrMatchFieldDefinition> AllValidMatchFields(
+    const FuzzerConfig& config, const pdpi::IrTableDefinition& table);
+
 // Takes a string `data` that represents a number in network byte
 // order (big-endian), and masks off all but the least significant `used_bits`
 // bits.
@@ -208,12 +220,6 @@ AnnotatedWriteRequest FuzzWriteRequest(
     absl::BitGen* gen, const FuzzerConfig& config,
     const SwitchState& switch_state,
     absl::optional<int> max_batch_size = absl::nullopt);
-
-// Takes a P4 Runtime table and returns randomly chosen action ref from the
-// action refs that are not in default only scope.
-pdpi::IrActionReference ChooseNonDefaultActionRef(
-    absl::BitGen* gen, const FuzzerConfig& config,
-    const pdpi::IrTableDefinition& ir_table_info);
 
 }  // namespace p4_fuzzer
 

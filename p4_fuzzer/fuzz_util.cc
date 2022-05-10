@@ -39,9 +39,7 @@
 #include "p4_pdpi/internal/ordered_map.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/netaddr/ipv6_address.h"
-#include "p4_pdpi/pd.h"
 #include "p4_pdpi/utils/ir.h"
-#include "sai_p4/fixed/ids.h"
 
 namespace p4_fuzzer {
 
@@ -96,6 +94,11 @@ bool IsReferring(
 
 namespace {
 
+inline bool IsDisabledForFuzzing(const FuzzerConfig& config,
+                                 absl::string_view name) {
+  return config.disabled_fully_qualified_names.contains(name);
+}
+
 std::string FuzzPort(absl::BitGen* gen, const FuzzerConfig& config) {
   return UniformFromSpan(gen, config.ports);
 }
@@ -116,9 +119,9 @@ absl::StatusOr<p4::v1::ActionProfileAction> FuzzActionProfileAction(
 
   ASSIGN_OR_RETURN(
       *action.mutable_action(),
-      FuzzAction(
-          gen, config, switch_state,
-          ChooseNonDefaultActionRef(gen, config, ir_table_info).action()));
+      FuzzAction(gen, config, switch_state,
+                 UniformFromSpan(gen, AllValidActions(config, ir_table_info))
+                     .action()));
 
   action.set_weight(Uniform<int32_t>(*gen, 1, max_weight));
   action.set_watch_port(FuzzPort(gen, config));
@@ -134,6 +137,8 @@ std::vector<uint32_t> TablesUsedByFuzzer(const FuzzerConfig& config) {
     if (table.role() != config.role) continue;
     // Tables without actions cannot have valid table entries.
     if (table.entry_actions().empty()) continue;
+    // Tables on the disallow list should not be fuzzed.
+    if (IsDisabledForFuzzing(config, table.preamble().name())) continue;
     table_ids.push_back(key);
   }
   return table_ids;
@@ -455,6 +460,43 @@ absl::StatusOr<p4::config::v1::ActionProfile> GetActionProfile(
          << "No action profile corresponds to table with id " << table_id;
 }
 
+const std::vector<pdpi::IrActionReference> AllValidActions(
+    const FuzzerConfig& config, const pdpi::IrTableDefinition& table) {
+  std::vector<pdpi::IrActionReference> actions;
+
+  for (const auto& action : table.entry_actions()) {
+    // Skip deprecated, unused, and disallowed actions.
+    if (pdpi::IsElementDeprecated(action.action().preamble().annotations()) ||
+        pdpi::IsElementUnused(action.action().preamble().annotations()) ||
+        IsDisabledForFuzzing(config, action.action().preamble().name()))
+      continue;
+    actions.push_back(action);
+  }
+
+  return actions;
+}
+
+const std::vector<pdpi::IrMatchFieldDefinition> AllValidMatchFields(
+    const FuzzerConfig& config, const pdpi::IrTableDefinition& table) {
+  std::vector<pdpi::IrMatchFieldDefinition> match_fields;
+
+  for (const auto& [_, match_field_info] :
+       Ordered(table.match_fields_by_id())) {
+    // Skip deprecated, unused, and disallowed fields.
+    const std::string fully_qualified_match_field = absl::StrCat(
+        table.preamble().name(), ".", match_field_info.match_field().name());
+    if (pdpi::IsElementDeprecated(
+            match_field_info.match_field().annotations()) ||
+        pdpi::IsElementUnused(match_field_info.match_field().annotations()) ||
+        IsDisabledForFuzzing(config, fully_qualified_match_field))
+      continue;
+
+    match_fields.push_back(match_field_info);
+  }
+
+  return match_fields;
+}
+
 std::string FuzzRandomId(absl::BitGen* gen, int min_chars, int max_chars) {
   // Only sample from printable/readable characters, to make debugging easier.
   // There is a smoke test that uses crazy characters.
@@ -485,18 +527,6 @@ Mutation FuzzMutation(absl::BitGen* gen, const FuzzerConfig& config) {
   }
 
   return static_cast<Mutation>(UniformFromSpan(gen, valid_indexes));
-}
-
-pdpi::IrActionReference ChooseNonDefaultActionRef(
-    absl::BitGen* gen, const FuzzerConfig& config,
-    const pdpi::IrTableDefinition& ir_table_info) {
-  std::vector<pdpi::IrActionReference> refs;
-
-  for (const auto& action_ref : ir_table_info.entry_actions()) {
-    refs.push_back(action_ref);
-  }
-
-  return UniformFromSpan(gen, refs);
 }
 
 std::string SetUnusedBitsToZero(int used_bits, std::string data) {
@@ -857,7 +887,8 @@ absl::StatusOr<p4::v1::TableAction> FuzzAction(
         *result.mutable_action(),
         FuzzAction(
             gen, config, switch_state,
-            ChooseNonDefaultActionRef(gen, config, table_definition).action()));
+            UniformFromSpan(gen, AllValidActions(config, table_definition))
+                .action()));
   } else {
     ASSIGN_OR_RETURN(*result.mutable_action_profile_action_set(),
                      FuzzActionProfileActionSet(gen, config, switch_state,
@@ -874,16 +905,8 @@ absl::StatusOr<TableEntry> FuzzValidTableEntry(
   table_entry.set_table_id(ir_table_info.preamble().id());
 
   // Generate the matches.
-  for (auto& [key, match_field_info] :
-       Ordered(ir_table_info.match_fields_by_id())) {
-    // Skip deprecated fields
-    bool deprecated =
-        absl::c_any_of(match_field_info.match_field().annotations(),
-                       [](const std::string annotation) {
-                         return absl::StartsWith(annotation, "@deprecated(");
-                       });
-    if (deprecated) continue;
-
+  for (const pdpi::IrMatchFieldDefinition& match_field_info :
+       AllValidMatchFields(config, ir_table_info)) {
     // If the field can have wildcards, we generate a wildcard match with
     // probability `kFieldMatchWildcardProbability`.
     // In the P4RT spec, wildcards are represented as the absence of a match
