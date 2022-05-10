@@ -98,14 +98,8 @@ tables {
   match_fields { name: "nexthop_id" format: STRING type: EXACT }
   actions {
     name: "set_ip_nexthop"
-    parameters {
-      name: "router_interface_id"
-      format: STRING
-    }
-    parameters {
-      name: "neighbor_id"
-      format: STRING
-    }
+    parameters { name: "neighbor_id" format: STRING }
+    parameters { name: "router_interface_id" format: STRING }
   }
   actions {
     name: "set_tunnel_encap_nexthop"
@@ -127,9 +121,9 @@ tables {
   match_fields { name: "tunnel_id" format: STRING type: EXACT }
   actions {
     name: "mark_for_tunnel_encap"
-    parameters { name: "router_interface_id" format: STRING }
     parameters { name: "encap_dst_ip" format: IPV6 }
     parameters { name: "encap_src_ip" format: IPV6 }
+    parameters { name: "router_interface_id" format: STRING }
   }
 }
 tables {

@@ -26,6 +26,7 @@
 #include "absl/strings/substitute.h"
 #include "gflags/gflags.h"
 #include "glog/logging.h"
+#include "google/protobuf/text_format.h"
 #include "gutil/io.h"
 #include "gutil/proto.h"
 #include "gutil/status.h"
@@ -86,18 +87,34 @@ absl::StatusOr<std::string> ActionSchemaString(
 
   // This is going to be within a short nest, so we don't worry about tab depth.
   if (action_schema.parameters().empty()) {
-    return action_schema.ShortDebugString();
+    std::string action_string;
+    google::protobuf::TextFormat::Printer printer;
+    printer.SetSingleLineMode(true);
+    if (!printer.PrintToString(action_schema, &action_string)) {
+      return gutil::InternalErrorBuilder()
+             << "Failed to convert action schema to string.";
+    }
+    // Remove the extra whitespace at the end.
+    if (action_string.back() == ' ') action_string.pop_back();
+    return action_string;
   }
 
   std::string prefix = Prefix(tab_depth);
   absl::btree_map<std::string, std::string> parameter_strings;
+  google::protobuf::TextFormat::Printer printer;
+  printer.SetSingleLineMode(true);
   for (const auto& parameter : action_schema.parameters()) {
-    parameter_strings[parameter.name()] = parameter.ShortDebugString();
+    if (!printer.PrintToString(parameter,
+                               &parameter_strings[parameter.name()])) {
+      return gutil::InternalErrorBuilder()
+             << "Failed to convert action schema parameter ["
+             << parameter.name() << "] to string.";
+    }
   }
   std::string action_string =
       absl::Substitute("$0name: \"$1\"", prefix, action_schema.name());
   for (const auto& [parameter_name, parameter_string] : parameter_strings) {
-    absl::StrAppendFormat(&action_string, "\n%sparameters { %s }", prefix,
+    absl::StrAppendFormat(&action_string, "\n%sparameters { %s}", prefix,
                           parameter_string);
   }
 
@@ -121,6 +138,8 @@ absl::StatusOr<std::string> BuildTextSchema(
     table_map[table.name()] = &table;
   }
 
+  google::protobuf::TextFormat::Printer printer;
+  printer.SetSingleLineMode(true);
   std::vector<std::string> table_strings;
   int tab_depth = 1;  // within tables { ... }
   for (const auto& [table_name, table] : table_map) {
@@ -136,10 +155,14 @@ absl::StatusOr<std::string> BuildTextSchema(
 
     absl::btree_map<std::string, std::string> match_map;
     for (const auto& match : table->match_fields()) {
-      match_map[match.name()] = match.ShortDebugString();
+      if (!printer.PrintToString(match, &match_map[match.name()])) {
+        return gutil::InternalErrorBuilder()
+               << "Unable to convert match_field [" << match.name()
+               << "] to string.";
+      }
     }
     for (const auto& [match_name, match_string] : match_map) {
-      absl::StrAppendFormat(&table_string, "%smatch_fields { %s }\n", prefix,
+      absl::StrAppendFormat(&table_string, "%smatch_fields { %s}\n", prefix,
                             match_string);
     }
 
