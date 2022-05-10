@@ -129,21 +129,6 @@ absl::StatusOr<p4::v1::ActionProfileAction> FuzzActionProfileAction(
   return action;
 }
 
-// Returns the set of tables the fuzzer is fuzzing.
-std::vector<uint32_t> TablesUsedByFuzzer(const FuzzerConfig& config) {
-  std::vector<uint32_t> table_ids;
-
-  for (auto& [key, table] : Ordered(config.info.tables_by_id())) {
-    if (table.role() != config.role) continue;
-    // Tables without actions cannot have valid table entries.
-    if (table.entry_actions().empty()) continue;
-    // Tables on the disallow list should not be fuzzed.
-    if (IsDisabledForFuzzing(config, table.preamble().name())) continue;
-    table_ids.push_back(key);
-  }
-  return table_ids;
-}
-
 // Checks whether an update is unacceptable with respect to the fuzzer config,
 // current switch state, and the set of updates already in this batch.
 // Currently, an update may be unacceptable by:
@@ -185,7 +170,7 @@ bool IsBadUpdate(const FuzzerConfig& config, const SwitchState& switch_state,
 std::vector<uint32_t> GetOneShotTableIds(const FuzzerConfig& config) {
   std::vector<uint32_t> table_ids;
 
-  for (uint32_t id : TablesUsedByFuzzer(config)) {
+  for (uint32_t id : AllValidTablesForP4RtRole(config)) {
     const auto& table = gutil::FindOrDie(config.info.tables_by_id(), id);
     if (table.uses_oneshot()) {
       table_ids.push_back(id);
@@ -199,7 +184,7 @@ std::vector<uint32_t> GetOneShotTableIds(const FuzzerConfig& config) {
 std::vector<uint32_t> GetMandatoryMatchTableIds(const FuzzerConfig& config) {
   std::vector<uint32_t> table_ids;
 
-  for (uint32_t id : TablesUsedByFuzzer(config)) {
+  for (uint32_t id : AllValidTablesForP4RtRole(config)) {
     const auto& table = gutil::FindOrDie(config.info.tables_by_id(), id);
     for (auto& [match_id, match] : Ordered(table.match_fields_by_id())) {
       if (match.match_field().match_type() ==
@@ -230,7 +215,7 @@ std::vector<uint32_t> GetTableIdsWithValuePredicate(
     const FuzzerConfig& config, P4ValuePredicate predicate) {
   std::vector<uint32_t> table_ids;
 
-  for (uint32_t id : TablesUsedByFuzzer(config)) {
+  for (uint32_t id : AllValidTablesForP4RtRole(config)) {
     bool include = false;
     const auto& table = gutil::FindOrDie(config.info.tables_by_id(), id);
     for (const auto& [match_id, match] : table.match_fields_by_id()) {
@@ -331,7 +316,7 @@ void FuzzNonKeyFields(absl::BitGen* gen, const FuzzerConfig& config,
 // mutated (see go/p4-fuzzer-design for mutation types).
 AnnotatedUpdate FuzzUpdate(absl::BitGen* gen, const FuzzerConfig& config,
                            const SwitchState& switch_state) {
-  std::vector<uint32_t> table_ids = TablesUsedByFuzzer(config);
+  std::vector<uint32_t> table_ids = AllValidTablesForP4RtRole(config);
   CHECK_GT(table_ids.size(), 0)
       << "Cannot generate updates for program with no tables";
 
@@ -460,6 +445,25 @@ absl::StatusOr<p4::config::v1::ActionProfile> GetActionProfile(
          << "No action profile corresponds to table with id " << table_id;
 }
 
+const std::vector<uint32_t> AllValidTablesForP4RtRole(
+    const FuzzerConfig& config) {
+  std::vector<uint32_t> table_ids;
+
+  for (auto& [key, table] : Ordered(config.info.tables_by_id())) {
+    // Tables with the wrong role can't be modified by the controller.
+    if (table.role() != config.role) continue;
+    // Tables without actions cannot have valid table entries.
+    if (table.entry_actions().empty()) continue;
+    // Skip deprecated, unused, and disallowed tables.
+    if (pdpi::IsElementDeprecated(table.preamble().annotations()) ||
+        pdpi::IsElementUnused(table.preamble().annotations()) ||
+        IsDisabledForFuzzing(config, table.preamble().name()))
+      continue;
+    table_ids.push_back(key);
+  }
+  return table_ids;
+}
+
 const std::vector<pdpi::IrActionReference> AllValidActions(
     const FuzzerConfig& config, const pdpi::IrTableDefinition& table) {
   std::vector<pdpi::IrActionReference> actions;
@@ -514,7 +518,7 @@ std::string FuzzRandomId(absl::BitGen* gen, int min_chars, int max_chars) {
 
 // Randomly generates a table id.
 int FuzzTableId(absl::BitGen* gen, const FuzzerConfig& config) {
-  return UniformFromSpan(gen, TablesUsedByFuzzer(config));
+  return UniformFromSpan(gen, AllValidTablesForP4RtRole(config));
 }
 
 Mutation FuzzMutation(absl::BitGen* gen, const FuzzerConfig& config) {

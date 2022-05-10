@@ -83,6 +83,13 @@ const T& UniformFromSpan(absl::BitGen* gen, const std::vector<T>& vec) {
 absl::StatusOr<p4::config::v1::ActionProfile> GetActionProfile(
     const pdpi::IrP4Info& ir_info, int table_id);
 
+// Returns the list of all "valid" tables in the underlying P4 program. Valid
+// tables are those that can legally have entries inserted into them (e.g. due
+// to the Fuzzer's role (specified in `config`)) and are not @deprecated,
+// @unused, or disabled.
+const std::vector<uint32_t> AllValidTablesForP4RtRole(
+    const FuzzerConfig& config);
+
 // Returns the list of all "valid" actions in the underlying P4 program for
 // `table`. Valid actions are those that are legal for use in table entries and
 // not @deprecated, @unused, or disabled.
