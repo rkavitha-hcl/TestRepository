@@ -24,6 +24,7 @@
 #include "gutil/testing.h"
 #include "lib/basic_traffic/basic_p4rt_util.h"
 #include "lib/gnmi/gnmi_helper.h"
+#include "lib/p4rt/p4rt_programming_context.h"
 #include "lib/utils/generic_testbed_utils.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.h"
@@ -78,14 +79,19 @@ std::string MtuRoutingTestFixture::GenerateTestPacket(
 }
 
 // Set up route from source port to destination port on SUT.
-absl::Status SetupRoute(pdpi::P4RuntimeSession& p4_session, int src_port_id,
+absl::Status SetupRoute(P4rtProgrammingContext& context,
+                        sai::Instantiation instantiation, int src_port_id,
                         int dst_port_id) {
-  RETURN_IF_ERROR(basic_traffic::ProgramTrafficVrf(&p4_session));
-  RETURN_IF_ERROR(
-      basic_traffic::ProgramRouterInterface(&p4_session, src_port_id));
-  RETURN_IF_ERROR(
-      basic_traffic::ProgramRouterInterface(&p4_session, dst_port_id));
-  return basic_traffic::ProgramIPv4Route(&p4_session, dst_port_id);
+  RETURN_IF_ERROR(basic_traffic::ProgramTrafficVrf(
+      context.GetWriteRequestFunction(), instantiation));
+  RETURN_IF_ERROR(basic_traffic::ProgramRouterInterface(
+      context.GetWriteRequestFunction(), src_port_id, instantiation));
+  RETURN_IF_ERROR(basic_traffic::ProgramRouterInterface(
+      context.GetWriteRequestFunction(), dst_port_id, instantiation));
+  RETURN_IF_ERROR(basic_traffic::ProgramIPv4Route(
+      context.GetWriteRequestFunction(), dst_port_id, instantiation));
+
+  return absl::OkStatus();
 }
 
 void MtuRoutingTestFixture::SetUp() {
@@ -123,14 +129,6 @@ void MtuRoutingTestFixture::SetUp() {
             << " port id: " << sut_source_port_id_;
   LOG(INFO) << "Destination port: " << destination_link_.sut_interface
             << " port id: " << sut_destination_port_id_;
-
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
-                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-                           testbed_->Sut(), p4_info()));
-
-  // Set up a route between the source and destination interfaces.
-  ASSERT_OK(
-      SetupRoute(*p4_session, sut_source_port_id_, sut_destination_port_id_));
 }
 
 absl::StatusOr<NumPkts> MtuRoutingTestFixture::SendTraffic(
@@ -221,6 +219,16 @@ TEST_P(MtuRoutingTestFixture, MtuTest) {
       GetGnmiStatePathInfo(stub_.get(), if_state_path, kMtuRespParseStr));
   int orig_mtu;
   ASSERT_TRUE(absl::SimpleAtoi(state_path_response, &orig_mtu));
+
+  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
+                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+                           testbed_->Sut(), p4_info()));
+
+  // Set up a route between the source and destination interfaces.
+  P4rtProgrammingContext p4rt_context(p4_session.get(),
+                                      pdpi::SetMetadataAndSendPiWriteRequest);
+  ASSERT_OK(SetupRoute(p4rt_context, sai::Instantiation::kMiddleblock,
+                       sut_source_port_id_, sut_destination_port_id_));
 
   // Configure test mtu values on port under test on SUT.
   for (const auto& [mtu, payload_length] : *kMtuPacketPayloadMap) {
