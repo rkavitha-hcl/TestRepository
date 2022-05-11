@@ -34,6 +34,7 @@ SHARED_DEPS = [
     "roles.h",
     "bitwidths.p4",
     "minimum_guaranteed_sizes.p4",
+    "admit_google_system_mac.p4",
     "//sai_p4/fixed",
 ]
 

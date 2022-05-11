@@ -264,9 +264,7 @@ absl::Status SendUdpPacket(pdpi::P4RuntimeSession& session,
 
 }  // namespace
 
-// TODO: greenlight.
-TEST_P(L3AdmitTestFixture,
-       DISABLED_L3PacketsAreRoutedOnlyWhenMacAddressIsInMyStation) {
+TEST_P(L3AdmitTestFixture, L3PacketsAreRoutedOnlyWhenMacAddressIsInMyStation) {
   GetMirrorTestbed().Environment().SetTestCaseID(
       "1291adb4-810d-40b8-883c-677dab3c5f7d");
 
@@ -431,8 +429,7 @@ TEST_P(L3AdmitTestFixture, L3AdmitCanUseMaskToAllowMultipleMacAddresses) {
   EXPECT_EQ(good_packet_count, 5 * kNumberOfTestPacket);
 }
 
-// TODO: greenlight.
-TEST_P(L3AdmitTestFixture, DISABLED_L3AdmitCanUseInPortToRestrictMacAddresses) {
+TEST_P(L3AdmitTestFixture, L3AdmitCanUseInPortToRestrictMacAddresses) {
   GetMirrorTestbed().Environment().SetTestCaseID(
       "45a1e8ac-af8d-4c89-bd5c-b76fc9113907");
 
