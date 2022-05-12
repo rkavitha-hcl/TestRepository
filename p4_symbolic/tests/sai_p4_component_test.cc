@@ -26,6 +26,7 @@
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/pd.h"
 #include "p4_symbolic/parser.h"
+#include "p4_symbolic/sai/fields.h"
 #include "p4_symbolic/sai/parser.h"
 #include "p4_symbolic/sai/sai.h"
 #include "p4_symbolic/symbolic/symbolic.h"
@@ -39,6 +40,7 @@ namespace p4_symbolic {
 namespace {
 
 using ::gutil::ParseProtoOrDie;
+using ::testing::AnyOf;
 using ::testing::Eq;
 using ::testing::Not;
 
@@ -46,6 +48,7 @@ constexpr absl::string_view kTableEntries = R"pb(
   entries {
     acl_pre_ingress_table_entry {
       match {
+        in_port { value: "3" }
         src_mac { value: "22:22:22:11:11:11" mask: "ff:ff:ff:ff:ff:ff" }
         dst_ip { value: "10.0.10.0" mask: "255.255.255.255" }
       }
@@ -63,7 +66,7 @@ constexpr absl::string_view kTableEntries = R"pb(
     l3_admit_table_entry {
       match {
         dst_mac { value: "66:55:44:33:22:10" mask: "ff:ff:ff:ff:ff:ff" }
-        in_port { value: "0x005" }
+        in_port { value: "5" }
       }
       action { admit_to_l3 {} }
       priority: 1
@@ -83,9 +86,7 @@ constexpr absl::string_view kTableEntries = R"pb(
   entries {
     router_interface_table_entry {
       match { router_interface_id: "router-interface-1" }
-      action {
-        set_port_and_src_mac { port: "0x002" src_mac: "66:55:44:33:22:11" }
-      }
+      action { set_port_and_src_mac { port: "2" src_mac: "66:55:44:33:22:11" } }
     }
   }
   entries {
@@ -167,11 +168,14 @@ TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
   ASSERT_OK_AND_ASSIGN(
       symbolic::Dataplane dataplane,
       ParseToIr(config.p4_device_config(), ir_p4info, pi_entries));
-  std::vector<int> ports = {0, 1, 2};
+  std::vector<int> ports = {1, 2, 3, 4, 5};
+  symbolic::StaticTranslationPerType trasnlation;
+  trasnlation["port_id_t"] = {{"1", 1}, {"2", 2}, {"3", 3}, {"4", 4}, {"5", 5}};
   LOG(INFO) << "building model (this may take a while) ...";
   absl::Time start_time = absl::Now();
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<symbolic::SolverState> solver_state,
-                       symbolic::EvaluateP4Pipeline(dataplane, ports));
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<symbolic::SolverState> solver_state,
+      symbolic::EvaluateP4Pipeline(dataplane, ports, trasnlation));
   LOG(INFO) << "-> done in " << (absl::Now() - start_time);
   // Add constraints for parser.
   ASSERT_OK_AND_ASSIGN(
@@ -221,6 +225,14 @@ TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
   EXPECT_EQ(egress["ethernet.ether_type"], "#x0800");
   EXPECT_EQ(egress["ethernet.dst_addr"], "#xccbbaa998877");
   EXPECT_EQ(egress["ethernet.src_addr"], "#x665544332211");
+
+  // Make sure local_metadata.ingress_port is as expected.
+  ASSERT_OK_AND_ASSIGN(const std::string local_metadata_ingress_port,
+                       ExtractLocalMetadataIngressPortFromModel(*solver_state));
+  // TODO: Check equiality with the correct port when the issue is
+  // fixed.
+  ASSERT_THAT(local_metadata_ingress_port,
+              AnyOf(Eq("1"), Eq("2"), Eq("3"), Eq("4"), Eq("5")));
 }
 
 }  // namespace

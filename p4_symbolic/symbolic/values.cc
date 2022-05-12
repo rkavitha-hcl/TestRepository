@@ -34,6 +34,7 @@
 #include "absl/strings/strip.h"
 #include "absl/strings/substitute.h"
 #include "gmpxx.h"
+#include "gutil/status.h"
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/netaddr/ipv4_address.h"
 #include "p4_pdpi/netaddr/ipv6_address.h"
@@ -89,10 +90,16 @@ absl::StatusOr<z3::expr> FormatP4RTValue(const std::string &field_name,
 
       // Must translate the string into a bitvector according to the field type.
       const std::string &string_value = value.str();
-      IdAllocator &allocator =
-          translator->p4runtime_translation_allocators[type_name];
-      uint64_t int_value = allocator.AllocateId(string_value);
 
+      // If there is no IdAllocator for the given type (implying no static
+      // mapping was provided), create a new dynamic IdAllocator.
+      translator->p4runtime_translation_allocators.try_emplace(
+          type_name,
+          IdAllocator(/*dynamic_allocation=*/true, /*static_mapping=*/{}));
+      IdAllocator &allocator =
+          translator->p4runtime_translation_allocators.at(type_name);
+
+      ASSIGN_OR_RETURN(uint64_t int_value, allocator.AllocateId(string_value));
       if (bitwidth == 0) {
         bitwidth = FindBitsize(int_value);
       } else {
@@ -143,18 +150,40 @@ absl::StatusOr<std::string> TranslateValueToP4RT(
   return allocator.IdToString(int_value);
 }
 
-// IdAllocator Implementation.
+IdAllocator::IdAllocator(bool dynamic_allocation,
+                         const StaticTranslation &static_mapping)
+    : dynamic_allocation_(dynamic_allocation) {
+  for (const auto &[string_value, id] : static_mapping) {
+    string_to_id_map_[string_value] = id;
+    id_to_string_map_[id] = string_value;
+  }
+}
 
-uint64_t IdAllocator::AllocateId(const std::string &string_value) {
+absl::StatusOr<uint64_t> IdAllocator::AllocateId(
+    const std::string &string_value) {
   // If previously allocated, return the same bitvector value.
   if (this->string_to_id_map_.count(string_value)) {
     return this->string_to_id_map_.at(string_value);
   }
-  // Allocate new bitvector value and store it in mapping.
-  uint64_t int_value = this->counter_++;
-  this->string_to_id_map_.insert({string_value, int_value});
-  this->id_to_string_map_.insert({int_value, string_value});
-  return int_value;
+
+  if (dynamic_allocation_) {
+    // If dynamic allocation is enabled, allocate new bitvector value and store
+    // it in mapping.
+
+    // Get the next unused ID value.
+    while (id_to_string_map_.find(next_id_) != id_to_string_map_.end()) {
+      ++next_id_;
+    }
+
+    // Allocate it for the string value.
+    string_to_id_map_[string_value] = next_id_;
+    id_to_string_map_[next_id_] = string_value;
+    return next_id_;
+  } else {
+    return absl::InvalidArgumentError(
+        absl::StrCat("Cannot translate string value '", string_value,
+                     "' to a bitvector with the given static mapping."));
+  }
 }
 
 absl::StatusOr<std::string> IdAllocator::IdToString(uint64_t value) const {
@@ -164,8 +193,8 @@ absl::StatusOr<std::string> IdAllocator::IdToString(uint64_t value) const {
   }
 
   // Could not find the bitvector in reverse map!
-  return absl::InvalidArgumentError(
-      absl::StrCat("Cannot translate bitvector ", value, " to a string value"));
+  return absl::InvalidArgumentError(absl::StrCat(
+      "Cannot translate bitvector '", value, "' to a string value."));
 }
 
 }  // namespace values

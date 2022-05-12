@@ -22,6 +22,7 @@ cc_library(
     srcs = ["sai.cc"],
     hdrs = ["sai.h"],
     deps = [
+        ":fields",
         ":parser",
         "//p4_pdpi:ir",
         "//p4_pdpi:ir_cc_proto",
@@ -29,8 +30,10 @@ cc_library(
         "//p4_symbolic/symbolic",
         "@com_github_p4lang_p4runtime//:p4info_cc_proto",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/container:flat_hash_set",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
     ],
 )
 
@@ -40,11 +43,16 @@ cc_test(
     deps = [
         ":sai",
         "//gutil:status_matchers",
+        "//gutil:testing",
+        "//p4_pdpi:pd",
         "//p4_symbolic/symbolic",
         "//sai_p4/instantiations/google:instantiations",
         "//sai_p4/instantiations/google:sai_nonstandard_platforms_cc",
+        "//sai_p4/instantiations/google:sai_pd_cc_proto",
         "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/status",
         "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],
 )

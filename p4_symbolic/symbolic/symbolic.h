@@ -24,7 +24,6 @@
 #include <utility>
 #include <vector>
 
-#include "absl/container/btree_map.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "gutil/status.h"
@@ -208,11 +207,18 @@ struct SolverState {
 // }
 using Assertion = std::function<z3::expr(const SymbolicContext &)>;
 
+using StaticTranslationPerType =
+    absl::btree_map<std::string, values::StaticTranslation>;
+
 // Symbolically evaluates/interprets the given program against the given
 // entries for every table in that program, and the available physical ports
-// on the switch.
+// on the switch. Optionally, for types that have @p4runtime_translate(_,
+// string) annotation, a static mapping between the P4RT values and the
+// underlying bitvector values may be provided. Otherwise, a mapping is
+// inferred dynamically for such types.
 absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
-    const Dataplane &data_plane, const std::vector<int> &physical_ports);
+    const Dataplane &data_plane, const std::vector<int> &physical_ports = {},
+    const StaticTranslationPerType &translation_per_type = {});
 
 // Finds a concrete packet and flow in the program that satisfies the given
 // assertion and meets the structure constrained by solver_state.

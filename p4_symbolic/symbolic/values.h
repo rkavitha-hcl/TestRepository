@@ -34,17 +34,26 @@ namespace p4_symbolic {
 namespace symbolic {
 namespace values {
 
+// Static mapping between string values and ids.
+using StaticTranslation = std::vector<std::pair<std::string, uint64_t>>;
+
 // This class is responsible for translating string values into consistent
-// numberic ids, that can then be used to create bitvector values to use in
-// z3.
+// numeric ids, that can then be used to create bitvector values to use in Z3.
 // It also handles the reverse translation of previously allocated ids to
 // their corresponding string value.
 class IdAllocator {
  public:
-  // Allocates an arbitrary integer id to this string identifier.
-  // The Id is guaranteed to be consistent (the same bitvector is
-  // allocated to equal strings), and unique per instance of this class.
-  uint64_t AllocateId(const std::string &string_value);
+  IdAllocator(bool dynamic_allocation,
+              const StaticTranslation &static_mapping = {});
+
+  // Allocates an integer ID to this string identifier. If a static mapping is
+  // provided, the value from that mapping is used. If there is no static
+  // mapping for the string value and dynamic allocation is enabled, an
+  // arbitrary ID is used. Otherwise, returns an error. In case of dynamic
+  // allocation, the chosen ID is guaranteed to be consistent (the same
+  // bitvector is allocated to equal strings), and unique per instance of this
+  // class.
+  absl::StatusOr<uint64_t> AllocateId(const std::string &string_value);
 
   // Reverse translation of an allocated bit vector to the string value for
   // which it was allocated.
@@ -57,8 +66,11 @@ class IdAllocator {
   // A mapping from bitvector values to string values.
   std::unordered_map<uint64_t, std::string> id_to_string_map_;
 
-  // Counter used to come up with new values per new allocation.
-  uint64_t counter_ = 0;
+  // Indicates if the allocator should dynamically assign new Ids to new string
+  // values (i.e. values not present in the static mapping).
+  bool dynamic_allocation_ = true;
+  // Used to come up with new values per new allocation.
+  uint64_t next_id_ = 0;
 };
 
 // This struct stores all the state that is required to translate string values
