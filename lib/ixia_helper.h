@@ -282,6 +282,12 @@ absl::StatusOr<TrafficItemStats> GetTrafficItemStats(
     absl::string_view href, absl::string_view traffic_item_name,
     thinkit::GenericTestbed &generic_testbed);
 
+// Returns statistics for all traffic items, keyed by traffic item name.
+// Takes in the href returned by IxiaConnect, and the `traffic_item_name` set
+// by `SetUpTrafficItem`.
+absl::StatusOr<TrafficStats> GetAllTrafficItemStats(
+    absl::string_view href, thinkit::GenericTestbed &generic_testbed);
+
 // Computes average rate (bytes/s) at which traffic was received back by Ixia.
 inline double BytesPerSecondReceived(const TrafficItemStats &stats) {
   return stats.rx_bytes() /

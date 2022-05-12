@@ -478,8 +478,10 @@ absl::Status StartTraffic(absl::Span<const std::string> trefs,
                    json_yang::ParseJson(titem_response.response));
   RET_CHECK(response.is_array()) << titem_response;
   for (const Json &traffic_item : response) {
+    RET_CHECK(traffic_item.contains("errors")) << titem_response;
     RET_CHECK(traffic_item.contains("warnings")) << titem_response;
-    if (!traffic_item.at("warnings").empty()) {
+    if (!traffic_item.at("errors").empty() &&
+        !traffic_item.at("warnings").empty()) {
       LOG(WARNING) << "Found traffic items with warnings, which may result in "
                       "unexpected behavior. Dump of traffic items:\n"
                    << json_yang::DumpJson(response);
@@ -1090,6 +1092,10 @@ absl::StatusOr<TrafficStats> ParseTrafficItemStats(
     {
       ASSIGN_OR_RETURN(std::string raw, gutil::FindOrStatus(value_by_caption,
                                                             "First TimeStamp"));
+      if (raw.empty()) {
+        return gutil::UnavailableErrorBuilder()
+               << "'First TimeStamp' not available yet";
+      }
       ASSIGN_OR_RETURN(auto value,
                        ParseTimeStampAsSeconds(raw, "First TimeStamp"));
       parsed_row.set_first_time_stamp(value);
@@ -1106,13 +1112,13 @@ absl::StatusOr<TrafficStats> ParseTrafficItemStats(
   return result;
 }
 
-absl::StatusOr<TrafficItemStats> GetTrafficItemStats(
-    absl::string_view href, absl::string_view traffic_item_name,
-    thinkit::GenericTestbed &generic_testbed) {
+absl::StatusOr<TrafficStats> GetAllTrafficItemStats(
+    absl::string_view href, thinkit::GenericTestbed &generic_testbed) {
   // TODO: Look up dynamically instead of hard-coding.
   static constexpr int kTrafficItemStatsIndex = 9;
   // It takes some time for stats to become "ready", so we have to poll.
-  constexpr absl::Duration kPollDuration = absl::Seconds(15);
+  // TODO: Do not hardcode this.
+  constexpr absl::Duration kPollDuration = absl::Seconds(45);
   const absl::Time kTimeout = absl::Now() + kPollDuration;
   while (absl::Now() < kTimeout) {
     ASSIGN_OR_RETURN(
@@ -1120,19 +1126,28 @@ absl::StatusOr<TrafficItemStats> GetTrafficItemStats(
         GetRawStatsView(href, kTrafficItemStatsIndex, generic_testbed));
     absl::StatusOr<TrafficStats> stats = ParseTrafficItemStats(raw_stats);
     if (absl::IsUnavailable(stats.status())) {
+      absl::SleepFor(absl::Seconds(1));
       continue;  // Stats not ready yet, try again.
     } else {
       RETURN_IF_ERROR(stats.status()).SetAppend()
           << "\nwhile trying to parse the following stats:\n"
           << FormatJsonBestEffort(raw_stats);
     }
-    LOG(INFO) << "parsed traffic stats:\n" << stats->DebugString();
-    return gutil::FindOrStatus(stats->stats_by_traffic_item(),
-                               std::string(traffic_item_name));
+    return stats;
   }
 
   return gutil::UnavailableErrorBuilder()
          << "stats unavailable after " << kPollDuration << " of polling";
+}
+
+absl::StatusOr<TrafficItemStats> GetTrafficItemStats(
+    absl::string_view href, absl::string_view traffic_item_name,
+    thinkit::GenericTestbed &generic_testbed) {
+  ASSIGN_OR_RETURN(TrafficStats stats,
+                   GetAllTrafficItemStats(href, generic_testbed));
+  LOG(INFO) << "parsed traffic stats:\n" << stats.DebugString();
+  return gutil::FindOrStatus(stats.stats_by_traffic_item(),
+                             std::string(traffic_item_name));
 }
 
 absl::Status SetIpTrafficParameters(absl::string_view tref,
