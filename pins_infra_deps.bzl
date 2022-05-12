@@ -23,13 +23,9 @@ def pins_infra_deps():
     if not native.existing_rule("com_github_grpc_grpc"):
         http_archive(
             name = "com_github_grpc_grpc",
-            # TODO: The following is a temporary workaround to get the crl
-            # support without hitting big CA file issue.
-            # When https://github.com/grpc/grpc/issues/17340 is fixed,
-            # use appropriate released branch of https://github.com/grpc/grpc
-            url = "https://github.com/shak5009/grpc/archive/v.1.45.0-fix.zip",
-            strip_prefix = "grpc-v.1.45.0-fix",
-            sha256 = "233bd1fd620864e783331253498c74a806a4548176f9b9e30c2f23afcdc857b8",
+            url = "https://github.com/grpc/grpc/archive/v1.46.0.zip",
+            strip_prefix = "grpc-1.46.0",
+            sha256 = "1cbd6d6dfc9b1235766fc6b1d66d4f1dbb87f877a44c2a799bc8ee6b383af0fa",
         )
     if not native.existing_rule("com_google_absl"):
         http_archive(
