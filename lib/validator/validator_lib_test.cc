@@ -91,7 +91,6 @@ TEST(WaitForConditionTest, PassesTimeoutToCondition) {
   std::vector<absl::Duration> timeouts;
   auto record_timeout = [&timeouts](absl::Duration timeout) {
     timeouts.push_back(timeout);
-    absl::SleepFor(absl::Milliseconds(1));
     return absl::InternalError("Failed");
   };
   EXPECT_FALSE(WaitForCondition(record_timeout, absl::Milliseconds(10)).ok());
@@ -105,7 +104,7 @@ TEST(WaitForConditionTest, NotWorks) {
     ++call_count;
     return call_count < 5 ? absl::OkStatus() : absl::InternalError("Failed");
   };
-  EXPECT_OK(WaitForNot(succeed, absl::Milliseconds(1), ""));
+  EXPECT_OK(WaitForNot(succeed, absl::Milliseconds(50), ""));
   EXPECT_EQ(call_count, 5);
 }
 
