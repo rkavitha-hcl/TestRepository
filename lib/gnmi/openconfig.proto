@@ -31,8 +31,8 @@ message Interfaces {
     Subinterfaces subinterfaces = 3;
 
     message Config {
-      string name = 1;
-      string type = 2;
+      optional string name = 1;
+      optional string type = 2;
     }
   }
 }

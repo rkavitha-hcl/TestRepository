@@ -30,7 +30,6 @@ cc_library(
     ],
     deps = [
         ":gnmi_parsers",
-        ":openconfig_cc_proto",
         ":packet_in_receiver",
         ":qos_test_util",
         "//gutil:collections",
@@ -42,6 +41,7 @@ cc_library(
         "//gutil:testing",
         "//lib:ixia_helper",
         "//lib/gnmi:gnmi_helper",
+        "//lib/gnmi:openconfig_cc_proto",
         "//lib/p4rt:packet_listener",
         "//lib/validator:validator_lib",
         "//p4_pdpi:ir",
@@ -134,9 +134,9 @@ cc_library(
     srcs = ["gnmi_parsers.cc"],
     hdrs = ["gnmi_parsers.h"],
     deps = [
-        ":openconfig_cc_proto",
         "//gutil:overload",
         "//gutil:proto",
+        "//lib/gnmi:openconfig_cc_proto",
         "//p4_pdpi/netaddr:ipv4_address",
         "//p4_pdpi/netaddr:ipv6_address",
         "@com_google_absl//absl/status",
@@ -166,27 +166,17 @@ cmd_diff_test(
     tools = [":gnmi_parsers_test_runner"],
 )
 
-proto_library(
-    name = "openconfig_proto",
-    srcs = ["openconfig.proto"],
-)
-
-cc_proto_library(
-    name = "openconfig_cc_proto",
-    deps = [":openconfig_proto"],
-)
-
 cc_library(
     name = "qos_test_util",
     srcs = ["qos_test_util.cc"],
     hdrs = ["qos_test_util.h"],
     deps = [
         ":gnmi_parsers",
-        ":openconfig_cc_proto",
         "//gutil:collections",
         "//gutil:proto",
         "//gutil:status",
         "//lib/gnmi:gnmi_helper",
+        "//lib/gnmi:openconfig_cc_proto",
         "//lib/utils:json_utils",
         "//thinkit:generic_testbed",
         "//thinkit/proto:generic_testbed_cc_proto",

@@ -14,6 +14,7 @@
 #
 # PINS test functions that can be run on any infrastructure that supports ThinKit.
 
+
 package(
     default_visibility = ["//visibility:public"],
     licenses = ["notice"],
@@ -71,4 +72,14 @@ cc_test(
         "@com_google_absl//absl/types:span",
         "@com_google_googletest//:gtest_main",
     ],
+)
+
+proto_library(
+    name = "openconfig_proto",
+    srcs = ["openconfig.proto"],
+)
+
+cc_proto_library(
+    name = "openconfig_cc_proto",
+    deps = [":openconfig_proto"],
 )

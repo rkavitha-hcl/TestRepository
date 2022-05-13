@@ -8,9 +8,9 @@
 #include "gutil/overload.h"
 #include "gutil/proto.h"
 #include "gutil/status.h"
+#include "lib/gnmi/openconfig.pb.h"
 #include "p4_pdpi/netaddr/ipv4_address.h"
 #include "p4_pdpi/netaddr/ipv6_address.h"
-#include "tests/qos/openconfig.pb.h"
 
 namespace pins_test {
 

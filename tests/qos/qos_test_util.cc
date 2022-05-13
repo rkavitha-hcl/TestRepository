@@ -15,10 +15,10 @@
 #include "gutil/status.h"
 #include "include/nlohmann/json.hpp"
 #include "lib/gnmi/gnmi_helper.h"
+#include "lib/gnmi/openconfig.pb.h"
 #include "lib/utils/json_utils.h"
 #include "proto/gnmi/gnmi.pb.h"
 #include "tests/qos/gnmi_parsers.h"
-#include "tests/qos/openconfig.pb.h"
 
 namespace pins_test {
 
