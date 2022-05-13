@@ -108,6 +108,21 @@ TEST(WaitForConditionTest, NotWorks) {
   EXPECT_EQ(call_count, 5);
 }
 
+TEST(WaitForConditionTest, ReturnsMoreUsefulMessageAfterTimeout) {
+  int call_count = 0;
+  auto timeout_after_one_call = [&call_count](absl::Duration timeout) {
+    if (call_count > 0) {
+      absl::SleepFor(timeout);
+      return absl::DeadlineExceededError("Useless Message");
+    }
+    ++call_count;
+    return absl::InvalidArgumentError("A Useful Message");
+  };
+  EXPECT_THAT(WaitForCondition(timeout_after_one_call, absl::Milliseconds(10)),
+              gutil::StatusIs(absl::StatusCode::kDeadlineExceeded,
+                              testing::HasSubstr("A Useful Message")));
+}
+
 TEST(OnFailureTest, DoesntRunOnSuccess) {
   MockFunction<void()> mock_function;
   EXPECT_CALL(mock_function, Call()).Times(0);
