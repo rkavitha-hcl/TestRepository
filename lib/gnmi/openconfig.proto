@@ -33,6 +33,8 @@ message Interfaces {
     message Config {
       optional string name = 1;
       optional string type = 2;
+      optional bool enabled = 3;
+      optional uint32 p4rt_id = 4 [json_name = "openconfig-p4rt:id"];
     }
   }
 }
