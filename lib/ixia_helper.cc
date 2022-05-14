@@ -1043,9 +1043,13 @@ absl::StatusOr<TrafficStats> ParseTrafficItemStats(
     }
     const google::protobuf::ListValue &values = row.values(0).list_value();
     if (values.values_size() != stats_proto.column_captions_size()) {
+      if (stats_proto.column_captions_size() == 0 ||
+          values.values_size() == 0) {
+        return gutil::UnavailableErrorBuilder() << "stats not ready yet";
+      }
       return gutil::InvalidArgumentErrorBuilder()
              << "found " << stats_proto.column_captions_size()
-             << " columns, but only " << values.values_size()
+             << " column captions, but " << values.values_size()
              << " values in row '" << row_name << "'";
     }
 
