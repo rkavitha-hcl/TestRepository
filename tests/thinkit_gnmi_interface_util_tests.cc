@@ -854,7 +854,7 @@ TEST_F(GNMIThinkitInterfaceUtilityTest,
   EXPECT_THAT(
       pins_test::GetRandomPortWithSupportedBreakoutModes(
           *mock_gnmi_stub_ptr, platform_json_contents),
-      StatusIs(absl::StatusCode::kUnknown,
+      StatusIs(absl::StatusCode::kDeadlineExceeded,
                HasSubstr("Failed to get GNMI state path value for component "
                          "breakout paths for port Ethernet1/1/1")));
 }
@@ -1346,7 +1346,7 @@ TEST_F(GNMIThinkitInterfaceUtilityTest,
       .WillOnce(Return(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "")));
   EXPECT_THAT(pins_test::GetBreakoutStateInfoForPort(mock_gnmi_stub_ptr.get(),
                                                      port, breakout_mode),
-              StatusIs(absl::StatusCode::kUnknown,
+              StatusIs(absl::StatusCode::kDeadlineExceeded,
                        HasSubstr("Failed to get GNMI state path value for "
                                  "physical-channels for port Ethernet1/1/1")));
 }
@@ -1374,7 +1374,7 @@ TEST_F(GNMIThinkitInterfaceUtilityTest,
       .WillOnce(Return(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "")));
   EXPECT_THAT(pins_test::GetBreakoutStateInfoForPort(mock_gnmi_stub_ptr.get(),
                                                      port, breakout_mode),
-              StatusIs(absl::StatusCode::kUnknown,
+              StatusIs(absl::StatusCode::kDeadlineExceeded,
                        HasSubstr("Failed to get GNMI state path value for "
                                  "oper-status for port Ethernet1/1/1")));
 }
@@ -1601,7 +1601,7 @@ TEST_F(GNMIThinkitInterfaceUtilityTest,
   EXPECT_THAT(
       pins_test::GetBreakoutModeConfigFromString(
           req, mock_gnmi_stub_ptr.get(), port_index, intf_name, breakout_mode),
-      StatusIs(absl::StatusCode::kUnknown,
+      StatusIs(absl::StatusCode::kDeadlineExceeded,
                HasSubstr("Failed to get GNMI state path value for port "
                          "transceiver for port Ethernet1/1/1")));
 }
@@ -2175,7 +2175,7 @@ TEST_F(GNMIThinkitInterfaceUtilityTest, TestIsCopperPortTransceiverGetFailure) {
       .WillOnce(Return(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "")));
   EXPECT_THAT(
       pins_test::IsCopperPort(mock_gnmi_stub_ptr.get(), "Ethernet1/1/1"),
-      StatusIs(absl::StatusCode::kUnknown,
+      StatusIs(absl::StatusCode::kDeadlineExceeded,
                HasSubstr("Failed to get GNMI state path value for "
                          "port transceiver for port Ethernet1/1/1")));
 }
@@ -2197,7 +2197,7 @@ TEST_F(GNMIThinkitInterfaceUtilityTest, TestIsCopperPortCableLengthGetFailure) {
       .WillOnce(Return(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "")));
   EXPECT_THAT(
       pins_test::IsCopperPort(mock_gnmi_stub_ptr.get(), "Ethernet1/1/1"),
-      StatusIs(absl::StatusCode::kUnknown,
+      StatusIs(absl::StatusCode::kDeadlineExceeded,
                HasSubstr("Failed to get GNMI state path value for "
                          "cable-length for port Ethernet1/1/1")));
 }
@@ -2657,7 +2657,7 @@ TEST_F(GNMIThinkitInterfaceUtilityTest,
       .WillOnce(Return(grpc::Status(grpc::StatusCode::DEADLINE_EXCEEDED, "")));
   EXPECT_THAT(
       pins_test::GetCurrentBreakoutModeForPort(*mock_gnmi_stub_ptr, port_name),
-      StatusIs(absl::StatusCode::kUnknown,
+      StatusIs(absl::StatusCode::kDeadlineExceeded,
                HasSubstr("Failed to get GNMI state path value for interface "
                          "hardware-port for port Ethernet1/1/1")));
 }
