@@ -51,6 +51,7 @@ DEFINE_string(server_address, "unix:/sock/p4rt.sock",
 DEFINE_int32(min_silent_time, 0, "Min silent time in second");
 DEFINE_int32(max_silent_time, 0, "Max silent time in second");
 DEFINE_int32(delta_silent_time, 0, "Delta silent time in second");
+DEFINE_int64(device_id, 183807201, "Device ID");
 
 namespace p4rt_app {
 namespace {
@@ -117,8 +118,7 @@ absl::Status Main() {
   ASSIGN_OR_RETURN(
       p4rt_session,
       pdpi::P4RuntimeSession::Create(
-          std::move(stub),
-          /*device_id=*/183807201,
+          std::move(stub), (uint32_t)FLAGS_device_id,
           pdpi::P4RuntimeSessionOptionalArgs{.election_id = election_id},
           FLAGS_error_if_not_primary));
   ASSIGN_OR_RETURN(
