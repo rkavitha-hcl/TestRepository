@@ -34,8 +34,6 @@
 
 namespace p4_symbolic {
 
-constexpr char kPortIdTypeName[] = "port_id_t";
-
 // Checks if the set of physical ports is the same as the set of numeric IDs
 // passed as the static mapping for "port_id_t".
 absl::Status CheckPhysicalPortAndPortIdTypeValueConsistency(
@@ -81,7 +79,7 @@ absl::StatusOr<std::unique_ptr<symbolic::SolverState>> EvaluateSaiPipeline(
 }
 
 absl::StatusOr<std::string> ExtractLocalMetadataIngressPortFromModel(
-    symbolic::SolverState& solver_state) {
+    const symbolic::SolverState& solver_state) {
   ASSIGN_OR_RETURN(
       p4_symbolic::SaiFields ingress_fields,
       p4_symbolic::GetSaiFields(solver_state.context.ingress_headers));

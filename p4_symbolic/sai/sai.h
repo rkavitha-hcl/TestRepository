@@ -24,6 +24,8 @@
 
 namespace p4_symbolic {
 
+constexpr char kPortIdTypeName[] = "port_id_t";
+
 // Symbolically evaluates the SAI P4 program for the given forwarding pipeline
 // config with the given table entries. If `physical_ports` is non-empty, any
 // solution is guaranteed to only use ports from the list. Note that the set of
@@ -37,7 +39,7 @@ absl::StatusOr<std::unique_ptr<symbolic::SolverState>> EvaluateSaiPipeline(
     const symbolic::StaticTranslationPerType& translation_per_type = {});
 
 absl::StatusOr<std::string> ExtractLocalMetadataIngressPortFromModel(
-    symbolic::SolverState& solver_state);
+    const symbolic::SolverState& solver_state);
 
 }  // namespace p4_symbolic
 
