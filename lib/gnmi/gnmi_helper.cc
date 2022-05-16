@@ -410,14 +410,7 @@ absl::StatusOr<gnmi::GetResponse> GetAllInterfaceOverGnmi(
     gnmi::gNMI::StubInterface& stub, absl::Duration timeout) {
   ASSIGN_OR_RETURN(auto req,
                    BuildGnmiGetRequest("interfaces", gnmi::GetRequest::STATE));
-  gnmi::GetResponse resp;
-  grpc::ClientContext context;
-  context.set_wait_for_ready(true);
-  context.set_deadline(absl::ToChronoTime(absl::Now() + timeout));
-  grpc::Status status = stub.Get(&context, req, &resp);
-  if (!status.ok()) return gutil::GrpcStatusToAbslStatus(status);
-  LOG(INFO) << "Received GET response: " << resp.ShortDebugString();
-  return resp;
+  return SendGnmiGetRequest(&stub, req, timeout);
 }
 
 absl::StatusOr<absl::flat_hash_map<std::string, std::string>>
