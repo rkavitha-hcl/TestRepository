@@ -3,6 +3,7 @@
 #include <bitset>
 #include <cstdint>
 #include <memory>
+#include <optional>
 #include <queue>
 #include <string>
 #include <vector>
@@ -35,7 +36,8 @@
 #include "p4_pdpi/p4_runtime_session.h"
 #include "p4_pdpi/pd.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
-#include "thinkit/mirror_testbed_fixture.h"
+#include "tests/lib/switch_test_setup_helpers.h"
+#include "thinkit/mirror_testbed.h"
 
 namespace p4_fuzzer {
 namespace {
@@ -316,40 +318,44 @@ absl::Status AddAuxiliaryTableEntries(absl::BitGen& gen,
 
 TEST_P(MatchActionCoverageTestFixture,
        InsertEntriesForEveryTableAndMatchConfiguration) {
+  thinkit::MirrorTestbed& testbed =
+      GetParam().testbed_interface->GetMirrorTestbed();
+
+  // Initialize the connection and clear table entries for the SUT.
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<pdpi::P4RuntimeSession> p4rt_session,
+      pins_test::ConfigureSwitchAndReturnP4RuntimeSession(
+          testbed.Sut(), /*gnmi_config=*/std::nullopt, GetParam().p4info));
+
   absl::BitGen gen;
 
-  // Get all valid ports from the switch via gNMI.
-  ASSERT_OK_AND_ASSIGN(auto stub, GetMirrorTestbed().Sut().CreateGnmiStub());
-  ASSERT_OK_AND_ASSIGN(const absl::btree_set<std::string> ports,
-                       pins_test::GetAllPortIds(*stub));
+  FuzzerConfig config = GetParam().config;
+  // If the ports in the FuzzerConfig are unset, get all valid ports from the
+  // switch via gNMI.
+  if (config.ports.empty()) {
+    ASSERT_OK_AND_ASSIGN(auto stub, testbed.Sut().CreateGnmiStub());
+    ASSERT_OK_AND_ASSIGN(const absl::btree_set<std::string> ports,
+                         pins_test::GetAllPortIds(*stub));
+    config.ports = std::vector<std::string>(ports.begin(), ports.end());
+  }
 
-  auto config = FuzzerConfig{
-      .info = ir_p4_info(),
-      .ports = std::vector<std::string>(ports.begin(), ports.end()),
-      .qos_queues = {"0x1"},
-      // TODO: The tunnel_table is not currently supported by the
-      // switch.
-      .disabled_fully_qualified_names =
-          {
-              "ingress.routing.tunnel_table",
-              "ingress.routing.set_tunnel_encap_nexthop",
-              "ingress.routing.mark_for_tunnel_encap",
-          },
-      .role = "sdn_controller",
-      .mutate_update_probability = 0,
-  };
+  ASSERT_FALSE(config.ports.empty())
+      << "ports must be specified in the gNMI config pushed to the switch, but "
+         "none were";
 
-  thinkit::TestEnvironment& environment = GetMirrorTestbed().Environment();
+  // For this test, mutations are undesirable.
+  config.mutate_update_probability = 0;
 
   SwitchState state(config.info);
   // Sets up the switch such that there is a possible valid entry per table.
   // This is required due to the possibility of references between tables.
-  ASSERT_OK(AddAuxiliaryTableEntries(gen, GetSutP4RuntimeSession(), config,
-                                     state, environment));
+  ASSERT_OK(AddAuxiliaryTableEntries(gen, *p4rt_session, config, state,
+                                     testbed.Environment()));
 
   // Generates and installs entries that use every match field and action.
-  EXPECT_OK(AddTableEntryForEachMatchAndEachAction(
-      gen, GetSutP4RuntimeSession(), config, state, environment, p4_info()));
+  EXPECT_OK(AddTableEntryForEachMatchAndEachAction(gen, *p4rt_session, config,
+                                                   state, testbed.Environment(),
+                                                   GetParam().p4info));
 }
 
 }  // namespace
