@@ -137,6 +137,37 @@ message Qos {
       }
     }
   }
+  BufferAllocationProfiles buffer_allocation_profiles = 6
+      [json_name = "buffer-allocation-profiles"];
+
+  message BufferAllocationProfiles {
+    repeated BufferAllocationProfile buffer_allocation_profiles = 1
+        [json_name = "buffer-allocation-profiles"];
+  }
+  message BufferAllocationProfile {
+    optional string name = 1;  // List key.
+    Queues queues = 2;
+  }
+  message Queues {
+    repeated Queue queue = 1;
+  }
+  message Queue {
+    optional string name = 1;  // List key.
+    Config config = 2;
+    Config state = 3;
+
+    message Config {
+      optional string name = 1;
+      optional string dedicated_buffer = 2 [json_name = "dedicated-buffer"];
+      optional bool use_shared_buffer = 3 [json_name = "use-shared-buffer"];
+      optional string shared_buffer_limit_type = 4
+          [json_name = "shared-buffer-limit-type"];
+      optional uint32 static_shared_buffer_limit = 5
+          [json_name = "static-shared-buffer-limit"];
+      optional int32 dynamic_limit_scaling_factor = 6
+          [json_name = "dynamic-limit-scaling-factor"];
+    }
+  }
 }
 
 // -- Proto messages defined for convenience -----------------------------------
