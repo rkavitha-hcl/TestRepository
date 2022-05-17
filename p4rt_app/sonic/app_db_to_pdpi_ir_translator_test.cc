@@ -36,6 +36,7 @@ using ::gutil::EqualsProto;
 using ::gutil::IsOkAndHolds;
 using ::gutil::StatusIs;
 using ::testing::ContainerEq;
+using ::testing::HasSubstr;
 using ::testing::UnorderedElementsAreArray;
 
 absl::StatusOr<pdpi::IrP4Info> GetCanonicalP4Info() {
@@ -378,7 +379,7 @@ TEST(TranslateAppDbToPdpiTest, UnspecifiedMatchFieldFails) {
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
-TEST(TranslateAppDbToPdpiTest, InvalidMatchPrefixFails) {
+TEST(TranslateAppDbToPdpiTest, MatchFieldMustHaveAPrefix) {
   const std::string app_db_key =
       R"(FIXED_WCMP_GROUP_TABLE:{"wcmp_group_id":"8","priority":0})";
 
@@ -389,7 +390,19 @@ TEST(TranslateAppDbToPdpiTest, InvalidMatchPrefixFails) {
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
-TEST(TranslateAppDbToPdpiTest, InvalidActionPrefixFails) {
+TEST(TranslateAppDbToPdpiTest, InvalidMatchFieldNameFails) {
+  const std::string app_db_key =
+      R"(FIXED_ROUTER_INTERFACE_TABLE:{"match/bad_match_field":"16"})";
+
+  // The router interface table does not have a 'bad_match_field' match field.
+  ASSERT_OK_AND_ASSIGN(pdpi::IrP4Info p4_info, GetCanonicalP4Info());
+  EXPECT_THAT(AppDbKeyAndValuesToIrTableEntry(p4_info, app_db_key,
+                                              /*app_db_values=*/{}),
+              StatusIs(absl::StatusCode::kNotFound,
+                       HasSubstr("match field 'bad_match_field'")));
+}
+
+TEST(TranslateAppDbToPdpiTest, ActionParameterMustHaveAPrefix) {
   const std::string app_db_key =
       R"(FIXED_WCMP_GROUP_TABLE:{"match/wcmp_group_id":"8","priority":0})";
   std::vector<std::pair<std::string, std::string>> app_db_values = {
@@ -405,15 +418,50 @@ TEST(TranslateAppDbToPdpiTest, InvalidActionPrefixFails) {
       StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
-TEST(TranslateAppDbToPdpiTest, InvalidTableNameFails) {
+TEST(TranslateAppDbToPdpiTest, InvalidActionParameterNameFails) {
   const std::string app_db_key =
-      R"(RANDOM:ROUTER_INTERFACE_TABLE:{"match/router_interface_id":"16"})";
+      R"(FIXED_ROUTER_INTERFACE_TABLE:)"
+      R"({"priority":123,"match/router_interface_id":"16"})";
+  std::vector<std::pair<std::string, std::string>> app_db_values = {
+      {"action", "set_port_and_src_mac"},
+      {"param/invalid", "Ethernet28/5"},
+      {"param/src_mac", "00:02:03:04:05:06"},
+      {"meter/cir", "123"},
+      {"meter/cburst", "234"},
+      {"meter/pir", "345"},
+      {"meter/pburst", "456"},
+  };
+
+  // the set_port_and_src_mac action does not have 'invalid' as a parameter.
+  ASSERT_OK_AND_ASSIGN(pdpi::IrP4Info p4_info, GetCanonicalP4Info());
+  EXPECT_THAT(
+      AppDbKeyAndValuesToIrTableEntry(p4_info, app_db_key, app_db_values),
+      StatusIs(absl::StatusCode::kNotFound,
+               HasSubstr("action parameter 'invalid'")));
+}
+
+TEST(TranslateAppDbToPdpiTest, InvalidTableTypFails) {
+  const std::string app_db_key =
+      R"(RANDOM_ROUTER_INTERFACE_TABLE:{"match/router_interface_id":"16"})";
 
   // All P4 tables must start with "P4RT".
   pdpi::IrP4Info p4info;
   EXPECT_THAT(AppDbKeyAndValuesToIrTableEntry(p4info, app_db_key,
                                               /*app_db_values=*/{}),
-              StatusIs(absl::StatusCode::kInvalidArgument));
+              StatusIs(absl::StatusCode::kInvalidArgument,
+                       HasSubstr("<TableType>_<P4TableName>")));
+}
+
+TEST(TranslateAppDbToPdpiTest, InvalidTableNameFails) {
+  const std::string app_db_key =
+      R"(FIXED_FAKE_TABLE:{"match/bad_match_field":"16"})";
+
+  // There should be no fixed 'FAKE_TABLE' in the p4rt program.
+  ASSERT_OK_AND_ASSIGN(pdpi::IrP4Info p4_info, GetCanonicalP4Info());
+  EXPECT_THAT(AppDbKeyAndValuesToIrTableEntry(p4_info, app_db_key,
+                                              /*app_db_values=*/{}),
+              StatusIs(absl::StatusCode::kNotFound,
+                       HasSubstr("table 'fake_table' does not exist")));
 }
 
 }  // namespace

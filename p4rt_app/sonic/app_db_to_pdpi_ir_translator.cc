@@ -168,50 +168,57 @@ absl::StatusOr<pdpi::IrMatch> AppDbKeyValueStringsToIrMatch(
   pdpi::IrMatch field;
   field.set_name(key);
 
-  ASSIGN_OR_RETURN(auto p4_table,
-                   gutil::FindOrStatus(ir_p4_info.tables_by_name(),
-                                       absl::AsciiStrToLower(table_name)),
-                   _ << "Could not find table " << table_name
-                     << " for match field " << key << ".");
-  ASSIGN_OR_RETURN(
-      auto p4_match_field,
-      gutil::FindOrStatus(p4_table.match_fields_by_name(),
-                          absl::AsciiStrToLower(key)),
-      _ << "Table " << table_name << " missing match field " << key << ".");
+  const pdpi::IrTableDefinition *p4_table = gutil::FindOrNull(
+      ir_p4_info.tables_by_name(), absl::AsciiStrToLower(table_name));
+  if (p4_table == nullptr) {
+    return gutil::NotFoundErrorBuilder() << absl::StreamFormat(
+               "Could not translate AppDb match field '%s' into IR because the "
+               "table '%s' does not exist.",
+               key, table_name);
+  }
 
-  switch (p4_match_field.match_field().match_type()) {
+  const pdpi::IrMatchFieldDefinition *p4_match_field = gutil::FindOrNull(
+      p4_table->match_fields_by_name(), absl::AsciiStrToLower(key));
+  if (p4_match_field == nullptr) {
+    return gutil::NotFoundErrorBuilder() << absl::StreamFormat(
+               "Could not translate AppDb match field '%s' into IR because "
+               "table '%s' does not have the required field.",
+               key, table_name);
+  }
+
+  switch (p4_match_field->match_field().match_type()) {
     case p4::config::v1::MatchField::EXACT: {
       ASSIGN_OR_RETURN(
           *field.mutable_exact(),
-          FormattedStringToIrValue(value, p4_match_field.format()));
+          FormattedStringToIrValue(value, p4_match_field->format()));
       return field;
     }
     case p4::config::v1::MatchField::LPM: {
       ASSIGN_OR_RETURN(
           *field.mutable_lpm(),
-          AppDbLpmValueToIrLpmMatch(value, p4_match_field.format()));
+          AppDbLpmValueToIrLpmMatch(value, p4_match_field->format()));
       return field;
     }
     case p4::config::v1::MatchField::TERNARY: {
       ASSIGN_OR_RETURN(
           *field.mutable_ternary(),
-          AppDbTernaryValuttoIrTernaryMatch(value, p4_match_field.format()));
+          AppDbTernaryValuttoIrTernaryMatch(value, p4_match_field->format()));
       return field;
     }
     case p4::config::v1::MatchField::OPTIONAL: {
       ASSIGN_OR_RETURN(
           *field.mutable_optional()->mutable_value(),
-          FormattedStringToIrValue(value, p4_match_field.format()));
+          FormattedStringToIrValue(value, p4_match_field->format()));
       return field;
     }
     default:
       break;
   }
   LOG(ERROR) << "Could not translate AppDb Key/Value: "
-             << p4_match_field.match_field().ShortDebugString();
+             << p4_match_field->match_field().ShortDebugString();
   return gutil::InvalidArgumentErrorBuilder()
          << "Unsupported match field type: "
-         << p4_match_field.match_field().ShortDebugString();
+         << p4_match_field->match_field().ShortDebugString();
 }
 
 absl::StatusOr<pdpi::IrActionInvocation::IrActionParam>
@@ -227,26 +234,31 @@ AppDbNameValueStringsToIrActionParam(const pdpi::IrP4Info &ir_p4_info,
 
   pdpi::IrActionInvocation::IrActionParam param;
   param.set_name(param_name);
-  ASSIGN_OR_RETURN(auto p4_table,
-                   gutil::FindOrStatus(ir_p4_info.tables_by_name(),
-                                       absl::AsciiStrToLower(table_name)),
-                   _ << "Could not find table " << table_name << " for action "
-                     << action_name << ".");
-  VLOG(3) << "P4Info table description: " << p4_table.DebugString();
 
-  for (const auto &action : p4_table.entry_actions()) {
+  const pdpi::IrTableDefinition *p4_table = gutil::FindOrNull(
+      ir_p4_info.tables_by_name(), absl::AsciiStrToLower(table_name));
+  if (p4_table == nullptr) {
+    return gutil::NotFoundErrorBuilder()
+           << "Could not translate AppDb action '" << action_name
+           << "' into IR because table name '" << table_name
+           << "' does not exist?";
+  }
+
+  for (const auto &action : p4_table->entry_actions()) {
     VLOG(2) << "P4Info action: " << action.DebugString();
 
     if (action.action().preamble().alias() == action_name) {
-      ASSIGN_OR_RETURN(
-          auto p4_action_param,
-          gutil::FindOrStatus(action.action().params_by_name(), param_name),
-          _ << "Failed to lookup action parameter \"" << param_name
-            << "\" from table action [" << action.action().ShortDebugString()
-            << "].");
+      const pdpi::IrActionDefinition::IrActionParamDefinition *p4_action_param =
+          gutil::FindOrNull(action.action().params_by_name(), param_name);
+      if (p4_action_param == nullptr) {
+        return gutil::NotFoundErrorBuilder() << absl::StreamFormat(
+                   "Could not translate AppDb action parameter '%s' to IR "
+                   "because it doesn't exist in the table action '%s.%s()'",
+                   param_name, table_name, action_name);
+      }
       ASSIGN_OR_RETURN(
           *param.mutable_value(),
-          FormattedStringToIrValue(value, p4_action_param.format()));
+          FormattedStringToIrValue(value, p4_action_param->format()));
       return param;
     }
   }
