@@ -294,7 +294,7 @@ absl::StatusOr<std::vector<std::string>> ProgramHashFieldTable(
     HashTable& hash_table, const pdpi::IrP4Info& ir_p4info) {
   // Get the key, value pairs of Hash field APP_DB entries.
   ASSIGN_OR_RETURN(const auto entries,
-                   sonic::GenerateAppDbHashFieldEntries(ir_p4info));
+                   GenerateAppDbHashFieldEntries(ir_p4info));
 
   // Write to APP_DB.
   pdpi::IrWriteResponse update_status;
@@ -306,9 +306,9 @@ absl::StatusOr<std::vector<std::string>> ProgramHashFieldTable(
 
   // Wait for the OrchAgent's repsonse.
   pdpi::IrWriteResponse ir_write_response;
-  RETURN_IF_ERROR(sonic::GetAndProcessResponseNotification(
+  RETURN_IF_ERROR(GetAndProcessResponseNotification(
       *hash_table.notifier, *hash_table.app_db, *hash_table.app_state_db,
-      status_by_key));
+      status_by_key, ResponseTimeMonitor::kNone));
 
   // Pickup the hash field keys that were written(and ack'ed) successfully by
   // OrchAgent.
@@ -334,7 +334,7 @@ absl::Status ProgramSwitchTable(SwitchTable& switch_table,
   // Get all the hash value related attributes like algorithm type, offset and
   // seed value etc.
   ASSIGN_OR_RETURN(switch_table_attrs,
-                   sonic::GenerateAppDbHashValueEntries(ir_p4info));
+                   GenerateAppDbHashValueEntries(ir_p4info));
 
   // Add the ecmp hash fields for Ipv4 & Ipv6.
   for (const auto& hash_field_key : hash_fields) {
@@ -359,9 +359,10 @@ absl::Status ProgramSwitchTable(SwitchTable& switch_table,
   switch_table.producer_state->set(kSwitchTableEntryKey, switch_table_attrs);
 
   ASSIGN_OR_RETURN(pdpi::IrUpdateStatus status,
-                   sonic::GetAndProcessResponseNotification(
+                   GetAndProcessResponseNotification(
                        *switch_table.notifier, *switch_table.app_db,
-                       *switch_table.app_state_db, kSwitchTableEntryKey));
+                       *switch_table.app_state_db, kSwitchTableEntryKey,
+                       ResponseTimeMonitor::kNone));
 
   // Failing to program the switch table should never happen so we return an
   // internal error.

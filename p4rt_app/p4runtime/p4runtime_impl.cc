@@ -24,6 +24,8 @@
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/substitute.h"
+#include "absl/time/clock.h"
+#include "absl/time/time.h"
 #include "boost/bimap.hpp"
 #include "glog/logging.h"
 #include "google/protobuf/descriptor.h"
@@ -73,6 +75,13 @@ grpc::Status EnterCriticalState(
   state_helper.ReportComponentState(swss::ComponentState::kError, message);
   return grpc::Status(grpc::StatusCode::INTERNAL,
                       absl::StrCat("[P4RT App going CRITICAL] ", message));
+}
+
+EventExecutionTimeMonitor& GetWriteTimeMonitor() {
+  static EventExecutionTimeMonitor* const kMonitor =
+      new EventExecutionTimeMonitor("p4rt_app::Write()",
+                                    /*log_threshold=*/10000);
+  return *kMonitor;
 }
 
 absl::Status SupportedTableEntryRequest(const p4::v1::TableEntry& table_entry) {
@@ -383,6 +392,7 @@ grpc::Status P4RuntimeImpl::Write(grpc::ServerContext* context,
   try {
 #endif
     absl::MutexLock l(&server_state_lock_);
+    absl::Time write_start_time = absl::Now();
 
     // Verify the request comes from the primary connection.
     auto connection_status = controller_manager_->AllowRequest(*request);
@@ -426,6 +436,12 @@ grpc::Status P4RuntimeImpl::Write(grpc::ServerContext* context,
       return EnterCriticalState(grpc_status.status().ToString(),
                                 component_state_);
     }
+
+    absl::Duration write_execution_time = absl::Now() - write_start_time;
+    absl::Status monitor_status =
+        GetWriteTimeMonitor().IncrementEventCountWithDuration(
+            app_db_updates.total_rpc_updates, write_execution_time);
+    LOG_IF(ERROR, !monitor_status.ok()) << monitor_status;
     return *grpc_status;
 #ifdef __EXCEPTIONS
   } catch (const std::exception& e) {
@@ -1035,7 +1051,8 @@ absl::Status P4RuntimeImpl::ConfigureAppDbTables(
       ASSIGN_OR_RETURN(pdpi::IrUpdateStatus status,
                        sonic::GetAndProcessResponseNotification(
                            *p4rt_table_.notifier, *p4rt_table_.app_db,
-                           *p4rt_table_.app_state_db, acl_key));
+                           *p4rt_table_.app_state_db, acl_key,
+                           sonic::ResponseTimeMonitor::kNone));
 
       // Any issue with the forwarding config should be sent back to the
       // controller as an INVALID_ARGUMENT.

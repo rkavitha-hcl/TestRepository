@@ -344,7 +344,7 @@ absl::Status UpdateAppDb(P4rtTable& p4rt_table, VrfTable& vrf_table,
   WriteBatchToAppDb(p4rt_table, p4rt_inserts, p4rt_modifies, p4rt_deletes);
   RETURN_IF_ERROR(GetAndProcessResponseNotification(
       *p4rt_table.notifier, *p4rt_table.app_db, *p4rt_table.app_state_db,
-      app_db_status));
+      app_db_status, ResponseTimeMonitor::kP4rtTableWrite));
 
   return absl::OkStatus();
 }
