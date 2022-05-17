@@ -18,12 +18,17 @@
 #include <cstdint>
 #include <memory>
 #include <string>
+#include <string_view>
 #include <utility>
 
 #include "absl/status/statusor.h"
 #include "cert/cert.grpc.pb.h"
 #include "diag/diag.grpc.pb.h"
 #include "factory_reset/factory_reset.grpc.pb.h"
+#include "grpc/grpc_security_constants.h"
+#include "grpcpp/security/credentials.h"
+#include "grpcpp/support/channel_arguments.h"
+#include "grpcpp/support/stub_options.h"
 #include "os/os.grpc.pb.h"
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
@@ -41,6 +46,34 @@ struct SwitchServices {
   std::string gnoi_address;
 };
 
+class LocalTcp {
+ public:
+  std::shared_ptr<grpc::ChannelCredentials> Credentials() {
+    return grpc::experimental::LocalCredentials(LOCAL_TCP);
+  }
+};
+
+// A simple stub creation policy that creates a custom channel to the address
+// using the `CredentialsPolicy` passed in. This policy has one function
+// `std::shared_ptr<grpc::ChannelCredentials> Credentials()`.
+template <class CredentialsPolicy>
+class CreateGrpcStub : private CredentialsPolicy {
+ public:
+  template <class... Args>
+  explicit CreateGrpcStub(Args&&... args)
+      : CredentialsPolicy(std::forward<Args>(args)...) {}
+
+  template <class NewStubFunction>
+  auto Create(NewStubFunction&& new_stub, const std::string& address,
+              std::string_view /*chassis*/, std::string_view /*stub_type*/,
+              grpc::ChannelArguments channel_arguments = {}) {
+    return new_stub(
+        grpc::CreateCustomChannel(address, CredentialsPolicy::Credentials(),
+                                  channel_arguments),
+        grpc::StubOptions());
+  }
+};
+
 // BasicSwitch implements ThinKit's Switch interface by creating stubs to
 // addresses of the various gRPC services that connect to the switch. The
 // template parameter allows the user to provide a policy class to create new
@@ -51,16 +84,17 @@ struct SwitchServices {
 // forwarded to this policy class.
 //
 // e.g.
-// class CreateGrpcStub {
-//   template<class NewStubFunction>
-//   auto Create(NewStubFunction&& new_stub, std::string_view address,
-//       std::string_view chassis, std::string_view stub_type,
-//       const grpc::ChannelArguments& channel_arguments = {}) {
+// class CreateMyGrpcStub {
+//  public:
+//   template <class NewStubFunction>
+//   auto Create(NewStubFunction&& new_stub, const std::string& address,
+//               std::string_view /*chassis*/, std::string_view /*stub_type*/,
+//               grpc::ChannelArguments channel_arguments = {}) {
 //     return new_stub(grpc::CreateCustomChannel(...), ...);
 //   }
 // };
-// BasicSwitch<CreateGrpcStub> my_switch(...);
-// absl::make_unique<BasicSwitch<CreateGrpcStub>>(...);
+// BasicSwitch<CreateMyGrpcStub> my_switch(...);
+// absl::make_unique<BasicSwitch<CreateGrpcStub<LocalTcp>>>(...);
 template <class CreateStubPolicy>
 class BasicSwitch : public thinkit::Switch, private CreateStubPolicy {
  public:
