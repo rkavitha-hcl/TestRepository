@@ -64,6 +64,7 @@
 #include "tests/forwarding/packet_test_util.h"
 #include "tests/forwarding/test_vector.pb.h"
 #include "tests/forwarding/util.h"
+#include "tests/lib/p4rt_fixed_table_programming_helper.h"
 #include "tests/thinkit_sanity_tests.h"
 #include "thinkit/mirror_testbed.h"
 #include "thinkit/mirror_testbed_fixture.h"
@@ -264,6 +265,17 @@ absl::StatusOr<absl::flat_hash_map<int, int>> CountNumPacketsPerPort(
     num_packets_per_port[out_port]++;
   }
   return num_packets_per_port;
+}
+
+// Program L3 Admit table for the given mac-address.
+absl::Status ProgramL3Admit(pdpi::P4RuntimeSession& p4_session,
+                            const pdpi::IrP4Info& ir_p4info,
+                            const L3AdmitOptions& options) {
+  p4::v1::WriteRequest write_request;
+  ASSIGN_OR_RETURN(
+      *write_request.add_updates(),
+      L3AdmitTableUpdate(ir_p4info, p4::v1::Update::INSERT, options));
+  return pdpi::SetMetadataAndSendPiWriteRequest(&p4_session, write_request);
 }
 
 // Sends N packets from the control switch to sut at a rate of 500 packets/sec.
@@ -575,6 +587,15 @@ TEST_P(WatchPortTestFixture, VerifyBasicWcmpPacketDistribution) {
                                            p4::v1::Update::INSERT))
       << "Failed to program WCMP group: ";
 
+  // Allow the destination mac address to L3.
+  ASSERT_OK(ProgramL3Admit(
+      *sut_p4_session_, ir_p4info,
+      L3AdmitOptions{
+          .priority = 2070,
+          .dst_mac = std ::make_pair(gpins::GetIthDstMac(0).ToString(),
+                                     "FF:FF:FF:FF:FF:FF"),
+      }));
+
   // Program default routing for all packets on SUT.
   ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, ir_p4info, kVrfId,
                                  p4::v1::Update::INSERT));
@@ -654,6 +675,16 @@ TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
   ASSERT_OK(gpins::ProgramGroupWithMembers(environment, *sut_p4_session_,
                                            ir_p4info, kGroupId, members,
                                            p4::v1::Update::INSERT));
+
+  // Allow the destination mac address to L3.
+  ASSERT_OK(ProgramL3Admit(
+      *sut_p4_session_, ir_p4info,
+      L3AdmitOptions{
+          .priority = 2070,
+          .dst_mac = std ::make_pair(gpins::GetIthDstMac(0).ToString(),
+                                     "FF:FF:FF:FF:FF:FF"),
+      }));
+
   // Program default routing for all packets on SUT.
   ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, ir_p4info, kVrfId,
                                  p4::v1::Update::INSERT));
@@ -769,6 +800,16 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionInCriticalState) {
   ASSERT_OK(gpins::ProgramGroupWithMembers(environment, *sut_p4_session_,
                                            ir_p4info, kGroupId, members,
                                            p4::v1::Update::INSERT));
+
+  // Allow the destination mac address to L3.
+  ASSERT_OK(ProgramL3Admit(
+      *sut_p4_session_, ir_p4info,
+      L3AdmitOptions{
+          .priority = 2070,
+          .dst_mac = std ::make_pair(gpins::GetIthDstMac(0).ToString(),
+                                     "FF:FF:FF:FF:FF:FF"),
+      }));
+
   // Program default routing for all packets on SUT.
   ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, ir_p4info, kVrfId,
                                  p4::v1::Update::INSERT));
@@ -878,6 +919,16 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForSingleMember) {
   ASSERT_OK(gpins::ProgramGroupWithMembers(environment, *sut_p4_session_,
                                            ir_p4info, kGroupId, members,
                                            p4::v1::Update::INSERT));
+
+  // Allow the destination mac address to L3.
+  ASSERT_OK(ProgramL3Admit(
+      *sut_p4_session_, ir_p4info,
+      L3AdmitOptions{
+          .priority = 2070,
+          .dst_mac = std ::make_pair(gpins::GetIthDstMac(0).ToString(),
+                                     "FF:FF:FF:FF:FF:FF"),
+      }));
+
   // Program default routing for all packets on SUT.
   ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, ir_p4info, kVrfId,
                                  p4::v1::Update::INSERT));
@@ -992,6 +1043,16 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForMemberModify) {
   ASSERT_OK(gpins::ProgramGroupWithMembers(environment, *sut_p4_session_,
                                            ir_p4info, kGroupId, members,
                                            p4::v1::Update::INSERT));
+
+  // Allow the destination mac address to L3.
+  ASSERT_OK(ProgramL3Admit(
+      *sut_p4_session_, ir_p4info,
+      L3AdmitOptions{
+          .priority = 2070,
+          .dst_mac = std ::make_pair(gpins::GetIthDstMac(0).ToString(),
+                                     "FF:FF:FF:FF:FF:FF"),
+      }));
+
   // Program default routing for all packets on SUT.
   ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, ir_p4info, kVrfId,
                                  p4::v1::Update::INSERT));
@@ -1124,6 +1185,16 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForDownPortMemberInsert) {
   ASSERT_OK(gpins::ProgramGroupWithMembers(environment, *sut_p4_session_,
                                            ir_p4info, kGroupId, members,
                                            p4::v1::Update::INSERT));
+
+  // Allow the destination mac address to L3.
+  ASSERT_OK(ProgramL3Admit(
+      *sut_p4_session_, ir_p4info,
+      L3AdmitOptions{
+          .priority = 2070,
+          .dst_mac = std ::make_pair(gpins::GetIthDstMac(0).ToString(),
+                                     "FF:FF:FF:FF:FF:FF"),
+      }));
+
   // Program default routing for all packets on SUT.
   ASSERT_OK(ProgramDefaultRoutes(*sut_p4_session_, ir_p4info, kVrfId,
                                  p4::v1::Update::INSERT));
