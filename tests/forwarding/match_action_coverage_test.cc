@@ -12,6 +12,7 @@
 #include "absl/container/flat_hash_map.h"
 #include "absl/random/random.h"
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
@@ -85,6 +86,41 @@ bool IsOmittable(const pdpi::IrMatchFieldDefinition& match_field_definition) {
              p4::config::v1::MatchField::LPM;
 }
 
+// Used to mask bugs that affect specific entries, but not every entry of a
+// particular table, with a particular match field, or with a particular action.
+// Such bugs should be masked using the FuzzerConfig's
+// `disabled_fully_qualified_names`.
+bool EntryTriggersKnownBug(const pdpi::IrP4Info& info,
+                           const TableEntry& entry) {
+  // Convert the entry to PD to simplify logic.
+  sai::TableEntry pd_entry;
+  CHECK(pdpi::PiTableEntryToPd(info, entry, &pd_entry).ok());  // Crash OK
+
+  // TODO: Route metadata values 1 and 2 are currently not
+  // supported.
+  if (pd_entry.has_ipv4_table_entry()) {
+    const sai::Ipv4TableEntry::Action action =
+        pd_entry.ipv4_table_entry().action();
+    return action.set_metadata_and_drop().route_metadata() == "0x01" ||
+           action.set_metadata_and_drop().route_metadata() == "0x02" ||
+           action.set_wcmp_group_id_and_metadata().route_metadata() == "0x01" ||
+           action.set_wcmp_group_id_and_metadata().route_metadata() == "0x02" ||
+           action.set_nexthop_id_and_metadata().route_metadata() == "0x01" ||
+           action.set_nexthop_id_and_metadata().route_metadata() == "0x02";
+  }
+  if (pd_entry.has_ipv6_table_entry()) {
+    const sai::Ipv6TableEntry::Action action =
+        pd_entry.ipv6_table_entry().action();
+    return action.set_metadata_and_drop().route_metadata() == "0x01" ||
+           action.set_metadata_and_drop().route_metadata() == "0x02" ||
+           action.set_wcmp_group_id_and_metadata().route_metadata() == "0x01" ||
+           action.set_wcmp_group_id_and_metadata().route_metadata() == "0x02" ||
+           action.set_nexthop_id_and_metadata().route_metadata() == "0x01" ||
+           action.set_nexthop_id_and_metadata().route_metadata() == "0x02";
+  }
+  return false;
+}
+
 // Generates valid table entries for `table` until one meets the given
 // `predicate`. Unless an entry with the same keys already exists on the switch,
 // installs the generated table entry and updates `state`.
@@ -94,10 +130,15 @@ absl::Status GenerateAndInstallEntryThatMeetsPredicate(
     thinkit::TestEnvironment& environment, const pdpi::IrTableDefinition& table,
     const TableEntryPredicate& predicate) {
   TableEntry entry;
+  // Generate new entries until we satisfy our predicates or do not trigger
+  // known bugs (if we are masking known failures). Continue trying for at most
+  // 10 seconds.
   const absl::Time kDeadline = absl::Now() + absl::Seconds(10);
   do {
     ASSIGN_OR_RETURN(entry, FuzzValidTableEntry(&gen, config, state, table));
-  } while (!predicate(entry) && absl::Now() < kDeadline);
+  } while ((!predicate(entry) || (environment.MaskKnownFailures() &&
+                                  EntryTriggersKnownBug(config.info, entry))) &&
+           absl::Now() < kDeadline);
   // If we timeout, we return an error.
   if (!predicate(entry)) {
     return gutil::DeadlineExceededErrorBuilder() << absl::Substitute(
