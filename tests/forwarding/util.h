@@ -19,6 +19,7 @@
 #include <string>
 
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/time/time.h"
 #include "p4_pdpi/p4_runtime_session.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
@@ -32,6 +33,9 @@ absl::Status TryUpToNTimes(int n, absl::Duration delay,
                            std::function<absl::Status(int iteration)> callback);
 absl::Status TryUpToNTimes(int n, absl::Duration delay,
                            std::function<absl::Status()> callback);
+template <class T>
+absl::StatusOr<T> TryStatusOrUpToNTimes(
+    int n, absl::Duration delay, std::function<absl::StatusOr<T>()> callback);
 
 // Injects the given test packet via packetIO at the egress port specified by
 // the test packet, using the given P4RT session.
@@ -44,6 +48,19 @@ absl::Status InjectEgressPacket(const std::string& port,
 absl::Status InjectIngressPacket(const std::string& packet,
                                  const pdpi::IrP4Info& p4info,
                                  pdpi::P4RuntimeSession* p4rt);
+
+// -- END OF PUBLIC INTERFACE -- implementation details follow -----------------
+
+template <class T>
+absl::StatusOr<T> TryStatusOrUpToNTimes(
+    int n, absl::Duration delay, std::function<absl::StatusOr<T>()> callback) {
+  absl::StatusOr<T> result;
+  TryUpToNTimes(n, delay, [&] {
+    result = callback();
+    return result.status();
+  }).IgnoreError();
+  return result;
+}
 
 }  // namespace gpins
 
