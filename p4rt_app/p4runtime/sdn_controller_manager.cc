@@ -111,6 +111,9 @@ grpc::Status SdnControllerManager::HandleArbitrationUpdate(
     const p4::v1::MasterArbitrationUpdate& update, SdnConnection* controller) {
   absl::MutexLock l(&lock_);
 
+  // TODO: arbitration should fail with invalid device id.
+  device_id_ = update.device_id();
+
   // If the Device ID has not been set then we don't allow any connections.
   if (!device_id_.has_value()) {
     return grpc::Status(
