@@ -24,6 +24,8 @@
 #include <utility>
 #include <vector>
 
+#include "absl/base/attributes.h"
+#include "absl/base/macros.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/string_view.h"
 #include "gutil/status.h"
@@ -227,6 +229,13 @@ absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
 
 // Finds a concrete packet and flow in the program that satisfies the given
 // assertion and meets the structure constrained by solver_state.
+absl::StatusOr<std::optional<ConcreteContext>> Solve(
+    SolverState &solver_state, const Assertion &assertion);
+absl::StatusOr<std::optional<ConcreteContext>> Solve(
+    const SolverState &solver_state);
+
+ABSL_DEPRECATED(
+    "Use the overload Solve(SolverState&, const Assertion&) instead.")
 absl::StatusOr<std::optional<ConcreteContext>> Solve(
     const std::unique_ptr<SolverState> &solver_state,
     const Assertion &assertion);

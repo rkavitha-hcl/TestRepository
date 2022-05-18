@@ -175,30 +175,39 @@ absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
 }
 
 absl::StatusOr<std::optional<ConcreteContext>> Solve(
-    const std::unique_ptr<SolverState> &solver_state,
-    const Assertion &assertion) {
-  z3::expr constraint = assertion(solver_state->context);
-
-  solver_state->solver->push();
-  solver_state->solver->add(constraint);
-  auto pop = absl::Cleanup([&] { solver_state->solver->pop(); });
-  z3::check_result check_result = solver_state->solver->check();
+    const SolverState &solver_state) {
+  z3::check_result check_result = solver_state.solver->check();
   switch (check_result) {
     case z3::unsat:
     case z3::unknown:
       return absl::nullopt;
 
     case z3::sat:
-      z3::model packet_model = solver_state->solver->get_model();
+      z3::model packet_model = solver_state.solver->get_model();
       ASSIGN_OR_RETURN(
           ConcreteContext result,
-          util::ExtractFromModel(solver_state->context, packet_model,
-                                 solver_state->translator));
+          util::ExtractFromModel(solver_state.context, packet_model,
+                                 solver_state.translator));
       return result;
   }
   LOG(DFATAL) << "invalid Z3 check() result: "
               << static_cast<int>(check_result);
   return absl::nullopt;
+}
+
+absl::StatusOr<std::optional<ConcreteContext>> Solve(
+    SolverState &solver_state, const Assertion &assertion) {
+  z3::expr constraint = assertion(solver_state.context);
+  solver_state.solver->push();
+  solver_state.solver->add(constraint);
+  auto pop = absl::Cleanup([&] { solver_state.solver->pop(); });
+  return Solve(solver_state);
+}
+
+absl::StatusOr<std::optional<ConcreteContext>> Solve(
+    const std::unique_ptr<SolverState> &solver_state,
+    const Assertion &assertion) {
+  return Solve(*solver_state, assertion);
 }
 
 std::string DebugSMT(const std::unique_ptr<SolverState> &solver_state,
