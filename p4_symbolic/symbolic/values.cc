@@ -94,8 +94,10 @@ absl::StatusOr<z3::expr> FormatP4RTValue(const std::string &field_name,
       // If there is no IdAllocator for the given type (implying no static
       // mapping was provided), create a new dynamic IdAllocator.
       translator->p4runtime_translation_allocators.try_emplace(
-          type_name,
-          IdAllocator(/*dynamic_allocation=*/true, /*static_mapping=*/{}));
+          type_name, IdAllocator(TranslationData{
+                         .static_mapping = {},
+                         .dynamic_translation = true,
+                     }));
       IdAllocator &allocator =
           translator->p4runtime_translation_allocators.at(type_name);
 
@@ -150,10 +152,9 @@ absl::StatusOr<std::string> TranslateValueToP4RT(
   return allocator.IdToString(int_value);
 }
 
-IdAllocator::IdAllocator(bool dynamic_allocation,
-                         const StaticTranslation &static_mapping)
-    : dynamic_allocation_(dynamic_allocation) {
-  for (const auto &[string_value, id] : static_mapping) {
+IdAllocator::IdAllocator(const TranslationData &translation_data)
+    : translation_data_(translation_data) {
+  for (const auto &[string_value, id] : translation_data_.static_mapping) {
     string_to_id_map_[string_value] = id;
     id_to_string_map_[id] = string_value;
   }
@@ -166,7 +167,7 @@ absl::StatusOr<uint64_t> IdAllocator::AllocateId(
     return this->string_to_id_map_.at(string_value);
   }
 
-  if (dynamic_allocation_) {
+  if (translation_data_.dynamic_translation) {
     // If dynamic allocation is enabled, allocate new bitvector value and store
     // it in mapping.
 

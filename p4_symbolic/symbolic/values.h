@@ -34,8 +34,18 @@ namespace p4_symbolic {
 namespace symbolic {
 namespace values {
 
-// Static mapping between string values and ids.
-using StaticTranslation = std::vector<std::pair<std::string, uint64_t>>;
+// Translation data for a certain (P4RT translated) P4 type.
+struct TranslationData {
+  // Static mapping between string values and ids.
+  std::vector<std::pair<std::string, uint64_t>> static_mapping;
+  // Indicates if the allocator should dynamically assign new Ids to new string
+  // values (i.e. values not present in the static mapping).
+  // Note: If a translation is purely static (i.e. dynamic_translation = false),
+  // the domain of the possible values for any variable with that type is
+  // restricted to to values static_mapping (see symbolic.cc). In the future, we
+  // might want to add a parameter to make this configurable by the user.
+  bool dynamic_translation = false;
+};
 
 // This class is responsible for translating string values into consistent
 // numeric ids, that can then be used to create bitvector values to use in Z3.
@@ -43,8 +53,7 @@ using StaticTranslation = std::vector<std::pair<std::string, uint64_t>>;
 // their corresponding string value.
 class IdAllocator {
  public:
-  IdAllocator(bool dynamic_allocation,
-              const StaticTranslation &static_mapping = {});
+  IdAllocator(const TranslationData &translation_data);
 
   // Allocates an integer ID to this string identifier. If a static mapping is
   // provided, the value from that mapping is used. If there is no static
@@ -66,9 +75,7 @@ class IdAllocator {
   // A mapping from bitvector values to string values.
   std::unordered_map<uint64_t, std::string> id_to_string_map_;
 
-  // Indicates if the allocator should dynamically assign new Ids to new string
-  // values (i.e. values not present in the static mapping).
-  bool dynamic_allocation_ = true;
+  TranslationData translation_data_;
   // Used to come up with new values per new allocation.
   uint64_t next_id_ = 0;
 };

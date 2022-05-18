@@ -169,13 +169,16 @@ TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
       symbolic::Dataplane dataplane,
       ParseToIr(config.p4_device_config(), ir_p4info, pi_entries));
   std::vector<int> ports = {1, 2, 3, 4, 5};
-  symbolic::StaticTranslationPerType trasnlation;
-  trasnlation["port_id_t"] = {{"1", 1}, {"2", 2}, {"3", 3}, {"4", 4}, {"5", 5}};
+  symbolic::StaticTranslationPerType translations;
+  translations[kPortIdTypeName] = symbolic::values::TranslationData{
+      .static_mapping = {{"1", 1}, {"2", 2}, {"3", 3}, {"4", 4}, {"5", 5}},
+      .dynamic_translation = false,
+  };
   LOG(INFO) << "building model (this may take a while) ...";
   absl::Time start_time = absl::Now();
   ASSERT_OK_AND_ASSIGN(
       std::unique_ptr<symbolic::SolverState> solver_state,
-      symbolic::EvaluateP4Pipeline(dataplane, ports, trasnlation));
+      symbolic::EvaluateP4Pipeline(dataplane, ports, translations));
   LOG(INFO) << "-> done in " << (absl::Now() - start_time);
   // Add constraints for parser.
   ASSERT_OK_AND_ASSIGN(

@@ -207,8 +207,13 @@ struct SolverState {
 // }
 using Assertion = std::function<z3::expr(const SymbolicContext &)>;
 
+// User provided TranslationData for P4 types. This is a partial
+// map. For any P4 type included in this map, the statically provided
+// TranslationData is used. For other types, if runtime translated (i.e. have
+// @p4runtime_translation("", string) annotation),
+// TranslationData{.static_mapping = {}, .dynamic_translation = true} is used.
 using StaticTranslationPerType =
-    absl::btree_map<std::string, values::StaticTranslation>;
+    absl::btree_map<std::string, values::TranslationData>;
 
 // Symbolically evaluates/interprets the given program against the given
 // entries for every table in that program, and the available physical ports

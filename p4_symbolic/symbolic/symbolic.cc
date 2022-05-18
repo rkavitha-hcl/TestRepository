@@ -91,10 +91,9 @@ absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
   values::P4RuntimeTranslator translator;
 
   // Initiate the p4runtime translator with statically translated types.
-  for (const auto &[type, static_mapping] : translation_per_type) {
+  for (const auto &[type, translation] : translation_per_type) {
     translator.p4runtime_translation_allocators.emplace(
-        type,
-        values::IdAllocator(/*dynamic_allocation=*/false, static_mapping));
+        type, values::IdAllocator(translation));
   }
 
   // "Accumulator"-style p4 program headers.
@@ -111,16 +110,18 @@ absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
       SymbolicTableMatches matched_entries,
       control::EvaluateV1model(data_plane, &egress_headers, &translator));
 
-  // Restrict the value of all fields with (static) P4RT translated types to
-  // what has been used in StaticTranslationPerType. This should be done after
-  // the symbolic execution since P4Symbolic does not initially know which
-  // fields have translated types.
+  // Restrict the value of all fields with (purely static, i.e.
+  // dynamic_translation = false) P4RT translated types to what has been used in
+  // StaticTranslationPerType. This should be done after the symbolic execution
+  // since P4Symbolic does not initially know which fields have translated
+  // types.
   for (const auto &[field, type] : translator.fields_p4runtime_type) {
     if (auto it = translation_per_type.find(type);
-        it != translation_per_type.end()) {
+        it != translation_per_type.end() && !it->second.dynamic_translation) {
       ASSIGN_OR_RETURN(z3::expr field_expr, ingress_headers.Get(field));
       z3::expr constraint = Z3Context().bool_val(false);
-      for (const auto &[string_value, numeric_value] : it->second) {
+      for (const auto &[string_value, numeric_value] :
+           it->second.static_mapping) {
         constraint =
             constraint || (field_expr == static_cast<int>(numeric_value));
       }

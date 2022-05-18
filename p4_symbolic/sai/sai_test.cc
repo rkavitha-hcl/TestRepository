@@ -26,6 +26,7 @@
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/pd.h"
 #include "p4_symbolic/symbolic/symbolic.h"
+#include "p4_symbolic/symbolic/values.h"
 #include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_nonstandard_platforms.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
@@ -49,7 +50,10 @@ TEST(EvaluateSaiPipeline, FailsForInconsistentPortAndPortIdTypeTranslation) {
       sai::Instantiation::kFabricBorderRouter,
       sai::NonstandardPlatform::kP4Symbolic);
   symbolic::StaticTranslationPerType translations;
-  translations["port_id_t"] = {{"a", 1}, {"b", 2}};
+  translations[kPortIdTypeName] = symbolic::values::TranslationData{
+      .static_mapping = {{"a", 1}, {"b", 2}},
+      .dynamic_translation = false,
+  };
   absl::StatusOr<std::unique_ptr<symbolic::SolverState>> state =
       EvaluateSaiPipeline(config, /*entries=*/{}, /*ports=*/{1, 2, 3},
                           translations);
@@ -62,7 +66,10 @@ TEST(EvaluateSaiPipeline, PassForConsistentPortAndPortIdTypeTranslation) {
       sai::Instantiation::kFabricBorderRouter,
       sai::NonstandardPlatform::kP4Symbolic);
   symbolic::StaticTranslationPerType translations;
-  translations["port_id_t"] = {{"a", 1}, {"b", 2}};
+  translations[kPortIdTypeName] = symbolic::values::TranslationData{
+      .static_mapping = {{"a", 1}, {"b", 2}},
+      .dynamic_translation = false,
+  };
   absl::StatusOr<std::unique_ptr<symbolic::SolverState>> state =
       EvaluateSaiPipeline(config, /*entries=*/{}, /*ports=*/{1, 2},
                           translations);
@@ -97,7 +104,10 @@ TEST(EvaluateSaiPipeline, IngressPortIsAmongPassedValues) {
 
   // Evaluate the SAI pipeline.
   symbolic::StaticTranslationPerType translations;
-  translations["port_id_t"] = {{"a", 1}, {"b", 2}};
+  translations[kPortIdTypeName] = symbolic::values::TranslationData{
+      .static_mapping = {{"a", 1}, {"b", 2}},
+      .dynamic_translation = false,
+  };
   absl::StatusOr<std::unique_ptr<symbolic::SolverState>> state =
       EvaluateSaiPipeline(config, pi_entries, /*ports=*/{1, 2}, translations);
   ASSERT_OK(state.status());

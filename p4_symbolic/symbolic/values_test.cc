@@ -99,7 +99,7 @@ constexpr char kDummyString2[] = "b";
 constexpr int kDummyId1 = 10;
 
 TEST(IdAllocatorTest, AssignedIdsAreUnique) {
-  IdAllocator allocator(/*dynamic_allocation=*/true);
+  IdAllocator allocator(TranslationData{.dynamic_translation = true});
   ASSERT_OK_AND_ASSIGN(const uint64_t id_1,
                        allocator.AllocateId(kDummyString1));
   ASSERT_OK_AND_ASSIGN(const uint64_t id_2,
@@ -108,7 +108,7 @@ TEST(IdAllocatorTest, AssignedIdsAreUnique) {
 }
 
 TEST(IdAllocatorTest, ReverseTranslationYieldsOriginalString) {
-  IdAllocator allocator(/*dynamic_allocation=*/true);
+  IdAllocator allocator(TranslationData{.dynamic_translation = true});
   ASSERT_OK_AND_ASSIGN(const uint64_t id_1,
                        allocator.AllocateId(kDummyString1));
   ASSERT_OK_AND_ASSIGN(const std::string string_1, allocator.IdToString(id_1));
@@ -116,8 +116,10 @@ TEST(IdAllocatorTest, ReverseTranslationYieldsOriginalString) {
 }
 
 TEST(IdAllocatorTest, StaticMappingWorksForExistingString) {
-  IdAllocator allocator(/*dynamic_allocation=*/true,
-                        /*static_mapping=*/{{kDummyString1, kDummyId1}});
+  IdAllocator allocator(TranslationData{
+      .static_mapping = {{kDummyString1, kDummyId1}},
+      .dynamic_translation = true,
+  });
   ASSERT_OK_AND_ASSIGN(const std::string string_1,
                        allocator.IdToString(kDummyId1));
   ASSERT_EQ(string_1, kDummyString1);
@@ -126,8 +128,10 @@ TEST(IdAllocatorTest, StaticMappingWorksForExistingString) {
 }
 
 TEST(IdAllocatorTest, StaticMappingWithDynamicAllocationWorksForNewString) {
-  IdAllocator allocator(/*dynamic_allocation=*/true,
-                        /*static_mapping=*/{{kDummyString1, kDummyId1}});
+  IdAllocator allocator(TranslationData{
+      .static_mapping = {{kDummyString1, kDummyId1}},
+      .dynamic_translation = true,
+  });
   ASSERT_OK_AND_ASSIGN(const uint64_t id_2,
                        allocator.AllocateId(kDummyString2));
   ASSERT_NE(id_2, kDummyId1);
@@ -136,8 +140,10 @@ TEST(IdAllocatorTest, StaticMappingWithDynamicAllocationWorksForNewString) {
 }
 
 TEST(IdAllocatorTest, StaticMappingWithoutDynamicAllocationFailForNewString) {
-  IdAllocator allocator(/*dynamic_allocation=*/false,
-                        /*static_mapping=*/{{kDummyString1, kDummyId1}});
+  IdAllocator allocator(TranslationData{
+      .static_mapping = {{kDummyString1, kDummyId1}},
+      .dynamic_translation = false,
+  });
   ASSERT_THAT(allocator.AllocateId(kDummyString2),
               gutil::StatusIs(absl::StatusCode::kInvalidArgument));
 }
