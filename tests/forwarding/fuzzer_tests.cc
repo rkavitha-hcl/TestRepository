@@ -211,7 +211,9 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
       .qos_queues = absl::GetFlag(FLAGS_fuzzer_qos_queues),
       .tables_for_which_to_not_exceed_resource_guarantees =
           GetParam().tables_for_which_to_not_exceed_resource_guarantees,
-      .role = "sdn_controller",
+      .disabled_fully_qualified_names =
+          GetParam().disabled_fully_qualified_names,
+      .role = GetParam().p4rt_role,
       .mutate_update_probability = mutate_update_probability,
   };
 
@@ -251,7 +253,7 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
 
     // Set IDs.
     request.set_device_id(session->DeviceId());
-    request.set_role(P4RUNTIME_ROLE_SDN_CONTROLLER);
+    request.set_role(config.role);
     *request.mutable_election_id() = session->ElectionId();
 
     ASSERT_OK(environment.AppendToTestArtifact(

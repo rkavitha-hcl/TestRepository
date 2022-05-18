@@ -15,6 +15,7 @@
 #define GOOGLE_P4_FUZZER_FUZZER_TESTS_H_
 
 #include "absl/container/btree_set.h"
+#include "absl/container/flat_hash_set.h"
 #include "p4/config/v1/p4info.pb.h"
 #include "thinkit/mirror_testbed_fixture.h"
 
@@ -52,6 +53,15 @@ struct FuzzerTestFixtureParams {
   // results in spite of this shortcoming.
   absl::btree_set<std::string>
       tables_for_which_to_not_exceed_resource_guarantees;
+  // Fully qualified names of tables, actions, or match fields to skip during
+  // fuzzing. Match field names should be prepended with the relevant table name
+  // to uniquely identify them.
+  // Users should ensure that any set that makes it impossible to generate a
+  // valid table entry for a particular table contains the table itself.
+  // TODO: Check the property above instead.
+  absl::flat_hash_set<std::string> disabled_fully_qualified_names;
+  // The P4RT role the fuzzer should use.
+  std::string p4rt_role;
   // TODO: Remove once we can derive this number from the P4Info.
   int max_total_wcmp_members;
 };
