@@ -174,6 +174,10 @@ TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
       .static_mapping = {{"1", 1}, {"2", 2}, {"3", 3}, {"4", 4}, {"5", 5}},
       .dynamic_translation = false,
   };
+  translations[kVrfIdTypeName] = symbolic::values::TranslationData{
+      .static_mapping = {{"", 0}},
+      .dynamic_translation = true,
+  };
   LOG(INFO) << "building model (this may take a while) ...";
   absl::Time start_time = absl::Now();
   ASSERT_OK_AND_ASSIGN(
@@ -232,10 +236,7 @@ TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
   // Make sure local_metadata.ingress_port is as expected.
   ASSERT_OK_AND_ASSIGN(const std::string local_metadata_ingress_port,
                        ExtractLocalMetadataIngressPortFromModel(*solver_state));
-  // TODO: Check equiality with the correct port when the issue is
-  // fixed.
-  ASSERT_THAT(local_metadata_ingress_port,
-              AnyOf(Eq("1"), Eq("2"), Eq("3"), Eq("4"), Eq("5")));
+  ASSERT_THAT(local_metadata_ingress_port, Eq("3"));
 }
 
 }  // namespace

@@ -77,6 +77,18 @@ TEST(EvaluateSaiPipeline, PassForConsistentPortAndPortIdTypeTranslation) {
   EXPECT_EQ((*state)->solver->check(), z3::check_result::sat);
 }
 
+TEST(EvaluateSaiPipeline, FailsIfInputContainsTranslationForVrfIdType) {
+  const auto config = sai::GetNonstandardForwardingPipelineConfig(
+      sai::Instantiation::kFabricBorderRouter,
+      sai::NonstandardPlatform::kP4Symbolic);
+  symbolic::StaticTranslationPerType translations;
+  translations[kVrfIdTypeName] = symbolic::values::TranslationData{};
+  absl::StatusOr<std::unique_ptr<symbolic::SolverState>> state =
+      EvaluateSaiPipeline(config, /*entries=*/{}, /*ports=*/{}, translations);
+  ASSERT_THAT(state.status(),
+              gutil::StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
 TEST(EvaluateSaiPipeline, IngressPortIsAmongPassedValues) {
   // Get config.
   const auto config = sai::GetNonstandardForwardingPipelineConfig(
