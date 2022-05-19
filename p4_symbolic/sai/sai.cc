@@ -38,7 +38,7 @@ namespace p4_symbolic {
 // passed as the static mapping for "port_id_t".
 absl::Status CheckPhysicalPortAndPortIdTypeValueConsistency(
     const std::vector<int>& physical_ports,
-    const symbolic::StaticTranslationPerType& translation_per_type) {
+    const symbolic::TranslationPerType& translation_per_type) {
   absl::flat_hash_set<uint64_t> physical_port_set(physical_ports.begin(),
                                                   physical_ports.end());
   absl::flat_hash_set<uint64_t> numeric_value_set;
@@ -59,7 +59,7 @@ absl::Status CheckPhysicalPortAndPortIdTypeValueConsistency(
 
 // Adds partially static mapping for "vrf_id_t".
 absl::Status AddVrfIdTypeTranslation(
-    symbolic::StaticTranslationPerType& translation_per_type) {
+    symbolic::TranslationPerType& translation_per_type) {
   if (translation_per_type.contains(kVrfIdTypeName)) {
     return absl::InvalidArgumentError(absl::StrCat(
         "Did not expect user defined translation for ", kVrfIdTypeName));
@@ -79,7 +79,7 @@ absl::StatusOr<std::unique_ptr<symbolic::SolverState>> EvaluateSaiPipeline(
     const p4::v1::ForwardingPipelineConfig& config,
     const std::vector<p4::v1::TableEntry>& entries,
     const std::vector<int>& physical_ports,
-    symbolic::StaticTranslationPerType translation_per_type) {
+    symbolic::TranslationPerType translation_per_type) {
   // Check inputs for consistency.
   RETURN_IF_ERROR(CheckPhysicalPortAndPortIdTypeValueConsistency(
       physical_ports, translation_per_type));

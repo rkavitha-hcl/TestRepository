@@ -169,7 +169,7 @@ TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
       symbolic::Dataplane dataplane,
       ParseToIr(config.p4_device_config(), ir_p4info, pi_entries));
   std::vector<int> ports = {1, 2, 3, 4, 5};
-  symbolic::StaticTranslationPerType translations;
+  symbolic::TranslationPerType translations;
   translations[kPortIdTypeName] = symbolic::values::TranslationData{
       .static_mapping = {{"1", 1}, {"2", 2}, {"3", 3}, {"4", 4}, {"5", 5}},
       .dynamic_translation = false,

@@ -39,7 +39,7 @@ absl::StatusOr<std::unique_ptr<symbolic::SolverState>> EvaluateSaiPipeline(
     const p4::v1::ForwardingPipelineConfig& config,
     const std::vector<p4::v1::TableEntry>& entries,
     const std::vector<int>& physical_ports = {},
-    symbolic::StaticTranslationPerType translation_per_type = {});
+    symbolic::TranslationPerType translation_per_type = {});
 
 absl::StatusOr<std::string> ExtractLocalMetadataIngressPortFromModel(
     const symbolic::SolverState& solver_state);

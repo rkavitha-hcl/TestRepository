@@ -75,7 +75,7 @@ absl::Status CheckPhysicalPortsConformanceToV1Model(
 
 absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
     const Dataplane &data_plane, const std::vector<int> &physical_ports,
-    const StaticTranslationPerType &translation_per_type) {
+    const TranslationPerType &translation_per_type) {
   // Check input physical ports.
   if (absl::Status status =
           CheckPhysicalPortsConformanceToV1Model(physical_ports);
@@ -112,7 +112,7 @@ absl::StatusOr<std::unique_ptr<SolverState>> EvaluateP4Pipeline(
 
   // Restrict the value of all fields with (purely static, i.e.
   // dynamic_translation = false) P4RT translated types to what has been used in
-  // StaticTranslationPerType. This should be done after the symbolic execution
+  // TranslationPerType. This should be done after the symbolic execution
   // since P4Symbolic does not initially know which fields have translated
   // types.
   for (const auto &[field, type] : translator.fields_p4runtime_type) {

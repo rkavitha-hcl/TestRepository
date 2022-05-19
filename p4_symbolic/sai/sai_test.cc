@@ -49,7 +49,7 @@ TEST(EvaluateSaiPipeline, FailsForInconsistentPortAndPortIdTypeTranslation) {
   const auto config = sai::GetNonstandardForwardingPipelineConfig(
       sai::Instantiation::kFabricBorderRouter,
       sai::NonstandardPlatform::kP4Symbolic);
-  symbolic::StaticTranslationPerType translations;
+  symbolic::TranslationPerType translations;
   translations[kPortIdTypeName] = symbolic::values::TranslationData{
       .static_mapping = {{"a", 1}, {"b", 2}},
       .dynamic_translation = false,
@@ -65,7 +65,7 @@ TEST(EvaluateSaiPipeline, PassForConsistentPortAndPortIdTypeTranslation) {
   const auto config = sai::GetNonstandardForwardingPipelineConfig(
       sai::Instantiation::kFabricBorderRouter,
       sai::NonstandardPlatform::kP4Symbolic);
-  symbolic::StaticTranslationPerType translations;
+  symbolic::TranslationPerType translations;
   translations[kPortIdTypeName] = symbolic::values::TranslationData{
       .static_mapping = {{"a", 1}, {"b", 2}},
       .dynamic_translation = false,
@@ -81,7 +81,7 @@ TEST(EvaluateSaiPipeline, FailsIfInputContainsTranslationForVrfIdType) {
   const auto config = sai::GetNonstandardForwardingPipelineConfig(
       sai::Instantiation::kFabricBorderRouter,
       sai::NonstandardPlatform::kP4Symbolic);
-  symbolic::StaticTranslationPerType translations;
+  symbolic::TranslationPerType translations;
   translations[kVrfIdTypeName] = symbolic::values::TranslationData{};
   absl::StatusOr<std::unique_ptr<symbolic::SolverState>> state =
       EvaluateSaiPipeline(config, /*entries=*/{}, /*ports=*/{}, translations);
@@ -115,7 +115,7 @@ TEST(EvaluateSaiPipeline, IngressPortIsAmongPassedValues) {
   }
 
   // Evaluate the SAI pipeline.
-  symbolic::StaticTranslationPerType translations;
+  symbolic::TranslationPerType translations;
   translations[kPortIdTypeName] = symbolic::values::TranslationData{
       .static_mapping = {{"a", 1}, {"b", 2}},
       .dynamic_translation = false,
