@@ -16,6 +16,9 @@
 #define GOOGLE_THINKIT_GENERIC_TESTBED_TEST_FIXTURE_H_
 
 #include <memory>
+#include <optional>
+#include <string>
+#include <vector>
 
 #include "absl/memory/memory.h"
 #include "absl/status/statusor.h"
@@ -43,13 +46,6 @@ class GenericTestbedInterface {
   // support them.
   virtual absl::StatusOr<std::unique_ptr<GenericTestbed>>
   GetTestbedWithRequirements(const thinkit::TestRequirements& requirements) = 0;
-
-  void SetParams(const GenericTestbedFixtureParams& params) {
-    params_ = &params;
-  }
-
- protected:
-  const GenericTestbedFixtureParams* params_;
 };
 
 // The Thinkit `TestParams` defines test parameters to
@@ -91,10 +87,7 @@ class GenericTestbedFixture
   // A derived class that needs/wants to do its own setup can override this
   // method. However, it should take care to call this base setup first. That
   // will ensure the platform is ready, and in a healthy state.
-  void SetUp() override {
-    generic_testbed_interface_->SetParams(GetParam());
-    generic_testbed_interface_->SetUp();
-  }
+  void SetUp() override { generic_testbed_interface_->SetUp(); }
 
   // A derived class that needs/wants to do its own teardown can override this
   // method. However, it should take care to call this base teardown last. Once
