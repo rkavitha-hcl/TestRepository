@@ -237,6 +237,11 @@ TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
   ASSERT_OK_AND_ASSIGN(const std::string local_metadata_ingress_port,
                        ExtractLocalMetadataIngressPortFromModel(*solver_state));
   ASSERT_THAT(local_metadata_ingress_port, Eq("3"));
+
+  // Make sure standard_metadata.egress_port and standard_metadata.egress_spec
+  // are as expected.
+  EXPECT_EQ(Z3ValueStringToInt(egress["standard_metadata.egress_port"]), 2);
+  EXPECT_EQ(Z3ValueStringToInt(egress["standard_metadata.egress_spec"]), 2);
 }
 
 }  // namespace
