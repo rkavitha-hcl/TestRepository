@@ -862,14 +862,31 @@ GetTransceiverPartInformation(gnmi::gNMI::StubInterface& gnmi_stub) {
   return part_information;
 }
 
+// We cannot "replace" the node-id value directly because if the
+// "integrated_circuit0" component doesn't exist the gNMI set path will reject
+// the request. Instead we "update" just the node-id, but include the entire
+// "integrated_circuit0" component as part of the value. This way if it doesn't
+// exist gNMI will create a new component and set the node-id. If it does exist
+// gNMI will simply update the value in the existing component.
 absl::Status SetDeviceId(gnmi::gNMI::StubInterface& gnmi_stub,
                          uint32_t device_id) {
-  constexpr char node_id_path[] =
-      "components/component[name=integrated_circuit0]/integrated-circuit/"
-      "config/node-id";
-  RETURN_IF_ERROR(SetGnmiConfigPath(
-      &gnmi_stub, node_id_path, GnmiSetType::kUpdate,
-      absl::Substitute("{\"integrated-circuit:node-id\":\"$0\"}", device_id)));
+  std::string config_value = absl::Substitute(
+      R"json({
+        "component" : [
+          {
+            "integrated-circuit" : {
+              "config" : {
+                "openconfig-p4rt:node-id" : "$0"
+              }
+            },
+            "name" : "integrated_circuit0"
+          }
+        ]
+      })json",
+      device_id);
+  RETURN_IF_ERROR(SetGnmiConfigPath(&gnmi_stub,
+                                    /*config_path=*/"components/component",
+                                    GnmiSetType::kUpdate, config_value));
   return absl::OkStatus();
 }
 
