@@ -100,6 +100,89 @@ constexpr absl::string_view kTableEntries = R"pb(
   }
 )pb";
 
+constexpr absl::string_view kTableEntriesWithTunneling = R"pb(
+  entries {
+    acl_pre_ingress_table_entry {
+      match { src_mac { value: "01:02:03:04:05:06" mask: "ff:ff:ff:ff:ff:ff" } }
+      action { set_vrf { vrf_id: "vrf-1" } }
+      priority: 1
+    }
+  }
+
+  entries {
+    ipv4_table_entry {
+      match {
+        vrf_id: "vrf-1"
+        ipv4_dst { value: "10.0.0.5" prefix_length: 32 }
+      }
+      action {
+        set_wcmp_group_id_and_metadata {
+          wcmp_group_id: "group-1"
+          route_metadata: "0x01"
+        }
+      }
+    }
+  }
+
+  entries {
+    wcmp_group_table_entry {
+      match { wcmp_group_id: "group-1" }
+      wcmp_actions {
+        action { set_nexthop_id { nexthop_id: "nexthop-1" } }
+        weight: 1
+        watch_port: "2"
+      }
+      wcmp_actions {
+        action { set_nexthop_id { nexthop_id: "nexthop-2" } }
+        weight: 1
+        watch_port: "4"
+      }
+    }
+  }
+
+  entries {
+    nexthop_table_entry {
+      match { nexthop_id: "nexthop-1" }
+      action {
+        set_tunnel_encap_nexthop {
+          neighbor_id: "neighbor-1"
+          tunnel_id: "tunnel-1"
+        }
+      }
+    }
+  }
+
+  entries {
+    tunnel_table_entry {
+      match { tunnel_id: "tunnel-1" }
+      action {
+        mark_for_tunnel_encap {
+          encap_src_ip: "0001:0002:0003:0004::"
+          encap_dst_ip: "0005:0006:0007:0008::"
+          router_interface_id: "router-interface-1"
+        }
+      }
+    }
+  }
+
+  entries {
+    neighbor_table_entry {
+      match {
+        router_interface_id: "router-interface-1"
+        neighbor_id: "neighbor-1"
+      }
+      action { set_dst_mac { dst_mac: "07:08:09:0a:0b:0c" } }
+    }
+  }
+
+  entries {
+    router_interface_table_entry {
+      match { router_interface_id: "router-interface-1" }
+      action { set_port_and_src_mac { port: "2" src_mac: "0d:0e:0f:10:11:12" } }
+    }
+  }
+)pb";
+
 class P4SymbolicComponentTest : public testing::Test {
  public:
   thinkit::TestEnvironment& Environment() { return *environment_; }
@@ -242,6 +325,94 @@ TEST_F(P4SymbolicComponentTest, CanGenerateTestPacketsForSimpleSaiP4Entries) {
   // are as expected.
   EXPECT_EQ(Z3ValueStringToInt(egress["standard_metadata.egress_port"]), 2);
   EXPECT_EQ(Z3ValueStringToInt(egress["standard_metadata.egress_spec"]), 2);
+}
+
+TEST_F(P4SymbolicComponentTest,
+       CanGenerateTestPacketsForSimpleSaiP4EntriesWithTunneling) {
+  // Some constants.
+  thinkit::TestEnvironment& env = Environment();
+  const auto config = sai::GetNonstandardForwardingPipelineConfig(
+      sai::Instantiation::kFabricBorderRouter,
+      sai::NonstandardPlatform::kP4Symbolic);
+  ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
+                       pdpi::CreateIrP4Info(config.p4info()));
+  EXPECT_OK(env.StoreTestArtifact("ir_p4info.textproto", ir_p4info));
+  EXPECT_OK(env.StoreTestArtifact("p4_config.json", config.p4_device_config()));
+
+  // Prepare hard-coded table entries.
+  auto pd_entries =
+      ParseProtoOrDie<sai::TableEntries>(kTableEntriesWithTunneling);
+  EXPECT_OK(env.StoreTestArtifact("pd_entries.textproto", pd_entries));
+  std::vector<p4::v1::TableEntry> pi_entries;
+  for (auto& pd_entry : pd_entries.entries()) {
+    ASSERT_OK_AND_ASSIGN(pi_entries.emplace_back(),
+                         pdpi::PdTableEntryToPi(ir_p4info, pd_entry));
+  }
+
+  // Symbolically evaluate program.
+  ASSERT_OK_AND_ASSIGN(
+      symbolic::Dataplane dataplane,
+      ParseToIr(config.p4_device_config(), ir_p4info, pi_entries));
+  std::vector<int> ports = {1, 2, 3, 4, 5};
+  symbolic::TranslationPerType translations;
+  translations[kPortIdTypeName] = symbolic::values::TranslationData{
+      .static_mapping = {{"1", 1}, {"2", 2}, {"3", 3}, {"4", 4}, {"5", 5}},
+      .dynamic_translation = false,
+  };
+  translations[kVrfIdTypeName] = symbolic::values::TranslationData{
+      .static_mapping = {{"", 0}},
+      .dynamic_translation = true,
+  };
+  LOG(INFO) << "building model (this may take a while) ...";
+  absl::Time start_time = absl::Now();
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<symbolic::SolverState> solver_state,
+      symbolic::EvaluateP4Pipeline(dataplane, ports, translations));
+  LOG(INFO) << "-> done in " << (absl::Now() - start_time);
+  // Add constraints for parser.
+  ASSERT_OK_AND_ASSIGN(
+      std::vector<z3::expr> parser_constraints,
+      EvaluateSaiParser(solver_state->context.ingress_headers));
+  for (auto& constraint : parser_constraints) {
+    solver_state->solver->add(constraint);
+  }
+  // Dump solver state.
+  for (auto& [name, entries] : solver_state->entries) {
+    std::string banner = absl::StrCat(
+        "== ", name, " ", std::string(80 - name.size() - 4, '='), "\n");
+    EXPECT_OK(env.AppendToTestArtifact("ir_entries.textproto", banner));
+    for (auto& entry : entries) {
+      EXPECT_OK(env.AppendToTestArtifact("ir_entries.textproto", entry));
+    }
+  }
+  EXPECT_OK(env.StoreTestArtifact("program.textproto", solver_state->program));
+
+  // Define assertion to hit the tunnel_table_entry.
+  symbolic::Assertion hit_tunnel_table_entry =
+      [](const symbolic::SymbolicContext& ctx) -> z3::expr {
+    CHECK(ctx.trace.matched_entries.contains("ingress.routing.tunnel_table"));
+    auto tunnel_table =
+        ctx.trace.matched_entries.at("ingress.routing.tunnel_table");
+    return tunnel_table.matched && tunnel_table.entry_index == 0 &&
+           !ctx.trace.dropped;
+  };
+  EXPECT_OK(env.StoreTestArtifact(
+      "hit_tunnel_table_entry.smt",
+      symbolic::DebugSMT(solver_state, hit_tunnel_table_entry)));
+  ASSERT_OK_AND_ASSIGN(absl::optional<symbolic::ConcreteContext> solution,
+                       symbolic::Solve(solver_state, hit_tunnel_table_entry));
+  ASSERT_THAT(solution, Not(Eq(absl::nullopt)));
+  EXPECT_OK(env.StoreTestArtifact("hit_tunnel_table_entry.solution.txt",
+                                  solution->to_string(/*verbose=*/true)));
+
+  // Check some properties of the solution.
+  auto& egress = solution->egress_headers;
+  EXPECT_EQ(Z3ValueStringToInt(egress["tunnel_encap_gre.$valid$"]), 1);
+  EXPECT_EQ(Z3ValueStringToInt(egress["standard_metadata.egress_port"]), 2);
+  EXPECT_EQ(egress["tunnel_encap_ipv6.src_addr"],
+            "#x00010002000300040000000000000000");  // "0001:0002:0003:0004::"
+  EXPECT_EQ(egress["tunnel_encap_ipv6.dst_addr"],
+            "#x00050006000700080000000000000000");  // "0005:0006:0007:0008::"
 }
 
 }  // namespace
