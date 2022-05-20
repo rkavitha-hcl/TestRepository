@@ -11,7 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#include "p4rt_app/event_monitoring/port_change_events.h"
+#include "p4rt_app/event_monitoring/app_state_db_port_table_event.h"
 
 #include <deque>
 #include <vector>

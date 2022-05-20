@@ -17,9 +17,9 @@ package(
 )
 
 cc_library(
-    name = "port_change_events",
-    srcs = ["port_change_events.cc"],
-    hdrs = ["port_change_events.h"],
+    name = "app_state_db_port_table_event",
+    srcs = ["app_state_db_port_table_event.cc"],
+    hdrs = ["app_state_db_port_table_event.h"],
     deps = [
         ":state_event_monitor",
         "//p4rt_app/p4runtime:p4runtime_impl",
@@ -30,10 +30,10 @@ cc_library(
 )
 
 cc_test(
-    name = "port_change_events_test",
-    srcs = ["port_change_events_test.cc"],
+    name = "app_state_db_port_table_event_test",
+    srcs = ["app_state_db_port_table_event_test.cc"],
     deps = [
-        ":port_change_events",
+        ":app_state_db_port_table_event",
         "//gutil:status_matchers",
         "//p4rt_app/p4runtime:mock_p4runtime_impl",
         "@com_google_absl//absl/status",
