@@ -760,7 +760,7 @@ TEST_P(CpuQosTestWithoutIxia, PerEntryAclCounterIncrementsWhenEntryIsHit) {
 }
 
 // Purpose: Verify protocol-to-queue mapping for traffic to switch loopback IP.
-TEST_P(CpuQosTestWithoutIxia, TrafficToLoopackIpGetsMappedToCorrectQueues) {
+TEST_P(CpuQosTestWithoutIxia, TrafficToLoopbackIpGetsMappedToCorrectQueues) {
   LOG(INFO) << "-- START OF TEST ---------------------------------------------";
   Testbed().Environment().SetTestCaseID("61bb0173-0c49-4067-b15a-5c3dd7823126");
 
@@ -790,6 +790,9 @@ TEST_P(CpuQosTestWithoutIxia, TrafficToLoopackIpGetsMappedToCorrectQueues) {
                        PickSutToControlDeviceLinkThatsUp(Testbed()));
   LOG(INFO) << "Link used to inject test packets: "
             << link_used_for_test_packets;
+
+  ASSERT_FALSE(GetParam().test_packets.empty())
+      << "No packets to test, maybe no loopback IP is configured on switch?";
 
   for (PacketAndExpectedTargetQueue test_packet : GetParam().test_packets) {
     std::string_view target_queue = test_packet.target_queue;
