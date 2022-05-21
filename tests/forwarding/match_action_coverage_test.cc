@@ -121,6 +121,20 @@ bool EntryTriggersKnownBug(const pdpi::IrP4Info& info,
   return false;
 }
 
+absl::Status ModifyEntryToAvoidKnownBug(const pdpi::IrP4Info& info,
+                                        TableEntry& entry) {
+  // Convert the entry to PD to simplify logic.
+  sai::TableEntry pd_entry;
+  RETURN_IF_ERROR(pdpi::PiTableEntryToPd(info, entry, &pd_entry));
+
+  // TODO: Remove once this is covered by P4 Constraints.
+  if (pd_entry.has_l3_admit_table_entry()) {
+    pd_entry.mutable_l3_admit_table_entry()->set_priority(1);
+  }
+  ASSIGN_OR_RETURN(entry, pdpi::PdTableEntryToPi(info, pd_entry));
+  return absl::OkStatus();
+}
+
 // Generates valid table entries for `table` until one meets the given
 // `predicate`. Unless an entry with the same keys already exists on the switch,
 // installs the generated table entry and updates `state`.
@@ -136,6 +150,9 @@ absl::Status GenerateAndInstallEntryThatMeetsPredicate(
   const absl::Time kDeadline = absl::Now() + absl::Seconds(10);
   do {
     ASSIGN_OR_RETURN(entry, FuzzValidTableEntry(&gen, config, state, table));
+    if (environment.MaskKnownFailures()) {
+      RETURN_IF_ERROR(ModifyEntryToAvoidKnownBug(config.info, entry));
+    }
   } while ((!predicate(entry) || (environment.MaskKnownFailures() &&
                                   EntryTriggersKnownBug(config.info, entry))) &&
            absl::Now() < kDeadline);
