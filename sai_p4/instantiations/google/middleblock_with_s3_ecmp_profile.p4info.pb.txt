@@ -226,6 +226,10 @@ tables {
     }
   }
   action_refs {
+    id: 16777219
+    annotations: "@proto_id(1)"
+  }
+  action_refs {
     id: 16777234
     annotations: "@proto_id(2)"
   }
@@ -755,6 +759,31 @@ actions {
     id: 16777236
     name: "ingress.routing.set_ip_nexthop"
     alias: "set_ip_nexthop"
+  }
+  params {
+    id: 1
+    name: "router_interface_id"
+    annotations: "@refers_to(router_interface_table , router_interface_id)"
+    annotations: "@refers_to(neighbor_table , router_interface_id)"
+    type_name {
+      name: "router_interface_id_t"
+    }
+  }
+  params {
+    id: 2
+    name: "neighbor_id"
+    annotations: "@refers_to(neighbor_table , neighbor_id)"
+    type_name {
+      name: "neighbor_id_t"
+    }
+  }
+}
+actions {
+  preamble {
+    id: 16777219
+    name: "ingress.routing.set_nexthop"
+    alias: "set_nexthop"
+    annotations: "@deprecated(\"Use set_ip_nexthop instead.\")"
   }
   params {
     id: 1

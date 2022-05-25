@@ -78,6 +78,7 @@ message NexthopTableEntry {
   Match match = 1;
   message Action {
     oneof action {
+      SetNexthopAction set_nexthop = 1;
       SetTunnelEncapNexthopAction set_tunnel_encap_nexthop = 2;
       SetIpNexthopAction set_ip_nexthop = 3;
     }
@@ -405,6 +406,14 @@ message SetDstMacAction {
 message SetPortAndSrcMacAction {
   string port = 1;     // Format::STRING
   string src_mac = 2;  // Format::MAC
+}
+
+message SetNexthopAction {
+  // Refers to 'router_interface_table.router_interface_id'.
+  // Refers to 'neighbor_table.router_interface_id'.
+  string router_interface_id = 1;  // Format::STRING
+  // Refers to 'neighbor_table.neighbor_id'.
+  string neighbor_id = 2;  // Format::STRING
 }
 
 message SetWcmpGroupIdAction {

@@ -165,6 +165,19 @@ control routing(in headers_t headers,
     neighbor_id_value = neighbor_id;
   }
 
+  @id(ROUTING_SET_NEXTHOP_ACTION_ID)
+  @deprecated("Use set_ip_nexthop instead.")
+  // TODO: Remove this action once migration to `set_ip_nexthop`
+  // is complete & rolled out.
+  action set_nexthop(@id(1)
+                     @refers_to(router_interface_table, router_interface_id)
+                     @refers_to(neighbor_table, router_interface_id)
+                     router_interface_id_t router_interface_id,
+                     @id(2) @refers_to(neighbor_table, neighbor_id)
+                     neighbor_id_t neighbor_id) {
+    set_ip_nexthop(router_interface_id, neighbor_id);
+  }
+
   // Sets SAI_NEXT_HOP_ATTR_TYPE to SAI_NEXT_HOP_TYPE_TUNNEL_ENCAP, and
   // SAI_NEXT_HOP_ATTR_TUNNEL_ID and SAI_NEXT_HOP_ATTR_IP.
   //
@@ -192,6 +205,7 @@ control routing(in headers_t headers,
       nexthop_id_value : exact @id(1) @name("nexthop_id");
     }
     actions = {
+      @proto_id(1) set_nexthop;
       @proto_id(2) set_tunnel_encap_nexthop;
       @proto_id(3) set_ip_nexthop;
       @defaultonly NoAction;
