@@ -347,10 +347,10 @@ absl::StatusOr<SlotPortLane> GetSlotPortLaneForPort(
   }
   auto slot_port_lane_str = port.substr(kEthernetLen);
   std::vector<std::string> values = absl::StrSplit(slot_port_lane_str, '/');
-  if (values.size() != 3) {
-    return absl::InvalidArgumentError(
-        absl::StrCat("Requested port (", port,
-                     ") does not have a valid format (EthernetX/Y/Z)"));
+  if (values.size() < kSlotPortLaneMinValues) {
+    return absl::InvalidArgumentError(absl::StrCat(
+        "Requested port (", port,
+        ") does not have a valid format (EthernetX/Y/Z or EthernetX/Y)"));
   }
   SlotPortLane slot_port_lane;
   if (!absl::SimpleAtoi(values[kSlotIndex], &slot_port_lane.slot)) {
@@ -363,10 +363,15 @@ absl::StatusOr<SlotPortLane> GetSlotPortLaneForPort(
            << "Failed to convert string (" << values[kPortIndex]
            << ") to integer";
   }
-  if (!absl::SimpleAtoi(values[kLaneIndex], &slot_port_lane.lane)) {
-    return gutil::InternalErrorBuilder().LogError()
-           << "Failed to convert string (" << values[kLaneIndex]
-           << ") to integer";
+  // Unchannelizable ports will not contain a lane number.
+  // Use default lane number of 1.
+  slot_port_lane.lane = 1;
+  if (values.size() == kSlotPortLaneMaxValues) {
+    if (!absl::SimpleAtoi(values[kLaneIndex], &slot_port_lane.lane)) {
+      return gutil::InternalErrorBuilder().LogError()
+             << "Failed to convert string (" << values[kLaneIndex]
+             << ") to integer";
+    }
   }
   return slot_port_lane;
 }

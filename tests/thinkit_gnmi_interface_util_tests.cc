@@ -26,11 +26,13 @@
 
 namespace pins_test {
 using gutil::EqualsProto;
+using gutil::IsOkAndHolds;
 using gutil::StatusIs;
 using ::nlohmann::json;
 using ::testing::_;
 using ::testing::ContainerEq;
 using ::testing::DoAll;
+using ::testing::FieldsAre;
 using ::testing::HasSubstr;
 using ::testing::Return;
 using ::testing::ReturnRefOfCopy;
@@ -2249,6 +2251,12 @@ TEST_F(GNMIThinkitInterfaceUtilityTest,
 }
 
 TEST_F(GNMIThinkitInterfaceUtilityTest,
+       TestGetSlotPortLaneForPortFrontPanelPortSuccess) {
+  EXPECT_THAT(pins_test::GetSlotPortLaneForPort("Ethernet1/1/5"),
+              IsOkAndHolds(FieldsAre(1, 1, 5)));
+}
+
+TEST_F(GNMIThinkitInterfaceUtilityTest,
        TestGetSlotPortLaneForPortNonFrontPanelPortFailure) {
   EXPECT_THAT(pins_test::GetSlotPortLaneForPort("NonFrontPanelPort1/1/1"),
               StatusIs(absl::StatusCode::kInvalidArgument,
@@ -2279,10 +2287,17 @@ TEST_F(GNMIThinkitInterfaceUtilityTest,
 
 TEST_F(GNMIThinkitInterfaceUtilityTest,
        TestGetSlotPortLaneForPortInvalidPortFormatFailure) {
-  EXPECT_THAT(pins_test::GetSlotPortLaneForPort("Ethernet1/1"),
-              StatusIs(absl::StatusCode::kInvalidArgument,
-                       HasSubstr("Requested port (Ethernet1/1) does not have a "
-                                 "valid format (EthernetX/Y/Z)")));
+  EXPECT_THAT(
+      pins_test::GetSlotPortLaneForPort("Ethernet1"),
+      StatusIs(absl::StatusCode::kInvalidArgument,
+               HasSubstr("Requested port (Ethernet1) does not have a "
+                         "valid format (EthernetX/Y/Z or EthernetX/Y)")));
+}
+
+TEST_F(GNMIThinkitInterfaceUtilityTest,
+       TestGetSlotPortLaneForPortUnchannelizedPortSuccess) {
+  EXPECT_THAT(pins_test::GetSlotPortLaneForPort("Ethernet1/33"),
+              IsOkAndHolds(FieldsAre(1, 33, 1)));
 }
 
 TEST_F(GNMIThinkitInterfaceUtilityTest,
