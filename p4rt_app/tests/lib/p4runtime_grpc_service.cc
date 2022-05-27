@@ -153,24 +153,6 @@ P4RuntimeGrpcService::~P4RuntimeGrpcService() {
 
 int P4RuntimeGrpcService::GrpcPort() const { return grpc_port_; }
 
-absl::Status P4RuntimeGrpcService::SetDeviceId(uint64_t device_id) {
-  return p4runtime_server_->UpdateDeviceId(device_id);
-}
-
-absl::Status P4RuntimeGrpcService::AddPortTranslation(
-    const std::string& port_name, const std::string& port_id) {
-  return p4runtime_server_->AddPortTranslation(port_name, port_id);
-}
-
-absl::Status P4RuntimeGrpcService::RemovePortTranslation(
-    const std::string& port_name) {
-  return p4runtime_server_->RemovePortTranslation(port_name);
-}
-
-absl::Status P4RuntimeGrpcService::VerifyState() {
-  return p4runtime_server_->VerifyState();
-}
-
 sonic::FakeSonicDbTable& P4RuntimeGrpcService::GetP4rtAppDbTable() {
   return fake_p4rt_table_;
 }
@@ -222,6 +204,10 @@ swss::FakeSystemStateHelper& P4RuntimeGrpcService::GetSystemStateHelper() {
 swss::FakeComponentStateHelper&
 P4RuntimeGrpcService::GetComponentStateHelper() {
   return fake_component_state_helper_;
+}
+
+P4RuntimeImpl& P4RuntimeGrpcService::GetP4rtServer() {
+  return *p4runtime_server_;
 }
 
 }  // namespace test_lib

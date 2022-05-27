@@ -106,7 +106,7 @@ class ForwardingPipelineConfigTest : public testing::Test {
         std::make_unique<test_lib::P4RuntimeGrpcService>(P4RuntimeImplOptions{
             .forwarding_config_full_path = config_save_path_,
         });
-    RETURN_IF_ERROR(p4rt_service_->SetDeviceId(device_id));
+    RETURN_IF_ERROR(p4rt_service_->GetP4rtServer().UpdateDeviceId(device_id));
 
     // Reset the P4RT client.
     std::string address = absl::StrCat("localhost:", p4rt_service_->GrpcPort());

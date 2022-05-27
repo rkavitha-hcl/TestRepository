@@ -48,7 +48,7 @@ class ActionSetTest : public test_lib::P4RuntimeComponentTestFixture {
 };
 
 TEST_F(ActionSetTest, WcmpInsertReadAndRemove) {
-  ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet0", "1"));
+  ASSERT_OK(p4rt_service_.GetP4rtServer().AddPortTranslation("Ethernet0", "1"));
 
   // Set the WCMP write request that has 2 actions with different weights.
   p4::v1::WriteRequest write_request;

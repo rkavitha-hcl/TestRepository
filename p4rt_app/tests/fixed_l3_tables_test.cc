@@ -62,7 +62,7 @@ class FixedL3TableTest : public test_lib::P4RuntimeComponentTestFixture {
 };
 
 TEST_F(FixedL3TableTest, SupportRouterInterfaceTableFlows) {
-  ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet4", "2"));
+  ASSERT_OK(p4rt_service_.GetP4rtServer().AddPortTranslation("Ethernet4", "2"));
 
   // P4 write request.
   ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,
@@ -265,7 +265,7 @@ TEST_F(FixedL3TableTest, SupportTunnelTableFlows) {
 }
 
 TEST_F(FixedL3TableTest, SupportMyStationFlowWithPort) {
-  ASSERT_OK(p4rt_service_.AddPortTranslation("Ethernet4", "2"));
+  ASSERT_OK(p4rt_service_.GetP4rtServer().AddPortTranslation("Ethernet4", "2"));
 
   // P4 write request.
   ASSERT_OK_AND_ASSIGN(p4::v1::WriteRequest request,

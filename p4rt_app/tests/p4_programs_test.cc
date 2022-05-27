@@ -69,7 +69,7 @@ class P4ProgramsTest : public testing::TestWithParam<sai::Instantiation> {
  protected:
   void SetUp() override {
     uint64_t device_id = 100402;
-    ASSERT_OK(p4rt_service_.SetDeviceId(device_id));
+    ASSERT_OK(p4rt_service_.GetP4rtServer().UpdateDeviceId(device_id));
 
     // Create a P4RT session, and connect.
     std::string address = absl::StrCat("localhost:", p4rt_service_.GrpcPort());

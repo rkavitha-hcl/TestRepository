@@ -70,7 +70,7 @@ absl::StatusOr<p4::v1::StreamMessageResponse> SendStreamRequest(
 class ArbitrationTest : public testing::Test {
  protected:
   void SetUp() override {
-    ASSERT_OK(p4rt_service_.SetDeviceId(GetDeviceId()));
+    ASSERT_OK(p4rt_service_.GetP4rtServer().UpdateDeviceId(GetDeviceId()));
 
     std::string address = absl::StrCat("localhost:", p4rt_service_.GrpcPort());
     auto channel =
@@ -89,7 +89,7 @@ class ArbitrationTest : public testing::Test {
 // TODO: arbitration should fail with invalid device id.
 TEST_F(ArbitrationTest, DISABLED_DeviceIdMustBeSet) {
   // Remove the device ID by setting it to zero.
-  ASSERT_OK(p4rt_service_.SetDeviceId(0));
+  ASSERT_OK(p4rt_service_.GetP4rtServer().UpdateDeviceId(0));
 
   grpc::ClientContext context;
   std::unique_ptr<P4RuntimeStream> stream = stub_->StreamChannel(&context);
@@ -145,7 +145,7 @@ TEST_F(ArbitrationTest, DeviceIdCannotChangeAtSwitchWithActiveConnection) {
   ASSERT_OK_AND_ASSIGN(p4::v1::StreamMessageResponse response,
                        SendStreamRequest(*stream, request));
 
-  EXPECT_THAT(p4rt_service_.SetDeviceId(0),
+  EXPECT_THAT(p4rt_service_.GetP4rtServer().UpdateDeviceId(0),
               StatusIs(absl::StatusCode::kFailedPrecondition));
 }
 
@@ -155,7 +155,7 @@ TEST_F(ArbitrationTest, DeviceIdCanChangeAtSwitchWithNoActiveConnection) {
   grpc::ClientContext context;
   std::unique_ptr<P4RuntimeStream> stream = stub_->StreamChannel(&context);
 
-  EXPECT_OK(p4rt_service_.SetDeviceId(0));
+  EXPECT_OK(p4rt_service_.GetP4rtServer().UpdateDeviceId(0));
 }
 
 TEST_F(ArbitrationTest, DeviceIdChangesWillIgnoreNoopWithActiveConnection) {
@@ -167,7 +167,7 @@ TEST_F(ArbitrationTest, DeviceIdChangesWillIgnoreNoopWithActiveConnection) {
   ASSERT_OK_AND_ASSIGN(p4::v1::StreamMessageResponse response,
                        SendStreamRequest(*stream, request));
 
-  EXPECT_OK(p4rt_service_.SetDeviceId(GetDeviceId()));
+  EXPECT_OK(p4rt_service_.GetP4rtServer().UpdateDeviceId(GetDeviceId()));
 }
 
 TEST_F(ArbitrationTest, DeviceIdCanBeChangedAfterActiveConnectionCloses) {
@@ -184,7 +184,7 @@ TEST_F(ArbitrationTest, DeviceIdCanBeChangedAfterActiveConnectionCloses) {
   stream->WritesDone();
   EXPECT_OK(stream->Finish());
 
-  EXPECT_OK(p4rt_service_.SetDeviceId(GetDeviceId() + 1));
+  EXPECT_OK(p4rt_service_.GetP4rtServer().UpdateDeviceId(GetDeviceId() + 1));
 }
 
 TEST_F(ArbitrationTest, PrimaryConnectionWithElectionId) {

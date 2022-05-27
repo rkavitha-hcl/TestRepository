@@ -40,7 +40,7 @@ P4RuntimeComponentTestFixture::P4RuntimeComponentTestFixture(
 
 void P4RuntimeComponentTestFixture::SetUp() {
   // Configure the Device ID on the P4Runtime Server.
-  ASSERT_OK(p4rt_service_.SetDeviceId(device_id_));
+  ASSERT_OK(p4rt_service_.GetP4rtServer().UpdateDeviceId(device_id_));
 
   // Open a P4RT client connection to the gRPC server.
   std::string address = absl::StrCat("localhost:", p4rt_service_.GrpcPort());

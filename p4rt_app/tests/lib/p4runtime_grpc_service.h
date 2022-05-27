@@ -36,12 +36,6 @@ class P4RuntimeGrpcService {
 
   int GrpcPort() const;
 
-  absl::Status SetDeviceId(uint64_t device_id);
-  absl::Status AddPortTranslation(const std::string& port_name,
-                                  const std::string& port_id);
-  absl::Status RemovePortTranslation(const std::string& port_name);
-  absl::Status VerifyState();
-
   // Accessors for AppDb tables.
   sonic::FakeSonicDbTable& GetP4rtAppDbTable();
   sonic::FakeSonicDbTable& GetPortAppDbTable();
@@ -64,6 +58,9 @@ class P4RuntimeGrpcService {
   // Accessors for application state managment.
   swss::FakeComponentStateHelper& GetComponentStateHelper();
   swss::FakeSystemStateHelper& GetSystemStateHelper();
+
+  // Accessor for the P4RT server.
+  P4RuntimeImpl& GetP4rtServer();
 
  private:
   // The TCP port used to  open the P4RT App service. It is choosen randomly in

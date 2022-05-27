@@ -65,60 +65,60 @@ class PortNameAndIdTest : public testing::Test {
 TEST_F(PortNameAndIdTest, AddAThenDeletePortTranslation) {
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
-  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
+  ASSERT_OK(p4rt_service.GetP4rtServer().UpdateDeviceId(device_id_));
 
-  EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
-  EXPECT_OK(p4rt_service.RemovePortTranslation("Ethernet0"));
+  EXPECT_OK(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet0", "0"));
+  EXPECT_OK(p4rt_service.GetP4rtServer().RemovePortTranslation("Ethernet0"));
 }
 
 TEST_F(PortNameAndIdTest, AllowDuplicatePortTranslations) {
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
-  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
+  ASSERT_OK(p4rt_service.GetP4rtServer().UpdateDeviceId(device_id_));
 
-  EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
-  EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
+  EXPECT_OK(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet0", "0"));
+  EXPECT_OK(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet0", "0"));
 }
 
 TEST_F(PortNameAndIdTest, CannotReusePortTranslationsValues) {
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
-  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
+  ASSERT_OK(p4rt_service.GetP4rtServer().UpdateDeviceId(device_id_));
 
-  EXPECT_OK(p4rt_service.AddPortTranslation("Ethernet0", "0"));
+  EXPECT_OK(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet0", "0"));
 
   // Cannot duplicate the port_name or the port_id.
-  EXPECT_THAT(p4rt_service.AddPortTranslation("Ethernet0", "1"),
+  EXPECT_THAT(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet0", "1"),
               StatusIs(absl::StatusCode::kAlreadyExists));
-  EXPECT_THAT(p4rt_service.AddPortTranslation("Ethernet1", "0"),
+  EXPECT_THAT(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet1", "0"),
               StatusIs(absl::StatusCode::kAlreadyExists));
 }
 
 TEST_F(PortNameAndIdTest, CannotAddPortTranslationWithEmptyValues) {
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
-  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
+  ASSERT_OK(p4rt_service.GetP4rtServer().UpdateDeviceId(device_id_));
 
-  EXPECT_THAT(p4rt_service.AddPortTranslation("", "1"),
+  EXPECT_THAT(p4rt_service.GetP4rtServer().AddPortTranslation("", "1"),
               StatusIs(absl::StatusCode::kInvalidArgument));
-  EXPECT_THAT(p4rt_service.AddPortTranslation("Ethernet0", ""),
+  EXPECT_THAT(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet0", ""),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
 TEST_F(PortNameAndIdTest, RemovingNonExistantPortTranslationPasses) {
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
-  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
+  ASSERT_OK(p4rt_service.GetP4rtServer().UpdateDeviceId(device_id_));
 
-  EXPECT_OK(p4rt_service.RemovePortTranslation("Ethernet0"));
+  EXPECT_OK(p4rt_service.GetP4rtServer().RemovePortTranslation("Ethernet0"));
 }
 
 TEST_F(PortNameAndIdTest, CannotRemovePortTranslationWithEmptyValues) {
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
-  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
+  ASSERT_OK(p4rt_service.GetP4rtServer().UpdateDeviceId(device_id_));
 
-  EXPECT_THAT(p4rt_service.RemovePortTranslation(""),
+  EXPECT_THAT(p4rt_service.GetP4rtServer().RemovePortTranslation(""),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
@@ -127,7 +127,7 @@ TEST_F(PortNameAndIdTest, ExpectingName) {
   // to NOT have an ID field.
   test_lib::P4RuntimeGrpcService p4rt_service = test_lib::P4RuntimeGrpcService(
       P4RuntimeImplOptions{.translate_port_ids = false});
-  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
+  ASSERT_OK(p4rt_service.GetP4rtServer().UpdateDeviceId(device_id_));
 
   // Connect to the P4RT server and push a P4Info file.
   ASSERT_OK_AND_ASSIGN(auto p4rt_session,
@@ -166,8 +166,8 @@ TEST_F(PortNameAndIdTest, ExpectingIdGetId) {
   // with an ID field.
   test_lib::P4RuntimeGrpcService p4rt_service = test_lib::P4RuntimeGrpcService(
       P4RuntimeImplOptions{.translate_port_ids = true});
-  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
-  ASSERT_OK(p4rt_service.AddPortTranslation("Ethernet0", "1"));
+  ASSERT_OK(p4rt_service.GetP4rtServer().UpdateDeviceId(device_id_));
+  ASSERT_OK(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet0", "1"));
 
   // Connect to the P4RT server and push a P4Info file.
   ASSERT_OK_AND_ASSIGN(auto p4rt_session,
@@ -206,8 +206,8 @@ TEST_F(PortNameAndIdTest, ExpectingIdGetName) {
   // with an ID field.
   test_lib::P4RuntimeGrpcService p4rt_service = test_lib::P4RuntimeGrpcService(
       P4RuntimeImplOptions{.translate_port_ids = true});
-  ASSERT_OK(p4rt_service.SetDeviceId(device_id_));
-  ASSERT_OK(p4rt_service.AddPortTranslation("Ethernet0", "1"));
+  ASSERT_OK(p4rt_service.GetP4rtServer().UpdateDeviceId(device_id_));
+  ASSERT_OK(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet0", "1"));
 
   // Connect to the P4RT server and push a P4Info file.
   ASSERT_OK_AND_ASSIGN(auto p4rt_session,

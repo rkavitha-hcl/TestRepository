@@ -58,7 +58,7 @@ TEST_P(EcmpHashingTest, MustConfigureEcmpHashing) {
   uint64_t device_id = 100400;
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
-  ASSERT_OK(p4rt_service.SetDeviceId(device_id));
+  ASSERT_OK(p4rt_service.GetP4rtServer().UpdateDeviceId(device_id));
 
   // Create a P4RT session, and connect.
   std::string address = absl::StrCat("localhost:", p4rt_service.GrpcPort());
@@ -117,7 +117,7 @@ TEST_P(LagHashingTest, DISABLED_MustConfigureLagHashing) {
   uint64_t device_id = 100400;
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
-  ASSERT_OK(p4rt_service.SetDeviceId(device_id));
+  ASSERT_OK(p4rt_service.GetP4rtServer().UpdateDeviceId(device_id));
 
   // Create a P4RT session, and connect.
   std::string address = absl::StrCat("localhost:", p4rt_service.GrpcPort());
@@ -169,7 +169,7 @@ class HashingTest : public testing::Test {
  protected:
   void SetUp() override {
     uint64_t device_id = 100401;
-    ASSERT_OK(p4rt_service_.SetDeviceId(device_id));
+    ASSERT_OK(p4rt_service_.GetP4rtServer().UpdateDeviceId(device_id));
 
     std::string address = absl::StrCat("localhost:", p4rt_service_.GrpcPort());
     LOG(INFO) << "Opening P4RT connection to " << address << ".";
