@@ -41,6 +41,7 @@
 #include "p4/config/v1/p4info.pb.h"
 #include "p4rt_app/event_monitoring/app_state_db_port_table_event.h"
 #include "p4rt_app/event_monitoring/config_db_node_cfg_table_event.h"
+#include "p4rt_app/event_monitoring/config_db_port_table_event.h"
 #include "p4rt_app/event_monitoring/state_event_monitor.h"
 #include "p4rt_app/event_monitoring/state_verification_events.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
@@ -377,16 +378,32 @@ int main(int argc, char** argv) {
   auto config_db_event_loop = std::thread([&p4runtime_server,
                                            &monitor_config_db_events]() {
     swss::DBConnector config_db("CONFIG_DB", /*timeout=*/0);
+    p4rt_app::sonic::StateEventMonitor config_db_monitor(config_db);
+
     p4rt_app::ConfigDbNodeCfgTableEventHandler node_table_handler(
         &p4runtime_server);
-
-    p4rt_app::sonic::StateEventMonitor config_db_monitor(config_db);
-    auto status =
+    auto node_table_status =
         config_db_monitor.RegisterTableHandler("NODE_CFG", node_table_handler);
-    if (!status.ok()) {
+    if (!node_table_status.ok()) {
       LOG(FATAL)  // Crash OK: only fails on startup.
           << "CONFIG_DB event monitor could not register 'NODE_CFG': "
-          << status;
+          << node_table_status;
+    }
+
+    swss::DBConnector port_events_app_db("APPL_DB", /*timeout=*/0);
+    swss::DBConnector port_events_app_state_db("APPL_STATE_DB", /*timeout=*/0);
+    p4rt_app::ConfigDbPortTableEventHandler port_table_handler(
+        &p4runtime_server,
+        std::make_unique<p4rt_app::sonic::TableAdapter>(&port_events_app_db,
+                                                        "P4RT_PORT_ID_TABLE"),
+        std::make_unique<p4rt_app::sonic::TableAdapter>(
+            &port_events_app_state_db, "P4RT_PORT_ID_TABLE"));
+    auto port_table_status =
+        config_db_monitor.RegisterTableHandler("PORT", port_table_handler);
+    if (!port_table_status.ok()) {
+      LOG(FATAL)  // Crash OK: only fails on startup.
+          << "CONFIG_DB event monitor could not register 'PORT': "
+          << port_table_status;
     }
 
     while (monitor_config_db_events) {
