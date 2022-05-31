@@ -95,7 +95,7 @@ absl::Status SetupRoute(P4rtProgrammingContext& context,
 }
 
 void MtuRoutingTestFixture::SetUp() {
-  thinkit::GenericTestbedFixture::SetUp();
+  thinkit::GenericTestbedFixture<>::SetUp();
   thinkit::TestRequirements requirements =
       gutil::ParseProtoOrDie<thinkit::TestRequirements>(
           R"pb(interface_requirements {
@@ -222,7 +222,7 @@ TEST_P(MtuRoutingTestFixture, MtuTest) {
 
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
                        pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-                           testbed_->Sut(), p4_info()));
+                           testbed_->Sut(), GetParam().p4_info));
 
   // Set up a route between the source and destination interfaces.
   P4rtProgrammingContext p4rt_context(p4_session.get(),

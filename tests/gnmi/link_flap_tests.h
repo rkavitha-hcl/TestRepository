@@ -18,7 +18,7 @@
 
 namespace pins_test {
 
-class ExampleTestFixture : public thinkit::GenericTestbedFixture {};
+class ExampleTestFixture : public thinkit::GenericTestbedFixture<> {};
 
 }  // namespace pins_test
 

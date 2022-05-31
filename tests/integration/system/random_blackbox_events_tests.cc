@@ -129,7 +129,8 @@ TEST_P(RandomBlackboxEventsTest, ControlPlaneWithTrafficWithoutValidation) {
   port_ids.reserve(port_id_map.size());
   absl::c_transform(port_id_map, std::back_inserter(port_ids),
                     [](const auto& pair) { return pair.second; });
-  ASSERT_OK_AND_ASSIGN(auto ir_p4info, pdpi::CreateIrP4Info(p4_info()));
+  ASSERT_OK_AND_ASSIGN(auto ir_p4info,
+                       pdpi::CreateIrP4Info(GetParam().p4_info));
   p4_fuzzer::FuzzerConfig config = {
       .info = std::move(ir_p4info),
       .ports = std::move(port_ids),
@@ -141,7 +142,7 @@ TEST_P(RandomBlackboxEventsTest, ControlPlaneWithTrafficWithoutValidation) {
   };
   ASSERT_OK_AND_ASSIGN(auto p4rt_session,
                        pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-                           testbed->Sut(), p4_info()));
+                           testbed->Sut(), GetParam().p4_info));
   {
     ScopedThread p4rt_fuzzer([&config,
                               &p4rt_session](const bool& time_to_exit) {

@@ -19,7 +19,7 @@
 
 namespace pins_test {
 
-class PacketForwardingTestFixture : public thinkit::GenericTestbedFixture {};
+class PacketForwardingTestFixture : public thinkit::GenericTestbedFixture<> {};
 
 }  // namespace pins_test
 

@@ -13,7 +13,7 @@ struct NumPkts {
   int received;
 };
 
-class MtuRoutingTestFixture : public thinkit::GenericTestbedFixture {
+class MtuRoutingTestFixture : public thinkit::GenericTestbedFixture<> {
  protected:
   // Acquires testbed with 2 pairs of connected ports between SUT and
   // control switch. Sets up route from first to second port on SUT.

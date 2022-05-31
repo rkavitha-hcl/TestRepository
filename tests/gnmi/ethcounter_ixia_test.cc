@@ -886,14 +886,14 @@ TEST_P(ExampleIxiaTestFixture, TestIPv4Pkts) {
   EXPECT_OK(SetLoopback(true, sut_out_interface, gnmi_stub.get()));
 
   ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
-      generic_testbed->Sut(), gnmi_config(),
+      generic_testbed->Sut(), GetParam().gnmi_config,
       /*timeout=*/absl::Minutes(3)));
 
   // Set up the switch to forward inbound IPv4 packets to the egress port
   LOG(INFO) << "\n\n----- TestIPv4Pkts: ForwardToEgress -----\n";
   constexpr absl::string_view kDestMac = "02:02:02:02:02:02";
   EXPECT_OK(ForwardToEgress(in_id, out_id, false, kDestMac,
-                            generic_testbed->Sut(), p4_info()));
+                            generic_testbed->Sut(), GetParam().p4_info));
   LOG(INFO) << "\n\n----- ForwardToEgress Done -----\n";
 
   // Read some initial counters via GNMI from the SUT
@@ -1172,7 +1172,7 @@ TEST_P(ExampleIxiaTestFixture, TestOutDiscards) {
   EXPECT_THAT(out_status_speed, IsOkAndHolds(kSpeed40GB));
 
   ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
-      generic_testbed->Sut(), gnmi_config(),
+      generic_testbed->Sut(), GetParam().gnmi_config,
       /*timeout=*/absl::Minutes(3)));
 
   // Set up the switch to forward inbound packets to the egress port
@@ -1459,13 +1459,13 @@ TEST_P(ExampleIxiaTestFixture, TestIPv6Pkts) {
   EXPECT_OK(SetLoopback(true, sut_out_interface, gnmi_stub.get()));
 
   ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
-      generic_testbed->Sut(), gnmi_config(),
+      generic_testbed->Sut(), GetParam().gnmi_config,
       /*timeout=*/absl::Minutes(3)));
 
   // Set up the switch to forward inbound packets to the egress port
   constexpr absl::string_view kDestMac = "02:02:02:02:02:02";
   EXPECT_OK(ForwardToEgress(in_id, out_id, true, kDestMac,
-                            generic_testbed->Sut(), p4_info()));
+                            generic_testbed->Sut(), GetParam().p4_info));
 
   // Read some initial counters via GNMI from the SUT
   ASSERT_OK_AND_ASSIGN(auto initial_in_counters,
@@ -1705,7 +1705,7 @@ TEST_P(ExampleIxiaTestFixture, TestCPUOutDiscards) {
   // We're doing this to overwhelm the egress port so at least some of the
   // packets we'll send from the CPU get discarded
   LOG(INFO) << "\n\n----- TestCPUOutDiscards: TrapToCPU -----\n";
-  EXPECT_OK(TrapToCPU(generic_testbed->Sut(), p4_info()));
+  EXPECT_OK(TrapToCPU(generic_testbed->Sut(), GetParam().p4_info));
   LOG(INFO) << "\n\n----- TrapToCPU Done -----\n";
 
   // Read some initial counters via GNMI from the SUT

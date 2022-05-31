@@ -141,7 +141,7 @@ TEST_P(PacketForwardingTestFixture, PacketForwardingTest) {
             << " port id: " << destination_port_id_value;
 
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
-                       P4InfoPush(p4_info(), *testbed));
+                       P4InfoPush(GetParam().p4_info, *testbed));
 
   // Set up a route between the source and destination interfaces.
   ASSERT_OK_AND_ASSIGN(auto port_id_from_sut_interface,
@@ -213,7 +213,7 @@ TEST_P(PacketForwardingTestFixture, AllPortsPacketForwardingTest) {
       GetSutInterfaces(FromTestbed(GetAllControlLinks, *testbed));
 
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
-                       P4InfoPush(p4_info(), *testbed));
+                       P4InfoPush(GetParam().p4_info, *testbed));
 
   const auto test_packet =
       gutil::ParseProtoOrDie<packetlib::Packet>(kTestPacket);
@@ -246,7 +246,7 @@ TEST_P(PacketForwardingTestFixture, MtuPacketForwardingTest) {
       GetSutInterfaces(FromTestbed(GetAllControlLinks, *testbed));
 
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
-                       P4InfoPush(p4_info(), *testbed));
+                       P4InfoPush(GetParam().p4_info, *testbed));
 
   for (int mtu : kMtu) {
     LOG(INFO) << "MTU: " << mtu;

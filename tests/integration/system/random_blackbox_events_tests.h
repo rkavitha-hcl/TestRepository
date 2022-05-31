@@ -19,7 +19,7 @@
 
 namespace pins_test {
 
-class RandomBlackboxEventsTest : public thinkit::GenericTestbedFixture {};
+class RandomBlackboxEventsTest : public thinkit::GenericTestbedFixture<> {};
 
 }  // namespace pins_test
 

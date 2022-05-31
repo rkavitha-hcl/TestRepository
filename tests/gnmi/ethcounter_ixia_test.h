@@ -18,7 +18,7 @@
 
 namespace pins_test {
 
-class ExampleIxiaTestFixture : public thinkit::GenericTestbedFixture {};
+class ExampleIxiaTestFixture : public thinkit::GenericTestbedFixture<> {};
 
 }  // namespace pins_test
 

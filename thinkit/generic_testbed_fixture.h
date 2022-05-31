@@ -29,8 +29,6 @@
 
 namespace thinkit {
 
-struct GenericTestbedFixtureParams;
-
 // The ThinKit `GenericTestbedInterface` defines an interface every test
 // platform should implement. The expectations are such that the GenericTestbed
 // should only be accessed after SetUp() is called and before TearDown() is
@@ -48,14 +46,13 @@ class GenericTestbedInterface {
   GetTestbedWithRequirements(const thinkit::TestRequirements& requirements) = 0;
 };
 
-// The Thinkit `TestParams` defines test parameters to
-// `GenericTestbedFixture` class.
+// The Thinkit `GenericTestbedFixtureParams` defines default test parameters to
+// the `GenericTestbedFixture` class.
 struct GenericTestbedFixtureParams {
   // Ownership transferred in GenericTestbedFixture class.
-  GenericTestbedInterface* generic_testbed;
+  GenericTestbedInterface* testbed_interface;
   std::string gnmi_config;
   p4::config::v1::P4Info p4_info;
-  std::optional<std::vector<int>> port_ids = std::nullopt;
 };
 
 // The ThinKit `GenericTestbedFixture` class acts as a base test fixture for
@@ -65,9 +62,9 @@ struct GenericTestbedFixtureParams {
 //
 // New PINS tests should extend this fixture, and if needed can extend the
 // SetUp() and/or TearDown() methods:
-//    class MyPinsTest : public thinkit::GenericTestbedFixture {
+//    class MyPinsTest : public thinkit::GenericTestbedFixture<> {
 //      void SetUp() override {
-//        GenericTestbedFixture::SetUp();  // called first.
+//        GenericTestbedFixture<>::SetUp();  // called first.
 //
 //        // custom setup steps ...
 //      }
@@ -75,14 +72,20 @@ struct GenericTestbedFixtureParams {
 //      void TearDown() override {
 //        // custom tear down steps ...
 //
-//        GenericTestbedFixture::TearDown();  // called last.
+//        GenericTestbedFixture<>::TearDown();  // called last.
 //      }
 //    };
 //
 //  Individual tests should use the new suite name:
 //    TEST_P(MyPinsTest, MyTestName) {}
-class GenericTestbedFixture
-    : public testing::TestWithParam<GenericTestbedFixtureParams> {
+//
+// For those wanting to pass their own custom parameters, as long as it has a
+// member 'GenericTestbedInterface* testbed_interface', it can be passed as the
+// template parameter:
+//    struct MyParams { GenericTestbedInterface* testbed_interface; ...};
+//    class MyPinsTest : public thinkit::GenericTestbedFixture<MyParams> {...};
+template <class Params = GenericTestbedFixtureParams>
+class GenericTestbedFixture : public testing::TestWithParam<Params> {
  protected:
   // A derived class that needs/wants to do its own setup can override this
   // method. However, it should take care to call this base setup first. That
@@ -102,13 +105,11 @@ class GenericTestbedFixture
     return generic_testbed_interface_->GetTestbedWithRequirements(requirements);
   }
 
-  const std::string& gnmi_config() { return GetParam().gnmi_config; }
-  const p4::config::v1::P4Info& p4_info() { return GetParam().p4_info; }
-
  private:
   // Takes ownership of the GenericTestbedInterface parameter.
   std::unique_ptr<GenericTestbedInterface> generic_testbed_interface_ =
-      absl::WrapUnique<GenericTestbedInterface>(GetParam().generic_testbed);
+      absl::WrapUnique<GenericTestbedInterface>(
+          this->GetParam().testbed_interface);
 };
 
 }  // namespace thinkit

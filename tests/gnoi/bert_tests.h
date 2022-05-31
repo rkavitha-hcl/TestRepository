@@ -24,7 +24,7 @@
 
 namespace bert {
 
-class BertTest : public thinkit::GenericTestbedFixture {
+class BertTest : public thinkit::GenericTestbedFixture<> {
  public:
   BertTest()
       : generic_testbed_(nullptr),
