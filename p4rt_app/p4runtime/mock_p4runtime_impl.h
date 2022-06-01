@@ -56,6 +56,12 @@ class MockP4RuntimeImpl final : public P4RuntimeImpl {
 
   MOCK_METHOD(absl::Status, UpdateDeviceId, (uint64_t device_id), (override));
 
+  MOCK_METHOD(absl::Status, AddPacketIoPort, (const std::string& port_name),
+              (override));
+
+  MOCK_METHOD(absl::Status, RemovePacketIoPort, (const std::string& port_name),
+              (override));
+
   MOCK_METHOD(absl::Status, AddPortTranslation,
               (const std::string& port_name, const std::string& port_id),
               (override));

@@ -33,102 +33,83 @@ using ::testing::Return;
 constexpr char kSetCommand[] = "SET";
 constexpr char kDelCommand[] = "DEL";
 
-TEST(PortChangeEventsTest, SetPortEvent) {
+TEST(PortTableEventTest, SetEventCreatesPacketIoPort) {
   MockP4RuntimeImpl mock_p4runtime_impl;
   AppStateDbPortTableEventHandler port_change_events(mock_p4runtime_impl);
 
-  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation("eth0", "1"))
+  EXPECT_CALL(mock_p4runtime_impl, AddPacketIoPort("Ethernet0"))
       .WillOnce(Return(absl::OkStatus()));
-  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation("eth1", "4"))
+  EXPECT_CALL(mock_p4runtime_impl, AddPacketIoPort("Ethernet1"))
       .WillOnce(Return(absl::OkStatus()));
 
-  EXPECT_OK(port_change_events.HandleEvent(kSetCommand, "eth0",
+  EXPECT_OK(port_change_events.HandleEvent(kSetCommand, "Ethernet0",
                                            {{"id", "1"}, {"status", "up"}}));
-  EXPECT_OK(port_change_events.HandleEvent(kSetCommand, "eth1",
+  EXPECT_OK(port_change_events.HandleEvent(kSetCommand, "Ethernet1",
                                            {{"id", "4"}, {"status", "down"}}));
 }
 
-TEST(PortChangeEventsTest, SetPortEventMissingIdField) {
+TEST(PortTableEventTest, DeleteEventRemovesPacketIoPort) {
   MockP4RuntimeImpl mock_p4runtime_impl;
   AppStateDbPortTableEventHandler port_change_events(mock_p4runtime_impl);
 
-  // Because there is no ID field we remove the port from P4Runtime.
-  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation("eth0"))
+  EXPECT_CALL(mock_p4runtime_impl, RemovePacketIoPort("Ethernet1/1/1"))
       .WillOnce(Return(absl::OkStatus()));
-  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation("eth1"))
-      .WillOnce(Return(absl::OkStatus()));
-
-  EXPECT_OK(
-      port_change_events.HandleEvent(kSetCommand, "eth0", {{"status", "up"}}));
-  EXPECT_OK(port_change_events.HandleEvent(kSetCommand, "eth1",
-                                           {{"status", "down"}}));
-}
-
-TEST(PortChangeEventsTest, DelPortEvent) {
-  MockP4RuntimeImpl mock_p4runtime_impl;
-  AppStateDbPortTableEventHandler port_change_events(mock_p4runtime_impl);
-
-  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation("eth0"))
-      .WillOnce(Return(absl::OkStatus()));
-  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation("eth1"))
+  EXPECT_CALL(mock_p4runtime_impl, RemovePacketIoPort("Ethernet1/2/1"))
       .WillOnce(Return(absl::OkStatus()));
 
-  EXPECT_OK(port_change_events.HandleEvent(kDelCommand, "eth0",
+  EXPECT_OK(port_change_events.HandleEvent(kDelCommand, "Ethernet1/1/1",
                                            {{"id", "1"}, {"status", "up"}}));
-  EXPECT_OK(port_change_events.HandleEvent(kDelCommand, "eth1",
+  EXPECT_OK(port_change_events.HandleEvent(kDelCommand, "Ethernet1/2/1",
                                            {{"id", "4"}, {"status", "down"}}));
 }
 
-TEST(PortChangeEventsTest, UnknownPortEvent) {
+TEST(PortTableEventTest, NonEthernetPortEventIsANoop) {
   MockP4RuntimeImpl mock_p4runtime_impl;
   AppStateDbPortTableEventHandler port_change_events(mock_p4runtime_impl);
 
   EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation).Times(0);
   EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation).Times(0);
 
-  EXPECT_THAT(port_change_events.HandleEvent(/*op=*/"UNKNOWN", "eth0",
+  EXPECT_OK(port_change_events.HandleEvent(kSetCommand, "bond0",
+                                           {{"id", "1"}, {"status", "up"}}));
+}
+
+TEST(PortTableEventTest, UnknownPortEventFails) {
+  MockP4RuntimeImpl mock_p4runtime_impl;
+  AppStateDbPortTableEventHandler port_change_events(mock_p4runtime_impl);
+
+  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation).Times(0);
+  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation).Times(0);
+
+  EXPECT_THAT(port_change_events.HandleEvent(/*op=*/"UNKNOWN", "Ethernet1",
                                              {{"id", "1"}, {"status", "up"}}),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
-TEST(PortChangeEventsTest, P4RuntimeAddPortFails) {
+TEST(PortTableEventTest, P4RuntimeAddPacketIoFails) {
   MockP4RuntimeImpl mock_p4runtime_impl;
   AppStateDbPortTableEventHandler port_change_events(mock_p4runtime_impl);
 
-  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation)
+  EXPECT_CALL(mock_p4runtime_impl, AddPacketIoPort)
       .WillOnce(Return(absl::InvalidArgumentError("something was bad")));
 
-  EXPECT_THAT(port_change_events.HandleEvent(kSetCommand, "eth0",
+  EXPECT_THAT(port_change_events.HandleEvent(kSetCommand, "Ethernet1/2",
                                              {{"id", "1"}, {"status", "up"}}),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("something was bad")));
 }
 
-TEST(PortChangeEventsTest, P4RuntimeRemovePortFails) {
+TEST(PortTableEventTest, P4RuntimeRemovePacketIoFails) {
   MockP4RuntimeImpl mock_p4runtime_impl;
   AppStateDbPortTableEventHandler port_change_events(mock_p4runtime_impl);
 
-  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation)
+  EXPECT_CALL(mock_p4runtime_impl, RemovePacketIoPort)
       .WillOnce(Return(absl::InvalidArgumentError("something was bad")));
 
-  EXPECT_THAT(port_change_events.HandleEvent(kDelCommand, "eth0",
+  EXPECT_THAT(port_change_events.HandleEvent(kDelCommand, "Ethernet1/5/4",
                                              {{"id", "1"}, {"status", "up"}}),
               StatusIs(absl::StatusCode::kInvalidArgument,
                        HasSubstr("something was bad")));
-}
-
-TEST(PortChangeEventsTest, P4RuntimeRemovePortFailsWhenIdIsMissing) {
-  MockP4RuntimeImpl mock_p4runtime_impl;
-  AppStateDbPortTableEventHandler port_change_events(mock_p4runtime_impl);
-
-  // No ID field means we will try to remove the port.
-  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation)
-      .WillOnce(Return(absl::InvalidArgumentError("something was bad")));
-
-  EXPECT_THAT(
-      port_change_events.HandleEvent(kSetCommand, "eth0", {{"status", "up"}}),
-      StatusIs(absl::StatusCode::kInvalidArgument,
-               HasSubstr("something was bad")));
 }
 
 }  // namespace

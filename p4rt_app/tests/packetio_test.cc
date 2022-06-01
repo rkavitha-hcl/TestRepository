@@ -90,6 +90,24 @@ class FakePacketIoTest : public testing::Test {
                                             std::move(stub), device_id_));
   }
 
+  // For PacketIO to work correctly it requires both creating a port, and adding
+  // a port translation.
+  absl::Status AddPacketIoPort(const std::string& port_name,
+                               const std::string& port_id) {
+    RETURN_IF_ERROR(p4rt_service_.GetP4rtServer().AddPacketIoPort(port_name));
+    RETURN_IF_ERROR(
+        p4rt_service_.GetP4rtServer().AddPortTranslation(port_name, port_id));
+    return absl::OkStatus();
+  }
+
+  absl::Status RemovePacketIoPort(const std::string& port_name) {
+    RETURN_IF_ERROR(
+        p4rt_service_.GetP4rtServer().RemovePortTranslation(port_name));
+    RETURN_IF_ERROR(
+        p4rt_service_.GetP4rtServer().RemovePacketIoPort(port_name));
+    return absl::OkStatus();
+  }
+
   // Form PacketOut message and write to stream channel.
   absl::Status SendPacketOut(int port, absl::string_view data,
                              const pdpi::IrP4Info& p4info) {
@@ -120,10 +138,8 @@ TEST_F(FakePacketIoTest, VerifyPacketIn) {
       p4rt_session_.get(),
       p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
       sai::GetP4Info(sai::Instantiation::kMiddleblock)));
-  ASSERT_OK(
-      p4rt_service_.GetP4rtServer().AddPortTranslation("Ethernet1/1/0", "0"));
-  ASSERT_OK(
-      p4rt_service_.GetP4rtServer().AddPortTranslation("Ethernet1/1/1", "1"));
+  ASSERT_OK(AddPacketIoPort("Ethernet1/1/0", "0"));
+  ASSERT_OK(AddPacketIoPort("Ethernet1/1/1", "1"));
 
   // Spawn the receiver thread.
   std::vector<p4::v1::StreamMessageResponse> actual_responses;
@@ -167,18 +183,48 @@ TEST_F(FakePacketIoTest, VerifyPacketInFailAfterPortRemove) {
       sai::GetP4Info(sai::Instantiation::kMiddleblock)));
 
   // Add and remove a port and verify packet In fails.
-  ASSERT_OK(
-      p4rt_service_.GetP4rtServer().AddPortTranslation("Ethernet1/1/0", "0"));
-  ASSERT_OK(
-      p4rt_service_.GetP4rtServer().RemovePortTranslation("Ethernet1/1/0"));
+  ASSERT_OK(AddPacketIoPort("Ethernet1/1/0", "0"));
+  ASSERT_OK(RemovePacketIoPort("Ethernet1/1/0"));
   EXPECT_THAT(p4rt_service_.GetFakePacketIoInterface().PushPacketIn(
                   "Ethernet1_1_0", "Ethernet1_1_0", "test packet1"),
               StatusIs(absl::StatusCode::kInvalidArgument));
 }
 
+TEST_F(FakePacketIoTest, PacketInFailsWithoutPortTranslation) {
+  ASSERT_OK(pdpi::SetForwardingPipelineConfig(
+      p4rt_session_.get(),
+      p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
+      sai::GetP4Info(sai::Instantiation::kMiddleblock)));
+
+  // Only add the PacketIO port, but not the port translation for that port.
+  ASSERT_OK(p4rt_service_.GetP4rtServer().AddPacketIoPort("Ethernet1/1/0"));
+  EXPECT_THAT(p4rt_service_.GetFakePacketIoInterface().PushPacketIn(
+                  "Ethernet1_1_0", "Ethernet1_1_0", "test packet1"),
+              StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST_F(FakePacketIoTest, PacketOutFailsWithoutPortTranslation) {
+  ASSERT_OK(p4rt_service_.GetP4rtServer().AddPacketIoPort("Ethernet1/1/0"));
+  std::vector<p4::v1::StreamMessageResponse> actual_responses;
+  absl::Notification got_responses;
+  std::thread receive_thread([&] {
+    actual_responses = ReadResponses(*p4rt_session_, /*expected_count=*/1);
+    got_responses.Notify();
+  });
+  absl::Cleanup cleanup([&] { receive_thread.join(); });
+  EXPECT_OK(SendPacketOut(0, "test packet1",
+                          sai::GetIrP4Info(sai::Instantiation::kMiddleblock)));
+  // Wait for a max timeout, close the session and verify responses.
+  got_responses.WaitForNotificationWithTimeout(absl::Seconds(10));
+  ASSERT_OK(p4rt_session_->Finish());
+  ASSERT_EQ(actual_responses.size(), 1);
+  ASSERT_TRUE(actual_responses[0].has_error());
+  ASSERT_EQ(actual_responses[0].error().canonical_code(),
+            grpc::StatusCode::FAILED_PRECONDITION);
+}
+
 TEST_F(FakePacketIoTest, PacketOutFailBeforeP4InfoPush) {
-  ASSERT_OK(
-      p4rt_service_.GetP4rtServer().AddPortTranslation("Ethernet1/1/0", "0"));
+  ASSERT_OK(AddPacketIoPort("Ethernet1/1/0", "0"));
   std::vector<p4::v1::StreamMessageResponse> actual_responses;
   absl::Notification got_responses;
   std::thread receive_thread([&] {
@@ -204,8 +250,7 @@ TEST_F(FakePacketIoTest, PacketOutFailAfterPortRemoval) {
       sai::GetP4Info(sai::Instantiation::kMiddleblock)));
 
   // Add and remove a port and verify packet out fails.
-  ASSERT_OK(
-      p4rt_service_.GetP4rtServer().AddPortTranslation("Ethernet1/1/0", "0"));
+  ASSERT_OK(AddPacketIoPort("Ethernet1/1/0", "0"));
   ASSERT_OK(
       p4rt_service_.GetP4rtServer().RemovePortTranslation("Ethernet1/1/0"));
   std::vector<p4::v1::StreamMessageResponse> actual_responses;
@@ -267,8 +312,7 @@ TEST_F(FakePacketIoTest, VerifyPacketOut) {
       p4rt_session_.get(),
       p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
       sai::GetP4Info(sai::Instantiation::kMiddleblock)));
-  ASSERT_OK(
-      p4rt_service_.GetP4rtServer().AddPortTranslation("Ethernet1/1/0", "0"));
+  ASSERT_OK(AddPacketIoPort("Ethernet1/1/0", "0"));
   EXPECT_OK(SendPacketOut(0, "test packet1",
                           sai::GetIrP4Info(sai::Instantiation::kMiddleblock)));
   EXPECT_OK(SendPacketOut(0, "test packet2",
@@ -296,8 +340,7 @@ TEST_F(FakePacketIoTest, VerifyPacketInWithPortNames) {
       p4rt_session_.get(),
       p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
       sai::GetP4Info(sai::Instantiation::kMiddleblock)));
-  ASSERT_OK(
-      p4rt_service_.GetP4rtServer().AddPortTranslation("Ethernet1/1/0", "0"));
+  ASSERT_OK(AddPacketIoPort("Ethernet1/1/0", "0"));
   std::vector<p4::v1::StreamMessageResponse> actual_responses;
   absl::Notification got_responses;
   std::thread receive_thread([&]() {
@@ -327,8 +370,7 @@ TEST_F(FakePacketIoTest, PacketInMessageFailsWhenNoPrimaryExists) {
   ASSERT_OK(p4rt_session_->Finish());
 
   // Push a dummy PacketIn message.
-  ASSERT_OK(
-      p4rt_service_.GetP4rtServer().AddPortTranslation("Ethernet1/1/0", "0"));
+  ASSERT_OK(AddPacketIoPort("Ethernet1/1/0", "0"));
   EXPECT_THAT(p4rt_service_.GetFakePacketIoInterface().PushPacketIn(
                   "Ethernet1_1_0", "Ethernet1_1_0", "test packet1"),
               StatusIs(absl::StatusCode::kFailedPrecondition,
@@ -342,8 +384,7 @@ TEST_F(FakePacketIoTest, PacketInCanBeSentToMultiplePrimaries) {
       p4rt_session_.get(),
       p4::v1::SetForwardingPipelineConfigRequest::RECONCILE_AND_COMMIT,
       sai::GetP4Info(sai::Instantiation::kMiddleblock)));
-  ASSERT_OK(
-      p4rt_service_.GetP4rtServer().AddPortTranslation("Ethernet1/1/0", "0"));
+  ASSERT_OK(AddPacketIoPort("Ethernet1/1/0", "0"));
 
   // Create a second primary client with the default role ("").
   const std::string address =
@@ -415,8 +456,7 @@ TEST_F(FakePacketIoTest, PacketInMessageFailsWhenPrimaryHasNonAuthorizeRole) {
           pdpi::P4RuntimeSessionOptionalArgs{.role = "NonAuthorized"}));
 
   // Push a dummy PacketIn message.
-  ASSERT_OK(
-      p4rt_service_.GetP4rtServer().AddPortTranslation("Ethernet1/1/0", "0"));
+  ASSERT_OK(AddPacketIoPort("Ethernet1/1/0", "0"));
   EXPECT_THAT(p4rt_service_.GetFakePacketIoInterface().PushPacketIn(
                   "Ethernet1_1_0", "Ethernet1_1_0", "test packet1"),
               StatusIs(absl::StatusCode::kFailedPrecondition,
@@ -429,6 +469,7 @@ TEST(PacketIoTest, PacketInMessageFailsWhenNoPrimaryIsEstablished) {
       P4RuntimeImplOptions{.translate_port_ids = false});
 
   // Push a dummy PacketIn message.
+  ASSERT_OK(p4rt_service.GetP4rtServer().AddPacketIoPort("Ethernet1/1/0"));
   ASSERT_OK(
       p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet1/1/0", "0"));
   EXPECT_THAT(p4rt_service.GetFakePacketIoInterface().PushPacketIn(

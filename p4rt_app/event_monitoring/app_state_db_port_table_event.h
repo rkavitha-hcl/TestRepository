@@ -21,7 +21,6 @@
 namespace p4rt_app {
 
 // Reacts to PORT_TABLE changes in the APP_STATE_DB:
-//  * Add/Remove port IDs from the P4Runtime application.
 //  * Create/Destroy PacketIO interfaces.
 class AppStateDbPortTableEventHandler : public sonic::StateEventHandler {
  public:

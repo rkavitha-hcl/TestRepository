@@ -104,16 +104,19 @@ class P4RuntimeImpl : public p4::v1::P4Runtime::Service {
   virtual absl::Status UpdateDeviceId(uint64_t device_id)
       ABSL_LOCKS_EXCLUDED(server_state_lock_);
 
-  // Will add a new port translation for P4Runtime requests. Duplicate Name/ID
-  // pairs will be treated as a no-op, but re-use and empty values will be
-  // rejected.
+  // Adds or removes a port from PacketIO.
+  virtual absl::Status AddPacketIoPort(const std::string& port_name)
+      ABSL_LOCKS_EXCLUDED(server_state_lock_);
+  virtual absl::Status RemovePacketIoPort(const std::string& port_name)
+      ABSL_LOCKS_EXCLUDED(server_state_lock_);
+
+  // Add or remove a port name/ID translation. Duplicate name or ID values are
+  // not allowed, and will be rejected. Order matters, so if a consumer needs to
+  // swap ID values they should first remove the existing IDs then reinsert the
+  // new values.
   virtual absl::Status AddPortTranslation(const std::string& port_name,
                                           const std::string& port_id)
       ABSL_LOCKS_EXCLUDED(server_state_lock_);
-
-  // Will remove an existing port translation. If the translation does not exist
-  // it is treated as a no-op and quitely passes. However, the port name cannot
-  // be an empty string.
   virtual absl::Status RemovePortTranslation(const std::string& port_name)
       ABSL_LOCKS_EXCLUDED(server_state_lock_);
 

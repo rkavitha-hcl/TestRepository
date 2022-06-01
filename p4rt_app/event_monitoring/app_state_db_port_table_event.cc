@@ -19,6 +19,7 @@
 #include "absl/strings/str_cat.h"
 #include "glog/logging.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"
+#include "swss/schema.h"
 
 namespace p4rt_app {
 
@@ -31,21 +32,16 @@ AppStateDbPortTableEventHandler::AppStateDbPortTableEventHandler(
 absl::Status AppStateDbPortTableEventHandler::HandleEvent(
     const std::string& operation, const std::string& key,
     const std::vector<std::pair<std::string, std::string>>& values) {
-  // Check the event for an ID field.
-  std::string id;
-  for (const auto& [field, value] : values) {
-    if (field == "id") id = value;
+  // P4RT can ignore managment ports, and only focus on front-panel port that
+  // start with `Ethernet`.
+  if (!absl::StartsWith(key, "Ethernet")) {
+    return absl::OkStatus();
   }
 
-  // If it doesn't exist then we should try to remove it from the P4RT app.
-  // Otherwise, apply the event's operation.
-  if (id.empty()) {
-    LOG(WARNING) << "'" << key << "' does not have an ID field.";
-    return p4runtime_.RemovePortTranslation(key);
-  } else if (operation == "SET") {
-    return p4runtime_.AddPortTranslation(key, id);
-  } else if (operation == "DEL") {
-    return p4runtime_.RemovePortTranslation(key);
+  if (operation == SET_COMMAND) {
+    return p4runtime_.AddPacketIoPort(key);
+  } else if (operation == DEL_COMMAND) {
+    return p4runtime_.RemovePacketIoPort(key);
   }
 
   return absl::InvalidArgumentError(

@@ -34,6 +34,7 @@ absl::Status RemovePortIdFromP4rtAndRedis(P4RuntimeImpl& p4runtime,
                                           sonic::TableAdapter& app_db,
                                           sonic::TableAdapter& app_state_db,
                                           const std::string& port_name) {
+  RETURN_IF_ERROR(p4runtime.RemovePortTranslation(port_name));
   app_db.del(port_name);
   app_state_db.del(port_name);
   return absl::OkStatus();
@@ -44,6 +45,12 @@ absl::Status InsertPortIdFromP4rtAndRedis(P4RuntimeImpl& p4runtime,
                                           sonic::TableAdapter& app_state_db,
                                           const std::string& port_name,
                                           const std::string& port_id) {
+  // Port ID 0 is reserved for ports that are modeled, but should not be used by
+  // P4RT. If we see ID = 0 we should still update redis so gNMI can converge,
+  // but we should not send it to P4RT.
+  if (port_id != "0") {
+    RETURN_IF_ERROR(p4runtime.AddPortTranslation(port_name, port_id));
+  }
   app_db.set(port_name, {{kPortIdField, port_id}});
   app_state_db.set(port_name, {{kPortIdField, port_id}});
   return absl::OkStatus();
@@ -67,9 +74,11 @@ absl::Status ConfigDbPortTableEventHandler::HandleEvent(
     }
   }
 
-  if (port_id.empty() || operation == DEL_COMMAND) {
-    // If a port is removed (i.e. DEL_COMMAND) or just the port_id is removed
-    // (i.e. port_id.empty()) we should prevent P4RT App from using the port.
+  if (port_id.empty()) {
+    LOG(WARNING) << "Port '" << key << "' does not have an ID field.";
+    RETURN_IF_ERROR(RemovePortIdFromP4rtAndRedis(p4runtime_, *app_db_table_,
+                                                 *app_state_db_table_, key));
+  } else if (operation == DEL_COMMAND) {
     RETURN_IF_ERROR(RemovePortIdFromP4rtAndRedis(p4runtime_, *app_db_table_,
                                                  *app_state_db_table_, key));
   } else if (operation == SET_COMMAND) {

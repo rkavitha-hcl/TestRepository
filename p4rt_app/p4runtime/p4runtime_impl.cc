@@ -757,6 +757,16 @@ absl::Status P4RuntimeImpl::UpdateDeviceId(uint64_t device_id) {
   return controller_manager_->SetDeviceId(device_id);
 }
 
+absl::Status P4RuntimeImpl::AddPacketIoPort(const std::string& port_name) {
+  absl::MutexLock l(&server_state_lock_);
+  return packetio_impl_->AddPacketIoPort(port_name);
+}
+
+absl::Status P4RuntimeImpl::RemovePacketIoPort(const std::string& port_name) {
+  absl::MutexLock l(&server_state_lock_);
+  return packetio_impl_->RemovePacketIoPort(port_name);
+}
+
 absl::Status P4RuntimeImpl::AddPortTranslation(const std::string& port_name,
                                                const std::string& port_id) {
   absl::MutexLock l(&server_state_lock_);
@@ -786,9 +796,7 @@ absl::Status P4RuntimeImpl::AddPortTranslation(const std::string& port_name,
   }
   LOG(INFO) << "Adding translation for '" << port_name << "' with ID '"
             << port_id << "'.";
-
-  // Add the port to Packet I/O.
-  return packetio_impl_->AddPacketIoPort(port_name);
+  return absl::OkStatus();
 }
 
 absl::Status P4RuntimeImpl::RemovePortTranslation(
@@ -806,9 +814,6 @@ absl::Status P4RuntimeImpl::RemovePortTranslation(
     LOG(INFO) << "Removing translation for '" << port->first << "' with ID '"
               << port->second << "'.";
     port_translation_map_.left.erase(port);
-
-    // Remove port from Packet I/O.
-    RETURN_IF_ERROR(packetio_impl_->RemovePacketIoPort(port_name));
   }
 
   return absl::OkStatus();

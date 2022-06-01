@@ -28,6 +28,8 @@ namespace p4rt_app {
 namespace {
 
 using ::gutil::StatusIs;
+using ::testing::HasSubstr;
+using ::testing::Return;
 
 // Expected SONiC commands assumed by state events.
 constexpr char kSetCommand[] = "SET";
@@ -43,15 +45,40 @@ TEST(PortTableIdEventTest, SetPortId) {
   auto mock_app_db = std::make_unique<sonic::MockTableAdapter>();
   auto mock_app_state_db = std::make_unique<sonic::MockTableAdapter>();
 
+  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation("Ethernet1/1/1", "1"))
+      .WillOnce(Return(absl::OkStatus()));
   EXPECT_CALL(*mock_app_db, set("Ethernet1/1/1", IdValueEntry("1"))).Times(1);
   EXPECT_CALL(*mock_app_state_db, set("Ethernet1/1/1", IdValueEntry("1")))
       .Times(1);
+
+  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation("Ethernet2", "2"))
+      .WillOnce(Return(absl::OkStatus()));
+  EXPECT_CALL(*mock_app_db, set("Ethernet2", IdValueEntry("2"))).Times(1);
+  EXPECT_CALL(*mock_app_state_db, set("Ethernet2", IdValueEntry("2"))).Times(1);
 
   ConfigDbPortTableEventHandler event_handler(&mock_p4runtime_impl,
                                               std::move(mock_app_db),
                                               std::move(mock_app_state_db));
   EXPECT_OK(
       event_handler.HandleEvent(kSetCommand, "Ethernet1/1/1", {{"id", "1"}}));
+  EXPECT_OK(event_handler.HandleEvent(kSetCommand, "Ethernet2", {{"id", "2"}}));
+}
+
+TEST(PortTableIdEventTest, PortIdZeroShouldOnlyUpdateRedisDb) {
+  MockP4RuntimeImpl mock_p4runtime_impl;
+  auto mock_app_db = std::make_unique<sonic::MockTableAdapter>();
+  auto mock_app_state_db = std::make_unique<sonic::MockTableAdapter>();
+
+  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation).Times(0);
+  EXPECT_CALL(*mock_app_db, set("Ethernet1/1/1", IdValueEntry("0"))).Times(1);
+  EXPECT_CALL(*mock_app_state_db, set("Ethernet1/1/1", IdValueEntry("0")))
+      .Times(1);
+
+  ConfigDbPortTableEventHandler event_handler(&mock_p4runtime_impl,
+                                              std::move(mock_app_db),
+                                              std::move(mock_app_state_db));
+  EXPECT_OK(
+      event_handler.HandleEvent(kSetCommand, "Ethernet1/1/1", {{"id", "0"}}));
 }
 
 TEST(PortTableIdEventTest, UpdatePortId) {
@@ -59,10 +86,15 @@ TEST(PortTableIdEventTest, UpdatePortId) {
   auto mock_app_db = std::make_unique<sonic::MockTableAdapter>();
   auto mock_app_state_db = std::make_unique<sonic::MockTableAdapter>();
 
+  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation("Ethernet1/1/1", "2"))
+      .WillOnce(Return(absl::OkStatus()));
   EXPECT_CALL(*mock_app_db, set("Ethernet1/1/1", IdValueEntry("2"))).Times(1);
-  EXPECT_CALL(*mock_app_db, set("Ethernet1/1/1", IdValueEntry("3"))).Times(1);
   EXPECT_CALL(*mock_app_state_db, set("Ethernet1/1/1", IdValueEntry("2")))
       .Times(1);
+
+  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation("Ethernet1/1/1", "3"))
+      .WillOnce(Return(absl::OkStatus()));
+  EXPECT_CALL(*mock_app_db, set("Ethernet1/1/1", IdValueEntry("3"))).Times(1);
   EXPECT_CALL(*mock_app_state_db, set("Ethernet1/1/1", IdValueEntry("3")))
       .Times(1);
 
@@ -80,6 +112,8 @@ TEST(PortTableIdEventTest, SetPortIdToAnEmptyString) {
   auto mock_app_db = std::make_unique<sonic::MockTableAdapter>();
   auto mock_app_state_db = std::make_unique<sonic::MockTableAdapter>();
 
+  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation("Ethernet1/1/1"))
+      .WillOnce(Return(absl::OkStatus()));
   EXPECT_CALL(*mock_app_db, del("Ethernet1/1/1")).Times(1);
   EXPECT_CALL(*mock_app_state_db, del("Ethernet1/1/1")).Times(1);
 
@@ -95,6 +129,8 @@ TEST(PortTableIdEventTest, DeletePortId) {
   auto mock_app_db = std::make_unique<sonic::MockTableAdapter>();
   auto mock_app_state_db = std::make_unique<sonic::MockTableAdapter>();
 
+  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation("Ethernet1/1/1"))
+      .WillOnce(Return(absl::OkStatus()));
   EXPECT_CALL(*mock_app_db, del("Ethernet1/1/1")).Times(1);
   EXPECT_CALL(*mock_app_state_db, del("Ethernet1/1/1")).Times(1);
 
@@ -110,6 +146,8 @@ TEST(PortTableIdEventTest, NonEthernetPortIsIgnored) {
   auto mock_app_db = std::make_unique<sonic::MockTableAdapter>();
   auto mock_app_state_db = std::make_unique<sonic::MockTableAdapter>();
 
+  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation).Times(0);
+  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation).Times(0);
   EXPECT_CALL(*mock_app_db, set).Times(0);
   EXPECT_CALL(*mock_app_db, del).Times(0);
   EXPECT_CALL(*mock_app_state_db, set).Times(0);
@@ -127,6 +165,8 @@ TEST(PortTableIdEventTest, UnexpectedOperationReturnsAnError) {
   auto mock_app_state_db = std::make_unique<sonic::MockTableAdapter>();
 
   // Invalid operations should not update any redis state.
+  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation).Times(0);
+  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation).Times(0);
   EXPECT_CALL(*mock_app_db, set).Times(0);
   EXPECT_CALL(*mock_app_db, del).Times(0);
   EXPECT_CALL(*mock_app_state_db, set).Times(0);
@@ -138,6 +178,42 @@ TEST(PortTableIdEventTest, UnexpectedOperationReturnsAnError) {
   EXPECT_THAT(event_handler.HandleEvent("INVALID_OPERATION", "Ethernet1/1/1",
                                         {{"id", "1"}}),
               StatusIs(absl::StatusCode::kInvalidArgument));
+}
+
+TEST(PortTableIdEventTest, P4RuntimeAddPortTranslationFails) {
+  MockP4RuntimeImpl mock_p4runtime_impl;
+  auto mock_app_db = std::make_unique<sonic::MockTableAdapter>();
+  auto mock_app_state_db = std::make_unique<sonic::MockTableAdapter>();
+
+  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation("Ethernet1/1/1", "1"))
+      .WillOnce(Return(absl::InvalidArgumentError("could not add")));
+  EXPECT_CALL(*mock_app_db, set).Times(0);
+  EXPECT_CALL(*mock_app_state_db, set).Times(0);
+
+  ConfigDbPortTableEventHandler event_handler(&mock_p4runtime_impl,
+                                              std::move(mock_app_db),
+                                              std::move(mock_app_state_db));
+  EXPECT_THAT(
+      event_handler.HandleEvent(kSetCommand, "Ethernet1/1/1", {{"id", "1"}}),
+      StatusIs(absl::StatusCode::kInvalidArgument, HasSubstr("could not add")));
+}
+
+TEST(PortTableIdEventTest, P4RuntimeRemovePortTranslationFails) {
+  MockP4RuntimeImpl mock_p4runtime_impl;
+  auto mock_app_db = std::make_unique<sonic::MockTableAdapter>();
+  auto mock_app_state_db = std::make_unique<sonic::MockTableAdapter>();
+
+  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation("Ethernet1/1/1"))
+      .WillOnce(Return(absl::UnknownError("could not remove")));
+  EXPECT_CALL(*mock_app_db, del).Times(0);
+  EXPECT_CALL(*mock_app_state_db, del).Times(0);
+
+  ConfigDbPortTableEventHandler event_handler(&mock_p4runtime_impl,
+                                              std::move(mock_app_db),
+                                              std::move(mock_app_state_db));
+  EXPECT_THAT(
+      event_handler.HandleEvent(kDelCommand, "Ethernet1/1/1", {{"id", "1"}}),
+      StatusIs(absl::StatusCode::kUnknown, HasSubstr("could not remove")));
 }
 
 }  // namespace
