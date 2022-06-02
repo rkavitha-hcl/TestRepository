@@ -163,7 +163,7 @@ absl::Status AppendTableEntryReads(
     auto translate_status = pdpi::IrTableEntryToPi(p4_info, ir_table_entry);
     if (!translate_status.ok()) {
       LOG(ERROR) << "PDPI could not translate IR table entry to PI: "
-                 << ir_table_entry.DebugString();
+                 << ir_table_entry.ShortDebugString();
       return gutil::StatusBuilder(translate_status.status().code())
              << "[P4RT/PDPI] " << translate_status.status().message();
     }
@@ -177,7 +177,7 @@ absl::Status AppendTableEntryReads(
     auto translate_status = pdpi::IrTableEntryToPi(p4_info, ir_table_entry);
     if (!translate_status.ok()) {
       LOG(ERROR) << "PDPI could not translate IR table entry to PI: "
-                 << ir_table_entry.DebugString();
+                 << ir_table_entry.ShortDebugString();
       return gutil::StatusBuilder(translate_status.status().code())
              << "[P4RT/PDPI] " << translate_status.status().message();
     }
@@ -254,7 +254,7 @@ absl::StatusOr<pdpi::IrTableEntry> DoPiTableEntryToIr(
       pdpi::PiTableEntryToIr(p4_info, pi_table_entry, translate_key_only);
   if (!translate_status.ok()) {
     LOG(WARNING) << "PDPI could not translate PI table entry to IR: "
-                 << pi_table_entry.DebugString();
+                 << pi_table_entry.ShortDebugString();
     return gutil::StatusBuilder(translate_status.status().code())
            << "[P4RT/PDPI] " << translate_status.status().message();
   }
@@ -300,14 +300,14 @@ sonic::AppDbUpdates PiTableEntryUpdatesToIr(
       // A status failure implies that the TableEntry was not formatted
       // correctly. So we could not check the constraints.
       LOG(WARNING) << "Could not verify P4 constraint: "
-                   << update.entity().table_entry().DebugString();
+                   << update.entity().table_entry().ShortDebugString();
       *entry_status = GetIrUpdateStatus(meets_constraint.status());
       continue;
     }
     if (*meets_constraint == false) {
       // A false result implies the constraints were not met.
       LOG(WARNING) << "Entry does not meet P4 constraint: "
-                   << update.entity().table_entry().DebugString();
+                   << update.entity().table_entry().ShortDebugString();
       *entry_status = GetIrUpdateStatus(
           gutil::InvalidArgumentErrorBuilder()
           << "Does not meet constraints required for the table entry.");
@@ -325,7 +325,7 @@ sonic::AppDbUpdates PiTableEntryUpdatesToIr(
     *entry_status = GetIrUpdateStatus(ir_table_entry.status());
     if (!ir_table_entry.ok()) {
       LOG(WARNING) << "Could not translate PI to IR: "
-                   << update.entity().table_entry().DebugString();
+                   << update.entity().table_entry().ShortDebugString();
       continue;
     }
 
@@ -432,7 +432,7 @@ grpc::Status P4RuntimeImpl::Write(grpc::ServerContext* context,
     auto grpc_status = pdpi::IrWriteRpcStatusToGrpcStatus(rpc_status);
     if (!grpc_status.ok()) {
       LOG(ERROR) << "PDPI failed to translate RPC status to gRPC status: "
-                 << rpc_status.DebugString();
+                 << rpc_status.ShortDebugString();
       return EnterCriticalState(grpc_status.status().ToString(),
                                 component_state_);
     }
@@ -569,7 +569,7 @@ grpc::Status P4RuntimeImpl::StreamChannel(
         default:
           LOG(WARNING) << "Stream Channel '" << context->peer()
                        << "' has sent a request that was unhandled: "
-                       << request.DebugString();
+                       << request.ShortDebugString();
           sdn_connection->SendStreamMessageResponse(
               GenerateErrorResponse(gutil::UnimplementedErrorBuilder()
                                     << "Stream update type is not supported."));

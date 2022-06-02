@@ -300,7 +300,7 @@ absl::Status UpdateAppDb(P4rtTable& p4rt_table, VrfTable& vrf_table,
     if (entry.appdb_table == AppDbTableType::UNKNOWN) {
       return gutil::InternalErrorBuilder()
              << "Could not determine AppDb table type for entry: "
-             << entry.entry.DebugString();
+             << entry.entry.ShortDebugString();
     }
 
     // Update non AppDb:P4RT entries (e.g. VRF_TABLE).

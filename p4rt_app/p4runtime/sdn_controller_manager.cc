@@ -436,7 +436,7 @@ absl::Status SdnControllerManager::SendPacketInToPrimary(
     const p4::v1::StreamMessageResponse& response) {
   if (response.update_case() != p4::v1::StreamMessageResponse::kPacket) {
     LOG(WARNING) << "PacketIn stream message update has to be a packet: "
-                 << response.DebugString();
+                 << response.ShortDebugString();
     return gutil::InvalidArgumentErrorBuilder()
            << "PacketIn message must use a packet.";
   }
@@ -465,7 +465,8 @@ absl::Status SdnControllerManager::SendStreamMessageToPrimary(
 
   if (!found_at_least_one_primary) {
     LOG(WARNING) << "Cannot send stream message response because there is no "
-                 << "active primary connection: " << response.DebugString();
+                 << "active primary connection: "
+                 << response.ShortDebugString();
     return gutil::FailedPreconditionErrorBuilder()
            << "No active role has a primary connection configured to receive "
               "PacketIn messages.";

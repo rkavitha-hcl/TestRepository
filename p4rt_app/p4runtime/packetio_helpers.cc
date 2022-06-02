@@ -58,7 +58,7 @@ absl::Status SendPacketOut(
   if (!translate_status.ok()) {
     LOG(WARNING) << "PDPI PacketOutToIr failure: " << translate_status.status();
     LOG(WARNING) << "PDPI could not translate PacketOut packet: "
-                 << packet.DebugString();
+                 << packet.ShortDebugString();
     return gutil::StatusBuilder(translate_status.status().code())
            << "[P4RT/PDPI] " << translate_status.status().message();
   }

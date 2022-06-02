@@ -224,8 +224,8 @@ absl::Status GetAndProcessResponseNotification(
       if (response_iter->second.code() != google::rpc::Code::OK) {
         *expected_status = response_iter->second;
         LOG(WARNING) << "OrchAgent could not handle AppDb entry '"
-                     << response_key
-                     << "'. Failed with: " << response_status.DebugString();
+                     << response_key << "'. Failed with: "
+                     << response_status.ShortDebugString();
         RETURN_IF_ERROR(
             RestoreApplDb(app_db_table, state_db_table, response_key));
       }
