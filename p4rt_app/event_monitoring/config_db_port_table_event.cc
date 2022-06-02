@@ -62,8 +62,9 @@ absl::Status ConfigDbPortTableEventHandler::HandleEvent(
     const std::string& operation, const std::string& key,
     const std::vector<std::pair<std::string, std::string>>& values) {
   // P4RT can ignore managment ports, and only focus on front-panel port that
-  // start with `Ethernet`.
-  if (!absl::StartsWith(key, "Ethernet")) {
+  // start with `Ethernet` or `PortChannel`.
+  if (!absl::StartsWith(key, "Ethernet") &&
+      !absl::StartsWith(key, "PortChannel")) {
     return absl::OkStatus();
   }
 

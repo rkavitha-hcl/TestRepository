@@ -406,6 +406,14 @@ int main(int argc, char** argv) {
           << port_table_status;
     }
 
+    auto port_channel_table_status = config_db_monitor.RegisterTableHandler(
+        "PORTCHANNEL", port_table_handler);
+    if (!port_channel_table_status.ok()) {
+      LOG(FATAL)  // Crash OK: only fails on startup.
+          << "CONFIG_DB event monitor could not register 'PORTCHANNEL': "
+          << port_channel_table_status;
+    }
+
     while (monitor_config_db_events) {
       absl::Status status = config_db_monitor.WaitForNextEventAndHandle();
       if (!status.ok()) {

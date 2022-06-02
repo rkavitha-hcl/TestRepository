@@ -40,7 +40,62 @@ std::vector<std::pair<std::string, std::string>> IdValueEntry(
   return {{"id", id}};
 }
 
-TEST(PortTableIdEventTest, SetPortId) {
+TEST(PortTableIdEventTest, AcceptEthernetPortIds) {
+  MockP4RuntimeImpl mock_p4runtime_impl;
+  auto mock_app_db = std::make_unique<sonic::MockTableAdapter>();
+  auto mock_app_state_db = std::make_unique<sonic::MockTableAdapter>();
+
+  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation("Ethernet1/1/1", "1"))
+      .WillOnce(Return(absl::OkStatus()));
+  EXPECT_CALL(*mock_app_db, set("Ethernet1/1/1", IdValueEntry("1"))).Times(1);
+  EXPECT_CALL(*mock_app_state_db, set("Ethernet1/1/1", IdValueEntry("1")))
+      .Times(1);
+
+  ConfigDbPortTableEventHandler event_handler(&mock_p4runtime_impl,
+                                              std::move(mock_app_db),
+                                              std::move(mock_app_state_db));
+  EXPECT_OK(
+      event_handler.HandleEvent(kSetCommand, "Ethernet1/1/1", {{"id", "1"}}));
+}
+
+TEST(PortTableIdEventTest, AcceptPortChannelPortIds) {
+  MockP4RuntimeImpl mock_p4runtime_impl;
+  auto mock_app_db = std::make_unique<sonic::MockTableAdapter>();
+  auto mock_app_state_db = std::make_unique<sonic::MockTableAdapter>();
+
+  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation("PortChannel11", "2001"))
+      .WillOnce(Return(absl::OkStatus()));
+  EXPECT_CALL(*mock_app_db, set("PortChannel11", IdValueEntry("2001")))
+      .Times(1);
+  EXPECT_CALL(*mock_app_state_db, set("PortChannel11", IdValueEntry("2001")))
+      .Times(1);
+
+  ConfigDbPortTableEventHandler event_handler(&mock_p4runtime_impl,
+                                              std::move(mock_app_db),
+                                              std::move(mock_app_state_db));
+  EXPECT_OK(event_handler.HandleEvent(kSetCommand, "PortChannel11",
+                                      {{"id", "2001"}}));
+}
+
+TEST(PortTableIdEventTest, IgnoreUnexpectedPortNames) {
+  MockP4RuntimeImpl mock_p4runtime_impl;
+  auto mock_app_db = std::make_unique<sonic::MockTableAdapter>();
+  auto mock_app_state_db = std::make_unique<sonic::MockTableAdapter>();
+
+  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation).Times(0);
+  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation).Times(0);
+  EXPECT_CALL(*mock_app_db, set).Times(0);
+  EXPECT_CALL(*mock_app_db, del).Times(0);
+  EXPECT_CALL(*mock_app_state_db, set).Times(0);
+  EXPECT_CALL(*mock_app_state_db, del).Times(0);
+
+  ConfigDbPortTableEventHandler event_handler(&mock_p4runtime_impl,
+                                              std::move(mock_app_db),
+                                              std::move(mock_app_state_db));
+  EXPECT_OK(event_handler.HandleEvent(kDelCommand, "loopback0", {{"id", "1"}}));
+}
+
+TEST(PortTableIdEventTest, SetMultiplePortIds) {
   MockP4RuntimeImpl mock_p4runtime_impl;
   auto mock_app_db = std::make_unique<sonic::MockTableAdapter>();
   auto mock_app_state_db = std::make_unique<sonic::MockTableAdapter>();
@@ -139,24 +194,6 @@ TEST(PortTableIdEventTest, DeletePortId) {
                                               std::move(mock_app_state_db));
   EXPECT_OK(
       event_handler.HandleEvent(kDelCommand, "Ethernet1/1/1", {{"id", "1"}}));
-}
-
-TEST(PortTableIdEventTest, NonEthernetPortIsIgnored) {
-  MockP4RuntimeImpl mock_p4runtime_impl;
-  auto mock_app_db = std::make_unique<sonic::MockTableAdapter>();
-  auto mock_app_state_db = std::make_unique<sonic::MockTableAdapter>();
-
-  EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation).Times(0);
-  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation).Times(0);
-  EXPECT_CALL(*mock_app_db, set).Times(0);
-  EXPECT_CALL(*mock_app_db, del).Times(0);
-  EXPECT_CALL(*mock_app_state_db, set).Times(0);
-  EXPECT_CALL(*mock_app_state_db, del).Times(0);
-
-  ConfigDbPortTableEventHandler event_handler(&mock_p4runtime_impl,
-                                              std::move(mock_app_db),
-                                              std::move(mock_app_state_db));
-  EXPECT_OK(event_handler.HandleEvent(kDelCommand, "loopback0", {{"id", "1"}}));
 }
 
 TEST(PortTableIdEventTest, UnexpectedOperationReturnsAnError) {
