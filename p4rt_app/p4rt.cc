@@ -462,7 +462,7 @@ int main(int argc, char** argv) {
   // Keepalive should fail relatively fast to let P4RT find out disconnect
   // quickly and yield primaryship to allow other controller to connect as
   // primary.
-  builder.AddChannelArgument(GRPC_ARG_KEEPALIVE_TIMEOUT_MS, 2000);
+  builder.AddChannelArgument(GRPC_ARG_KEEPALIVE_TIMEOUT_MS, 4000);
 
   // Sends KA pings even when existing streaming RPC is not active.
   builder.AddChannelArgument(GRPC_ARG_HTTP2_MAX_PINGS_WITHOUT_DATA, 0);
