@@ -196,7 +196,7 @@ absl::Status ProgramL3AdmitTableEntry(
                   match {
                     dst_mac {
                       value: "00:00:00:00:00:00"
-                      mask: "FF:FF:FF:FF:FF:FF"
+                      mask: "01:00:00:00:00:00"
                     }
                   }
                   action { admit_to_l3 {} }

@@ -363,7 +363,7 @@ TEST(BasicTraffic, SendTraffic) {
                    table_id: 33554503
                    match {
                      field_id: 1
-                     ternary { value: "\000" mask: "\377\377\377\377\377\377" }
+                     ternary { value: "\000" mask: "\001\000\000\000\000\000" }
                    }
                    action { action { action_id: 16777224 } }
                    priority: 1
@@ -387,7 +387,7 @@ TEST(BasicTraffic, SendTraffic) {
                    table_id: 33554503
                    match {
                      field_id: 1
-                     ternary { value: "\000" mask: "\377\377\377\377\377\377" }
+                     ternary { value: "\000" mask: "\001\000\000\000\000\000" }
                    }
                    action { action { action_id: 16777224 } }
                    priority: 1

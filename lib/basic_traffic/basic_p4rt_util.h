@@ -101,14 +101,14 @@ inline absl::Status ProgramIPv4Route(
                           instantiation);
 }
 
-// Programs L3 admit table entry allowing packets to be routed. Takes in a
-// function that programs a `WriteRequest`.
+// Programs L3 admit table entry allowing all unicast packets to be routed.
+// Takes in a function that programs a `WriteRequest`.
 absl::Status ProgramL3AdmitTableEntry(
     const std::function<absl::Status(p4::v1::WriteRequest&)>& write_request,
     sai::Instantiation instantiation = sai::Instantiation::kMiddleblock);
 
-// Programs L3 admit table entry allowing packets to be routed. Takes in a
-// `P4RuntimeSession`.
+// Programs L3 admit table entry allowing all unicast packets to be routed.
+// Takes in a `P4RuntimeSession`.
 inline absl::Status ProgramL3AdmitTableEntry(
     pdpi::P4RuntimeSession* session,
     sai::Instantiation instantiation = sai::Instantiation::kMiddleblock,
