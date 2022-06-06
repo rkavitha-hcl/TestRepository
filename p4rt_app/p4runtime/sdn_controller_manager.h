@@ -40,11 +40,11 @@ class SdnConnection {
   void Initialize() { initialized_ = true; }
   bool IsInitialized() const { return initialized_; }
 
-  void SetElectionId(const absl::optional<absl::uint128>& id);
-  absl::optional<absl::uint128> GetElectionId() const;
+  void SetElectionId(const std::optional<absl::uint128>& id);
+  std::optional<absl::uint128> GetElectionId() const;
 
-  void SetRoleName(const absl::optional<std::string>& name);
-  absl::optional<std::string> GetRoleName() const;
+  void SetRoleName(const std::optional<std::string>& name);
+  std::optional<std::string> GetRoleName() const;
 
   // Sends back StreamMessageResponse to this controller.
   void SendStreamMessageResponse(const p4::v1::StreamMessageResponse& response);
@@ -58,12 +58,12 @@ class SdnConnection {
   // specified role limits the table a connection can write to, and read from.
   // If no role is specified then the connection is assumed to be root, and has
   // access to all tables.
-  absl::optional<std::string> role_name_;
+  std::optional<std::string> role_name_;
 
   // Multiple connections can be established per role, but only one connection
   // (i.e. the primary connection) is allowed to modify state. The primary
   // connection is determined based on the election ID.
-  absl::optional<absl::uint128> election_id_;
+  std::optional<absl::uint128> election_id_;
 
   // While the gRPC connection is open we keep access to the context & the
   // read/write stream for communication.
@@ -83,8 +83,8 @@ class SdnControllerManager {
 
   absl::Status SetDeviceId(uint64_t device_id) ABSL_LOCKS_EXCLUDED(lock_);
 
-  grpc::Status AllowRequest(const absl::optional<std::string>& role_name,
-                            const absl::optional<absl::uint128>& election_id)
+  grpc::Status AllowRequest(const std::optional<std::string>& role_name,
+                            const std::optional<absl::uint128>& election_id)
       const ABSL_LOCKS_EXCLUDED(lock_);
 
   grpc::Status AllowRequest(const p4::v1::WriteRequest& request) const;
@@ -97,7 +97,7 @@ class SdnControllerManager {
  private:
   // Goes through the current list of active connections, and returns if one of
   // them is currently the primary.
-  bool PrimaryConnectionExists(const absl::optional<std::string>& role_name)
+  bool PrimaryConnectionExists(const std::optional<std::string>& role_name)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(lock_);
 
   absl::Status SendStreamMessageToPrimary(
@@ -106,7 +106,7 @@ class SdnControllerManager {
   // Sends an arbitration update to all active connections for a role about the
   // current primary connection.
   void InformConnectionsAboutPrimaryChange(
-      const absl::optional<std::string>& role_name)
+      const std::optional<std::string>& role_name)
       ABSL_EXCLUSIVE_LOCKS_REQUIRED(lock_);
 
   // Sends an arbitration update to a specific connection.
@@ -146,8 +146,7 @@ class SdnControllerManager {
   // key:   role_name   (no value indicaates the default/root role)
   // value: election ID (no value indicates there has never been a primary
   //                     connection)
-  absl::flat_hash_map<absl::optional<std::string>,
-                      absl::optional<absl::uint128>>
+  absl::flat_hash_map<std::optional<std::string>, std::optional<absl::uint128>>
       election_id_past_by_role_ ABSL_GUARDED_BY(lock_);
 
   // Placeholder for role_config which ideally would be passed
@@ -155,9 +154,9 @@ class SdnControllerManager {
   //
   // Contains the roles that will receive packet in messages.
   // A copy of the packet will be sent to the primary for each role.
-  absl::flat_hash_set<absl::optional<std::string>> role_receives_packet_in_{
+  absl::flat_hash_set<std::optional<std::string>> role_receives_packet_in_{
       P4RUNTIME_ROLE_SDN_CONTROLLER,
-      absl::nullopt,  // default role
+      std::nullopt,  // default role
   };
 };
 

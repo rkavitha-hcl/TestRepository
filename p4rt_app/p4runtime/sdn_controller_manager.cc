@@ -18,8 +18,8 @@
 
 #include "absl/numeric/int128.h"
 #include "absl/status/status.h"
+#include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
-#include "absl/strings/str_join.h"
 #include "absl/types/optional.h"
 #include "glog/logging.h"
 #include "gutil/collections.h"
@@ -29,11 +29,11 @@
 namespace p4rt_app {
 namespace {
 
-std::string PrettyPrintRoleName(const absl::optional<std::string>& name) {
+std::string PrettyPrintRoleName(const std::optional<std::string>& name) {
   return (name.has_value()) ? absl::StrCat("'", *name, "'") : "<default>";
 }
 
-std::string PrettyPrintElectionId(const absl::optional<absl::uint128>& id) {
+std::string PrettyPrintElectionId(const std::optional<absl::uint128>& id) {
   if (id.has_value()) {
     p4::v1::Uint128 p4_id;
     p4_id.set_high(absl::Uint128High64(*id));
@@ -44,8 +44,8 @@ std::string PrettyPrintElectionId(const absl::optional<absl::uint128>& id) {
 }
 
 grpc::Status VerifyElectionIdIsUnused(
-    const absl::optional<std::string>& role_name,
-    const absl::optional<absl::uint128>& election_id,
+    const std::optional<std::string>& role_name,
+    const std::optional<absl::uint128>& election_id,
     absl::Span<const SdnConnection* const> active_connections,
     SdnConnection const* current_connection) {
   // If the election ID is not set then the controller is saying this should be
@@ -67,8 +67,8 @@ grpc::Status VerifyElectionIdIsUnused(
 }
 
 grpc::Status VerifyElectionIdIsActive(
-    const absl::optional<std::string>& role_name,
-    const absl::optional<absl::uint128>& election_id,
+    const std::optional<std::string>& role_name,
+    const std::optional<absl::uint128>& election_id,
     absl::Span<const SdnConnection* const> active_connections) {
   for (const auto& connection : active_connections) {
     if (connection->GetRoleName() == role_name &&
@@ -82,19 +82,19 @@ grpc::Status VerifyElectionIdIsActive(
 
 }  // namespace
 
-void SdnConnection::SetElectionId(const absl::optional<absl::uint128>& id) {
+void SdnConnection::SetElectionId(const std::optional<absl::uint128>& id) {
   election_id_ = id;
 }
 
-absl::optional<absl::uint128> SdnConnection::GetElectionId() const {
+std::optional<absl::uint128> SdnConnection::GetElectionId() const {
   return election_id_;
 }
 
-void SdnConnection::SetRoleName(const absl::optional<std::string>& name) {
+void SdnConnection::SetRoleName(const std::optional<std::string>& name) {
   role_name_ = name;
 }
 
-absl::optional<std::string> SdnConnection::GetRoleName() const {
+std::optional<std::string> SdnConnection::GetRoleName() const {
   return role_name_;
 }
 
@@ -124,13 +124,13 @@ grpc::Status SdnControllerManager::HandleArbitrationUpdate(
 
   // If the role name is not set then we assume the connection is a 'root'
   // connection.
-  absl::optional<std::string> role_name;
+  std::optional<std::string> role_name;
   if (update.has_role() && !update.role().name().empty()) {
     role_name = update.role().name();
   }
 
   const auto old_election_id_for_connection = controller->GetElectionId();
-  absl::optional<absl::uint128> new_election_id_for_connection;
+  std::optional<absl::uint128> new_election_id_for_connection;
   if (update.has_election_id()) {
     new_election_id_for_connection = absl::MakeUint128(
         update.election_id().high(), update.election_id().low());
@@ -304,8 +304,8 @@ absl::Status SdnControllerManager::SetDeviceId(uint64_t device_id) {
 }
 
 grpc::Status SdnControllerManager::AllowRequest(
-    const absl::optional<std::string>& role_name,
-    const absl::optional<absl::uint128>& election_id) const {
+    const std::optional<std::string>& role_name,
+    const std::optional<absl::uint128>& election_id) const {
   absl::MutexLock l(&lock_);
 
   if (!election_id.has_value()) {
@@ -331,12 +331,12 @@ grpc::Status SdnControllerManager::AllowRequest(
 
 grpc::Status SdnControllerManager::AllowRequest(
     const p4::v1::WriteRequest& request) const {
-  absl::optional<std::string> role_name;
+  std::optional<std::string> role_name;
   if (!request.role().empty()) {
     role_name = request.role();
   }
 
-  absl::optional<absl::uint128> election_id;
+  std::optional<absl::uint128> election_id;
   if (request.has_election_id()) {
     election_id = absl::MakeUint128(request.election_id().high(),
                                     request.election_id().low());
@@ -346,12 +346,12 @@ grpc::Status SdnControllerManager::AllowRequest(
 
 grpc::Status SdnControllerManager::AllowRequest(
     const p4::v1::SetForwardingPipelineConfigRequest& request) const {
-  absl::optional<std::string> role_name;
+  std::optional<std::string> role_name;
   if (!request.role().empty()) {
     role_name = request.role();
   }
 
-  absl::optional<absl::uint128> election_id;
+  std::optional<absl::uint128> election_id;
   if (request.has_election_id()) {
     election_id = absl::MakeUint128(request.election_id().high(),
                                     request.election_id().low());
@@ -360,7 +360,7 @@ grpc::Status SdnControllerManager::AllowRequest(
 }
 
 void SdnControllerManager::InformConnectionsAboutPrimaryChange(
-    const absl::optional<std::string>& role_name) {
+    const std::optional<std::string>& role_name) {
   VLOG(1) << "Informing all connections about primary connection change.";
   for (const auto& connection : connections_) {
     if (connection->GetRoleName() == role_name) {
@@ -370,8 +370,8 @@ void SdnControllerManager::InformConnectionsAboutPrimaryChange(
 }
 
 bool SdnControllerManager::PrimaryConnectionExists(
-    const absl::optional<std::string>& role_name) {
-  absl::optional<absl::uint128> election_id_past_for_role =
+    const std::optional<std::string>& role_name) {
+  std::optional<absl::uint128> election_id_past_for_role =
       election_id_past_by_role_[role_name];
 
   for (const auto& connection : connections_) {
@@ -399,7 +399,7 @@ void SdnControllerManager::SendArbitrationResponse(SdnConnection* connection) {
   }
 
   // Populate the election ID with the highest accepted value.
-  absl::optional<absl::uint128> election_id_past_for_role =
+  std::optional<absl::uint128> election_id_past_for_role =
       election_id_past_by_role_[connection->GetRoleName()];
   if (election_id_past_for_role.has_value()) {
     arbitration->mutable_election_id()->set_high(
@@ -453,7 +453,7 @@ absl::Status SdnControllerManager::SendStreamMessageToPrimary(
     auto role_name = connection->GetRoleName();
 
     auto primary_id_by_role_name = gutil::FindOrDefault(
-        election_id_past_by_role_, role_name, absl::nullopt);
+        election_id_past_by_role_, role_name, std::nullopt);
     if (primary_id_by_role_name.has_value() &&
         primary_id_by_role_name == connection->GetElectionId()) {
       if (role_receives_packet_in_.contains(role_name)) {
