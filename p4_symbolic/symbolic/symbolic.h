@@ -38,6 +38,14 @@
 namespace p4_symbolic {
 namespace symbolic {
 
+// A port reserved to encode dropping packets.
+// The value is arbitrary; we choose the same value as BMv2:
+// https://github.com/p4lang/behavioral-model/blob/main/docs/simple_switch.md#standard-metadata
+constexpr int kDropPort = 511;  // 2^9 - 1.
+// An arbitrary port we reserve for the CPU port (for PacketIO packets).
+constexpr int kCpuPort = 510;  // 2^9 - 2.
+constexpr int kPortBitwidth = 9;
+
 // Boolean pseudo header field that is set to true by p4-symbolic if the packet
 // gets cloned. Not an actual header field, but convenient for analysis.
 constexpr absl::string_view kGotClonedPseudoField = "$got_cloned$";

@@ -32,12 +32,6 @@
 namespace p4_symbolic {
 namespace symbolic {
 
-// A port reserved to encode dropping packets.
-// The value is arbitrary; we choose the same value as BMv2:
-// https://github.com/p4lang/behavioral-model/blob/main/docs/simple_switch.md#standard-metadata
-constexpr int kDropPort = 511;  // 2^9 - 1.
-constexpr int kPortBitwidth = 9;
-
 z3::expr EgressSpecDroppedValue() {
   return Z3Context().bv_val(kDropPort, kPortBitwidth);
 }
@@ -65,8 +59,20 @@ absl::Status CheckPhysicalPortsConformanceToV1Model(
       return absl::InvalidArgumentError(absl::Substitute(
           "Cannot use the value $0 as a physical port as the value does not "
           "fit into PortId_t (bit<9>), the type of "
-          "standard_metadata.{ingress/egress}_port in v1model.p4",
+          "standard_metadata.{ingress/egress}_port in v1model.p4.",
           port));
+    }
+    if (port == kDropPort) {
+      return absl::InvalidArgumentError(
+          absl::Substitute("Cannot use the value $0 as a physical port as the "
+                           "value is reserved for dropping packets.",
+                           port));
+    }
+    if (port == kCpuPort) {
+      return absl::InvalidArgumentError(
+          absl::Substitute("Cannot use the value $0 as a physical port as the "
+                           "value is reserved for the CPU port.",
+                           port));
     }
   }
 
