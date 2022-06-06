@@ -90,24 +90,6 @@ std::string ToString(const T &t) {
   return ss.str();
 }
 
-// Connects to Ixia on the given testbed and returns a string handle identifying
-// the connection (aka "topology ref").
-absl::StatusOr<std::string> ConnectToIxia(thinkit::GenericTestbed &testbed) {
-  ASSIGN_OR_RETURN(auto gnmi_stub, testbed.Sut().CreateGnmiStub());
-  ASSIGN_OR_RETURN(std::vector<IxiaLink> ready_links,
-                   GetReadyIxiaLinks(testbed, *gnmi_stub));
-  if (ready_links.empty()) {
-    return gutil::UnavailableErrorBuilder() << "no Ixia-to-SUT link up";
-  }
-  absl::string_view ixia_interface = ready_links[0].ixia_interface;
-  ASSIGN_OR_RETURN(ixia::IxiaPortInfo ixia_port_info,
-                   ixia::ExtractPortInfo(ixia_interface));
-  ASSIGN_OR_RETURN(
-      std::string ixia_connection_handle,
-      pins_test::ixia::IxiaConnect(ixia_port_info.hostname, testbed));
-  return ixia_connection_handle;
-}
-
 // Installs the given table `entries` using the given P4Runtime session,
 // respecting dependencies between entries by sequencing them into batches
 // according to `p4info`.
@@ -223,8 +205,8 @@ TEST_P(FrontpanelQosTest,
   // Pick 2 SUT ports connected to the Ixia, one for receiving test packets and
   // one for forwarding them back.
   ASSERT_OK_AND_ASSIGN(auto gnmi_stub, testbed->Sut().CreateGnmiStub());
-  ASSERT_OK_AND_ASSIGN(std::vector<IxiaLink> ready_links,
-                       GetReadyIxiaLinks(*testbed, *gnmi_stub));
+  ASSERT_OK_AND_ASSIGN(std::vector<ixia::IxiaLink> ready_links,
+                       ixia::GetReadyIxiaLinks(*testbed, *gnmi_stub));
   ASSERT_GE(ready_links.size(), 2)
       << "Test requires at least 2 SUT ports connected to an Ixia";
   const std::string kIxiaSrcPort = ready_links[0].ixia_interface;
@@ -345,7 +327,8 @@ TEST_P(FrontpanelQosTest,
       FormatJsonBestEffort(updated_scheduler_config)));
 
   // Connect to Ixia and fix global parameters.
-  ASSERT_OK_AND_ASSIGN(const std::string kIxiaHandle, ConnectToIxia(*testbed));
+  ASSERT_OK_AND_ASSIGN(const std::string kIxiaHandle,
+                       ixia::ConnectToIxia(*testbed));
   ASSERT_OK_AND_ASSIGN(const std::string kIxiaSrcPortHandle,
                        ixia::IxiaVport(kIxiaHandle, kIxiaSrcPort, *testbed));
   ASSERT_OK_AND_ASSIGN(const std::string kIxiaDstPortHandle,
@@ -515,8 +498,8 @@ TEST_P(FrontpanelQosTest, WeightedRoundRobinWeightsAreRespected) {
   // strictly-prioritized queue via another ingress port.
   LOG(INFO) << "picking test packet links";
   ASSERT_OK_AND_ASSIGN(auto gnmi_stub, testbed->Sut().CreateGnmiStub());
-  ASSERT_OK_AND_ASSIGN(std::vector<IxiaLink> ready_links,
-                       GetReadyIxiaLinks(*testbed, *gnmi_stub));
+  ASSERT_OK_AND_ASSIGN(std::vector<ixia::IxiaLink> ready_links,
+                       ixia::GetReadyIxiaLinks(*testbed, *gnmi_stub));
   absl::c_sort(ready_links, [&](auto &x, auto &y) -> bool {
     return x.sut_interface_bits_per_second < y.sut_interface_bits_per_second;
   });
@@ -665,7 +648,8 @@ TEST_P(FrontpanelQosTest, WeightedRoundRobinWeightsAreRespected) {
 
   // Connect to Ixia and fix some parameters.
   LOG(INFO) << "configuring Ixia traffic";
-  ASSERT_OK_AND_ASSIGN(const std::string kIxiaHandle, ConnectToIxia(*testbed));
+  ASSERT_OK_AND_ASSIGN(const std::string kIxiaHandle,
+                       ixia::ConnectToIxia(*testbed));
   ASSERT_OK_AND_ASSIGN(
       const std::string kIxiaMainSrcPortHandle,
       ixia::IxiaVport(kIxiaHandle, kIxiaMainSrcPort, *testbed));
@@ -834,8 +818,8 @@ TEST_P(FrontpanelQosTest, StrictQueuesAreStrictlyPrioritized) {
   // strictly-prioritized queue via another ingress port.
   LOG(INFO) << "picking test packet links";
   ASSERT_OK_AND_ASSIGN(auto gnmi_stub, testbed->Sut().CreateGnmiStub());
-  ASSERT_OK_AND_ASSIGN(std::vector<IxiaLink> ready_links,
-                       GetReadyIxiaLinks(*testbed, *gnmi_stub));
+  ASSERT_OK_AND_ASSIGN(std::vector<ixia::IxiaLink> ready_links,
+                       ixia::GetReadyIxiaLinks(*testbed, *gnmi_stub));
   absl::c_sort(ready_links, [&](auto &x, auto &y) -> bool {
     return x.sut_interface_bits_per_second < y.sut_interface_bits_per_second;
   });
@@ -934,7 +918,8 @@ TEST_P(FrontpanelQosTest, StrictQueuesAreStrictlyPrioritized) {
 
   // Connect to Ixia and fix constant traffic parameters.
   LOG(INFO) << "connecting to Ixia";
-  ASSERT_OK_AND_ASSIGN(const std::string kIxiaHandle, ConnectToIxia(*testbed));
+  ASSERT_OK_AND_ASSIGN(const std::string kIxiaHandle,
+                       ixia::ConnectToIxia(*testbed));
   ASSERT_OK_AND_ASSIGN(
       const std::string kIxiaMainTrafficSrcPortHandle,
       ixia::IxiaVport(kIxiaHandle, kIxiaMainTrafficSrcPort, *testbed));
@@ -1406,8 +1391,8 @@ TEST_P(FrontpanelQosTest, TestWredEcnMarking) {
   // Get Ixia connected links.
   const absl::flat_hash_map<std::string, thinkit::InterfaceInfo>
       interface_info = testbed->GetSutInterfaceInfo();
-  ASSERT_OK_AND_ASSIGN(std::vector<IxiaLink> ready_links,
-                       GetReadyIxiaLinks(*testbed, *gnmi_stub));
+  ASSERT_OK_AND_ASSIGN(std::vector<ixia::IxiaLink> ready_links,
+                       ixia::GetReadyIxiaLinks(*testbed, *gnmi_stub));
   ASSERT_GE(ready_links.size(), 3)
       << "Test requires at least 3 SUT ports connected to an Ixia";
 
@@ -1753,8 +1738,8 @@ TEST_P(FrontpanelBufferTest, BufferCarving) {
   // so we can oversubsribe the egress port.
   LOG(INFO) << "picking test packet links";
   ASSERT_OK_AND_ASSIGN(auto gnmi_stub, testbed->Sut().CreateGnmiStub());
-  ASSERT_OK_AND_ASSIGN(std::vector<IxiaLink> ready_links,
-                       GetReadyIxiaLinks(*testbed, *gnmi_stub));
+  ASSERT_OK_AND_ASSIGN(std::vector<ixia::IxiaLink> ready_links,
+                       ixia::GetReadyIxiaLinks(*testbed, *gnmi_stub));
   absl::c_sort(ready_links, [&](auto &x, auto &y) -> bool {
     return x.sut_interface_bits_per_second < y.sut_interface_bits_per_second;
   });
@@ -1879,7 +1864,8 @@ TEST_P(FrontpanelBufferTest, BufferCarving) {
 
   // Connect to Ixia and fix endpoints & parameters.
   LOG(INFO) << "configuring Ixia traffic";
-  ASSERT_OK_AND_ASSIGN(const std::string kIxiaHandle, ConnectToIxia(*testbed));
+  ASSERT_OK_AND_ASSIGN(const std::string kIxiaHandle,
+                       ixia::ConnectToIxia(*testbed));
   ASSERT_OK_AND_ASSIGN(
       const std::string kIxiaIpv4SrcPortHandle,
       ixia::IxiaVport(kIxiaHandle, kIxiaIpv4SrcPort, *testbed));
