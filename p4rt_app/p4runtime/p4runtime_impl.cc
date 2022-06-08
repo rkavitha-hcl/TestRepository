@@ -463,6 +463,11 @@ grpc::Status P4RuntimeImpl::Read(
 #ifdef __EXCEPTIONS
   try {
 #endif
+    auto connection_status = controller_manager_->AllowRequest(*request);
+    if (!connection_status.ok()) {
+      return connection_status;
+    }
+
     if (!ir_p4info_.has_value()) {
       return grpc::Status(grpc::StatusCode::FAILED_PRECONDITION,
                           "Switch has no ForwardingPipelineConfig.");
@@ -540,8 +545,9 @@ grpc::Status P4RuntimeImpl::StreamChannel(
         }
         case p4::v1::StreamMessageRequest::kPacket: {
           if (controller_manager_
-                  ->AllowRequest(sdn_connection->GetRoleName(),
-                                 sdn_connection->GetElectionId())
+                  ->AllowMutableRequest(controller_manager_->GetDeviceId(),
+                                        sdn_connection->GetRoleName(),
+                                        sdn_connection->GetElectionId())
                   .ok()) {
             // If we're the primary connection we can try to handle the
             // PacketOut request.
@@ -697,6 +703,10 @@ grpc::Status P4RuntimeImpl::GetForwardingPipelineConfig(
 #ifdef __EXCEPTIONS
   try {
 #endif
+    auto connection_status = controller_manager_->AllowRequest(*request);
+    if (!connection_status.ok()) {
+      return connection_status;
+    }
 
     // If we have not set the forwarding pipeline. Then we don't return
     // anything on a get request.

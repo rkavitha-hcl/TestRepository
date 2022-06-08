@@ -29,6 +29,10 @@
 namespace p4rt_app {
 namespace {
 
+std::string PrettyPrintDeviceId(const std::optional<uint64_t>& id) {
+  return (id.has_value()) ? absl::StrCat("'", *id, "'") : "<unset>";
+}
+
 std::string PrettyPrintRoleName(const std::optional<std::string>& name) {
   return (name.has_value()) ? absl::StrCat("'", *name, "'") : "<default>";
 }
@@ -303,16 +307,35 @@ absl::Status SdnControllerManager::SetDeviceId(uint64_t device_id) {
   return absl::OkStatus();
 }
 
-grpc::Status SdnControllerManager::AllowRequest(
+std::optional<uint64_t> SdnControllerManager::GetDeviceId() const {
+  absl::MutexLock l(&lock_);
+  return device_id_;
+}
+
+grpc::Status SdnControllerManager::AllowMutableRequest(
+    const std::optional<uint64_t>& device_id,
     const std::optional<std::string>& role_name,
     const std::optional<absl::uint128>& election_id) const {
   absl::MutexLock l(&lock_);
 
+  // Both the switch and request must have a device ID, and they must match
+  // before we allow the request to mutate state.
+  if (!device_id.has_value()) {
+    return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                        "Request does not have a device ID.");
+  }
+  if (device_id != device_id_) {
+    return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                        absl::StrCat("Request's device ID '", *device_id,
+                                     "' does not the match switch's ",
+                                     PrettyPrintDeviceId(device_id_), "."));
+  }
+
+  // Furthermore, the request must be from the primary connection.
   if (!election_id.has_value()) {
     return grpc::Status(grpc::StatusCode::PERMISSION_DENIED,
                         "Request does not have an election ID.");
   }
-
   const auto& election_id_past_for_role =
       election_id_past_by_role_.find(role_name);
   if (election_id_past_for_role == election_id_past_by_role_.end()) {
@@ -320,43 +343,97 @@ grpc::Status SdnControllerManager::AllowRequest(
                         "Only the primary connection can issue requests, but "
                         "no primary connection has been established.");
   }
-
   if (election_id != election_id_past_for_role->second) {
     return grpc::Status(grpc::StatusCode::PERMISSION_DENIED,
                         "Only the primary connection can issue requests.");
   }
-
   return VerifyElectionIdIsActive(role_name, election_id, connections_);
+}
+
+grpc::Status SdnControllerManager::AllowNonMutableRequest(
+    const std::optional<uint64_t>& device_id) const {
+  absl::MutexLock l(&lock_);
+
+  // Both the switch and request must have a device ID, and they must match
+  // before we allow a request to read any state.
+  if (!device_id.has_value()) {
+    return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                        "Request does not have a device ID.");
+  }
+  if (device_id != device_id_) {
+    return grpc::Status(grpc::StatusCode::NOT_FOUND,
+                        absl::StrCat("Request's device ID '", *device_id,
+                                     "' does not the match switch's ",
+                                     PrettyPrintDeviceId(device_id_), "."));
+  }
+
+  // However, it does not need to be the primary. In fact there doesn't even
+  // need to be an active connection per the spec.
+  return grpc::Status::OK;
 }
 
 grpc::Status SdnControllerManager::AllowRequest(
     const p4::v1::WriteRequest& request) const {
+  std::optional<uint64_t> device_id;
   std::optional<std::string> role_name;
+  std::optional<absl::uint128> election_id;
+
+  if (request.device_id() != 0) {
+    device_id = request.device_id();
+  }
   if (!request.role().empty()) {
     role_name = request.role();
   }
-
-  std::optional<absl::uint128> election_id;
   if (request.has_election_id()) {
     election_id = absl::MakeUint128(request.election_id().high(),
                                     request.election_id().low());
   }
-  return AllowRequest(role_name, election_id);
+
+  // Write requests can mutate switch state.
+  return AllowMutableRequest(device_id, role_name, election_id);
+}
+
+grpc::Status SdnControllerManager::AllowRequest(
+    const p4::v1::ReadRequest& request) const {
+  std::optional<uint64_t> device_id;
+  if (request.device_id() != 0) {
+    device_id = request.device_id();
+  }
+
+  // Read requests will not mutate switch state.
+  return AllowNonMutableRequest(device_id);
 }
 
 grpc::Status SdnControllerManager::AllowRequest(
     const p4::v1::SetForwardingPipelineConfigRequest& request) const {
+  std::optional<uint64_t> device_id;
   std::optional<std::string> role_name;
+  std::optional<absl::uint128> election_id;
+
+  if (request.device_id() != 0) {
+    device_id = request.device_id();
+  }
   if (!request.role().empty()) {
     role_name = request.role();
   }
-
-  std::optional<absl::uint128> election_id;
   if (request.has_election_id()) {
     election_id = absl::MakeUint128(request.election_id().high(),
                                     request.election_id().low());
   }
-  return AllowRequest(role_name, election_id);
+
+  // Setting the forwarding pipeline can mutate the switch state.
+  return AllowMutableRequest(device_id, role_name, election_id);
+}
+
+grpc::Status SdnControllerManager::AllowRequest(
+    const p4::v1::GetForwardingPipelineConfigRequest& request) const {
+  std::optional<uint64_t> device_id;
+  if (request.device_id() != 0) {
+    device_id = request.device_id();
+  }
+
+  // Getting the forwarding pipeline will not mutate switch state.
+  return AllowNonMutableRequest(device_id);
 }
 
 void SdnControllerManager::InformConnectionsAboutPrimaryChange(

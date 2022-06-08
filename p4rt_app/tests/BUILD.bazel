@@ -46,6 +46,26 @@ cc_test(
 )
 
 cc_test(
+    name = "api_access_test",
+    srcs = ["api_access_test.cc"],
+    tags = ["exclusive"],
+    deps = [
+        "//gutil:status",
+        "//gutil:status_matchers",
+        "//p4rt_app/p4runtime:p4runtime_impl",
+        "//p4rt_app/tests/lib:p4runtime_grpc_service",
+        "@com_github_google_glog//:glog",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_proto",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest_main",
+    ],
+)
+
+cc_test(
     name = "arbitration_test",
     srcs = ["arbitration_test.cc"],
     tags = ["exclusive"],

@@ -16,6 +16,7 @@
 #ifndef GOOGLE_P4RT_APP_P4RUNTIME_SDN_CONTROLLER_MANAGER_H_
 #define GOOGLE_P4RT_APP_P4RUNTIME_SDN_CONTROLLER_MANAGER_H_
 
+#include <cstdint>
 #include <optional>
 
 #include "absl/base/thread_annotations.h"
@@ -82,14 +83,30 @@ class SdnControllerManager {
   void Disconnect(SdnConnection* connection) ABSL_LOCKS_EXCLUDED(lock_);
 
   absl::Status SetDeviceId(uint64_t device_id) ABSL_LOCKS_EXCLUDED(lock_);
+  std::optional<uint64_t> GetDeviceId() const ABSL_LOCKS_EXCLUDED(lock_);
 
-  grpc::Status AllowRequest(const std::optional<std::string>& role_name,
-                            const std::optional<absl::uint128>& election_id)
+  // Controller requests fall into 2 broad categories: writes & reads. Writes
+  // can mutate state, and therefore should only be done by a primary
+  // connection. Reads are allowed by any connection (i.e. we don't check for an
+  // active stream channel, or validate the election ID) since they do not
+  // mutate state.
+  grpc::Status AllowMutableRequest(
+      const std::optional<uint64_t>& device_id,
+      const std::optional<std::string>& role_name,
+      const std::optional<absl::uint128>& election_id) const
+      ABSL_LOCKS_EXCLUDED(lock_);
+  grpc::Status AllowNonMutableRequest(const std::optional<uint64_t>& device_id)
       const ABSL_LOCKS_EXCLUDED(lock_);
 
+  // Returns whether or not a specific type of request should be accepted. If
+  // the request is rejected (e.g. wrong device ID, not the primary, etc.) then
+  // the status failure will indicate the reason.
   grpc::Status AllowRequest(const p4::v1::WriteRequest& request) const;
+  grpc::Status AllowRequest(const p4::v1::ReadRequest& request) const;
   grpc::Status AllowRequest(
       const p4::v1::SetForwardingPipelineConfigRequest& request) const;
+  grpc::Status AllowRequest(
+      const p4::v1::GetForwardingPipelineConfigRequest& request) const;
 
   absl::Status SendPacketInToPrimary(
       const p4::v1::StreamMessageResponse& response);
