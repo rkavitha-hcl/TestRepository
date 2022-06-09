@@ -228,7 +228,6 @@ control routing(in headers_t headers,
                         nexthop_id_t nexthop_id) {
     nexthop_id_valid = true;
     nexthop_id_value = nexthop_id;
-    local_metadata.route_metadata = 0;
   }
 
   // When called from a route, sets SAI_ROUTE_ENTRY_ATTR_PACKET_ACTION to
