@@ -111,7 +111,7 @@ absl::Status AllowRoleAccessToTable(const std::string& role_name,
 
   if (table_def->second.role() != role_name) {
     return gutil::PermissionDeniedErrorBuilder()
-           << "Role '" << role_name << "' is not allowd access to table '"
+           << "Role '" << role_name << "' is not allowed access to table '"
            << table_name << "'.";
   }
 
@@ -254,7 +254,7 @@ absl::StatusOr<pdpi::IrTableEntry> DoPiTableEntryToIr(
       pdpi::PiTableEntryToIr(p4_info, pi_table_entry, translate_key_only);
   if (!translate_status.ok()) {
     LOG(WARNING) << "PDPI could not translate PI table entry to IR: "
-                 << pi_table_entry.ShortDebugString();
+                 << translate_status.status();
     return gutil::StatusBuilder(translate_status.status().code())
            << "[P4RT/PDPI] " << translate_status.status().message();
   }
@@ -266,16 +266,27 @@ absl::StatusOr<pdpi::IrTableEntry> DoPiTableEntryToIr(
   Convert64BitIpv6AclMatchFieldsTo128Bit(ir_table_entry);
 
   // Verify the table entry can be written to the table.
-  RETURN_IF_ERROR(
-      AllowRoleAccessToTable(role_name, ir_table_entry.table_name(), p4_info));
+  absl::Status role_access =
+      AllowRoleAccessToTable(role_name, ir_table_entry.table_name(), p4_info);
+  if (!role_access.ok()) {
+    LOG(WARNING) << role_access
+                 << " IR Table Entry: " << ir_table_entry.ShortDebugString();
+    return role_access;
+  }
 
-  RETURN_IF_ERROR(TranslateTableEntry(
+  absl::Status translate_for_orchagent = TranslateTableEntry(
       TranslateTableEntryOptions{
           .direction = TranslationDirection::kForOrchAgent,
           .ir_p4_info = p4_info,
           .translate_port_ids = translate_port_ids,
           .port_map = port_translation_map},
-      ir_table_entry));
+      ir_table_entry);
+  if (!translate_for_orchagent.ok()) {
+    LOG(WARNING) << "Failed to translate IR Table Entry for OrchAgent. "
+                 << translate_for_orchagent
+                 << " IR Table Entry: " << ir_table_entry.ShortDebugString();
+    return translate_for_orchagent;
+  }
   return ir_table_entry;
 }
 
@@ -324,7 +335,7 @@ sonic::AppDbUpdates PiTableEntryUpdatesToIr(
         update.type() == p4::v1::Update::DELETE);
     *entry_status = GetIrUpdateStatus(ir_table_entry.status());
     if (!ir_table_entry.ok()) {
-      LOG(WARNING) << "Could not translate PI to IR: "
+      LOG(WARNING) << "Failed to translate table entry. Entry: "
                    << update.entity().table_entry().ShortDebugString();
       continue;
     }
