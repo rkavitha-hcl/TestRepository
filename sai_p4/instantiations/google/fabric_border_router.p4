@@ -17,6 +17,7 @@
 #include "../../fixed/l3_admit.p4"
 #include "../../fixed/gre_encap.p4"
 #include "../../fixed/ttl.p4"
+#include "../../fixed/drop_martians.p4"
 #include "../../fixed/packet_rewrites.p4"
 #include "acl_egress.p4"
 #include "acl_ingress.p4"
@@ -35,6 +36,7 @@ control ingress(inout headers_t headers,
     // TODO: re-enable LAG hashing
     // lag_hashing_config.apply(headers);
     routing.apply(headers, local_metadata, standard_metadata);
+    drop_martians.apply(headers, local_metadata, standard_metadata);
     acl_ingress.apply(headers, local_metadata, standard_metadata);
     ttl.apply(headers, local_metadata, standard_metadata);
     mirroring_clone.apply(headers, local_metadata, standard_metadata);

@@ -216,7 +216,8 @@ absl::StatusOr<std::string> GenerateSmtForSaiPiplelineWithSimpleEntries() {
 
 // Generate SMT constraints for the SAI pipeline from scratch multiple times and
 // make sure the results remain the same.
-TEST_F(P4SymbolicComponentTest, ConstraintGenerationIsDeterministicForSai) {
+TEST_F(P4SymbolicComponentTest,
+       DISABLED_ConstraintGenerationIsDeterministicForSai) {
   constexpr int kNumberOfRuns = 5;
   ASSERT_OK_AND_ASSIGN(const std::string reference_smt_formula,
                        GenerateSmtForSaiPiplelineWithSimpleEntries());
