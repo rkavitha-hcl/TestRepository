@@ -27,6 +27,11 @@
 #define LAG_HASH_OFFSET 0
 #endif
 
+#ifndef LAG_HASH_ALGORITHM
+#define LAG_HASH_ALGORITHM SAI_HASH_ALGORITHM_CRC
+#endif
+
+
 control hashing(in headers_t headers,
                 inout local_metadata_t local_metadata,
                 in standard_metadata_t standard_metadata) {
@@ -111,7 +116,7 @@ control lag_hashing_config(in headers_t headers) {
   bit<32> lag_seed = 0;
   bit<4> lag_offset = 0;
 
-  @sai_hash_algorithm(SAI_HASH_ALGORITHM_CRC_32LO)
+  @sai_hash_algorithm(LAG_HASH_ALGORITHM)
   @sai_hash_seed(LAG_HASH_SEED)
   @sai_hash_offset(LAG_HASH_OFFSET)
   action select_lag_hash_algorithm() {
