@@ -46,9 +46,13 @@ absl::Status InsertPortIdFromP4rtAndRedis(P4RuntimeImpl& p4runtime,
                                           const std::string& port_name,
                                           const std::string& port_id) {
   // Port ID 0 is reserved for ports that are modeled, but should not be used by
-  // P4RT. If we see ID = 0 we should still update redis so gNMI can converge,
-  // but we should not send it to P4RT.
-  if (port_id != "0") {
+  // P4RT. If we see ID = 0 we should still update redis so gNMI can converge.
+  if (port_id == "0") {
+    // Handle the edge case where an existing port has an ID, but then gets
+    // updated to be 0.
+    RETURN_IF_ERROR(RemovePortIdFromP4rtAndRedis(p4runtime, app_db,
+                                                 app_state_db, port_name));
+  } else {
     RETURN_IF_ERROR(p4runtime.AddPortTranslation(port_name, port_id));
   }
   app_db.set(port_name, {{kPortIdField, port_id}});

@@ -71,7 +71,7 @@ TEST_F(PortNameAndIdTest, AddAThenDeletePortTranslation) {
   EXPECT_OK(p4rt_service.GetP4rtServer().RemovePortTranslation("Ethernet0"));
 }
 
-TEST_F(PortNameAndIdTest, AllowDuplicatePortTranslations) {
+TEST_F(PortNameAndIdTest, ResendingDuplicatePortTranslationsAreAllowed) {
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
   ASSERT_OK(p4rt_service.GetP4rtServer().UpdateDeviceId(device_id_));
@@ -80,18 +80,34 @@ TEST_F(PortNameAndIdTest, AllowDuplicatePortTranslations) {
   EXPECT_OK(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet0", "0"));
 }
 
-TEST_F(PortNameAndIdTest, CannotReusePortTranslationsValues) {
+TEST_F(PortNameAndIdTest, ReusingPortNameFailsWithAlreadyExists) {
   test_lib::P4RuntimeGrpcService p4rt_service =
       test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
   ASSERT_OK(p4rt_service.GetP4rtServer().UpdateDeviceId(device_id_));
 
   EXPECT_OK(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet0", "0"));
-
-  // Cannot duplicate the port_name or the port_id.
   EXPECT_THAT(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet0", "1"),
               StatusIs(absl::StatusCode::kAlreadyExists));
+}
+
+TEST_F(PortNameAndIdTest, ReusingPortIdFailsWithAlreadyExists) {
+  test_lib::P4RuntimeGrpcService p4rt_service =
+      test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
+  ASSERT_OK(p4rt_service.GetP4rtServer().UpdateDeviceId(device_id_));
+
+  EXPECT_OK(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet0", "0"));
   EXPECT_THAT(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet1", "0"),
               StatusIs(absl::StatusCode::kAlreadyExists));
+}
+
+TEST_F(PortNameAndIdTest, ChangingPortIdRequiresRemovalFirst) {
+  test_lib::P4RuntimeGrpcService p4rt_service =
+      test_lib::P4RuntimeGrpcService(P4RuntimeImplOptions{});
+  ASSERT_OK(p4rt_service.GetP4rtServer().UpdateDeviceId(device_id_));
+
+  EXPECT_OK(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet0", "10"));
+  EXPECT_OK(p4rt_service.GetP4rtServer().RemovePortTranslation("Ethernet0"));
+  EXPECT_OK(p4rt_service.GetP4rtServer().AddPortTranslation("Ethernet0", "11"));
 }
 
 TEST_F(PortNameAndIdTest, CannotAddPortTranslationWithEmptyValues) {

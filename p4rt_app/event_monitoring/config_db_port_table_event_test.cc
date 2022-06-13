@@ -119,12 +119,18 @@ TEST(PortTableIdEventTest, SetMultiplePortIds) {
   EXPECT_OK(event_handler.HandleEvent(kSetCommand, "Ethernet2", {{"id", "2"}}));
 }
 
-TEST(PortTableIdEventTest, PortIdZeroShouldOnlyUpdateRedisDb) {
+TEST(PortTableIdEventTest, PortIdZeroShouldNotAddToP4RuntimeOnSet) {
   MockP4RuntimeImpl mock_p4runtime_impl;
   auto mock_app_db = std::make_unique<sonic::MockTableAdapter>();
   auto mock_app_state_db = std::make_unique<sonic::MockTableAdapter>();
 
+  // Because an ID 0 is ignored we should not call add the port.
   EXPECT_CALL(mock_p4runtime_impl, AddPortTranslation).Times(0);
+
+  // However, because P4RT App may already have another ID assigned to the port
+  // we send a remove request to ensure the port translation is removed.
+  EXPECT_CALL(mock_p4runtime_impl, RemovePortTranslation("Ethernet1/1/1"))
+      .WillOnce(Return(absl::OkStatus()));
   EXPECT_CALL(*mock_app_db, set("Ethernet1/1/1", IdValueEntry("0"))).Times(1);
   EXPECT_CALL(*mock_app_state_db, set("Ethernet1/1/1", IdValueEntry("0")))
       .Times(1);
