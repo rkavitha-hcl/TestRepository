@@ -199,6 +199,10 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
   ASSERT_GE(mutate_update_probability, 0.0);
   ASSERT_LE(mutate_update_probability, 1.0);
 
+  // Record gNMI config that we plan to push for debugging purposes.
+  ASSERT_OK(
+      environment.StoreTestArtifact("gnmi_config.txt", GetParam().gnmi_config));
+
   std::vector<std::string> ports = absl::GetFlag(FLAGS_fuzzer_ports);
   if (ports.empty()) {
     // Get all valid ports from the gNMI config if none are specified as a flag.
