@@ -53,6 +53,7 @@ cc_test(
     srcs = ["packetlib_fuzzer_test.cc"],
     deps = [
         ":packetlib",
+        ":packetlib_cc_proto",
         "//gutil:proto",
         "//gutil:status_matchers",
         "//p4_pdpi/string_encodings:hex_string",
@@ -73,6 +74,7 @@ cc_test(
     deps = [
         ":bit_widths",
         ":packetlib",
+        ":packetlib_cc_proto",
         "//gutil:status_matchers",
         "@com_google_absl//absl/strings",
         "@com_google_absl//absl/strings:str_format",

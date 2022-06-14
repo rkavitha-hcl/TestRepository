@@ -28,6 +28,7 @@ constexpr int kStandardTcpHeaderBitwidth = 5 * 32;
 constexpr int kArpHeaderBitwidth = 28 * 8;
 constexpr int kIcmpHeaderBitwidth = 8 * 8;
 constexpr int kVlanHeaderBitwidth = 32;
+constexpr int kRfc2784GreHeaderWithoutOptionalsBitwidth = 32;
 
 // Ethernet constants.
 constexpr int kEthernetEthertypeBitwidth = 16;
@@ -77,6 +78,14 @@ constexpr int kIcmpTypeBitwidth = 8;
 constexpr int kIcmpCodeBitwidth = 8;
 constexpr int kIcmpChecksumBitwidth = 16;
 constexpr int kIcmpRestOfHeaderBitwidth = 32;
+
+// GRE constants.
+constexpr int kGreChecksumPresentBitwidth = 1;
+constexpr int kGreReserved0Bitwidth = 12;
+constexpr int kGreVersionBitwidth = 3;
+constexpr int kGreProtocolTypeBitwidth = 16;
+constexpr int kGreChecksumBitwidth = 16;
+constexpr int kGreReserved1Bitwidth = 16;
 
 // Minimum packet sizes, in bytes.
 constexpr int kMinNumBytesInEthernetPayload = 46;

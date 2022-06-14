@@ -24,6 +24,7 @@
 #include "gutil/status_matchers.h"
 #include "p4_pdpi/packetlib/bit_widths.h"
 #include "p4_pdpi/packetlib/packetlib.h"
+#include "p4_pdpi/packetlib/packetlib.pb.h"
 
 namespace packetlib {
 namespace {
@@ -178,6 +179,236 @@ TEST(PacketLib, ICMPWithIpv4Header) {
   icmp->set_rest_of_header(IcmpRestOfHeader(0));
   ASSERT_OK(packetlib::SerializePacket(packet));
 }
+
+TEST(PacketLib, GreHeaderIpv4EncapsulatedWithIpv4) {
+  packetlib::Packet packet;
+
+  EthernetHeader* eth = packet.add_headers()->mutable_ethernet_header();
+  eth->set_ethertype(EtherType(ETHERTYPE_IP));
+  eth->set_ethernet_source(std::string(kEthernetSourceAddress));
+  eth->set_ethernet_destination(std::string(kEthernetDestinationAddress));
+
+  Ipv4Header* ipv4 = packet.add_headers()->mutable_ipv4_header();
+  ipv4->set_ihl(IpIhl(0x5));
+  ipv4->set_ipv4_source("139.133.217.110");
+  ipv4->set_ipv4_destination("139.133.233.2");
+  ipv4->set_ttl(IpTtl(252));
+  ipv4->set_dscp(IpDscp(2));
+  ipv4->set_protocol(IpProtocol(IPPROTO_GRE));
+  ipv4->set_ecn(IpEcn(2));
+  ipv4->set_identification(IpIdentification(0x08b8));
+  ipv4->set_total_length(IpTotalLength(0x0034));
+  ipv4->set_flags(IpFlags(2));
+  ipv4->set_fragment_offset(IpFragmentOffset(0));
+
+  GreHeader* gre = packet.add_headers()->mutable_gre_header();
+  gre->set_checksum_present(GreChecksumPresent(0x0));
+  gre->set_reserved0(GreReserved0(0x0));
+  gre->set_version(GreVersion(0x0));
+  gre->set_protocol_type(EtherType(ETHERTYPE_IP));
+
+  Ipv4Header* encapsulated_ipv4 = packet.add_headers()->mutable_ipv4_header();
+  encapsulated_ipv4->set_ihl(IpIhl(0x5));
+  encapsulated_ipv4->set_ipv4_source("192.168.0.31");
+  encapsulated_ipv4->set_ipv4_destination("192.168.0.30");
+  encapsulated_ipv4->set_ttl(IpTtl(252));
+  encapsulated_ipv4->set_dscp(IpDscp(2));
+  encapsulated_ipv4->set_protocol(IpProtocol(IPPROTO_ICMP));
+  encapsulated_ipv4->set_ecn(IpEcn(2));
+  encapsulated_ipv4->set_identification(IpIdentification(0x08b8));
+  encapsulated_ipv4->set_total_length(IpTotalLength(0x001c));
+  encapsulated_ipv4->set_flags(IpFlags(2));
+  encapsulated_ipv4->set_fragment_offset(IpFragmentOffset(0));
+
+  IcmpHeader* icmp = packet.add_headers()->mutable_icmp_header();
+  icmp->set_type(IcmpType(0));
+  icmp->set_code(IcmpCode(10));
+  icmp->set_checksum(IcmpChecksum(0xfff5));
+  icmp->set_rest_of_header(IcmpRestOfHeader(0));
+
+  ASSERT_OK(packetlib::SerializePacket(packet));
+}
+
+TEST(PacketLib, GreHeaderWithChecksumIpv4EncapsulatedWithIpv4) {
+  packetlib::Packet packet;
+
+  EthernetHeader* eth = packet.add_headers()->mutable_ethernet_header();
+  eth->set_ethertype(EtherType(ETHERTYPE_IP));
+  eth->set_ethernet_source(std::string(kEthernetSourceAddress));
+  eth->set_ethernet_destination(std::string(kEthernetDestinationAddress));
+
+  Ipv4Header* ipv4 = packet.add_headers()->mutable_ipv4_header();
+  ipv4->set_ihl(IpIhl(0x5));
+  ipv4->set_ipv4_source("139.133.217.110");
+  ipv4->set_ipv4_destination("139.133.233.2");
+  ipv4->set_ttl(IpTtl(252));
+  ipv4->set_dscp(IpDscp(2));
+  ipv4->set_protocol(IpProtocol(IPPROTO_GRE));
+  ipv4->set_ecn(IpEcn(2));
+  ipv4->set_identification(IpIdentification(0x08b8));
+  ipv4->set_total_length(IpTotalLength(0x0038));
+  ipv4->set_flags(IpFlags(2));
+  ipv4->set_fragment_offset(IpFragmentOffset(0));
+
+  GreHeader* gre = packet.add_headers()->mutable_gre_header();
+  gre->set_checksum_present(GreChecksumPresent(0x1));
+  gre->set_reserved0(GreReserved0(0x0));
+  gre->set_version(GreVersion(0x0));
+  gre->set_protocol_type(EtherType(ETHERTYPE_IP));
+  gre->set_reserved1(GreReserved1(0x0));
+  gre->set_checksum(GreChecksum(0x77ff));
+
+  Ipv4Header* encapsulated_ipv4 = packet.add_headers()->mutable_ipv4_header();
+  encapsulated_ipv4->set_ihl(IpIhl(0x5));
+  encapsulated_ipv4->set_ipv4_source("192.168.0.31");
+  encapsulated_ipv4->set_ipv4_destination("192.168.0.30");
+  encapsulated_ipv4->set_ttl(IpTtl(252));
+  encapsulated_ipv4->set_dscp(IpDscp(2));
+  encapsulated_ipv4->set_protocol(IpProtocol(IPPROTO_ICMP));
+  encapsulated_ipv4->set_ecn(IpEcn(2));
+  encapsulated_ipv4->set_identification(IpIdentification(0x08b8));
+  encapsulated_ipv4->set_total_length(IpTotalLength(0x001c));
+  encapsulated_ipv4->set_flags(IpFlags(2));
+  encapsulated_ipv4->set_fragment_offset(IpFragmentOffset(0));
+
+  IcmpHeader* icmp = packet.add_headers()->mutable_icmp_header();
+  icmp->set_type(IcmpType(0));
+  icmp->set_code(IcmpCode(10));
+  icmp->set_checksum(IcmpChecksum(0xfff5));
+  icmp->set_rest_of_header(IcmpRestOfHeader(0));
+
+  ASSERT_OK(packetlib::SerializePacket(packet));
+}
+
+TEST(PacketLib, GreHeaderIpv6EncapsulatedWithIpv6) {
+  packetlib::Packet packet;
+  EthernetHeader* eth = packet.add_headers()->mutable_ethernet_header();
+  eth->set_ethertype(EtherType(ETHERTYPE_IPV6));
+  eth->set_ethernet_source(std::string(kEthernetSourceAddress));
+  eth->set_ethernet_destination(std::string(kEthernetDestinationAddress));
+
+  Ipv6Header* ipv6 = packet.add_headers()->mutable_ipv6_header();
+  ipv6->set_ipv6_source("5:6:7:8::");
+  ipv6->set_ipv6_destination("2607:f8b0:c150:8114::");
+  ipv6->set_flow_label(IpFlowLabel(0x12345));
+  ipv6->set_next_header(IpNextHeader(0x2f));
+  ipv6->set_hop_limit(IpHopLimit(32));
+  ipv6->set_dscp(IpDscp(3));
+  ipv6->set_ecn(IpEcn(0));
+
+  GreHeader* gre = packet.add_headers()->mutable_gre_header();
+  gre->set_checksum_present(GreChecksumPresent(0x0));
+  gre->set_reserved0(GreReserved0(0x0));
+  gre->set_version(GreVersion(0x0));
+  gre->set_protocol_type(EtherType(ETHERTYPE_IPV6));
+
+  Ipv6Header* encapsulated_ipv6 = packet.add_headers()->mutable_ipv6_header();
+  encapsulated_ipv6->set_ipv6_source("5:6:7:8::");
+  encapsulated_ipv6->set_ipv6_destination("2607:f8b0:c150:8115::");
+  encapsulated_ipv6->set_flow_label(IpFlowLabel(0x12345));
+  encapsulated_ipv6->set_next_header(IpNextHeader(17));
+  encapsulated_ipv6->set_hop_limit(IpHopLimit(32));
+  encapsulated_ipv6->set_dscp(IpDscp(3));
+  encapsulated_ipv6->set_ecn(IpEcn(0));
+  UdpHeader* udp = packet.add_headers()->mutable_udp_header();
+  udp->set_source_port(UdpPort(0));
+  udp->set_destination_port(UdpPort(0));
+
+  ASSERT_OK(packetlib::SerializePacket(packet));
+}
+
+TEST(PacketLib, GreHeaderWithChecksumIpv6EncapsulatedWithIpv6) {
+  packetlib::Packet packet;
+  EthernetHeader* eth = packet.add_headers()->mutable_ethernet_header();
+  eth->set_ethertype(EtherType(ETHERTYPE_IPV6));
+  eth->set_ethernet_source(std::string(kEthernetSourceAddress));
+  eth->set_ethernet_destination(std::string(kEthernetDestinationAddress));
+
+  Ipv6Header* ipv6 = packet.add_headers()->mutable_ipv6_header();
+  ipv6->set_ipv6_source("5:6:7:8::");
+  ipv6->set_ipv6_destination("2607:f8b0:c150:8114::");
+  ipv6->set_flow_label(IpFlowLabel(0x12345));
+  ipv6->set_next_header(IpNextHeader(0x2f));
+  ipv6->set_hop_limit(IpHopLimit(32));
+  ipv6->set_dscp(IpDscp(3));
+  ipv6->set_ecn(IpEcn(0));
+
+  GreHeader* gre = packet.add_headers()->mutable_gre_header();
+  gre->set_checksum_present(GreChecksumPresent(0x1));
+  gre->set_reserved0(GreReserved0(0x0));
+  gre->set_version(GreVersion(0x0));
+  gre->set_protocol_type(EtherType(ETHERTYPE_IPV6));
+  gre->set_reserved1(GreReserved1(0x0));
+  gre->set_checksum(GreChecksum(0x640c));
+
+  Ipv6Header* encapsulated_ipv6 = packet.add_headers()->mutable_ipv6_header();
+  encapsulated_ipv6->set_ipv6_source("5:6:7:8::");
+  encapsulated_ipv6->set_ipv6_destination("2607:f8b0:c150:8115::");
+  encapsulated_ipv6->set_flow_label(IpFlowLabel(0x12345));
+  encapsulated_ipv6->set_next_header(IpNextHeader(17));
+  encapsulated_ipv6->set_hop_limit(IpHopLimit(32));
+  encapsulated_ipv6->set_dscp(IpDscp(3));
+  encapsulated_ipv6->set_ecn(IpEcn(0));
+  UdpHeader* udp = packet.add_headers()->mutable_udp_header();
+  udp->set_source_port(UdpPort(0));
+  udp->set_destination_port(UdpPort(0));
+
+  ASSERT_OK(packetlib::SerializePacket(packet));
+}
+
+TEST(PacketLib, GreHeaderIpv4EncapsulatedWithIpv6) {
+  packetlib::Packet packet;
+  EthernetHeader* eth = packet.add_headers()->mutable_ethernet_header();
+  eth->set_ethertype(EtherType(ETHERTYPE_IPV6));
+  eth->set_ethernet_source(std::string(kEthernetSourceAddress));
+  eth->set_ethernet_destination(std::string(kEthernetDestinationAddress));
+
+  Ipv6Header* ipv6 = packet.add_headers()->mutable_ipv6_header();
+  ipv6->set_ipv6_source("2607:f8b0:c150:10::");
+  ipv6->set_ipv6_destination("2002:a05:6860:749::");
+  ipv6->set_flow_label(IpFlowLabel(0x0000));
+  ipv6->set_next_header(IpNextHeader(0x2f));
+  ipv6->set_hop_limit(IpHopLimit(63));
+  ipv6->set_dscp(IpDscp(0));
+  ipv6->set_ecn(IpEcn(0));
+
+  GreHeader* gre = packet.add_headers()->mutable_gre_header();
+  gre->set_checksum_present(GreChecksumPresent(0x0));
+  gre->set_reserved0(GreReserved0(0x0));
+  gre->set_version(GreVersion(0x0));
+  gre->set_protocol_type(EtherType(ETHERTYPE_IP));
+
+  Ipv4Header* encapsulated_ipv4 = packet.add_headers()->mutable_ipv4_header();
+  encapsulated_ipv4->set_ihl(IpIhl(0x5));
+  encapsulated_ipv4->set_ipv4_source("128.0.0.0");
+  encapsulated_ipv4->set_ipv4_destination("185.168.204.0");
+  encapsulated_ipv4->set_ttl(IpTtl(63));
+  encapsulated_ipv4->set_dscp(IpDscp(0));
+  encapsulated_ipv4->set_protocol(IpProtocol(IPPROTO_ICMP));
+  encapsulated_ipv4->set_ecn(IpEcn(0));
+  encapsulated_ipv4->set_identification(IpIdentification(0x0000));
+  encapsulated_ipv4->set_total_length(IpTotalLength(0x011a));
+  encapsulated_ipv4->set_flags(IpFlags(0));
+  encapsulated_ipv4->set_fragment_offset(IpFragmentOffset(0));
+  encapsulated_ipv4->set_checksum(IpChecksum(0x753a));
+
+  IcmpHeader* icmp = packet.add_headers()->mutable_icmp_header();
+  icmp->set_type(IcmpType(0x00));
+  icmp->set_code(IcmpCode(0x00));
+  icmp->set_checksum(IcmpChecksum(0x00e4));
+  icmp->set_rest_of_header(IcmpRestOfHeader(0x00000000));
+
+  packet.set_payload(
+      "test packet #5: ROUTING_PINBALLL3TOGROUP_FLOW: ipv4_table_entry \t { "
+      "match { vrf_id: \"vrf-210\" ipv4_dst { value: \"185.168.204.0\" "
+      "prefix_length: 28 } } action { set_wcmp_group_id_and_metadata { "
+      "wcmp_group_id: \"group-4294934578\" route_metadata: \"0x01\" } } }");
+
+  ASSERT_OK(packetlib::SerializePacket(packet));
+}
+
+// TODO: Add unit test using example GRE header with checksum. This is not done
+// for now because it's difficult to find an exammple GRE header with checksum.
 
 TEST(PacketLib, PadPacket) {
   packetlib::Packet packet;

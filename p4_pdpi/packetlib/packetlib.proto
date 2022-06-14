@@ -57,6 +57,7 @@ message Header {
     ArpHeader arp_header = 6;
     IcmpHeader icmp_header = 7;
     VlanHeader vlan_header = 8;
+    GreHeader gre_header = 9;
   }
 }
 
@@ -152,4 +153,20 @@ message TcpHeader {
   // Empty string when data_offset = 5. Sequence of (data_offset - 5)
   // uninterpreted 32-bit words in hex format when data_offset > 5.
   string uninterpreted_options = 7;
+}
+
+// Standard GRE packet header (RFC 2784).
+message GreHeader {
+  // If the checksum_present bit is set, then the checksum and the reserved1
+  // fields are present and the checksum field contains valid information.
+  string checksum_present = 1;  // 1 bit
+  string reserved0 = 2;         // 12 bits (computed field, constant 0)
+  // The version field must contain value zero (RFC 2784).
+  string version = 3;  // 3 bits (computed field, constant 0)
+  // Indicates the EtherType of the encapsulated payload.
+  string protocol_type = 4;  // 16 bits
+  // Empty string if checksum_bit is not set.
+  string checksum = 5;  // 16 bits (computed field, optional)
+  // Empty string if checksum_bit is not set.
+  string reserved1 = 6;  // 16 bits (optional)
 }

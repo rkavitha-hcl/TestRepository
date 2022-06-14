@@ -20,7 +20,6 @@
 #include "absl/status/statusor.h"
 #include "absl/strings/string_view.h"
 #include "glog/logging.h"
-#include "p4_pdpi/packetlib/bit_widths.h"
 #include "p4_pdpi/packetlib/packetlib.pb.h"
 #include "p4_pdpi/string_encodings/hex_string.h"
 
@@ -139,6 +138,12 @@ absl::StatusOr<int> UdpHeaderChecksum(Packet packet, int udp_header_index);
 // set and valid except possibly the UDP checksum field, which is ignored.
 absl::StatusOr<int> IcmpHeaderChecksum(Packet packet, int icmp_header_index);
 
+// Computes the 16-bit GRE checksum for the given `packet` and
+// `gre_header_index`. The header at the given index must be an GRE header. All
+// fields in all headers following that GRE header must be set and valid except
+// possibly the GRE checksum field, which is ignored.
+absl::StatusOr<int> GreHeaderChecksum(Packet packet, int gre_header_index);
+
 std::string HeaderCaseName(Header::HeaderCase header_case);
 
 // Helper functions to translate the header fields to hex string. It abstracts
@@ -176,6 +181,12 @@ std::string IcmpType(uint32_t type);
 std::string IcmpCode(uint32_t code);
 std::string IcmpChecksum(uint32_t checksum);
 std::string IcmpRestOfHeader(uint32_t rest_of_header);
+std::string GreChecksumPresent(uint32_t checksum_present);
+std::string GreReserved0(uint32_t reserved0);
+std::string GreVersion(uint32_t version);
+std::string GreProtocolType(uint32_t protocol_type);
+std::string GreChecksum(uint32_t checksum);
+std::string GreReserved1(uint32_t reserved1);
 
 // -- END OF PUBLIC INTERFACE --------------------------------------------------
 
