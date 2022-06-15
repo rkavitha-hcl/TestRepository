@@ -823,8 +823,9 @@ TEST_P(CpuQosTestWithoutIxia, TrafficToLoopbackIpGetsMappedToCorrectQueues) {
                                *sut_gnmi_stub));
     } while (
         // It may take several seconds for the queue counters to update.
-        TotalPacketsForQueue(queue_counters_after_test_packet) ==
-            TotalPacketsForQueue(queue_counters_before_test_packet) &&
+        TotalPacketsForQueue(queue_counters_after_test_packet) <
+            TotalPacketsForQueue(queue_counters_before_test_packet) +
+                kPacketCount &&
         absl::Now() - time_packet_sent < kMaxQueueCounterUpdateTime);
 
     // We terminate early if this fails, as that can cause this loop to get
