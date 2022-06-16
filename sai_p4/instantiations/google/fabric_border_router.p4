@@ -33,8 +33,7 @@ control ingress(inout headers_t headers,
     admit_google_system_mac.apply(headers, local_metadata);
     l3_admit.apply(headers, local_metadata, standard_metadata);
     hashing.apply(headers, local_metadata, standard_metadata);
-    // TODO: re-enable LAG hashing
-    // lag_hashing_config.apply(headers);
+    lag_hashing_config.apply(headers);
     routing.apply(headers, local_metadata, standard_metadata);
     drop_martians.apply(headers, local_metadata, standard_metadata);
     acl_ingress.apply(headers, local_metadata, standard_metadata);
