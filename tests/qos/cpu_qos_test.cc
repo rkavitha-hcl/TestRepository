@@ -927,7 +927,7 @@ TEST_P(CpuQosTestWithIxia, TestCPUQueueAssignmentAndQueueRateLimit) {
   ASSERT_OK(generic_testbed->Environment().StoreTestArtifact(
       "gnmi_config.txt", GetParam().gnmi_config));
 
-  ASSERT_GT(GetParam().control_plane_bandwidth_bps, 0);
+  ASSERT_GT(GetParam().control_plane_bandwidth_bytes_per_second, 0);
 
   thinkit::Switch &sut = generic_testbed->Sut();
 
@@ -1067,12 +1067,18 @@ TEST_P(CpuQosTestWithIxia, TestCPUQueueAssignmentAndQueueRateLimit) {
               << "\n===================\n\n\n";
 
     // Set framesize based on supported control plane bandwidth.
-    int frame_size = GetParam().control_plane_bandwidth_bps /
+    int frame_size = GetParam().control_plane_bandwidth_bytes_per_second /
                      queue_info.rate_packets_per_second;
-    // Framesize lesser than 64 bytes is not a viable frame, hence we will use
-    // default frame size and skip end to end rate check.
-    // We will only verify queue counters on switch.
-    ASSERT_GE(frame_size, kMinFrameSize);
+    // Framesize lesser than 64 bytes is not a viable frame, hence we will
+    // skip end to end rate check.
+    if (frame_size < kMinFrameSize) {
+      LOG(INFO)
+          << "Skipping, as queue rate " << queue_info.rate_packets_per_second
+          << "(pps) is infeasible to test with control plane bandwidth of "
+          << GetParam().control_plane_bandwidth_bytes_per_second
+          << " bytes per second.";
+      continue;
+    }
 
     if (frame_size > kMaxFrameSize) {
       frame_size = kMaxFrameSize;
@@ -1146,6 +1152,7 @@ TEST_P(CpuQosTestWithIxia, TestCPUQueueAssignmentAndQueueRateLimit) {
 
       LOG(INFO) << "Packets received at Controller: "
                 << packet_receive_info.num_packets_punted;
+      LOG(INFO) << "Packet size: " << frame_size;
       LOG(INFO) << "Timestamp of first received packet: "
                 << packet_receive_info.time_first_packet_punted;
       LOG(INFO) << "Timestamp of last received packet: "
@@ -1189,7 +1196,7 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
   ASSERT_OK(generic_testbed->Environment().StoreTestArtifact(
       "gnmi_config.txt", GetParam().gnmi_config));
 
-  ASSERT_GT(GetParam().control_plane_bandwidth_bps, 0);
+  ASSERT_GT(GetParam().control_plane_bandwidth_bytes_per_second, 0);
 
   thinkit::Switch &sut = generic_testbed->Sut();
 
@@ -1329,9 +1336,9 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
         (kMaxFrameSize * queue_info.rate_packets_per_second) / 2;
 
     if (flow_rate_limit_in_bytes_per_second >
-        GetParam().control_plane_bandwidth_bps) {
+        GetParam().control_plane_bandwidth_bytes_per_second) {
       flow_rate_limit_in_bytes_per_second =
-          GetParam().control_plane_bandwidth_bps / 2;
+          GetParam().control_plane_bandwidth_bytes_per_second / 2;
     }
 
     // TODO : Need to fix supported CPU queues. Currently, punting
@@ -1450,7 +1457,7 @@ TEST_P(CpuQosTestWithIxia, TestPuntFlowRateLimitAndCounters) {
           packet_receive_info.num_packets_punted * kMaxFrameSize;
       LOG(INFO) << "Num bytes received: " << num_bytes;
       rate_received_in_bytes_per_second = num_bytes * 1000000 / useconds;
-      LOG(INFO) << "Rate of packets received (bps): "
+      LOG(INFO) << "Rate of packets received (bytes per second): "
                 << rate_received_in_bytes_per_second;
       EXPECT_LE(
           rate_received_in_bytes_per_second,
