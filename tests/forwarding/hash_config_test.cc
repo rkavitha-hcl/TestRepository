@@ -651,7 +651,7 @@ TEST_P(HashConfigTest, HashIsStableWithSameP4Info) {
 
 TEST_P(HashConfigTest, HashAlgorithmSettingsAffectPacketHash) {
   GetMirrorTestbed().Environment().SetTestCaseID(
-      "0a584c71-a701-4ea5-b4f3-5e4e37171d9c");
+      "1de932e8-666c-4ee4-960f-3a3aac717a25");
 
   p4::config::v1::P4Info modified_p4info = p4_info();
   ASSERT_NO_FATAL_FAILURE(
@@ -695,7 +695,7 @@ TEST_P(HashConfigTest, HashOffsetSettingsAffectPacketHash) {
 // due to the lack of a uniqueness requirement.
 TEST_P(HashConfigTest, HashSeedSettingsAffectPacketHash) {
   GetMirrorTestbed().Environment().SetTestCaseID(
-      "0a584c71-a701-4ea5-b4f3-5e4e37171d9c");
+      "13170845-0d6d-4ff6-aa1f-873c349ba84e");
 
   p4::config::v1::P4Info modified_p4info = p4_info();
   ASSERT_NO_FATAL_FAILURE(RegexModifyP4Info(modified_p4info,
