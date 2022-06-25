@@ -16,6 +16,7 @@
 
 #include <complex>
 #include <memory>
+#include <optional>
 #include <string>
 #include <thread>  // NOLINT
 #include <vector>
@@ -361,7 +362,8 @@ void SendPacket(const pdpi::IrP4Info& ir_p4info, packetlib::Packet packet,
   ASSERT_OK_AND_ASSIGN(std::string port_string,
                        pdpi::IntToDecimalString(ingress_port));
   ASSERT_OK(gpins::InjectEgressPacket(port_string, raw_packet, ir_p4info,
-                                      &control_p4_session));
+                                      &control_p4_session,
+                                      /*packet_delay=*/std::nullopt));
 }
 
 // Send test packets to the SUT. Packets are generated based on the test config.

@@ -259,7 +259,9 @@ absl::Status SendUdpPacket(pdpi::P4RuntimeSession& session,
     ASSIGN_OR_RETURN(std::string packet,
                      UdpPacket(dst_mac, dst_ip,
                                absl::Substitute("[Packet:$0] $1", i, payload)));
-    RETURN_IF_ERROR(InjectEgressPacket(port_id, packet, ir_p4info, &session));
+    // Rate limit to 500pps to avoid punt packet drops on the control switch.
+    RETURN_IF_ERROR(InjectEgressPacket(port_id, packet, ir_p4info, &session,
+                                       /*packet_delay=*/absl::Milliseconds(2)));
   }
   return absl::OkStatus();
 }

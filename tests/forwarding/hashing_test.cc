@@ -465,7 +465,8 @@ TEST_P(HashingTestFixture, SendPacketsToWcmpGroupsAndCheckDistribution) {
                 ASSERT_OK_AND_ASSIGN(std::string port_string,
                                      pdpi::IntToDecimalString(port));
                 ASSERT_OK(InjectEgressPacket(port_string, raw_packet, ir_p4info,
-                                             control_p4_session.get()));
+                                             control_p4_session.get(),
+                                             /*packet_delay=*/std::nullopt));
 
                 total_packets++;
 

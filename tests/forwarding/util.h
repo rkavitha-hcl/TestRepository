@@ -37,17 +37,24 @@ template <class T>
 absl::StatusOr<T> TryStatusOrUpToNTimes(
     int n, absl::Duration delay, std::function<absl::StatusOr<T>()> callback);
 
-// Injects the given test packet via packetIO at the egress port specified by
-// the test packet, using the given P4RT session.
+// Injects the given test packet via packetIO at
+// the egress port specified by the test packet, using the given P4RT session.
+// Providing the optional packet delay argument adds the required
+// fixed delay before injecting the packet.
 absl::Status InjectEgressPacket(const std::string& port,
                                 const std::string& packet,
                                 const pdpi::IrP4Info& p4info,
-                                pdpi::P4RuntimeSession* p4rt);
+                                pdpi::P4RuntimeSession* p4rt,
+                                std::optional<absl::Duration> packet_delay);
 
-// Inject the given packet into the ingress pipeline of the switch.
+// Inject the given packet into the ingress
+// pipeline of the switch.
+// Providing the optional packet delay argument adds the required
+// fixed delay before injecting the packet.
 absl::Status InjectIngressPacket(const std::string& packet,
                                  const pdpi::IrP4Info& p4info,
-                                 pdpi::P4RuntimeSession* p4rt);
+                                 pdpi::P4RuntimeSession* p4rt,
+                                 std::optional<absl::Duration> packet_delay);
 
 // -- END OF PUBLIC INTERFACE -- implementation details follow -----------------
 

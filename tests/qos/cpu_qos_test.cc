@@ -607,7 +607,8 @@ TEST_P(CpuQosTestWithoutIxia,
                          packetlib::SerializePacket(packet));
     ASSERT_OK(gpins::InjectEgressPacket(
         /*port=*/link_used_for_test_packets.control_device_port_p4rt_name,
-        /*packet=*/raw_packet, ir_p4info, control_p4rt_session.get()));
+        /*packet=*/raw_packet, ir_p4info, control_p4rt_session.get(),
+        /*packet_delay=*/std::nullopt));
 
     LOG(INFO) << "Sleeping for " << kMaxQueueCounterUpdateTime
               << " before checking for queue counter increment.";
@@ -707,7 +708,8 @@ TEST_P(CpuQosTestWithoutIxia, PerEntryAclCounterIncrementsWhenEntryIsHit) {
                        packetlib::SerializePacket(test_packet));
   ASSERT_OK(gpins::InjectEgressPacket(
       /*port=*/link_used_for_test_packets.control_device_port_p4rt_name,
-      /*packet=*/raw_packet, ir_p4info, control_p4rt_session.get()));
+      /*packet=*/raw_packet, ir_p4info, control_p4rt_session.get(),
+      /*packet_delay=*/std::nullopt));
 
   // Check that the counters increment within kMaxQueueCounterUpdateTime.
   absl::Time time_packet_sent = absl::Now();
@@ -811,7 +813,8 @@ TEST_P(CpuQosTestWithoutIxia, TrafficToLoopbackIpGetsMappedToCorrectQueues) {
     for (int iter = 0; iter < kPacketCount; iter++) {
       ASSERT_OK(gpins::InjectEgressPacket(
           /*port=*/link_used_for_test_packets.control_device_port_p4rt_name,
-          /*packet=*/raw_packet, ir_p4info, control_p4rt_session.get()));
+          /*packet=*/raw_packet, ir_p4info, control_p4rt_session.get(),
+          /*packet_delay=*/std::nullopt));
     }
     // Read counter of the target queue again.
     absl::Time time_packet_sent = absl::Now();
