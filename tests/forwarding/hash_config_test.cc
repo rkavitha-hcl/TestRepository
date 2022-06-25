@@ -191,7 +191,7 @@ class RateLimit {
       : interval_(interval), deadline_(absl::Now()) {}
 
   void Wait() {
-    if (absl::Now() < deadline_) absl::SleepFor(absl::Now() - deadline_);
+    if (absl::Now() < deadline_) absl::SleepFor(deadline_ - absl::Now());
     deadline_ += interval_;
   }
 
