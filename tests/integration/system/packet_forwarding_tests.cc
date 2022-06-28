@@ -15,6 +15,7 @@
 #include "tests/integration/system/packet_forwarding_tests.h"
 
 #include <memory>
+#include <optional>
 #include <string>
 #include <type_traits>
 #include <vector>
@@ -31,11 +32,9 @@
 #include "absl/time/clock.h"
 #include "absl/time/time.h"
 #include "absl/types/span.h"
-#include "glog/logging.h"
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/collections.h"
-#include "gutil/proto.h"
 #include "gutil/status.h"
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
@@ -47,13 +46,10 @@
 #include "p4/config/v1/p4info.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.h"
-#include "p4_pdpi/netaddr/ipv4_address.h"
-#include "p4_pdpi/netaddr/ipv6_address.h"
+#include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
 #include "p4_pdpi/packetlib/packetlib.h"
 #include "p4_pdpi/packetlib/packetlib.pb.h"
-#include "p4_pdpi/pd.h"
-#include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
 #include "tests/lib/switch_test_setup_helpers.h"
 #include "thinkit/control_device.h"
@@ -142,14 +138,15 @@ TEST_P(PacketForwardingTestFixture, PacketForwardingTest) {
 
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
                        P4InfoPush(GetParam().p4_info, *testbed));
-
   // Set up a route between the source and destination interfaces.
   ASSERT_OK_AND_ASSIGN(auto port_id_from_sut_interface,
                        GetAllInterfaceNameToPortId(*stub));
+  ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
+                       pdpi::CreateIrP4Info(GetParam().p4_info));
   P4rtProgrammingContext p4rt_context(p4_session.get(),
                                       pdpi::SetMetadataAndSendPiWriteRequest);
   ASSERT_OK(basic_traffic::ProgramRoutes(
-      p4rt_context.GetWriteRequestFunction(), sai::Instantiation::kMiddleblock,
+      p4rt_context.GetWriteRequestFunction(), ir_p4info,
       port_id_from_sut_interface,
       {{.ingress_interface = source_link.sut_interface,
         .egress_interface = destination_link.sut_interface}}));
@@ -211,15 +208,15 @@ TEST_P(PacketForwardingTestFixture, AllPortsPacketForwardingTest) {
   ASSERT_OK_AND_ASSIGN(auto testbed, GetTestbedWithRequirements(requirements));
   std::vector<std::string> sut_interfaces =
       GetSutInterfaces(FromTestbed(GetAllControlLinks, *testbed));
-
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
                        P4InfoPush(GetParam().p4_info, *testbed));
-
+  ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
+                       pdpi::CreateIrP4Info(GetParam().p4_info));
   const auto test_packet =
       gutil::ParseProtoOrDie<packetlib::Packet>(kTestPacket);
   ASSERT_OK_AND_ASSIGN(
       auto statistics,
-      basic_traffic::SendTraffic(*testbed, p4_session.get(),
+      basic_traffic::SendTraffic(*testbed, p4_session.get(), ir_p4info,
                                  basic_traffic::AllToAll(sut_interfaces),
                                  {test_packet}, absl::Minutes(5)));
   for (const basic_traffic::TrafficStatistic& statistic : statistics) {
@@ -247,6 +244,8 @@ TEST_P(PacketForwardingTestFixture, MtuPacketForwardingTest) {
 
   ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
                        P4InfoPush(GetParam().p4_info, *testbed));
+  ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
+                       pdpi::CreateIrP4Info(GetParam().p4_info));
 
   for (int mtu : kMtu) {
     LOG(INFO) << "MTU: " << mtu;
@@ -255,7 +254,7 @@ TEST_P(PacketForwardingTestFixture, MtuPacketForwardingTest) {
     LOG(INFO) << "Packet: " << test_packet.DebugString();
     ASSERT_OK_AND_ASSIGN(
         auto statistics,
-        basic_traffic::SendTraffic(*testbed, p4_session.get(),
+        basic_traffic::SendTraffic(*testbed, p4_session.get(), ir_p4info,
                                    basic_traffic::AllToAll(sut_interfaces),
                                    {test_packet}, absl::Minutes(5)));
     for (const basic_traffic::TrafficStatistic& statistic : statistics) {

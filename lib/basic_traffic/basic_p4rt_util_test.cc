@@ -22,6 +22,7 @@
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
 #include "sai_p4/instantiations/google/instantiations.h"
+#include "sai_p4/instantiations/google/sai_p4info.h"
 
 namespace pins_test::basic_traffic {
 namespace {
@@ -69,9 +70,9 @@ TEST(BasicTraffic, ProgramDefaultVrf) {
                      }
                    )pb")))
       .WillOnce(Return(absl::OkStatus()));
-  EXPECT_OK(ProgramTrafficVrf(/*session=*/nullptr,
-                              sai::Instantiation::kMiddleblock,
-                              mock_write_request.AsStdFunction()));
+  EXPECT_OK(ProgramTrafficVrf(
+      /*session=*/nullptr, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
+      mock_write_request.AsStdFunction()));
 }
 
 TEST(BasicTraffic, ProgramRouterInterface) {
@@ -100,9 +101,10 @@ TEST(BasicTraffic, ProgramRouterInterface) {
                      }
                    )pb")))
       .WillOnce(Return(absl::OkStatus()));
-  EXPECT_OK(ProgramRouterInterface(/*session=*/nullptr, /*port_id=*/5,
-                                   sai::Instantiation::kMiddleblock,
-                                   mock_write_request.AsStdFunction()));
+  EXPECT_OK(
+      ProgramRouterInterface(/*session=*/nullptr, /*port_id=*/5,
+                             sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
+                             mock_write_request.AsStdFunction()));
 }
 
 TEST(BasicTraffic, ProgramIPv4Route) {
@@ -192,7 +194,7 @@ TEST(BasicTraffic, ProgramIPv4Route) {
                    )pb")))
       .WillOnce(Return(absl::OkStatus()));
   EXPECT_OK(ProgramIPv4Route(/*session=*/nullptr, /*port_id=*/5,
-                             sai::Instantiation::kMiddleblock,
+                             sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                              mock_write_request.AsStdFunction()));
 }
 
@@ -221,7 +223,7 @@ TEST(BasicTraffic, ProgramL3AdmitTableEntry) {
       .WillOnce(Return(absl::OkStatus()));
 
   EXPECT_OK(ProgramL3AdmitTableEntry(
-      /*session=*/nullptr, sai::Instantiation::kMiddleblock,
+      /*session=*/nullptr, sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
       mock_write_request.AsStdFunction()));
 }
 

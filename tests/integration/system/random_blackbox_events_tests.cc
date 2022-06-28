@@ -38,7 +38,6 @@
 #include "grpcpp/impl/codegen/client_context.h"
 #include "grpcpp/support/sync_stream.h"
 #include "gtest/gtest.h"
-#include "gutil/proto.h"
 #include "gutil/status.h"
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
@@ -60,7 +59,6 @@
 #include "proto/gnmi/gnmi.grpc.pb.h"
 #include "proto/gnmi/gnmi.pb.h"
 #include "sai_p4/fixed/roles.h"
-#include "sai_p4/instantiations/google/instantiations.h"
 #include "thinkit/generic_testbed.h"
 #include "thinkit/proto/generic_testbed.pb.h"
 #include "thinkit/switch.h"
@@ -211,10 +209,12 @@ TEST_P(RandomBlackboxEventsTest, ControlPlaneWithTrafficWithoutValidation) {
       })pb");
     std::vector<std::string> sut_control_interfaces =
         GetSutInterfaces(FromTestbed(GetAllControlLinks, *testbed));
+    ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
+                         pdpi::CreateIrP4Info(GetParam().p4_info));
     ASSERT_OK_AND_ASSIGN(
         auto statistics,
         basic_traffic::SendTraffic(
-            *testbed, p4rt_session.get(),
+            *testbed, p4rt_session.get(), ir_p4info,
             {basic_traffic::InterfacePair{
                 .ingress_interface = sut_control_interfaces[0],
                 .egress_interface = sut_control_interfaces[1]}},

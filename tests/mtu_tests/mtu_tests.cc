@@ -28,13 +28,13 @@
 #include "lib/utils/generic_testbed_utils.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_pdpi/ir.h"
+#include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/netaddr/ipv4_address.h"
 #include "p4_pdpi/netaddr/ipv6_address.h"
 #include "p4_pdpi/p4_runtime_session.h"
 #include "p4_pdpi/packetlib/packetlib.h"
 #include "p4_pdpi/packetlib/packetlib.pb.h"
 #include "p4_pdpi/pd.h"
-#include "sai_p4/instantiations/google/instantiations.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
 #include "thinkit/control_device.h"
 #include "thinkit/generic_testbed.h"
@@ -80,16 +80,16 @@ std::string MtuRoutingTestFixture::GenerateTestPacket(
 
 // Set up route from source port to destination port on SUT.
 absl::Status SetupRoute(P4rtProgrammingContext& context,
-                        sai::Instantiation instantiation, int src_port_id,
+                        const pdpi::IrP4Info& ir_p4info, int src_port_id,
                         int dst_port_id) {
   RETURN_IF_ERROR(basic_traffic::ProgramTrafficVrf(
-      context.GetWriteRequestFunction(), instantiation));
+      context.GetWriteRequestFunction(), ir_p4info));
   RETURN_IF_ERROR(basic_traffic::ProgramRouterInterface(
-      context.GetWriteRequestFunction(), src_port_id, instantiation));
+      context.GetWriteRequestFunction(), src_port_id, ir_p4info));
   RETURN_IF_ERROR(basic_traffic::ProgramRouterInterface(
-      context.GetWriteRequestFunction(), dst_port_id, instantiation));
+      context.GetWriteRequestFunction(), dst_port_id, ir_p4info));
   RETURN_IF_ERROR(basic_traffic::ProgramIPv4Route(
-      context.GetWriteRequestFunction(), dst_port_id, instantiation));
+      context.GetWriteRequestFunction(), dst_port_id, ir_p4info));
 
   return absl::OkStatus();
 }
@@ -227,8 +227,10 @@ TEST_P(MtuRoutingTestFixture, MtuTest) {
   // Set up a route between the source and destination interfaces.
   P4rtProgrammingContext p4rt_context(p4_session.get(),
                                       pdpi::SetMetadataAndSendPiWriteRequest);
-  ASSERT_OK(SetupRoute(p4rt_context, sai::Instantiation::kMiddleblock,
-                       sut_source_port_id_, sut_destination_port_id_));
+  ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
+                       pdpi::CreateIrP4Info(GetParam().p4_info));
+  ASSERT_OK(SetupRoute(p4rt_context, ir_p4info, sut_source_port_id_,
+                       sut_destination_port_id_));
 
   // Configure test mtu values on port under test on SUT.
   for (const auto& [mtu, payload_length] : *kMtuPacketPayloadMap) {

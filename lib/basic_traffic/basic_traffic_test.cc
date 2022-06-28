@@ -47,6 +47,7 @@
 #include "proto/gnmi/gnmi.pb.h"
 #include "proto/gnmi/gnmi_mock.grpc.pb.h"
 #include "sai_p4/instantiations/google/instantiations.h"
+#include "sai_p4/instantiations/google/sai_p4info.h"
 #include "thinkit/control_device.h"
 #include "thinkit/generic_testbed.h"
 #include "thinkit/mock_control_device.h"
@@ -694,11 +695,11 @@ TEST(BasicTraffic, SendTraffic) {
   ASSERT_OK_AND_ASSIGN(
       std::vector<TrafficStatistic> statistics,
       SendTraffic(mock_generic_testbed, /*session=*/nullptr,
+                  sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                   ManyToMany({"Ethernet0"}, {"Ethernet1", "Ethernet2"}),
                   {std::move(packet)}, absl::Seconds(1),
                   SendTrafficOptions{
                       .packets_per_second = 10,
-                      .instantiation = sai::Instantiation::kMiddleblock,
                       .write_request = mock_write_request.AsStdFunction()}));
   // Should have one statistic per flow (since there is only one packet, 2).
   EXPECT_THAT(statistics,
@@ -816,11 +817,11 @@ TEST(BasicTraffic, SendTrafficTracksIncorrectlyRoutedPackets) {
   ASSERT_OK_AND_ASSIGN(
       std::vector<TrafficStatistic> statistics,
       SendTraffic(mock_generic_testbed, /*session=*/nullptr,
+                  sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                   ManyToMany({"Ethernet0"}, {"Ethernet1", "Ethernet2"}),
                   {std::move(packet)}, absl::Seconds(1),
                   SendTrafficOptions{
                       .packets_per_second = 10,
-                      .instantiation = sai::Instantiation::kMiddleblock,
                       .write_request = mock_write_request.AsStdFunction()}));
   // Should have one statistic per flow (since there is only one packet, 2).
   EXPECT_THAT(statistics,
@@ -943,11 +944,11 @@ TEST(BasicTraffic, SendTrafficBigPackets) {
   ASSERT_OK_AND_ASSIGN(
       std::vector<TrafficStatistic> statistics,
       SendTraffic(mock_generic_testbed, /*session=*/nullptr,
+                  sai::GetIrP4Info(sai::Instantiation::kMiddleblock),
                   ManyToMany({"Ethernet0"}, {"Ethernet1", "Ethernet2"}),
                   {std::move(packet)}, absl::Seconds(1),
                   SendTrafficOptions{
                       .packets_per_second = 10,
-                      .instantiation = sai::Instantiation::kMiddleblock,
                       .write_request = mock_write_request.AsStdFunction()}));
   // Should have one statistic per flow (since there is only one packet, 2).
   EXPECT_THAT(statistics,
