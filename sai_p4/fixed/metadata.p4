@@ -55,11 +55,6 @@ type bit<ROUTER_INTERFACE_ID_BITWIDTH> router_interface_id_t;
 #ifndef PLATFORM_BMV2
 @p4runtime_translation("", string)
 #endif
-type bit<NEIGHBOR_ID_BITWIDTH> neighbor_id_t;
-
-#ifndef PLATFORM_BMV2
-@p4runtime_translation("", string)
-#endif
 type bit<PORT_BITWIDTH> port_id_t;
 
 #ifndef PLATFORM_BMV2

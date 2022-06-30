@@ -49,7 +49,7 @@ message NeighborTableEntry {
   message Match {
     // Refers to 'router_interface_table.router_interface_id'.
     string router_interface_id = 1;  // exact match / Format::STRING
-    string neighbor_id = 2;          // exact match / Format::STRING
+    string neighbor_id = 2;          // exact match / Format::IPV6 / 128 bits
   }
   Match match = 1;
   message Action {
@@ -79,7 +79,7 @@ message NexthopTableEntry {
   message Action {
     oneof action {
       SetNexthopAction set_nexthop = 1;
-      SetTunnelEncapNexthopAction set_tunnel_encap_nexthop = 2;
+      SetP2pTunnelEncapNexthopAction set_p2p_tunnel_encap_nexthop = 2;
       SetIpNexthopAction set_ip_nexthop = 3;
     }
   }
@@ -199,7 +199,7 @@ message TunnelTableEntry {
   }
   Match match = 1;
   message Action {
-    MarkForTunnelEncapAction mark_for_tunnel_encap = 1;
+    MarkForP2pTunnelEncapAction mark_for_p2p_tunnel_encap = 1;
   }
   Action action = 2;
   bytes controller_metadata = 8;
@@ -413,7 +413,7 @@ message SetNexthopAction {
   // Refers to 'neighbor_table.router_interface_id'.
   string router_interface_id = 1;  // Format::STRING
   // Refers to 'neighbor_table.neighbor_id'.
-  string neighbor_id = 2;  // Format::STRING
+  string neighbor_id = 2;  // Format::IPV6 / 128 bits
 }
 
 message SetWcmpGroupIdAction {
@@ -454,15 +454,14 @@ message SetWcmpGroupIdAndMetadataAction {
   string route_metadata = 2;  // Format::HEX_STRING / 6 bits
 }
 
-message SetTunnelEncapNexthopAction {
-  // Refers to 'neighbor_table.neighbor_id'.
-  string neighbor_id = 1;  // Format::STRING
+message SetP2pTunnelEncapNexthopAction {
   // Refers to 'tunnel_table.tunnel_id'.
-  string tunnel_id = 2;  // Format::STRING
+  string tunnel_id = 1;  // Format::STRING
 }
 
-message MarkForTunnelEncapAction {
+message MarkForP2pTunnelEncapAction {
   string encap_src_ip = 1;  // Format::IPV6 / 128 bits
+  // Refers to 'neighbor_table.neighbor_id'.
   string encap_dst_ip = 2;  // Format::IPV6 / 128 bits
   // Refers to 'router_interface_table.router_interface_id'.
   string router_interface_id = 3;  // Format::STRING
@@ -473,7 +472,7 @@ message SetIpNexthopAction {
   // Refers to 'neighbor_table.router_interface_id'.
   string router_interface_id = 1;  // Format::STRING
   // Refers to 'neighbor_table.neighbor_id'.
-  string neighbor_id = 2;  // Format::STRING
+  string neighbor_id = 2;  // Format::IPV6 / 128 bits
 }
 
 message SetMetadataAndDropAction {

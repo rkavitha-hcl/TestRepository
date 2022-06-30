@@ -249,35 +249,39 @@ TEST(BasicTraffic, SendTraffic) {
     add_ipv4_routes +=
         EXPECT_CALL(
             mock_write_request,
-            Call(_, EqualsProto(absl::Substitute(
-                        R"pb(
-                          updates {
-                            type: INSERT
-                            entity {
-                              table_entry {
-                                table_id: 33554496
-                                match {
-                                  field_id: 1
-                                  exact { value: "traffic-router-interface-$0" }
-                                }
-                                match {
-                                  field_id: 2
-                                  exact { value: "10.0.0.$0" }
-                                }
-                                action {
-                                  action {
-                                    action_id: 16777217
-                                    params {
-                                      param_id: 1
-                                      value: "\032\021\027\000\200"
-                                    }
-                                  }
+            Call(
+                _,
+                EqualsProto(absl::Substitute(
+                    R"pb(
+                      updates {
+                        type: INSERT
+                        entity {
+                          table_entry {
+                            table_id: 33554496
+                            match {
+                              field_id: 1
+                              exact { value: "traffic-router-interface-$0" }
+                            }
+                            match {
+                              field_id: 2
+                              exact {
+                                value: "\376\200\000\000\000\000\000\000\002\032\021\377\376\027\000\200"
+                              }
+                            }
+                            action {
+                              action {
+                                action_id: 16777217
+                                params {
+                                  param_id: 1
+                                  value: "\032\021\027\000\200"
                                 }
                               }
                             }
                           }
-                        )pb",
-                        port_id))))
+                        }
+                      }
+                    )pb",
+                    port_id))))
             .After(add_router_interfaces)
             .WillOnce(Return(absl::OkStatus()));
 
@@ -285,32 +289,37 @@ TEST(BasicTraffic, SendTraffic) {
     Expectation add_nexthop =
         EXPECT_CALL(
             mock_write_request,
-            Call(_, EqualsProto(absl::Substitute(
-                        R"pb(
-                          updates {
-                            type: INSERT
-                            entity {
-                              table_entry {
-                                table_id: 33554498
-                                match {
-                                  field_id: 1
-                                  exact { value: "traffic-nexthop-$0" }
+            Call(
+                _,
+                EqualsProto(absl::Substitute(
+                    R"pb(
+                      updates {
+                        type: INSERT
+                        entity {
+                          table_entry {
+                            table_id: 33554498
+                            match {
+                              field_id: 1
+                              exact { value: "traffic-nexthop-$0" }
+                            }
+                            action {
+                              action {
+                                action_id: 16777236
+                                params {
+                                  param_id: 1
+                                  value: "traffic-router-interface-$0"
                                 }
-                                action {
-                                  action {
-                                    action_id: 16777236
-                                    params {
-                                      param_id: 1
-                                      value: "traffic-router-interface-$0"
-                                    }
-                                    params { param_id: 2 value: "10.0.0.$0" }
-                                  }
+                                params {
+                                  param_id: 2
+                                  value: "\376\200\000\000\000\000\000\000\002\032\021\377\376\027\000\200"
                                 }
                               }
                             }
                           }
-                        )pb",
-                        port_id))))
+                        }
+                      }
+                    )pb",
+                    port_id))))
             .After(add_router_interfaces)
             .WillOnce(Return(absl::OkStatus()));
 
@@ -444,32 +453,37 @@ TEST(BasicTraffic, SendTraffic) {
     delete_ipv4_routes +=
         EXPECT_CALL(
             mock_write_request,
-            Call(_, EqualsProto(absl::Substitute(
-                        R"pb(
-                          updates {
-                            type: DELETE
-                            entity {
-                              table_entry {
-                                table_id: 33554498
-                                match {
-                                  field_id: 1
-                                  exact { value: "traffic-nexthop-$0" }
+            Call(
+                _,
+                EqualsProto(absl::Substitute(
+                    R"pb(
+                      updates {
+                        type: DELETE
+                        entity {
+                          table_entry {
+                            table_id: 33554498
+                            match {
+                              field_id: 1
+                              exact { value: "traffic-nexthop-$0" }
+                            }
+                            action {
+                              action {
+                                action_id: 16777236
+                                params {
+                                  param_id: 1
+                                  value: "traffic-router-interface-$0"
                                 }
-                                action {
-                                  action {
-                                    action_id: 16777236
-                                    params {
-                                      param_id: 1
-                                      value: "traffic-router-interface-$0"
-                                    }
-                                    params { param_id: 2 value: "10.0.0.$0" }
-                                  }
+                                params {
+                                  param_id: 2
+                                  value: "\376\200\000\000\000\000\000\000\002\032\021\377\376\027\000\200"
                                 }
                               }
                             }
                           }
-                        )pb",
-                        port_id))))
+                        }
+                      }
+                    )pb",
+                    port_id))))
             .After(delete_ipv4)
             .WillOnce(Return(absl::OkStatus()));
 
@@ -477,35 +491,39 @@ TEST(BasicTraffic, SendTraffic) {
     delete_ipv4_routes +=
         EXPECT_CALL(
             mock_write_request,
-            Call(_, EqualsProto(absl::Substitute(
-                        R"pb(
-                          updates {
-                            type: DELETE
-                            entity {
-                              table_entry {
-                                table_id: 33554496
-                                match {
-                                  field_id: 1
-                                  exact { value: "traffic-router-interface-$0" }
-                                }
-                                match {
-                                  field_id: 2
-                                  exact { value: "10.0.0.$0" }
-                                }
-                                action {
-                                  action {
-                                    action_id: 16777217
-                                    params {
-                                      param_id: 1
-                                      value: "\032\021\027\000\200"
-                                    }
-                                  }
+            Call(
+                _,
+                EqualsProto(absl::Substitute(
+                    R"pb(
+                      updates {
+                        type: DELETE
+                        entity {
+                          table_entry {
+                            table_id: 33554496
+                            match {
+                              field_id: 1
+                              exact { value: "traffic-router-interface-$0" }
+                            }
+                            match {
+                              field_id: 2
+                              exact {
+                                value: "\376\200\000\000\000\000\000\000\002\032\021\377\376\027\000\200"
+                              }
+                            }
+                            action {
+                              action {
+                                action_id: 16777217
+                                params {
+                                  param_id: 1
+                                  value: "\032\021\027\000\200"
                                 }
                               }
                             }
                           }
-                        )pb",
-                        port_id))))
+                        }
+                      }
+                    )pb",
+                    port_id))))
             .After(add_ipv4_routes)
             .WillOnce(Return(absl::OkStatus()));
   }

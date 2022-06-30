@@ -259,7 +259,9 @@ TEST_F(ResponsePathTest, InsertRequestFails) {
                  }
                  match {
                    field_id: 2
-                   exact { value: "fe80::021a:11ff:fe17:5f80" }
+                   exact {
+                     value: "\376\200\000\000\000\000\000\000\002\032\021\377\376\027\000\200"
+                   }
                  }
                  action {
                    action {
@@ -275,7 +277,7 @@ TEST_F(ResponsePathTest, InsertRequestFails) {
   auto neighbor_entry =
       test_lib::AppDbEntryBuilder{}
           .SetTableName("FIXED_NEIGHBOR_TABLE")
-          .AddMatchField("neighbor_id", "fe80::021a:11ff:fe17:5f80")
+          .AddMatchField("neighbor_id", "fe80::21a:11ff:fe17:80")
           .AddMatchField("router_interface_id", "1");
 
   // Assume the Orchagent fails with an invalid parameter.

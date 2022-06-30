@@ -139,10 +139,9 @@ tables {
   match_fields {
     id: 2
     name: "neighbor_id"
+    annotations: "@format(IPV6_ADDRESS)"
+    bitwidth: 128
     match_type: EXACT
-    type_name {
-      name: "neighbor_id_t"
-    }
   }
   action_refs {
     id: 16777217
@@ -730,8 +729,8 @@ actions {
 actions {
   preamble {
     id: 16777235
-    name: "ingress.routing.mark_for_tunnel_encap"
-    alias: "mark_for_tunnel_encap"
+    name: "ingress.routing.mark_for_p2p_tunnel_encap"
+    alias: "mark_for_p2p_tunnel_encap"
   }
   params {
     id: 1
@@ -743,6 +742,7 @@ actions {
     id: 2
     name: "encap_dst_ip"
     annotations: "@format(IPV6_ADDRESS)"
+    annotations: "@refers_to(neighbor_table , neighbor_id)"
     bitwidth: 128
   }
   params {
@@ -772,10 +772,9 @@ actions {
   params {
     id: 2
     name: "neighbor_id"
+    annotations: "@format(IPV6_ADDRESS)"
     annotations: "@refers_to(neighbor_table , neighbor_id)"
-    type_name {
-      name: "neighbor_id_t"
-    }
+    bitwidth: 128
   }
 }
 actions {
@@ -797,28 +796,19 @@ actions {
   params {
     id: 2
     name: "neighbor_id"
+    annotations: "@format(IPV6_ADDRESS)"
     annotations: "@refers_to(neighbor_table , neighbor_id)"
-    type_name {
-      name: "neighbor_id_t"
-    }
+    bitwidth: 128
   }
 }
 actions {
   preamble {
     id: 16777234
-    name: "ingress.routing.set_tunnel_encap_nexthop"
-    alias: "set_tunnel_encap_nexthop"
+    name: "ingress.routing.set_p2p_tunnel_encap_nexthop"
+    alias: "set_p2p_tunnel_encap_nexthop"
   }
   params {
     id: 1
-    name: "neighbor_id"
-    annotations: "@refers_to(neighbor_table , neighbor_id)"
-    type_name {
-      name: "neighbor_id_t"
-    }
-  }
-  params {
-    id: 2
     name: "tunnel_id"
     annotations: "@refers_to(tunnel_table , tunnel_id)"
     type_name {
@@ -1152,15 +1142,6 @@ controller_packet_metadata {
 type_info {
   new_types {
     key: "mirror_session_id_t"
-    value {
-      translated_type {
-        sdn_string {
-        }
-      }
-    }
-  }
-  new_types {
-    key: "neighbor_id_t"
     value {
       translated_type {
         sdn_string {

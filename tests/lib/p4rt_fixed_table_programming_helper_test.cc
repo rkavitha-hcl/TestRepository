@@ -108,11 +108,11 @@ TEST_P(L3RouteProgrammingTest, NeighborId) {
       p4::v1::Update pi_update,
       NeighborTableUpdate(sai::GetIrP4Info(GetParam()), p4::v1::Update::INSERT,
                           /*router_interface_id=*/"rid-1",
-                          /*neighbor_id=*/"peer-1",
+                          /*neighbor_id=*/"::1",
                           /*dst_mac=*/"00:01:02:03:04:05"));
 
   EXPECT_THAT(pi_update, HasExactMatch("rid-1"));
-  EXPECT_THAT(pi_update, HasExactMatch("peer-1"));
+  EXPECT_THAT(pi_update, HasExactMatch("\001"));
   EXPECT_THAT(pi_update, HasActionParam("\001\002\003\004\005"));
 }
 
@@ -120,7 +120,7 @@ TEST_P(L3RouteProgrammingTest, NeighborIdFailsWithInvalidMacAddress) {
   EXPECT_THAT(
       NeighborTableUpdate(sai::GetIrP4Info(GetParam()), p4::v1::Update::INSERT,
                           /*router_interface_id=*/"rid-1",
-                          /*neighbor_id=*/"peer-1",
+                          /*neighbor_id=*/"fe80::201:02ff:fe03:0405",
                           /*dst_mac=*/"invalid_format"),
       StatusIs(absl::StatusCode::kInvalidArgument,
                HasSubstr("Invalid MAC address")));
@@ -132,11 +132,11 @@ TEST_P(L3RouteProgrammingTest, NexthopId) {
       NexthopTableUpdate(sai::GetIrP4Info(GetParam()), p4::v1::Update::INSERT,
                          /*nexthop_id=*/"nexthop-2",
                          /*router_interface_id=*/"rid-2",
-                         /*neighbor_id=*/"peer-2"));
+                         /*neighbor_id=*/"::1"));
 
   EXPECT_THAT(pi_update, HasExactMatch("nexthop-2"));
   EXPECT_THAT(pi_update, HasActionParam("rid-2"));
-  EXPECT_THAT(pi_update, HasActionParam("peer-2"));
+  EXPECT_THAT(pi_update, HasActionParam("\001"));
 }
 
 TEST_P(L3RouteProgrammingTest, VrfTableAddId) {

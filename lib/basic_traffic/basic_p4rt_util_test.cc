@@ -113,30 +113,33 @@ TEST(BasicTraffic, ProgramIPv4Route) {
   // Neighbor entry.
   EXPECT_CALL(
       mock_write_request,
-      Call(_, EqualsProto(R"pb(
-             updates {
-               type: INSERT
-               entity {
-                 table_entry {
-                   table_id: 33554496
-                   match {
-                     field_id: 1
-                     exact { value: "traffic-router-interface-5" }
-                   }
-                   match {
-                     field_id: 2
-                     exact { value: "10.0.0.5" }
-                   }
-                   action {
-                     action {
-                       action_id: 16777217
-                       params { param_id: 1 value: "\032\021\027\000\200" }
-                     }
-                   }
-                 }
-               }
-             }
-           )pb")))
+      Call(
+          _, EqualsProto(R"pb(
+            updates {
+              type: INSERT
+              entity {
+                table_entry {
+                  table_id: 33554496
+                  match {
+                    field_id: 1
+                    exact { value: "traffic-router-interface-5" }
+                  }
+                  match {
+                    field_id: 2
+                    exact {
+                      value: "\376\200\000\000\000\000\000\000\002\032\021\377\376\027\000\200"
+                    }
+                  }
+                  action {
+                    action {
+                      action_id: 16777217
+                      params { param_id: 1 value: "\032\021\027\000\200" }
+                    }
+                  }
+                }
+              }
+            }
+          )pb")))
       .WillOnce(Return(absl::OkStatus()));
 
   // Nexthop entry.
@@ -157,7 +160,10 @@ TEST(BasicTraffic, ProgramIPv4Route) {
                     action {
                       action_id: 16777236
                       params { param_id: 1 value: "traffic-router-interface-5" }
-                      params { param_id: 2 value: "10.0.0.5" }
+                      params {
+                        param_id: 2
+                        value: "\376\200\000\000\000\000\000\000\002\032\021\377\376\027\000\200"
+                      }
                     }
                   }
                 }

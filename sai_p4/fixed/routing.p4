@@ -51,7 +51,7 @@ control routing(in headers_t headers,
 
   // Neighbor id, only valid if `neighbor_id_valid` is true.
   bool neighbor_id_valid = false;
-  neighbor_id_t neighbor_id_value;
+  ipv6_addr_t neighbor_id_value;
 
   // Sets SAI_NEIGHBOR_ENTRY_ATTR_DST_MAC_ADDRESS.
   @id(ROUTING_SET_DST_MAC_ACTION_ID)
@@ -68,7 +68,8 @@ control routing(in headers_t headers,
       router_interface_id_value : exact @id(1) @name("router_interface_id")
           @refers_to(router_interface_table, router_interface_id);
       // Sets ip_address in sai_neighbor_entry_t.
-      neighbor_id_value : exact @id(2) @name("neighbor_id");
+      neighbor_id_value : exact @id(2) @format(IPV6_ADDRESS)
+          @name("neighbor_id");
     }
     actions = {
       @proto_id(1) set_dst_mac;
@@ -109,10 +110,15 @@ control routing(in headers_t headers,
   // SAI_TUNNEL_PEER_MODE to SAI_TUNNEL_PEER_MODE_P2P and
   // also sets SAI_TUNNEL_ATTR_ENCAP_SRC_IP, SAI_TUNNEL_ATTR_ENCAP_DST_IP
   // and SAI_TUNNEL_ATTR_UNDERLAY_INTERFACE.
-  @id(ROUTING_MARK_FOR_TUNNEL_ENCAP_ACTION_ID)
-  action mark_for_tunnel_encap(@id(1) @format(IPV6_ADDRESS)
+  //
+  // Because we are using P2P tunnels, this action requires an `encap_dst_ip`,
+  // which will also be the `neighbor_id` of an associated `neighbor_table`
+  // entry.
+  @id(ROUTING_MARK_FOR_P2P_TUNNEL_ENCAP_ACTION_ID)
+  action mark_for_p2p_tunnel_encap(@id(1) @format(IPV6_ADDRESS)
                               ipv6_addr_t encap_src_ip,
                               @id(2) @format(IPV6_ADDRESS)
+                              @refers_to(neighbor_table, neighbor_id)
                               ipv6_addr_t encap_dst_ip,
                               @id(3)
                               @refers_to(router_interface_table,
@@ -123,6 +129,8 @@ control routing(in headers_t headers,
     local_metadata.apply_tunnel_encap_at_egress = true;
     router_interface_id_valid = true;
     router_interface_id_value = router_interface_id;
+    neighbor_id_valid = true;
+    neighbor_id_value = encap_dst_ip;
   }
 
   @p4runtime_role(P4RUNTIME_ROLE_ROUTING)
@@ -133,7 +141,7 @@ control routing(in headers_t headers,
                               @name("tunnel_id");
     }
     actions = {
-      @proto_id(1) mark_for_tunnel_encap;
+      @proto_id(1) mark_for_p2p_tunnel_encap;
       @defaultonly NoAction;
     }
     const default_action = NoAction;
@@ -157,8 +165,9 @@ control routing(in headers_t headers,
                         @refers_to(router_interface_table, router_interface_id)
                         @refers_to(neighbor_table, router_interface_id)
                         router_interface_id_t router_interface_id,
-                        @id(2) @refers_to(neighbor_table, neighbor_id)
-                        neighbor_id_t neighbor_id) {
+                        @id(2) @format(IPV6_ADDRESS)
+                        @refers_to(neighbor_table, neighbor_id)
+                        ipv6_addr_t neighbor_id) {
     router_interface_id_valid = true;
     router_interface_id_value = router_interface_id;
     neighbor_id_valid = true;
@@ -173,29 +182,25 @@ control routing(in headers_t headers,
                      @refers_to(router_interface_table, router_interface_id)
                      @refers_to(neighbor_table, router_interface_id)
                      router_interface_id_t router_interface_id,
-                     @id(2) @refers_to(neighbor_table, neighbor_id)
-                     neighbor_id_t neighbor_id) {
+                     @id(2)  @format(IPV6_ADDRESS)
+                     @refers_to(neighbor_table, neighbor_id)
+                     ipv6_addr_t neighbor_id) {
     set_ip_nexthop(router_interface_id, neighbor_id);
   }
 
   // Sets SAI_NEXT_HOP_ATTR_TYPE to SAI_NEXT_HOP_TYPE_TUNNEL_ENCAP, and
   // SAI_NEXT_HOP_ATTR_TUNNEL_ID and SAI_NEXT_HOP_ATTR_IP.
   //
-  //  This action can only refer to `neighbor_id`s that are programmed in the
-  // `neighbor_table`.
-  @id(ROUTING_SET_TUNNEL_ENCAP_NEXTHOP_ACTION_ID)
-  action set_tunnel_encap_nexthop(@id(1)
-                                  @refers_to(neighbor_table, neighbor_id)
-                                  neighbor_id_t neighbor_id,
-                                  @id(2)
-                                  @refers_to(tunnel_table, tunnel_id)
+  // This action encodes a SAI_NEXT_HOP_TYPE_TUNNEL_ENCAP, which also has a
+  // SAI_NEXT_HOP_ATTR_IP, but does not take it as a parameter.
+  // Because we are using P2P tunnels, this information is stored in the tunnel
+  // referred to by the tunnel id, so we omit it here to avoid redundancy in our
+  // specification.
+  @id(ROUTING_SET_P2P_TUNNEL_ENCAP_NEXTHOP_ACTION_ID)
+  action set_p2p_tunnel_encap_nexthop(@id(1) @refers_to(tunnel_table, tunnel_id)
                                   tunnel_id_t tunnel_id) {
     tunnel_id_valid = true;
     tunnel_id_value = tunnel_id;
-    // The other key `router_interface_id` required for the
-    // `neighbor_table` is set in the `tunnel_table` action.
-    neighbor_id_valid = true;
-    neighbor_id_value = neighbor_id;
   }
 
   @p4runtime_role(P4RUNTIME_ROLE_ROUTING)
@@ -206,7 +211,7 @@ control routing(in headers_t headers,
     }
     actions = {
       @proto_id(1) set_nexthop;
-      @proto_id(2) set_tunnel_encap_nexthop;
+      @proto_id(2) set_p2p_tunnel_encap_nexthop;
       @proto_id(3) set_ip_nexthop;
       @defaultonly NoAction;
     }

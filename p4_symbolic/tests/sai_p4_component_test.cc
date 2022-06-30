@@ -40,7 +40,6 @@ namespace p4_symbolic {
 namespace {
 
 using ::gutil::ParseProtoOrDie;
-using ::testing::AnyOf;
 using ::testing::Eq;
 using ::testing::Not;
 
@@ -78,7 +77,7 @@ constexpr absl::string_view kTableEntries = R"pb(
       action {
         set_ip_nexthop {
           router_interface_id: "router-interface-1"
-          neighbor_id: "neighbor-1"
+          neighbor_id: "fe80::cebb:aaff:fe99:8877"
         }
       }
     }
@@ -93,7 +92,7 @@ constexpr absl::string_view kTableEntries = R"pb(
     neighbor_table_entry {
       match {
         router_interface_id: "router-interface-1"
-        neighbor_id: "neighbor-1"
+        neighbor_id: "fe80::cebb:aaff:fe99:8877"
       }
       action { set_dst_mac { dst_mac: "cc:bb:aa:99:88:77" } }
     }
@@ -143,12 +142,7 @@ constexpr absl::string_view kTableEntriesWithTunneling = R"pb(
   entries {
     nexthop_table_entry {
       match { nexthop_id: "nexthop-1" }
-      action {
-        set_tunnel_encap_nexthop {
-          neighbor_id: "neighbor-1"
-          tunnel_id: "tunnel-1"
-        }
-      }
+      action { set_p2p_tunnel_encap_nexthop { tunnel_id: "tunnel-1" } }
     }
   }
 
@@ -156,7 +150,7 @@ constexpr absl::string_view kTableEntriesWithTunneling = R"pb(
     tunnel_table_entry {
       match { tunnel_id: "tunnel-1" }
       action {
-        mark_for_tunnel_encap {
+        mark_for_p2p_tunnel_encap {
           encap_src_ip: "0001:0002:0003:0004::"
           encap_dst_ip: "0005:0006:0007:0008::"
           router_interface_id: "router-interface-1"
@@ -169,7 +163,7 @@ constexpr absl::string_view kTableEntriesWithTunneling = R"pb(
     neighbor_table_entry {
       match {
         router_interface_id: "router-interface-1"
-        neighbor_id: "neighbor-1"
+        neighbor_id: "fe80::508:09ff:fe0a:0b0c"
       }
       action { set_dst_mac { dst_mac: "07:08:09:0a:0b:0c" } }
     }

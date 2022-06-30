@@ -72,7 +72,7 @@ absl::StatusOr<p4::v1::Update> NeighborTableUpdate(
                            }
                            matches {
                              name: "neighbor_id"
-                             exact { str: "$2" }
+                             exact { ipv6: "$2" }
                            }
                            action {
                              name: "set_dst_mac"
@@ -111,7 +111,7 @@ absl::StatusOr<p4::v1::Update> NexthopTableUpdate(
                              }
                              params {
                                name: "neighbor_id"
-                               value { str: "$3" }
+                               value { ipv6: "$3" }
                              }
                            }
                          }

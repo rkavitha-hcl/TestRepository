@@ -86,7 +86,7 @@ tables {
 }
 tables {
   name: "neighbor_table"
-  match_fields { name: "neighbor_id" format: STRING type: EXACT }
+  match_fields { name: "neighbor_id" format: IPV6 type: EXACT }
   match_fields { name: "router_interface_id" format: STRING type: EXACT }
   actions {
     name: "set_dst_mac"
@@ -100,17 +100,16 @@ tables {
   # TODO: Remove once migration to `set_ip_nexthop` is completed.
   actions {
     name: "set_nexthop"
-    parameters { name: "neighbor_id" format: STRING }
+    parameters { name: "neighbor_id" format: IPV6 }
     parameters { name: "router_interface_id" format: STRING }
   }
   actions {
     name: "set_ip_nexthop"
-    parameters { name: "neighbor_id" format: STRING }
+    parameters { name: "neighbor_id" format: IPV6 }
     parameters { name: "router_interface_id" format: STRING }
   }
   actions {
-    name: "set_tunnel_encap_nexthop"
-    parameters { name: "neighbor_id" format: STRING }
+    name: "set_p2p_tunnel_encap_nexthop"
     parameters { name: "tunnel_id" format: STRING }
   }
 }
@@ -127,7 +126,7 @@ tables {
   name: "tunnel_table"
   match_fields { name: "tunnel_id" format: STRING type: EXACT }
   actions {
-    name: "mark_for_tunnel_encap"
+    name: "mark_for_p2p_tunnel_encap"
     parameters { name: "encap_dst_ip" format: IPV6 }
     parameters { name: "encap_src_ip" format: IPV6 }
     parameters { name: "router_interface_id" format: STRING }
