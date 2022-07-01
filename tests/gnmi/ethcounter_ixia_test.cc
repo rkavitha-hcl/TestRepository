@@ -944,13 +944,11 @@ TEST_P(CountersTestFixture, TestIPv4Pkts) {
   EXPECT_EQ(delta_out.out_errors, 0);
   EXPECT_EQ(delta_out.out_discards, 0);
 
-  // TODO: Remove mask after bug is addressed.
-  if (!generic_testbed->Environment().MaskKnownFailures()) {
-    EXPECT_LE(delta_in.in_ipv4_pkts, delta_out.out_pkts + 10);
-    EXPECT_GE(delta_in.in_ipv4_pkts, delta_out.out_pkts - 10);
-    EXPECT_GE(delta_out.out_ipv4_pkts, delta_out.out_pkts - 10);
-    EXPECT_LE(delta_out.out_ipv4_pkts, delta_out.out_pkts + 10);
-  }
+  EXPECT_LE(delta_in.in_ipv4_pkts, delta_out.out_pkts + 10);
+  EXPECT_GE(delta_in.in_ipv4_pkts, delta_out.out_pkts - 10);
+  EXPECT_GE(delta_out.out_ipv4_pkts, delta_out.out_pkts - 10);
+  EXPECT_LE(delta_out.out_ipv4_pkts, delta_out.out_pkts + 10);
+
   EXPECT_EQ(delta_out.out_ipv6_pkts, 0);
   EXPECT_EQ(delta_out.out_ipv6_discarded_pkts, 0);
 
@@ -1492,13 +1490,10 @@ TEST_P(CountersTestFixture, TestIPv6Pkts) {
   EXPECT_GE(delta_out.in_ipv6_pkts, delta_out.out_pkts - 10);
   EXPECT_LE(delta_out.in_ipv6_pkts, delta_out.out_pkts + 10);
 
-  // TODO: Remove mask after bug is addressed.
-  if (!generic_testbed->Environment().MaskKnownFailures()) {
-    EXPECT_LE(delta_out.out_ipv6_pkts, delta_out.out_pkts + 10);
-    EXPECT_GE(delta_out.out_ipv6_pkts, delta_out.out_pkts - 10);
-    EXPECT_LE(delta_in.in_ipv6_pkts, delta_out.out_pkts + 10);
-    EXPECT_GE(delta_in.in_ipv6_pkts, delta_out.out_pkts - 10);
-  }
+  EXPECT_LE(delta_out.out_ipv6_pkts, delta_out.out_pkts + 10);
+  EXPECT_GE(delta_out.out_ipv6_pkts, delta_out.out_pkts - 10);
+  EXPECT_LE(delta_in.in_ipv6_pkts, delta_out.out_pkts + 10);
+  EXPECT_GE(delta_in.in_ipv6_pkts, delta_out.out_pkts - 10);
 
   EXPECT_EQ(delta_out.out_ipv6_discarded_pkts, 0);
 
