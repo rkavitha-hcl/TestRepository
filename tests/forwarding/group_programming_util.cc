@@ -36,7 +36,6 @@ absl::Status ProgramNextHops(thinkit::TestEnvironment& test_environment,
                              pdpi::P4RuntimeSession& p4_session,
                              const pdpi::IrP4Info& ir_p4info,
                              std::vector<gpins::GroupMember>& members) {
-  int index = 0;
   std::vector<std::string> nexthops;
   std::vector<p4::v1::TableEntry> pi_entries;
   std::vector<sai::TableEntry> pd_entries;
@@ -61,7 +60,7 @@ absl::Status ProgramNextHops(thinkit::TestEnvironment& test_environment,
     pd_entries.push_back(router_interface);
 
     // Create neighbor entry.
-    std::string neighbor_id = absl::StrCat("10.0.0.", index++);
+    std::string neighbor_id = "fe80::2";
     auto neighbor_entry =
         gutil::ParseProtoOrDie<sai::TableEntry>(absl::Substitute(
             R"pb(

@@ -287,7 +287,7 @@ TEST_P(L3AdmitTestFixture, L3PacketsAreRoutedOnlyWhenMacAddressIsInMyStation) {
       .switch_ip = std::make_pair("10.0.0.1", 32),
       .peer_port = "1",
       .peer_mac = "00:00:00:00:00:02",
-      .peer_ip = "10.0.0.2",
+      .peer_ip = "fe80::2",
       .router_interface_id = "rif-1",
       .nexthop_id = "nexthop-1",
   };
@@ -377,7 +377,7 @@ TEST_P(L3AdmitTestFixture, L3AdmitCanUseMaskToAllowMultipleMacAddresses) {
       .switch_ip = std::make_pair("10.0.0.1", 32),
       .peer_port = "1",
       .peer_mac = "00:00:00:00:00:02",
-      .peer_ip = "10.0.0.2",
+      .peer_ip = "fe80::2",
       .router_interface_id = "rif-1",
       .nexthop_id = "nexthop-1",
   };
@@ -452,7 +452,7 @@ TEST_P(L3AdmitTestFixture, L3AdmitCanUseInPortToRestrictMacAddresses) {
       .switch_ip = std::make_pair("10.0.0.1", 32),
       .peer_port = "1",
       .peer_mac = "00:00:00:00:00:02",
-      .peer_ip = "10.0.0.2",
+      .peer_ip = "fe80::2",
       .router_interface_id = "rif-1",
       .nexthop_id = "nexthop-1",
   };
@@ -544,7 +544,7 @@ TEST_P(L3AdmitTestFixture, L3PacketsCanBeRoutedWithOnlyARouterInterface) {
       .switch_ip = std::make_pair("10.0.0.1", 32),
       .peer_port = "1",
       .peer_mac = "00:00:00:00:00:02",
-      .peer_ip = "10.0.0.2",
+      .peer_ip = "fe80::2",
       .router_interface_id = "rif-1",
       .nexthop_id = "nexthop-1",
   };
@@ -638,7 +638,7 @@ TEST_P(L3AdmitTestFixture, L3PacketsCanBeClassifiedByDestinationMac) {
       .switch_ip = std::make_pair("10.0.0.1", 32),
       .peer_port = "1",
       .peer_mac = "00:00:00:00:00:02",
-      .peer_ip = "10.0.0.2",
+      .peer_ip = "fe80::2",
       .router_interface_id = "rif-1",
       .nexthop_id = "nexthop-1",
   };
