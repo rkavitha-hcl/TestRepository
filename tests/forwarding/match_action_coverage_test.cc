@@ -369,7 +369,7 @@ absl::Status AddAuxiliaryTableEntries(absl::BitGen& gen,
                         gen, session, config, state, environment, table,
                         /*predicate=*/[](auto&) { return true; }))
             .SetPrepend()
-        << "while trying to generate any entry: ";
+        << "while trying to generate entry for '" << table_name << "': ";
   }
   return absl::OkStatus();
 }
