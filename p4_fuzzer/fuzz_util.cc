@@ -790,7 +790,10 @@ absl::StatusOr<p4::v1::Action> FuzzAction(
         std::string value,
         FuzzValue(gen, config, switch_state, ir_param.param().type_name(),
                   ir_param.param().bitwidth(), ir_param.references(),
-                  /*non_zero=*/true));
+                  /*non_zero=*/true),
+        _.SetPrepend() << "while fuzzing parameter '" << ir_param.param().name()
+                       << "' of action '" << ir_action_info.preamble().name()
+                       << "'");
     param->set_value(value);
   }
 
@@ -939,7 +942,8 @@ absl::StatusOr<TableEntry> FuzzValidTableEntry(
 
   // Generate the action.
   ASSIGN_OR_RETURN(*table_entry.mutable_action(),
-                   FuzzAction(gen, config, switch_state, ir_table_info));
+                   FuzzAction(gen, config, switch_state, ir_table_info),
+                   _.SetPrepend() << "while fuzzing action: ");
 
   // Set cookie and priority.
   table_entry.set_metadata(
