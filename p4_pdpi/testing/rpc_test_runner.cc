@@ -353,6 +353,11 @@ static void RunReadRequestTests(pdpi::IrP4Info info) {
                          entities { table_entry {} }
                          entities { table_entry {} }
                        )pb"));
+  RunPiReadRequestTest(info, "valid",
+                       gutil::ParseProtoOrDie<p4::v1::ReadRequest>(R"pb(
+                         device_id: 10
+                         entities { table_entry {} }
+                       )pb"));
 
   // There are no invalid IR read requests, so no RunIrReadRequestTest is
   // needed.
@@ -371,6 +376,13 @@ static void RunReadRequestTests(pdpi::IrP4Info info) {
   RunPdReadRequestTest(info, "no meter, counter",
                        gutil::ParseProtoOrDie<pdpi::ReadRequest>(R"pb(
                          device_id: 10
+                         read_counter_data: true
+                       )pb"),
+                       INPUT_IS_VALID);
+  RunPdReadRequestTest(info, "meter, counter",
+                       gutil::ParseProtoOrDie<pdpi::ReadRequest>(R"pb(
+                         device_id: 10
+                         read_meter_configs: true
                          read_counter_data: true
                        )pb"),
                        INPUT_IS_VALID);
