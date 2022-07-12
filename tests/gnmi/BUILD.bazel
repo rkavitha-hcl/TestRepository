@@ -63,6 +63,7 @@ cc_library(
         "//p4_pdpi:ir",
         "//p4_pdpi:p4_runtime_session",
         "//p4_pdpi:pd",
+        "//p4_pdpi/netaddr:mac_address",
         "//p4_pdpi/packetlib",
         "//p4_pdpi/packetlib:packetlib_cc_proto",
         "//thinkit:generic_testbed",

@@ -44,6 +44,7 @@
 #include "lib/p4rt/packet_listener.h"
 #include "lib/validator/validator_lib.h"
 #include "p4_pdpi/ir.h"
+#include "p4_pdpi/netaddr/mac_address.h"
 #include "p4_pdpi/p4_runtime_session.h"
 #include "p4_pdpi/packetlib/packetlib.h"
 #include "p4_pdpi/packetlib/packetlib.pb.h"
@@ -164,11 +165,9 @@ absl::Status ForwardToEgress(uint32_t in_port, uint32_t out_port, bool is_ipv6,
   constexpr absl::string_view kVrfId = "vrf-80";
   constexpr absl::string_view kRifOutId = "router-interface-1";
   constexpr absl::string_view kNhopId = "nexthop-1";
-  constexpr absl::string_view kNborIdv4 = "1.1.1.2";
-  constexpr absl::string_view kNborIdv6 = "fe80::002:02ff:fe02:0202";
-  absl::string_view nborid = kNborIdv4;
 
-  if (is_ipv6) nborid = kNborIdv6;
+  const std::string nborid =
+      netaddr::MacAddress(2, 2, 2, 2, 2, 2).ToLinkLocalIpv6Address().ToString();
 
   auto vrf_entry = gutil::ParseProtoOrDie<sai::TableEntry>(absl::Substitute(
       R"pb(
