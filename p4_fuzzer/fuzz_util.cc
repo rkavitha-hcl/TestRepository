@@ -793,7 +793,7 @@ absl::StatusOr<p4::v1::Action> FuzzAction(
                   /*non_zero=*/true),
         _.SetPrepend() << "while fuzzing parameter '" << ir_param.param().name()
                        << "' of action '" << ir_action_info.preamble().name()
-                       << "'");
+                       << "': ");
     param->set_value(value);
   }
 
