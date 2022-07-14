@@ -17,6 +17,9 @@ control acl_egress(in headers_t headers,
   // IPv4 IP protocol or IPv6 next_header (or 0, for non-IP packets)
   bit<8> ip_protocol = 0;
 
+  @id(ACL_EGRESS_COUNTER_ID)
+  direct_counter(CounterType.packets_and_bytes) acl_egress_counter;
+
   @p4runtime_role(P4RUNTIME_ROLE_SDN_CONTROLLER)
   @id(ACL_EGRESS_TABLE_ID)
   @sai_acl(EGRESS)
@@ -62,6 +65,7 @@ control acl_egress(in headers_t headers,
       @defaultonly NoAction;
     }
     const default_action = NoAction;
+    counters = acl_egress_counter;
     size = ACL_EGRESS_TABLE_MINIMUM_GUARANTEED_SIZE;
   }
 

@@ -394,6 +394,7 @@ message AclEgressTableEntry {
   }
   Action action = 2;
   int32 priority = 3;
+  BytesAndPacketsCounterData counter_data = 6;
   bytes controller_metadata = 8;
 }
 

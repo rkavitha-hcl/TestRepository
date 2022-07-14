@@ -735,6 +735,7 @@ tables {
     scope: DEFAULT_ONLY
   }
   const_default_action_id: 21257015
+  direct_resource_ids: 318767364
   size: 128
 }
 tables {
@@ -1327,6 +1328,17 @@ direct_counters {
     unit: BOTH
   }
   direct_table_id: 33554688
+}
+direct_counters {
+  preamble {
+    id: 318767364
+    name: "egress.acl_egress.acl_egress_counter"
+    alias: "acl_egress_counter"
+  }
+  spec {
+    unit: BOTH
+  }
+  direct_table_id: 33554692
 }
 direct_counters {
   preamble {
