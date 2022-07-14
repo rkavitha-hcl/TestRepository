@@ -22,6 +22,7 @@
 
 #include "absl/container/flat_hash_map.h"
 #include "absl/flags/flag.h"
+#include "absl/numeric/int128.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/match.h"
@@ -35,7 +36,6 @@
 #include "gmock/gmock.h"
 #include "gtest/gtest.h"
 #include "gutil/collections.h"
-#include "gutil/status.h"
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "lib/basic_traffic/basic_p4rt_util.h"
