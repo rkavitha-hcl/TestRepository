@@ -16,6 +16,7 @@
 #include <deque>
 
 #include "absl/status/status.h"
+#include "absl/strings/match.h"
 #include "absl/strings/str_cat.h"
 #include "glog/logging.h"
 #include "p4rt_app/p4runtime/p4runtime_impl.h"

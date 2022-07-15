@@ -22,7 +22,6 @@
 #include <vector>
 
 #include "absl/base/thread_annotations.h"
-#include "absl/memory/memory.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/types/optional.h"
@@ -34,14 +33,10 @@
 #include "p4/v1/p4runtime.grpc.pb.h"
 #include "p4/v1/p4runtime.pb.h"
 #include "p4_constraints/backend/constraint_info.h"
-#include "p4_pdpi/ir.h"
+#include "p4_pdpi/ir.pb.h"
 #include "p4rt_app/p4runtime/sdn_controller_manager.h"
-#include "p4rt_app/sonic/app_db_manager.h"
 #include "p4rt_app/sonic/packetio_interface.h"
-#include "p4rt_app/sonic/packetio_port.h"
 #include "p4rt_app/sonic/redis_connections.h"
-#include "p4rt_app/sonic/response_handler.h"
-#include "p4rt_app/sonic/vrf_entry_translation.h"
 #include "swss/component_state_helper_interface.h"
 #include "swss/intf_translator.h"
 

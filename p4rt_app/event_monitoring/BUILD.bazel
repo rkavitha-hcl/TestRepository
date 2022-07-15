@@ -85,6 +85,7 @@ cc_library(
     deps = [
         ":state_event_monitor",
         "//p4rt_app/p4runtime:p4runtime_impl",
+        "@com_github_google_glog//:glog",
         "@com_google_absl//absl/status",
         "@com_google_absl//absl/strings",
         "@sonic_swss_common//:libswsscommon",

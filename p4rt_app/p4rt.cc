@@ -479,7 +479,7 @@ int main(int argc, char** argv) {
   LOG(INFO) << "Server listening on " << server_addr << ".";
   server->Wait();
 
-  LOG(INFO) << "Stopping monitoring of port events.";
+  LOG(INFO) << "Stopping the P4RT service.";
   monitor_app_state_db_events = false;
   monitor_config_db_events = false;
   app_state_db_event_loop.join();
