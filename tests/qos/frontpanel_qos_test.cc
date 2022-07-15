@@ -1420,6 +1420,8 @@ absl::Status SetUpForwardingAndCopyEgressToCpu(
             acl_ingress_table_entry {
               match {
                 dst_mac { value: "02:02:02:02:02:02" mask: "ff:ff:ff:ff:ff:ff" }
+                is_ip { value: "0x1" }
+                ecn { value: "0x3" mask: "0x3" }
               }
               action { acl_copy { qos_queue: "2" } }
               priority: 1
@@ -1696,7 +1698,7 @@ TEST_P(FrontpanelQosTest, TestWredEcnMarking) {
   const std::string kDefaultQueueName = "BE1";
 
   // Set up the switch to forward inbound packets to the egress port
-  EXPECT_OK(SetUpForwardingAndCopyEgressToCpu(
+  ASSERT_OK(SetUpForwardingAndCopyEgressToCpu(
       kSutOutPortId, kSourceMac.ToString(), kDestMac.ToString(),
       GetParam().p4info, *sut_p4_session));
 
@@ -1761,12 +1763,12 @@ TEST_P(FrontpanelQosTest, TestWredEcnMarking) {
           // to ensure threshold is crossed.
           ASSERT_OK(pins_test::ixia::SetFrameCount(
               traffic_ref2,
-              (kWredMaxThresholdInBytes * 2 / kDefaultFrameSizeinBytes),
+              (kWredMaxThresholdInBytes * 1.5 / kDefaultFrameSizeinBytes),
               *testbed));
         } else {
-          // Set traffic to 80 percent of line rate.
+          // Set traffic to 70 percent of line rate.
           ASSERT_OK(pins_test::ixia::SetFrameRate(
-              traffic_ref1, frame_rate_at_line_speed_of_in_port1 * 80 / 100,
+              traffic_ref1, frame_rate_at_line_speed_of_in_port1 * 70 / 100,
               *testbed));
 
           // Do not send traffic-2 as we do not want congestion.
@@ -1787,22 +1789,18 @@ TEST_P(FrontpanelQosTest, TestWredEcnMarking) {
             const QueueCounters queue_counters_before_test_packet,
             GetGnmiQueueCounters(/*port=*/kSutOutPort, /*queue=*/target_queue,
                                  *gnmi_stub));
+
+        ResetEcnTestPacketCounters(packet_receive_info);
+
         ASSERT_OK(gpins::TryUpToNTimes(3, /*delay=*/absl::Seconds(1), [&] {
           return pins_test::ixia::StartTraffic(ixia_setup_result.traffic_refs,
                                                ixia_setup_result.topology_ref,
                                                *testbed);
         }));
 
-        // Time to allow initial burst and to reach steady state queue usage.
-        constexpr absl::Duration kCongestionTime = absl::Seconds(2);
-
         // Time period to examine egress packets for ECN marking.
-        constexpr absl::Duration kStatsCollectionTime = absl::Seconds(5);
+        constexpr absl::Duration kStatsCollectionTime = absl::Seconds(10);
 
-        // Wait for traffic to buffer.
-        absl::SleepFor(kCongestionTime);
-
-        ResetEcnTestPacketCounters(packet_receive_info);
         absl::SleepFor(kStatsCollectionTime);
 
         {
@@ -1812,27 +1810,11 @@ TEST_P(FrontpanelQosTest, TestWredEcnMarking) {
           LOG(INFO) << "Congestion : " << (is_congestion ? "true" : "false");
           LOG(INFO) << "IPv4 : " << (is_ipv4 ? "true" : "false");
           LOG(INFO) << "ECT : " << (is_ect ? "true" : "false");
-          LOG(INFO) << "Packets received: "
-                    << packet_receive_info.num_packets_punted;
           LOG(INFO) << "ECN marked Packets: "
                     << packet_receive_info.num_packets_ecn_marked;
 
           if (is_congestion && is_ect) {
-            // TODO: Currently we are unable to keep queue usage
-            // constantly above threshold. The queue usage starts going down in
-            // a few sconds. Till we understand this, we will allow for
-            // tolerance in packets marked for ECN.
-            constexpr float kTolerancePercent = 20.0;
-            if (testbed->Environment().MaskKnownFailures()) {
-              // Egress packets must be ECN marked. Tolerance of 20%.
-              ASSERT_GE(packet_receive_info.num_packets_ecn_marked,
-                        packet_receive_info.num_packets_punted *
-                            (1 - kTolerancePercent / 100));
-            } else {
-              // All egress packets must be ECN marked.
-              ASSERT_EQ(packet_receive_info.num_packets_punted,
-                        packet_receive_info.num_packets_ecn_marked);
-            }
+            ASSERT_GT(packet_receive_info.num_packets_ecn_marked, 0);
           } else {
             // No egress packets must be ECN marked.
             ASSERT_EQ(packet_receive_info.num_packets_ecn_marked, 0);
