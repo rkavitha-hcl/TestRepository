@@ -60,9 +60,9 @@ tables {
   match_fields {
     id: 6
     name: "dst_ipv6"
-    annotations: "@sai_field(SAI_ACL_TABLE_ATTR_FIELD_DST_IPV6)"
+    annotations: "@composite_field(@ sai_field ( SAI_ACL_TABLE_ATTR_FIELD_DST_IPV6_WORD3 ) , @ sai_field ( SAI_ACL_TABLE_ATTR_FIELD_DST_IPV6_WORD2 ))"
     annotations: "@format(IPV6_ADDRESS)"
-    bitwidth: 128
+    bitwidth: 64
     match_type: TERNARY
   }
   match_fields {
@@ -477,17 +477,17 @@ tables {
   match_fields {
     id: 8
     name: "src_ipv6"
-    annotations: "@sai_field(SAI_ACL_TABLE_ATTR_FIELD_SRC_IPV6)"
+    annotations: "@composite_field(@ sai_field ( SAI_ACL_TABLE_ATTR_FIELD_SRC_IPV6_WORD3 ) , @ sai_field ( SAI_ACL_TABLE_ATTR_FIELD_SRC_IPV6_WORD2 ))"
     annotations: "@format(IPV6_ADDRESS)"
-    bitwidth: 128
+    bitwidth: 64
     match_type: TERNARY
   }
   match_fields {
     id: 9
     name: "dst_ipv6"
-    annotations: "@sai_field(SAI_ACL_TABLE_ATTR_FIELD_DST_IPV6)"
+    annotations: "@composite_field(@ sai_field ( SAI_ACL_TABLE_ATTR_FIELD_DST_IPV6_WORD3 ) , @ sai_field ( SAI_ACL_TABLE_ATTR_FIELD_DST_IPV6_WORD2 ))"
     annotations: "@format(IPV6_ADDRESS)"
-    bitwidth: 128
+    bitwidth: 64
     match_type: TERNARY
   }
   match_fields {
