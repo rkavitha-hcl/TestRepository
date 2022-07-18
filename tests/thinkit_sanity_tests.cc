@@ -279,26 +279,6 @@ void TestGnmiConfigBlobSet(thinkit::Switch& sut) {
   }
 }
 
-void TestGnmiCheckSpecificInterfaceStateOperation(thinkit::Switch& sut,
-                                                  absl::string_view if_name) {
-  ASSERT_OK_AND_ASSIGN(auto sut_gnmi_stub, sut.CreateGnmiStub());
-  std::string if_req = absl::StrCat("interfaces/interface[name=", if_name,
-                                    "]/state/oper-status");
-  ASSERT_OK_AND_ASSIGN(gnmi::GetRequest req,
-                       BuildGnmiGetRequest(if_req, gnmi::GetRequest::STATE));
-  LOG(INFO) << "Sending GET request: " << req.ShortDebugString();
-
-  gnmi::GetResponse resp;
-  grpc::ClientContext context;
-  ASSERT_OK(sut_gnmi_stub->Get(&context, req, &resp));
-  LOG(INFO) << "Received GET response: " << resp.ShortDebugString();
-  ASSERT_OK_AND_ASSIGN(
-      std::string oper_response,
-      ParseGnmiGetResponse(resp, "openconfig-interfaces:oper-status"));
-  LOG(INFO) << "oper_respose: " << oper_response;
-  EXPECT_THAT(oper_response, HasSubstr(kStateUp));
-}
-
 //  Returns last boot time of SUT.
 absl::StatusOr<uint64_t> GetGnmiSystemBootTime(
     thinkit::Switch& sut, gnmi::gNMI::StubInterface* sut_gnmi_stub) {
