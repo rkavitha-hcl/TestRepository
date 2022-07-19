@@ -24,9 +24,6 @@ using ::gutil::IsOkAndHolds;
 using ::gutil::StatusIs;
 using ::testing::Eq;
 
-// TODO: Consider adding more coverage (though the clients of this
-// library have excellent coverage).
-
 TEST(ReadableByteStringTest, OfByteStringWorks) {
   BitString test = BitString::OfByteString("\x01\x2a\xff");
 
@@ -59,17 +56,40 @@ TEST(ReadableByteStringTest, PeekHexStringErrorWhenInputGreaterThanSize) {
                        "Only 40 bits left, but attempted to peek 100 bits."));
 }
 
-TEST(ReadableByteStringTest, ConsumeHexStringWorks) {
+TEST(ReadableByteStringTest, ConsumeHexStringWorksWithVailidInputs) {
   BitString test = BitString::OfByteString("\xff\xff\xff\xff\xff");
   EXPECT_THAT(test.ConsumeHexString(1), IsOkAndHolds("0x1"));
   EXPECT_THAT(test.ConsumeHexString(5), IsOkAndHolds("0x1f"));
   EXPECT_THAT(test.ConsumeHexString(9), IsOkAndHolds("0x1ff"));
 }
 
+TEST(ReadableByteStringTest, ConsumeHexStringErrorWithNegativeInput) {
+  BitString test = BitString::OfByteString("\xff\xff\xff\xff\xff");
+  EXPECT_THAT(
+      test.ConsumeHexString(-1),
+      StatusIs(absl::StatusCode::kInvalidArgument, "Cannot consume -1 bits."));
+}
+
+TEST(ReadableByteStringTest, ConsumeHexStringErrorWhenInputGreaterThanSize) {
+  BitString test = BitString::OfByteString("\xff\xff\xff\xff\xff");
+  EXPECT_THAT(
+      test.ConsumeHexString(100),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               "Only 40 bits left, but attempted to consume 100 bits."));
+}
+
 TEST(ReadableByteStringTest, ConsumeBitsetWorks) {
   BitString test = BitString::OfByteString("\x12\x34");
   EXPECT_THAT(test.ConsumeBitset<16>(),
               IsOkAndHolds(Eq(std::bitset<16>(0x1234))));
+}
+
+TEST(ReadableByteStringTest, ConsumeBitsetErrorWhenInputGreaterThanSize) {
+  BitString test = BitString::OfByteString("\xff\xff\xff\xff\xff");
+  EXPECT_THAT(
+      test.ConsumeBitset<100>(),
+      StatusIs(absl::StatusCode::kFailedPrecondition,
+               "Only 40 bits left, but attempted to consume 100 bits."));
 }
 
 }  // namespace pdpi
