@@ -390,11 +390,27 @@ absl::StatusOr<VlanHeader> ParseVlanHeader(pdpi::BitString& data) {
 
 // Parse a GRE header, or return error if the packet is too small.
 absl::StatusOr<GreHeader> ParseGreHeader(pdpi::BitString& data) {
-  if (data.size() < kRfc2784GreHeaderWithoutOptionalsBitwidth) {
+  int size = kRfc2784GreHeaderWithoutOptionalsBitwidth;
+
+  if (data.size() < size) {
     return gutil::InvalidArgumentErrorBuilder()
            << "Packet is too short to parse a GRE header next. Only "
-           << data.size() << " bits left, need at least "
-           << kRfc2784GreHeaderWithoutOptionalsBitwidth << ".";
+           << data.size() << " bits left, need at least " << size << ".";
+  }
+
+  ASSIGN_OR_RETURN(std::string checksum_present,
+                   data.PeekHexString(kGreChecksumPresentBitwidth));
+
+  if (checksum_present == "0x1") {
+    size += kGreChecksumBitwidth + kGreReserved1Bitwidth;
+
+    if (data.size() < size) {
+      return gutil::InvalidArgumentErrorBuilder()
+             << "Packet is too short to parse a GRE header with optional "
+                "fields. "
+                "Only "
+             << data.size() << " bits left, need at least " << size << ".";
+    }
   }
 
   GreHeader header;
@@ -404,14 +420,7 @@ absl::StatusOr<GreHeader> ParseGreHeader(pdpi::BitString& data) {
   header.set_protocol_type(ParseBits(data, kGreProtocolTypeBitwidth));
 
   // Parse optional checksum and reserved1 fields.
-  absl::StatusOr<int> checksum_present =
-      pdpi::HexStringToInt(header.checksum_present());
-  if (!checksum_present.ok()) {
-    LOG(DFATAL) << "SHOULD NEVER HAPPEN: checksum present bit badly formatted: "
-                << checksum_present.status();
-    // Don't return error status so parsing is lossless despite error.
-    // The packet will be invalid, but this will be caught by validity checking.
-  } else if (checksum_present.value() == 1) {
+  if (checksum_present == "0x1") {
     header.set_checksum(
         ParseBits(data, std::min(data.size(), kGreChecksumBitwidth)));
     header.set_reserved1(
@@ -1068,23 +1077,6 @@ void GreHeaderInvalidReasons(const GreHeader& header,
                              const std::string& field_prefix,
                              const Packet& packet, int header_index,
                              std::vector<std::string>& output) {
-  // GRE should be preceded by either an IPv4 or IPv6 header.
-  if (header_index <= 0) {
-    output.push_back(absl::StrCat(field_prefix,
-                                  "GRE header must be preceded by "
-                                  "IP header; found no header instead"));
-    return;
-  }
-  Header::HeaderCase previous = packet.headers(header_index - 1).header_case();
-  if (previous != Header::kIpv4Header && previous != Header::kIpv6Header) {
-    output.push_back(absl::StrCat(field_prefix,
-                                  "GRE header must be preceded by "
-                                  "IP header; found ",
-                                  HeaderCaseName(previous), " at headers[",
-                                  (header_index - 1), "] instead"));
-    return;
-  }
-
   bool checksum_present_invalid =
       HexStringInvalidReasons<kGreChecksumPresentBitwidth>(
           header.checksum_present(),
@@ -1093,10 +1085,6 @@ void GreHeaderInvalidReasons(const GreHeader& header,
       header.reserved0(), absl::StrCat(field_prefix, "reserved0"), output);
   bool version_invalid = HexStringInvalidReasons<kGreVersionBitwidth>(
       header.version(), absl::StrCat(field_prefix, "version"), output);
-  bool protocol_type_invalid =
-      HexStringInvalidReasons<kGreProtocolTypeBitwidth>(
-          header.protocol_type(), absl::StrCat(field_prefix, "protocol_type"),
-          output);
 
   if (!reserved0_invalid && header.reserved0() != "0x000") {
     output.push_back(absl::StrCat(field_prefix,
@@ -1110,13 +1098,21 @@ void GreHeaderInvalidReasons(const GreHeader& header,
                                   header.version(), " instead."));
   }
 
-  if (!protocol_type_invalid && header.protocol_type() != "0x0800" &&
-      header.protocol_type() != "0x86dd")
-    output.push_back(absl::StrCat(
-        field_prefix, "protocol_type: Must be 0x0800 or 0x86dd, but was ",
-        header.protocol_type(), " instead."));
-
-  if (checksum_present_invalid || header.checksum_present() != "0x1") return;
+  if (checksum_present_invalid || header.checksum_present() != "0x1") {
+    if (!header.checksum().empty())
+      output.push_back(
+          absl::StrCat(field_prefix,
+                       "Checksum_present: checksum present bit is not set and "
+                       "checksum must be empty, but was '",
+                       header.checksum(), "' instead."));
+    if (!header.reserved1().empty())
+      output.push_back(
+          absl::StrCat(field_prefix,
+                       "Checksum_present: checksum present bit is not set and "
+                       "reserved1 must be empty, but was ",
+                       header.reserved1(), " instead."));
+    return;
+  }
 
   bool optional_fields_invalid = GreOptionalFieldsInvalidReasons(
       header.checksum(), header.reserved1(),
@@ -1846,15 +1842,7 @@ absl::StatusOr<int> PacketSizeInBits(const Packet& packet,
       case Header::kGreHeader:
         size += kRfc2784GreHeaderWithoutOptionalsBitwidth;
         if (header->gre_header().checksum_present() == "0x1") {
-          ASSIGN_OR_RETURN(
-              std::string checksum,
-              pdpi::HexStringToByteString(header->gre_header().checksum()),
-              _.SetPrepend() << "failed to parse checksum in GreHeader: ");
-          ASSIGN_OR_RETURN(
-              std::string reserved1,
-              pdpi::HexStringToByteString(header->gre_header().reserved1()),
-              _.SetPrepend() << "failed to parse reserved1 in GreHeader: ");
-          size += 8 * (checksum.size() + reserved1.size());
+          size += kGreChecksumBitwidth + kGreReserved1Bitwidth;
         }
         break;
       case Header::HEADER_NOT_SET:
@@ -2017,11 +2005,11 @@ absl::StatusOr<int> GreHeaderChecksum(Packet packet, int gre_header_index) {
   auto invalid_argument = gutil::InvalidArgumentErrorBuilder()
                           << "GreHeaderChecksum(packet, gre_header_index = "
                           << gre_header_index << "): ";
-  if (gre_header_index < 1 || gre_header_index >= packet.headers().size()) {
+  if (gre_header_index >= packet.headers().size()) {
     return invalid_argument
-           << "gre_header_index must be in [1, " << packet.headers().size()
+           << "gre_header_index must be in [0, " << packet.headers().size()
            << ") since the given packet has " << packet.headers().size()
-           << " headers and the GRE header must be preceded by an IP header";
+           << " headers.";
   }
   if (auto header_case = packet.headers(gre_header_index).header_case();
       header_case != Header::kGreHeader) {

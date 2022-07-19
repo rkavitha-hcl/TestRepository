@@ -573,10 +573,52 @@ void RunPacketParseTests() {
     # Payload
     payload: 0x 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00 00
   )pb");
+}
 
-  // TODO: Add another test using example GRE header with checksum. This is not
-  // done for now because it's difficult to find an exammple GRE header with
-  // checksum.
+void RunAdditionalPacketParseTests() {
+  RunPacketParseTest("Packet too short to parse a GRE header (Invalid)", R"pb(
+    # Ethernet header
+    ethernet_destination: 0x c2 01 51 fa 00 00
+    ethernet_source: 0x c2 00 51 fa 00 00
+    ethertype: 0x86DD
+    # IPv6 header:
+    version: 0x6
+    dscp: 0b000000
+    ecn: 0b00
+    flow_label: 0x00000
+    payload_length: 0x0001
+    next_header: 0x2f  # GRE
+    hop_limit: 0x3f
+    ipv6_source: 0x2607F8B0C15000100000000000000000
+    ipv6_destination: 0x20020A05686007490000000000000000
+    # GRE header:
+    checksum_present: 0b0
+    reserved0: 0b0000000
+  )pb");
+  RunPacketParseTest(
+      "Packet too short to parse a GRE header with optional fields (Invalid)",
+      R"pb(
+        # Ethernet header
+        ethernet_destination: 0x c2 01 51 fa 00 00
+        ethernet_source: 0x c2 00 51 fa 00 00
+        ethertype: 0x86DD
+        # IPv6 header:
+        version: 0x6
+        dscp: 0b000000
+        ecn: 0b00
+        flow_label: 0x00000
+        payload_length: 0x0004
+        next_header: 0x2f  # GRE
+        hop_limit: 0x3f
+        ipv6_source: 0x2607F8B0C15000100000000000000000
+        ipv6_destination: 0x20020A05686007490000000000000000
+        # GRE header:
+        checksum_present: 0b1
+        reserved0: 0b000000000000
+        version: 0b000
+        protocol_type: 0x0800
+      )pb");
+
   RunPacketParseTest("GRE Ipv4 Encapsulated with Ipv6 Header (Valid)", R"pb(
     # Ethernet header
     ethernet_destination: 0x c2 01 51 fa 00 00
@@ -631,6 +673,76 @@ void RunPacketParseTests() {
     payload: 0x 5f 6d 65 74 61 64 61 74 61 3a 20 22 30 78 30 31 22 20 7d 20 7d
     payload: 0x 20 7d
   )pb");
+  RunPacketParseTest(
+      "GRE Ipv4 Encapsulated with Ipv6 Header with checksum present (Valid)",
+      R"pb(
+        # Ethernet header
+        ethernet_destination: 0x c2 01 51 fa 00 00
+        ethernet_source: 0x c2 00 51 fa 00 00
+        ethertype: 0x86DD
+        # IPv6 header:
+        version: 0x6
+        dscp: 0b000000
+        ecn: 0b00
+        flow_label: 0x00000
+        payload_length: 0x0122
+        next_header: 0x2f  # GRE
+        hop_limit: 0x3f
+        ipv6_source: 0x2607F8B0C15000100000000000000000
+        ipv6_destination: 0x20020A05686007490000000000000000
+        # GRE header:
+        checksum_present: 0b1
+        reserved0: 0b000000000000
+        version: 0b000
+        protocol_type: 0x0800
+        checksum: 0x77ff
+        reserved1: 0x0000
+        # Encapsulated IPv4 header
+        version: 0x4
+        ihl: 0x5
+        dscp: 0b000000
+        ecn: 0b00
+        total_length: 0x011a
+        identification: 0x0000
+        flags: 0b000
+        fragment_offset: 0b0000000000000
+        ttl: 0x3f       # 63
+        protocol: 0x01  # ICMP
+        checksum: 0x753a
+        ipv4_source: 0x 80 00 00 00       # 128.0.0.0
+        ipv4_destination: 0x b9 a8 cc 00  # 185.168.204.0
+        # ICMP header:
+        type: 0x00
+        code: 0x00
+        checksum: 0x00e4
+        rest_of_header: 0x 00 00 00 00
+        # Payload
+        payload:
+            0x 74 65 73 74 20 70 61 63 6b 65 74 20 23 35 3a 20 52 4f 55 54 49
+        payload:
+            0x 4e 47 5f 50 49 4e 42 41 4c 4c 4c 33 54 4f 47 52 4f 55 50 5f 46
+        payload:
+            0x 4c 4f 57 3a 20 69 70 76 34 5F 74 61 62 6c 65 5f 65 6e 74 72 79
+        payload:
+            0x 20 09 20 7b 20 6d 61 74 63 68 20 7b 20 76 72 66 5f 69 64 3a 20
+        payload:
+            0x 22 76 72 66 2d 32 31 30 22 20 69 70 76 34 5f 64 73 74 20 7b 20
+        payload:
+            0x 76 61 6c 75 65 3a 20 22 31 38 35 2e 31 36 38 2e 32 30 34 2e 30
+        payload:
+            0x 22 20 70 72 65 66 69 78 5f 6c 65 6e 67 74 68 3a 20 32 38 20 7d
+        payload:
+            0x 20 7d 20 61 63 74 69 6f 6e 20 7b 20 73 65 74 5f 77 63 6d 70 5f
+        payload:
+            0x 67 72 6f 75 70 5f 69 64 5f 61 6e 64 5f 6d 65 74 61 64 61 74 61
+        payload:
+            0x 20 7b 20 77 63 6d 70 5f 67 72 6f 75 70 5f 69 64 3a 20 22 67 72
+        payload:
+            0x 6f 75 70 2d 34 32 39 34 39 33 34 35 37 38 22 20 72 6f 75 74 65
+        payload:
+            0x 5f 6d 65 74 61 64 61 74 61 3a 20 22 30 78 30 31 22 20 7d 20 7d
+        payload: 0x 20 7d
+      )pb");
 }
 
 void RunProtoPacketTests() {
@@ -1160,6 +1272,10 @@ void RunAdditionalProtoPacketTests() {
 
 void main() {
   RunPacketParseTests();
+  // If there are too many lines (error triggered by exceeding 500 lines) in a
+  // function, presubmit will fail. So split packet parse tests into two
+  // functions.
+  RunAdditionalPacketParseTests();
   RunProtoPacketTests();
   // If there are too many lines (error triggered by exceeding 500 lines) in a
   // function, presubmit will fail. So split proto packets tests into two
