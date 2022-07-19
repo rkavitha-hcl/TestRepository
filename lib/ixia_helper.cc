@@ -1064,8 +1064,8 @@ absl::StatusOr<TrafficStats> ParseTrafficItemStats(
     for (int i = 0; i < values.values_size(); ++i) {
       const google::protobuf::Value &value = values.values(i);
       if (value.kind_case() != google::protobuf::Value::kStringValue) {
-        gutil::InvalidArgumentErrorBuilder()
-            << "expected string value, but found: " << value.DebugString();
+        return gutil::InvalidArgumentErrorBuilder()
+               << "expected string value, but found: " << value.DebugString();
       }
       value_by_caption[stats_proto.column_captions(i)] =
           values.values(i).string_value();
