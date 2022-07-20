@@ -42,12 +42,12 @@ std::vector<typename M::key_type> Keys(const M &m) {
 // or a status failure if it does not.
 //
 // WARNING: prefer FindOrNull if the value can be large to avoid the copy.
-template <typename M>
-absl::StatusOr<const typename M::mapped_type> FindOrStatus(
-    const M &m, const typename M::key_type &k) {
+template <typename M, typename KeyType = typename M::key_type>
+absl::StatusOr<const typename M::mapped_type> FindOrStatus(const M &m,
+                                                           const KeyType &k) {
   auto it = m.find(k);
   if (it != m.end()) return it->second;
-  if constexpr (std::is_same_v<typename M::key_type, std::string>) {
+  if constexpr (std::is_same_v<KeyType, std::string>) {
     return absl::NotFoundError(absl::StrCat("Key not found: '", k, "'"));
   } else {
     return absl::NotFoundError("Key not found");
@@ -56,9 +56,9 @@ absl::StatusOr<const typename M::mapped_type> FindOrStatus(
 
 // Returns a non-null pointer of the value associated with a given key
 // if it exists, or a status failure if it does not.
-template <typename M>
+template <typename M, typename KeyType = typename M::key_type>
 absl::StatusOr<const typename M::mapped_type *> FindPtrOrStatus(
-    M &m, const typename M::key_type &k) {
+    M &m, const KeyType &k) {
   auto it = m.find(k);
   if (it != m.end()) return &it->second;
   if constexpr (std::is_same_v<typename M::key_type, std::string>) {
@@ -70,9 +70,8 @@ absl::StatusOr<const typename M::mapped_type *> FindPtrOrStatus(
 
 // Returns a const pointer of the value associated with a given key if it
 // exists, or a nullptr if it does not.
-template <typename M>
-const typename M::mapped_type *FindOrNull(const M &m,
-                                          const typename M::key_type &k) {
+template <typename M, typename KeyType = typename M::key_type>
+const typename M::mapped_type *FindOrNull(const M &m, const KeyType &k) {
   const auto it = m.find(k);
   if (it != m.end()) return &(it->second);
   return nullptr;
@@ -80,8 +79,8 @@ const typename M::mapped_type *FindOrNull(const M &m,
 
 // Returns a non-const pointer of the value associated with a given key if it
 // exists, or a nullptr if it does not.
-template <typename M>
-typename M::mapped_type *FindOrNull(M &m, const typename M::key_type &k) {
+template <typename M, typename KeyType = typename M::key_type>
+typename M::mapped_type *FindOrNull(M &m, const KeyType &k) {
   auto it = m.find(k);
   if (it != m.end()) return &(it->second);
   return nullptr;
@@ -89,20 +88,19 @@ typename M::mapped_type *FindOrNull(M &m, const typename M::key_type &k) {
 
 // Returns a reference of the value associated with a given key if it exists,
 // crashes if it does not.
-template <typename M>
-typename M::mapped_type &FindOrDie(M &map, const typename M::key_type &key) {
+template <typename M, typename KeyType = typename M::key_type>
+typename M::mapped_type &FindOrDie(M &map, const KeyType &key) {
   auto iter = map.find(key);
-  CHECK(iter != map.end()) << "Could not find key";
+  CHECK(iter != map.end()) << "Could not find key";  // Crash OK
   return iter->second;
 }
 
 // Returns a const reference of the value associated with a given key if it
 // exists, crashes if it does not.
-template <typename M>
-const typename M::mapped_type &FindOrDie(const M &map,
-                                         const typename M::key_type &key) {
+template <typename M, typename KeyType = typename M::key_type>
+const typename M::mapped_type &FindOrDie(const M &map, const KeyType &key) {
   auto iter = map.find(key);
-  CHECK(iter != map.end()) << "Could not find key";
+  CHECK(iter != map.end()) << "Could not find key";  // Crash OK
 
   return iter->second;
 }
@@ -110,10 +108,9 @@ const typename M::mapped_type &FindOrDie(const M &map,
 // Returns a copy of the value associated with the given key if it exists, or
 // returns the given default value otherwise.
 // NOTE: May be inefficient for large datatypes that are expensive to copy.
-template <typename Map>
-typename Map::mapped_type FindOrDefault(
-    const Map &map, const typename Map::key_type &key,
-    typename Map::mapped_type default_value) {
+template <typename M, typename KeyType = typename M::key_type>
+typename M::mapped_type FindOrDefault(const M &map, const KeyType &key,
+                                      typename M::mapped_type default_value) {
   auto it = map.find(key);
   return (it != map.end()) ? it->second : default_value;
 }

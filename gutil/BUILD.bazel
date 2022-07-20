@@ -172,6 +172,8 @@ cc_test(
     srcs = ["collections_test.cc"],
     deps = [
         ":collections",
+        ":status_matchers",
+        "@com_google_absl//absl/strings",
         "@com_google_googletest//:gtest_main",
     ],
 )
