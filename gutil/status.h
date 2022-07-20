@@ -19,6 +19,7 @@
 #include <string>
 #include <utility>
 
+#include "absl/base/attributes.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/cord.h"
@@ -127,7 +128,7 @@ absl::Status GrpcStatusToAbslStatus(const grpc::Status& status);
 //       return StatusBuilder(absl::StatusCode::kInvalidArgument) << "i=" << i;
 //     }
 //   }
-class StatusBuilder {
+class ABSL_MUST_USE_RESULT StatusBuilder {
  public:
   StatusBuilder(std::string file, int line, absl::StatusCode code)
       : status_(absl::Status(code, "")),
@@ -156,39 +157,40 @@ class StatusBuilder {
 
   // Streaming to the StatusBuilder appends to the error message.
   template <typename t>
-  StatusBuilder& operator<<(t val) {
+  ABSL_MUST_USE_RESULT StatusBuilder& operator<<(t val) {
     stream_ << val;
     return *this;
   }
 
   // Makes the StatusBuilder print the error message (with source) when
   // converting to a different type.
-  StatusBuilder& LogError() {
+  ABSL_MUST_USE_RESULT StatusBuilder& LogError() {
     log_error_ = true;
     return *this;
   }
 
   // The additional message is prepended to the pre-existing status error
   // message. No separator is placed between the messages.
-  StatusBuilder& SetPrepend() {
+  ABSL_MUST_USE_RESULT StatusBuilder& SetPrepend() {
     join_style_ = MessageJoinStyle::kPrepend;
     return *this;
   }
 
   // The additional message is appended to the pre-existing status error
   // message. No separator is placed between the messages.
-  StatusBuilder& SetAppend() {
+  ABSL_MUST_USE_RESULT StatusBuilder& SetAppend() {
     join_style_ = MessageJoinStyle::kAppend;
     return *this;
   }
 
   // Override the StatusCode in status_ to the given value.
-  StatusBuilder& SetCode(absl::StatusCode code) {
+  ABSL_MUST_USE_RESULT StatusBuilder& SetCode(absl::StatusCode code) {
     status_ = absl::Status(code, status_.message());
     return *this;
   }
 
-  StatusBuilder& SetPayload(absl::string_view url, absl::Cord payload) {
+  ABSL_MUST_USE_RESULT StatusBuilder& SetPayload(absl::string_view url,
+                                                 absl::Cord payload) {
     status_.SetPayload(url, std::move(payload));
     return *this;
   }
@@ -217,74 +219,76 @@ class StatusBuilder {
 };
 
 // Custom allocators for default StatusCodes.
-class CancelledErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT CancelledErrorBuilder : public StatusBuilder {
  public:
   CancelledErrorBuilder() : StatusBuilder(absl::StatusCode::kCancelled) {}
 };
-class UnknownErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT UnknownErrorBuilder : public StatusBuilder {
  public:
   UnknownErrorBuilder() : StatusBuilder(absl::StatusCode::kUnknown) {}
 };
-class InvalidArgumentErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT InvalidArgumentErrorBuilder : public StatusBuilder {
  public:
   InvalidArgumentErrorBuilder()
       : StatusBuilder(absl::StatusCode::kInvalidArgument) {}
 };
-class DeadlineExceededErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT DeadlineExceededErrorBuilder : public StatusBuilder {
  public:
   DeadlineExceededErrorBuilder()
       : StatusBuilder(absl::StatusCode::kDeadlineExceeded) {}
 };
-class NotFoundErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT NotFoundErrorBuilder : public StatusBuilder {
  public:
   NotFoundErrorBuilder() : StatusBuilder(absl::StatusCode::kNotFound) {}
 };
-class AlreadyExistsErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT AlreadyExistsErrorBuilder : public StatusBuilder {
  public:
   AlreadyExistsErrorBuilder()
       : StatusBuilder(absl::StatusCode::kAlreadyExists) {}
 };
-class PermissionDeniedErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT PermissionDeniedErrorBuilder : public StatusBuilder {
  public:
   PermissionDeniedErrorBuilder()
       : StatusBuilder(absl::StatusCode::kPermissionDenied) {}
 };
-class ResourceExhaustedErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT ResourceExhaustedErrorBuilder
+    : public StatusBuilder {
  public:
   ResourceExhaustedErrorBuilder()
       : StatusBuilder(absl::StatusCode::kResourceExhausted) {}
 };
-class FailedPreconditionErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT FailedPreconditionErrorBuilder
+    : public StatusBuilder {
  public:
   FailedPreconditionErrorBuilder()
       : StatusBuilder(absl::StatusCode::kFailedPrecondition) {}
 };
-class AbortedErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT AbortedErrorBuilder : public StatusBuilder {
  public:
   AbortedErrorBuilder() : StatusBuilder(absl::StatusCode::kAborted) {}
 };
-class OutOfRangeErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT OutOfRangeErrorBuilder : public StatusBuilder {
  public:
   OutOfRangeErrorBuilder() : StatusBuilder(absl::StatusCode::kOutOfRange) {}
 };
-class UnimplementedErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT UnimplementedErrorBuilder : public StatusBuilder {
  public:
   UnimplementedErrorBuilder()
       : StatusBuilder(absl::StatusCode::kUnimplemented) {}
 };
-class InternalErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT InternalErrorBuilder : public StatusBuilder {
  public:
   InternalErrorBuilder() : StatusBuilder(absl::StatusCode::kInternal) {}
 };
-class UnavailableErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT UnavailableErrorBuilder : public StatusBuilder {
  public:
   UnavailableErrorBuilder() : StatusBuilder(absl::StatusCode::kUnavailable) {}
 };
-class DataLossErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT DataLossErrorBuilder : public StatusBuilder {
  public:
   DataLossErrorBuilder() : StatusBuilder(absl::StatusCode::kDataLoss) {}
 };
-class UnauthenticatedErrorBuilder : public StatusBuilder {
+class ABSL_MUST_USE_RESULT UnauthenticatedErrorBuilder : public StatusBuilder {
  public:
   UnauthenticatedErrorBuilder()
       : StatusBuilder(absl::StatusCode::kUnauthenticated) {}
