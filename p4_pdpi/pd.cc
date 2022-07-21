@@ -167,7 +167,9 @@ absl::StatusOr<bool> HasField(const google::protobuf::Message &parent_message,
                                                   field_descriptor);
 }
 
-absl::StatusOr<const google::protobuf::Message *> GetRepeatedMessage(
+// Looks up repeated field of the given name in the given message using
+// reflection, and returns non-null pointer to the element of the given index.
+absl::StatusOr<const google::protobuf::Message *> GetRepeatedFieldMessage(
     const google::protobuf::Message &parent_message,
     const std::string &fieldname, int index) {
   ASSIGN_OR_RETURN(auto *field_descriptor,
@@ -178,16 +180,51 @@ absl::StatusOr<const google::protobuf::Message *> GetRepeatedMessage(
            << parent_message.GetTypeName() << ". "
            << kPdProtoAndP4InfoOutOfSync;
   }
+  if (!field_descriptor->is_repeated()) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "field '" << fieldname << "' in '" << parent_message.GetTypeName()
+           << "' is not a repeated field";
+  }
   int repeated_field_length = parent_message.GetReflection()->FieldSize(
       parent_message, field_descriptor);
-  if (parent_message.GetReflection()->FieldSize(parent_message,
-                                                field_descriptor) < index) {
+  if (index >= repeated_field_length) {
     return gutil::OutOfRangeErrorBuilder()
            << "Index out of repeated field's bound. field's length: "
            << repeated_field_length << "index: " << index;
   }
   return &parent_message.GetReflection()->GetRepeatedMessage(
       parent_message, field_descriptor, index);
+}
+
+// Looks up repeated field of the given name in the given message using
+// reflection, and returns vector of non-null pointers to the repeated field
+// elements.
+absl::StatusOr<std::vector<const google::protobuf::Message *>>
+GetRepeatedFieldMessages(const google::protobuf::Message &parent_message,
+                         const std::string &fieldname) {
+  ASSIGN_OR_RETURN(auto *field_descriptor,
+                   GetFieldDescriptor(parent_message, fieldname));
+  if (field_descriptor == nullptr) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "Field " << fieldname << " missing in "
+           << parent_message.GetTypeName() << ". "
+           << kPdProtoAndP4InfoOutOfSync;
+  }
+  if (!field_descriptor->is_repeated()) {
+    return gutil::InvalidArgumentErrorBuilder()
+           << "field '" << fieldname << "' in '" << parent_message.GetTypeName()
+           << "' is not a repeated field";
+  }
+
+  int size = parent_message.GetReflection()->FieldSize(parent_message,
+                                                       field_descriptor);
+  std::vector<const google::protobuf::Message *> result;
+  result.reserve(size);
+  for (int i = 0; i < size; ++i) {
+    result.push_back(&parent_message.GetReflection()->GetRepeatedMessage(
+        parent_message, field_descriptor, i));
+  }
+  return result;
 }
 
 absl::StatusOr<google::protobuf::Message *> AddRepeatedMutableMessage(
@@ -548,6 +585,17 @@ absl::Status PiTableEntryToPd(const IrP4Info &info,
   return IrTableEntryToPd(info, ir_entry, pd, key_only);
 }
 
+absl::Status PiTableEntriesToPd(const IrP4Info &info,
+                                const absl::Span<const p4::v1::TableEntry> &pi,
+                                google::protobuf::Message *pd, bool key_only) {
+  for (auto const &pi_entry : pi) {
+    ASSIGN_OR_RETURN(google::protobuf::Message * pd_entry,
+                     AddRepeatedMutableMessage(pd, "entries"));
+    RETURN_IF_ERROR(PiTableEntryToPd(info, pi_entry, pd_entry, key_only));
+  }
+  return absl::OkStatus();
+}
+
 absl::Status PiPacketInToPd(const IrP4Info &info,
                             const p4::v1::PacketIn &pi_packet,
                             google::protobuf::Message *pd_packet) {
@@ -607,6 +655,19 @@ absl::StatusOr<p4::v1::TableEntry> PdTableEntryToPi(
     const IrP4Info &info, const google::protobuf::Message &pd, bool key_only) {
   ASSIGN_OR_RETURN(const auto ir_entry, PdTableEntryToIr(info, pd, key_only));
   return IrTableEntryToPi(info, ir_entry, key_only);
+}
+
+absl::StatusOr<std::vector<p4::v1::TableEntry>> PdTableEntriesToPi(
+    const IrP4Info &info, const google::protobuf::Message &pd, bool key_only) {
+  ASSIGN_OR_RETURN(std::vector<const google::protobuf::Message *> pd_entries,
+                   GetRepeatedFieldMessages(pd, "entries"));
+  std::vector<p4::v1::TableEntry> pi_entries;
+  pi_entries.reserve(pd_entries.size());
+  for (auto *pd_entry : pd_entries) {
+    ASSIGN_OR_RETURN(pi_entries.emplace_back(),
+                     PdTableEntryToPi(info, *pd_entry));
+  }
+  return pi_entries;
 }
 
 absl::StatusOr<p4::v1::PacketIn> PdPacketInToPi(
@@ -2343,7 +2404,7 @@ static absl::StatusOr<IrWriteResponse> PdWriteResponseToIr(
        i++) {
     // Extract out the Pd::UpdateStatus and pass to PdUpdateStatusToIr
     ASSIGN_OR_RETURN(const auto *pd_update_status,
-                     GetRepeatedMessage(*status_message, "statuses", i));
+                     GetRepeatedFieldMessage(*status_message, "statuses", i));
     ASSIGN_OR_RETURN(const auto ir_update_status,
                      PdUpdateStatusToIr(*pd_update_status));
     *ir_write_response.add_statuses() = ir_update_status;
