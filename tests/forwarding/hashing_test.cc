@@ -187,22 +187,16 @@ absl::Status SetUpControlSwitch(const pdpi::IrP4Info& ir_p4info,
   // Trap all packets on control switch.
   ASSIGN_OR_RETURN(
       p4::v1::TableEntry punt_all_pi_entry,
-      pdpi::PdTableEntryToPi(
-          ir_p4info,
-          gutil::ParseProtoOrDie<sai::TableEntry>(
-              R"pb(
-                acl_ingress_table_entry {
-                  match {}                                  # Wildcard match.
-                  action { acl_trap { qos_queue: "0x7" } }  # Action: punt.
-                  priority: 1                               # Highest priority.
-                  # TODO: Remove once GPINs V13 is
-                  # deprecated; only needed for backwards compatibility.
-                  meter_config {
-                    bytes_per_second: 987654321  # ~ 1 GB
-                    burst_bytes: 987654321       # ~ 1 GB
-                  }
-                }
-              )pb")));
+      pdpi::PdTableEntryToPi(ir_p4info, gutil::ParseProtoOrDie<sai::TableEntry>(
+                                            R"pb(
+                                              acl_ingress_table_entry {
+                                                match {}  # Wildcard match.
+                                                action {
+                                                  acl_trap { qos_queue: "0x7" }
+                                                }            # Action: punt.
+                                                priority: 1  # Highest priority.
+                                              }
+                                            )pb")));
   return pdpi::InstallPiTableEntry(p4_session, punt_all_pi_entry);
 }
 

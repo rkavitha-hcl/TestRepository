@@ -144,12 +144,6 @@ PinsControlDevice::CollectPackets(thinkit::PacketCallback callback) {
                       match {}  # Wildcard match.
                       action { acl_trap { qos_queue: "0x7" } }  # Action: punt.
                       priority: 1  # Highest priority.
-                      # TODO: Remove once GPINs V13 is
-                      # deprecated; only needed for backwards compatibility.
-                      meter_config {
-                        bytes_per_second: 987654321  # ~ 1 GB
-                        burst_bytes: 987654321       # ~ 1 GB
-                      }
                     }
                   }
                 })pb")));
