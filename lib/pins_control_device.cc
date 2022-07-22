@@ -142,7 +142,7 @@ PinsControlDevice::CollectPackets(thinkit::PacketCallback callback) {
                   table_entry {
                     acl_ingress_table_entry {
                       match {}  # Wildcard match.
-                      action { acl_trap { qos_queue: "0x1" } }  # Action: punt.
+                      action { acl_trap { qos_queue: "0x7" } }  # Action: punt.
                       priority: 1  # Highest priority.
                       # TODO: Remove once GPINs V13 is
                       # deprecated; only needed for backwards compatibility.
