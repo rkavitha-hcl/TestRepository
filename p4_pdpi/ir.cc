@@ -466,8 +466,6 @@ StatusOr<IrActionInvocation> PiActionToIr(
   }
 
   action_entry.set_name(ir_action_definition->preamble().alias());
-  absl::string_view action_name = action_entry.name();
-  action_entry.set_name(ir_action_definition->preamble().alias());
   absl::flat_hash_set<uint32_t> used_params;
   std::vector<std::string> invalid_reasons;
   absl::flat_hash_set<std::string> actual_params;
@@ -516,7 +514,7 @@ StatusOr<IrActionInvocation> PiActionToIr(
   }
   if (!invalid_reasons.empty()) {
     return absl::InvalidArgumentError(GenerateFormattedError(
-        ActionName(action_name), absl::StrJoin(invalid_reasons, "\n")));
+        ActionName(action_entry.name()), absl::StrJoin(invalid_reasons, "\n")));
   }
   return action_entry;
 }
