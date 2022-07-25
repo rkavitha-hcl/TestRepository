@@ -86,8 +86,7 @@ class ArbitrationTest : public testing::Test {
   std::unique_ptr<p4::v1::P4Runtime::Stub> stub_;
 };
 
-// TODO: arbitration should fail with invalid device id.
-TEST_F(ArbitrationTest, DISABLED_DeviceIdMustBeSet) {
+TEST_F(ArbitrationTest, DeviceIdMustBeSet) {
   // Remove the device ID by setting it to zero.
   ASSERT_OK(p4rt_service_.GetP4rtServer().UpdateDeviceId(0));
 
@@ -103,8 +102,7 @@ TEST_F(ArbitrationTest, DISABLED_DeviceIdMustBeSet) {
             grpc::StatusCode::FAILED_PRECONDITION);
 }
 
-// TODO: arbitration should fail with invalid device id.
-TEST_F(ArbitrationTest, DISABLED_DeviceIdMustMatch) {
+TEST_F(ArbitrationTest, DeviceIdMustMatch) {
   grpc::ClientContext context;
   std::unique_ptr<P4RuntimeStream> stream = stub_->StreamChannel(&context);
 
@@ -116,8 +114,7 @@ TEST_F(ArbitrationTest, DISABLED_DeviceIdMustMatch) {
   EXPECT_EQ(stream->Finish().error_code(), grpc::StatusCode::NOT_FOUND);
 }
 
-// TODO: arbitration should fail with invalid device id.
-TEST_F(ArbitrationTest, DISABLED_DeviceIdCannotChangeAtController) {
+TEST_F(ArbitrationTest, DeviceIdCannotChangeAtController) {
   grpc::ClientContext context;
   std::unique_ptr<P4RuntimeStream> stream = stub_->StreamChannel(&context);
 
