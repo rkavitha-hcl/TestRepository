@@ -100,6 +100,9 @@ constexpr absl::string_view kGroupId = "group-1";
 // Vrf used in the test.
 constexpr absl::string_view kVrfId = "vrf-1";
 
+// Time to wait for membership updates after link event triggers.
+constexpr absl::Duration kDurationToWaitForMembershipUpdates = absl::Seconds(2);
+
 // Time to wait after which received packets are processed.
 constexpr absl::Duration kDurationToWaitForPackets = absl::Seconds(5);
 
@@ -725,6 +728,9 @@ TEST_P(WatchPortTestFixture, VerifyBasicWatchPortAction) {
     ASSERT_OK(VerifyInterfaceState(*sut_gnmi_stub_, port_name,
                                    kOperStatusPathMatch, operation));
 
+    // Wait for the membership changes to be processed.
+    absl::SleepFor(kDurationToWaitForMembershipUpdates);
+
     // Clear the counters before the test.
     test_data_.ClearReceivedPackets();
 
@@ -853,6 +859,9 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionInCriticalState) {
   ASSERT_OK(VerifyInterfaceState(*sut_gnmi_stub_, port_name,
                                  kOperStatusPathMatch, InterfaceState::kDown));
 
+  // Wait for the membership changes to be processed.
+  absl::SleepFor(kDurationToWaitForMembershipUpdates);
+
   // Clear the counters before the test.
   test_data_.ClearReceivedPackets();
 
@@ -969,6 +978,9 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForSingleMember) {
     // Verify the oper status is reflected on the SUT.
     ASSERT_OK(VerifyInterfaceState(*sut_gnmi_stub_, port_name,
                                    kOperStatusPathMatch, operation));
+
+    // Wait for the membership changes to be processed.
+    absl::SleepFor(kDurationToWaitForMembershipUpdates);
 
     // Clear the counters before the test.
     test_data_.ClearReceivedPackets();
@@ -1101,6 +1113,9 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForMemberModify) {
   ASSERT_OK(VerifyInterfaceState(*sut_gnmi_stub_, selected_port_name,
                                  kOperStatusPathMatch, InterfaceState::kUp));
 
+  // Wait for the membership changes to be processed.
+  absl::SleepFor(kDurationToWaitForMembershipUpdates);
+
   // Send 5000 packets and check for packet distribution.
   ASSERT_OK(SendNPacketsToSut(kNumTestPackets, test_config, members,
                               controller_port_ids, ir_p4info,
@@ -1221,6 +1236,9 @@ TEST_P(WatchPortTestFixture, VerifyWatchPortActionForDownPortMemberInsert) {
     // Verify the oper status is reflected on the SUT.
     ASSERT_OK(VerifyInterfaceState(*sut_gnmi_stub_, selected_port_name,
                                    kOperStatusPathMatch, operation));
+
+    // Wait for the membership changes to be processed.
+    absl::SleepFor(kDurationToWaitForMembershipUpdates);
 
     // Clear the counters before the test.
     test_data_.ClearReceivedPackets();
