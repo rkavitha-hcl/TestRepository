@@ -36,6 +36,7 @@
 #include "p4_pdpi/ir.pb.h"
 #include "p4_pdpi/p4_runtime_session.h"
 #include "p4_pdpi/pd.h"
+#include "p4_pdpi/string_encodings/hex_string.h"
 #include "sai_p4/instantiations/google/sai_pd.pb.h"
 #include "tests/lib/switch_test_setup_helpers.h"
 #include "thinkit/mirror_testbed.h"
@@ -86,6 +87,45 @@ bool IsOmittable(const pdpi::IrMatchFieldDefinition& match_field_definition) {
              p4::config::v1::MatchField::LPM;
 }
 
+absl::StatusOr<int> ExtractRouteMetadataAsIntFromEntry(
+    const sai::TableEntry& pd_entry) {
+  if (pd_entry.has_ipv4_table_entry()) {
+    const sai::Ipv4TableEntry::Action action =
+        pd_entry.ipv4_table_entry().action();
+    if (action.has_set_metadata_and_drop()) {
+      return pdpi::HexStringToInt(
+          action.set_metadata_and_drop().route_metadata());
+    }
+    if (action.has_set_wcmp_group_id_and_metadata()) {
+      return pdpi::HexStringToInt(
+          action.set_wcmp_group_id_and_metadata().route_metadata());
+    }
+    if (action.has_set_nexthop_id_and_metadata()) {
+      return pdpi::HexStringToInt(
+          action.set_nexthop_id_and_metadata().route_metadata());
+    }
+  }
+  if (pd_entry.has_ipv6_table_entry()) {
+    const sai::Ipv6TableEntry::Action action =
+        pd_entry.ipv6_table_entry().action();
+    if (action.has_set_metadata_and_drop()) {
+      return pdpi::HexStringToInt(
+          action.set_metadata_and_drop().route_metadata());
+    }
+    if (action.has_set_wcmp_group_id_and_metadata()) {
+      return pdpi::HexStringToInt(
+          action.set_wcmp_group_id_and_metadata().route_metadata());
+    }
+    if (action.has_set_nexthop_id_and_metadata()) {
+      return pdpi::HexStringToInt(
+          action.set_nexthop_id_and_metadata().route_metadata());
+    }
+  }
+  return gutil::InvalidArgumentErrorBuilder()
+         << "expected entry with route metadata, but got:"
+         << pd_entry.DebugString();
+}
+
 // Used to mask bugs that affect specific entries, but not every entry of a
 // particular table, with a particular match field, or with a particular action.
 // Such bugs should be masked using the FuzzerConfig's
@@ -96,27 +136,12 @@ bool EntryTriggersKnownBug(const pdpi::IrP4Info& info,
   sai::TableEntry pd_entry;
   CHECK(pdpi::PiTableEntryToPd(info, entry, &pd_entry).ok());  // Crash OK
 
-  // TODO: Route metadata values 1 and 2 are currently not
-  // supported.
-  if (pd_entry.has_ipv4_table_entry()) {
-    const sai::Ipv4TableEntry::Action action =
-        pd_entry.ipv4_table_entry().action();
-    return action.set_metadata_and_drop().route_metadata() == "0x01" ||
-           action.set_metadata_and_drop().route_metadata() == "0x02" ||
-           action.set_wcmp_group_id_and_metadata().route_metadata() == "0x01" ||
-           action.set_wcmp_group_id_and_metadata().route_metadata() == "0x02" ||
-           action.set_nexthop_id_and_metadata().route_metadata() == "0x01" ||
-           action.set_nexthop_id_and_metadata().route_metadata() == "0x02";
-  }
-  if (pd_entry.has_ipv6_table_entry()) {
-    const sai::Ipv6TableEntry::Action action =
-        pd_entry.ipv6_table_entry().action();
-    return action.set_metadata_and_drop().route_metadata() == "0x01" ||
-           action.set_metadata_and_drop().route_metadata() == "0x02" ||
-           action.set_wcmp_group_id_and_metadata().route_metadata() == "0x01" ||
-           action.set_wcmp_group_id_and_metadata().route_metadata() == "0x02" ||
-           action.set_nexthop_id_and_metadata().route_metadata() == "0x01" ||
-           action.set_nexthop_id_and_metadata().route_metadata() == "0x02";
+  if (auto route_metadata = ExtractRouteMetadataAsIntFromEntry(pd_entry);
+      route_metadata.ok()) {
+    // Route metadata values between 56 and 63 are reserved for internal switch
+    // operations.
+    // TODO: This should be handled by P4 Constraints.
+    return *route_metadata >= 56;
   }
   return false;
 }
