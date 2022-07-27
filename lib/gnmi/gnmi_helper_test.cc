@@ -1487,7 +1487,8 @@ TEST(TransceiverPartInformation, WorksProperly) {
             "state": {
               "empty": false,
               "openconfig-platform-ext:vendor-name": "Vendor",
-              "part-no": "123"
+              "part-no": "123",
+              "firmware-version": "ab"
             }
           }
         ]
@@ -1498,7 +1499,8 @@ TEST(TransceiverPartInformation, WorksProperly) {
       .WillRepeatedly(
           DoAll(SetArgPointee<2>(response), Return(grpc::Status::OK)));
   absl::flat_hash_map<std::string, TransceiverPart> expected_map{
-      {"Ethernet1", TransceiverPart{.vendor = "Vendor", .part_number = "123"}}};
+      {"Ethernet1",
+       TransceiverPart{.vendor = "Vendor", .part_number = "123", .rev = "ab"}}};
   EXPECT_THAT(GetTransceiverPartInformation(mock_stub),
               IsOkAndHolds(UnorderedPointwise(Eq(), expected_map)));
 }

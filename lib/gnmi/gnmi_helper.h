@@ -66,6 +66,7 @@ struct OpenConfigInterfaceDescription {
 struct TransceiverPart {
   std::string vendor;
   std::string part_number;
+  std::string rev;
 
   bool operator==(const TransceiverPart& other) const {
     return std::tie(vendor, part_number) ==

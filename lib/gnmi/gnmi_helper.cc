@@ -874,9 +874,12 @@ GetTransceiverPartInformation(gnmi::gNMI::StubInterface& gnmi_stub) {
     ASSIGN_OR_RETURN(json vendor,
                      GetField(state, "openconfig-platform-ext:vendor-name"));
     ASSIGN_OR_RETURN(json part_number, GetField(state, "part-no"));
-    part_information[name.get<std::string>()] =
-        TransceiverPart{.vendor = vendor.get<std::string>(),
-                        .part_number = part_number.get<std::string>()};
+    ASSIGN_OR_RETURN(json rev, GetField(state, "firmware-version"));
+    part_information[name.get<std::string>()] = TransceiverPart{
+        .vendor = vendor.get<std::string>(),
+        .part_number = part_number.get<std::string>(),
+        .rev = rev.get<std::string>(),
+    };
   }
   return part_information;
 }
