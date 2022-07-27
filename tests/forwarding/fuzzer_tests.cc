@@ -290,9 +290,7 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
     if (!response.has_rpc_response()) {
       // This is technically an error, but we want to focus on other issues
       // during milestone testing and thus are lenient.
-      // TODO: The switch currently often returns an RPC-wide error
-      // when failing to delete a WCMP group.
-      if (!GetParam().milestone.has_value() && !mask_known_failures) {
+      if (!GetParam().milestone.has_value()) {
         ASSERT_TRUE(response.has_rpc_response())
             << "Expected proper response, but got: " << response.DebugString();
       } else {
