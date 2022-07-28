@@ -431,9 +431,7 @@ TEST_P(FuzzerTestFixture, P4rtWriteAndCheckNoInternalErrors) {
   // Unless we are testing a specific milestone, ensure that clearing all
   // tables succeeds. Can be safely skipped as we also clean up the switch
   // during TearDown, but is helpful to detect switch bugs.
-  // TODO: The switch currently often returns an RPC-wide error
-  // when failing to delete a WCMP group.
-  if (!GetParam().milestone.has_value() && !mask_known_failures) {
+  if (!GetParam().milestone.has_value()) {
     ASSERT_OK_AND_ASSIGN(auto table_entries,
                          pdpi::ReadPiTableEntries(session.get()));
     for (const auto& entry : table_entries) {
