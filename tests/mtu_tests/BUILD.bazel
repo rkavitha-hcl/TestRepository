@@ -33,6 +33,7 @@ cc_library(
         "//gutil:proto",
         "//gutil:status_matchers",
         "//gutil:testing",
+        "//lib/basic_traffic",
         "//lib/basic_traffic:basic_p4rt_util",
         "//lib/gnmi:gnmi_helper",
         "//lib/p4rt:p4rt_programming_context",

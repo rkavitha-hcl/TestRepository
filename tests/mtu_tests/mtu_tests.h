@@ -3,6 +3,7 @@
 
 #include "absl/base/config.h"
 #include "absl/strings/string_view.h"
+#include "lib/p4rt/p4rt_programming_context.h"
 #include "lib/utils/generic_testbed_utils.h"
 #include "p4_pdpi/packetlib/packetlib.pb.h"
 #include "thinkit/generic_testbed_fixture.h"
@@ -29,6 +30,9 @@ class MtuRoutingTestFixture : public thinkit::GenericTestbedFixture<> {
                                       absl::string_view egress_port,
                                       absl::string_view ingress_port,
                                       absl::string_view test_packet_str);
+
+  // Set up route from source port to destination port on SUT.
+  absl::Status SetupRoute(P4rtProgrammingContext* p4rt_context);
 
   InterfaceLink source_link_, destination_link_;
   int sut_source_port_id_, sut_destination_port_id_;

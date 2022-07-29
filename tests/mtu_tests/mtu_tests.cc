@@ -23,6 +23,7 @@
 #include "gutil/status_matchers.h"
 #include "gutil/testing.h"
 #include "lib/basic_traffic/basic_p4rt_util.h"
+#include "lib/basic_traffic/basic_traffic.h"
 #include "lib/gnmi/gnmi_helper.h"
 #include "lib/p4rt/p4rt_programming_context.h"
 #include "lib/utils/generic_testbed_utils.h"
@@ -78,19 +79,17 @@ std::string MtuRoutingTestFixture::GenerateTestPacket(
   return test_packet;
 }
 
-// Set up route from source port to destination port on SUT.
-absl::Status SetupRoute(P4rtProgrammingContext& context,
-                        const pdpi::IrP4Info& ir_p4info, int src_port_id,
-                        int dst_port_id) {
-  RETURN_IF_ERROR(basic_traffic::ProgramTrafficVrf(
-      context.GetWriteRequestFunction(), ir_p4info));
-  RETURN_IF_ERROR(basic_traffic::ProgramRouterInterface(
-      context.GetWriteRequestFunction(), src_port_id, ir_p4info));
-  RETURN_IF_ERROR(basic_traffic::ProgramRouterInterface(
-      context.GetWriteRequestFunction(), dst_port_id, ir_p4info));
-  RETURN_IF_ERROR(basic_traffic::ProgramIPv4Route(
-      context.GetWriteRequestFunction(), dst_port_id, ir_p4info));
-
+absl::Status MtuRoutingTestFixture::SetupRoute(
+    P4rtProgrammingContext* p4rt_context) {
+  ASSIGN_OR_RETURN(auto port_id_from_sut_interface,
+                   GetAllInterfaceNameToPortId(*stub_));
+  ASSIGN_OR_RETURN(const pdpi::IrP4Info ir_p4info,
+                   pdpi::CreateIrP4Info(GetParam().p4_info));
+  RETURN_IF_ERROR(basic_traffic::ProgramRoutes(
+      p4rt_context->GetWriteRequestFunction(), ir_p4info,
+      port_id_from_sut_interface,
+      {{.ingress_interface = source_link_.sut_interface,
+        .egress_interface = destination_link_.sut_interface}}));
   return absl::OkStatus();
 }
 
@@ -146,7 +145,9 @@ absl::StatusOr<NumPkts> MtuRoutingTestFixture::SendTraffic(
         auto finalizer,
         testbed_->ControlDevice().CollectPackets(
             [&](absl::string_view interface, absl::string_view packet) {
-              if (interface == ingress_port) {
+              packetlib::Packet parsed_packet = packetlib::ParsePacket(packet);
+              if (interface == ingress_port &&
+                  parsed_packet.payload() == test_packet.payload()) {
                 absl::MutexLock lock(&mutex);
                 received_packets.push_back(std::string(packet));
               }
@@ -172,10 +173,7 @@ namespace {
 using ::testing::HasSubstr;
 
 constexpr absl::string_view kMtuRespParseStr = "openconfig-interfaces:mtu";
-// TODO: Enable traffic verification when bug is fixed.
-#if 0
 constexpr int kDefaultMtu = 9194;
-#endif
 
 // Map of mtu to payload length for packets that are expected to be
 // successfully egressed out of port under test.
@@ -220,30 +218,25 @@ TEST_P(MtuRoutingTestFixture, MtuTest) {
   int orig_mtu;
   ASSERT_TRUE(absl::SimpleAtoi(state_path_response, &orig_mtu));
 
-  ASSERT_OK_AND_ASSIGN(std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
-                       pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
-                           testbed_->Sut(), GetParam().p4_info));
-
   // Set up a route between the source and destination interfaces.
+  ASSERT_OK_AND_ASSIGN(
+      std::unique_ptr<pdpi::P4RuntimeSession> p4_session,
+      pdpi::P4RuntimeSession::CreateWithP4InfoAndClearTables(
+          testbed_->Sut(), MtuRoutingTestFixture::GetParam().p4_info));
   P4rtProgrammingContext p4rt_context(p4_session.get(),
                                       pdpi::SetMetadataAndSendPiWriteRequest);
-  ASSERT_OK_AND_ASSIGN(const pdpi::IrP4Info ir_p4info,
-                       pdpi::CreateIrP4Info(GetParam().p4_info));
-  ASSERT_OK(SetupRoute(p4rt_context, ir_p4info, sut_source_port_id_,
-                       sut_destination_port_id_));
+  ASSERT_OK(SetupRoute(&p4rt_context));
 
   // Configure test mtu values on port under test on SUT.
   for (const auto& [mtu, payload_length] : *kMtuPacketPayloadMap) {
     // Set mtu.
     SetPortMtu(stub_.get(), destination_link_.sut_interface,
                std::to_string(mtu));
-// Send packets of size > mtu and expect them to be dropped by port
-// under test.
-// Since max mtu (9194) can not be changed on control switch for a
-// generic testbed, verifying using traffic for an expected drop case
-// is not performed in this case.
-// TODO: Enable traffic verification when bug is fixed.
-#if 0
+    // Send packets of size > mtu and expect them to be dropped by port
+    // under test.
+    // Since max mtu (9194) can not be changed on control switch for a
+    // generic testbed, verifying using traffic for an expected drop case
+    // is not performed in this case.
     if (mtu < kDefaultMtu) {
       auto it = kMtuDropPacketPayloadMap->find(mtu);
       ASSERT_NE(it, kMtuDropPacketPayloadMap->end());
@@ -252,7 +245,7 @@ TEST_P(MtuRoutingTestFixture, MtuTest) {
           /*payload_len*/ it->second);
       ASSERT_OK_AND_ASSIGN(
           auto pkts,
-          SendTraffic(/*num_pkts*/ 10,
+          SendTraffic(/*num_pkts*/ 50,
                       /*egress_port*/ source_link_.peer_interface,
                       /*ingress_port*/ destination_link_.peer_interface,
                       test_packet));
@@ -269,7 +262,6 @@ TEST_P(MtuRoutingTestFixture, MtuTest) {
                     /*ingress_port*/ destination_link_.peer_interface,
                     test_packet));
     EXPECT_EQ(pkts.received, 50);
-#endif
   }
 
   // Restore original mtu values on port under test on SUT.
