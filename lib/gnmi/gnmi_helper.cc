@@ -977,7 +977,8 @@ GetTransceiverToEthernetPmdMap(gnmi::gNMI::StubInterface& gnmi_stub) {
 }
 
 absl::StatusOr<absl::flat_hash_map<std::string, int>>
-GetInterfaceToLaneSpeedMap(gnmi::gNMI::StubInterface& gnmi_stub) {
+GetInterfaceToLaneSpeedMap(gnmi::gNMI::StubInterface& gnmi_stub,
+                           absl::flat_hash_set<std::string>& interface_names) {
   // Map of Openconfig SPEED enum strings to integer speed in Kbps (this ensures
   // all speeds are divisible by 8).
   const absl::flat_hash_map<std::string, int> kOcSpeedToInt = {
@@ -1006,7 +1007,7 @@ GetInterfaceToLaneSpeedMap(gnmi::gNMI::StubInterface& gnmi_stub) {
   absl::flat_hash_map<std::string, int> interface_to_lane_speed;
   for (const auto& interface : interfaces.items()) {
     ASSIGN_OR_RETURN(json name, GetField(interface.value(), "name"));
-    if (!absl::StartsWith(name.get<std::string>(), "Ethernet")) {
+    if (!interface_names.contains(name.get<std::string>())) {
       continue;
     }
     ASSIGN_OR_RETURN(
