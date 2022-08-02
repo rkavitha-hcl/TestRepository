@@ -219,4 +219,14 @@ absl::StatusOr<p4::v1::Update> L3AdmitTableUpdate(
   return pdpi::IrUpdateToPi(ir_p4_info, ir_update);
 }
 
+absl::StatusOr<p4::v1::Update> L3AdmitAllTableUpdate(
+    const pdpi::IrP4Info& ir_p4_info, p4::v1::Update::Type type) {
+  pdpi::IrUpdate ir_update;
+  ir_update.set_type(type);
+  ir_update.mutable_table_entry()->set_table_name("l3_admit_table");
+  ir_update.mutable_table_entry()->set_priority(1);
+  ir_update.mutable_table_entry()->mutable_action()->set_name("admit_to_l3");
+  return pdpi::IrUpdateToPi(ir_p4_info, ir_update);
+}
+
 }  // namespace gpins

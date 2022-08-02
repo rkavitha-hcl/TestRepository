@@ -72,6 +72,9 @@ absl::StatusOr<p4::v1::Update> L3AdmitTableUpdate(
     const pdpi::IrP4Info& ir_p4_info, p4::v1::Update::Type type,
     const L3AdmitOptions& options);
 
+absl::StatusOr<p4::v1::Update> L3AdmitAllTableUpdate(
+    const pdpi::IrP4Info& ir_p4_info, p4::v1::Update::Type type);
+
 }  // namespace gpins
 
 #endif  // GOOGLE_TESTS_LIB_P4RT_FIXED_TABLE_PROGRAMMING_HELPER_H_
