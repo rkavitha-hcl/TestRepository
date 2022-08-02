@@ -19,6 +19,7 @@
 #include <utility>
 
 #include "absl/status/status.h"
+#include "absl/status/statusor.h"
 #include "absl/strings/str_cat.h"
 #include "absl/strings/str_format.h"
 #include "absl/strings/string_view.h"
@@ -42,6 +43,7 @@
 #include "tests/lib/p4rt_fixed_table_programming_helper.h"
 #include "tests/lib/packet_in_helper.h"
 #include "thinkit/mirror_testbed_fixture.h"
+#include "thinkit/switch.h"
 
 namespace gpins {
 namespace {
@@ -266,11 +268,31 @@ absl::Status SendUdpPacket(pdpi::P4RuntimeSession& session,
   return absl::OkStatus();
 }
 
+absl::StatusOr<std::vector<std::string>> GetNUpInterfaceIDs(
+    thinkit::Switch& device, int num_interfaces) {
+  // The test fixture pushes a new config during setup so we give the switch a
+  // few minutes to converge before failing to report no valid ports.
+  auto stop_time = absl::Now() + absl::Minutes(3);
+  absl::StatusOr<std::vector<std::string>> result;
+  do {
+    ASSIGN_OR_RETURN(auto gnmi_stub, device.CreateGnmiStub());
+    result = pins_test::GetNUpInterfacePortIds(*gnmi_stub, num_interfaces);
+  } while (!result.ok() && absl::Now() < stop_time);
+  return result;
+}
+
 }  // namespace
 
 TEST_P(L3AdmitTestFixture, L3PacketsAreRoutedOnlyWhenMacAddressIsInMyStation) {
   GetMirrorTestbed().Environment().SetTestCaseID(
       "1291adb4-810d-40b8-883c-677dab3c5f7d");
+
+  // Get SUT and control ports to test on.
+  ASSERT_OK_AND_ASSIGN(auto sut_ports,
+                       GetNUpInterfaceIDs(GetMirrorTestbed().Sut(), 1));
+  ASSERT_OK_AND_ASSIGN(
+      auto control_ports,
+      GetNUpInterfaceIDs(GetMirrorTestbed().ControlSwitch(), 1));
 
   // Punt all traffic arriving at the control switch, and collect them to verify
   // forwarding.
@@ -285,7 +307,7 @@ TEST_P(L3AdmitTestFixture, L3PacketsAreRoutedOnlyWhenMacAddressIsInMyStation) {
       .vrf_id = "vrf-1",
       .switch_mac = "00:00:00:00:00:01",
       .switch_ip = std::make_pair("10.0.0.1", 32),
-      .peer_port = "1",
+      .peer_port = sut_ports[0],
       .peer_mac = "00:00:00:00:00:02",
       .peer_ip = "fe80::2",
       .router_interface_id = "rif-1",
@@ -312,7 +334,7 @@ TEST_P(L3AdmitTestFixture, L3PacketsAreRoutedOnlyWhenMacAddressIsInMyStation) {
   const std::string kBadPayload =
       "Testing L3 forwarding. This packet should be dropped.";
   ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), ir_p4_info(),
-                          /*port_id=*/"1", kNumberOfTestPacket,
+                          control_ports[0], kNumberOfTestPacket,
                           /*dst_mac=*/"00:aa:bb:cc:cc:dd",
                           /*dst_ip=*/"10.0.0.1", kBadPayload));
 
@@ -320,7 +342,7 @@ TEST_P(L3AdmitTestFixture, L3PacketsAreRoutedOnlyWhenMacAddressIsInMyStation) {
   const std::string kGoodPayload =
       "Testing L3 forwarding. This packet should arrive to packet in.";
   ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), ir_p4_info(),
-                          /*port_id=*/"1", kNumberOfTestPacket,
+                          control_ports[0], kNumberOfTestPacket,
                           /*dst_mac=*/"00:01:02:03:04:05",
                           /*dst_ip=*/"10.0.0.1", kGoodPayload));
 
@@ -361,6 +383,12 @@ TEST_P(L3AdmitTestFixture, L3PacketsAreRoutedOnlyWhenMacAddressIsInMyStation) {
 TEST_P(L3AdmitTestFixture, L3AdmitCanUseMaskToAllowMultipleMacAddresses) {
   GetMirrorTestbed().Environment().SetTestCaseID(
       "b344fd50-7592-4adf-9601-46c92db45859");
+  // Get SUT and control ports to test on.
+  ASSERT_OK_AND_ASSIGN(auto sut_ports,
+                       GetNUpInterfaceIDs(GetMirrorTestbed().Sut(), 1));
+  ASSERT_OK_AND_ASSIGN(
+      auto control_ports,
+      GetNUpInterfaceIDs(GetMirrorTestbed().ControlSwitch(), 1));
 
   // Punt all traffic arriving at the control switch, and collect them to verify
   // forwarding.
@@ -375,7 +403,7 @@ TEST_P(L3AdmitTestFixture, L3AdmitCanUseMaskToAllowMultipleMacAddresses) {
       .vrf_id = "vrf-1",
       .switch_mac = "00:00:00:00:00:01",
       .switch_ip = std::make_pair("10.0.0.1", 32),
-      .peer_port = "1",
+      .peer_port = sut_ports[0],
       .peer_mac = "00:00:00:00:00:02",
       .peer_ip = "fe80::2",
       .router_interface_id = "rif-1",
@@ -401,7 +429,7 @@ TEST_P(L3AdmitTestFixture, L3AdmitCanUseMaskToAllowMultipleMacAddresses) {
   for (int i = 0; i < 5; ++i) {
     std::string dst_mac = absl::StrFormat("00:01:02:03:%02d:05", i);
     ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), ir_p4_info(),
-                            /*port_id=*/"1", kNumberOfTestPacket, dst_mac,
+                            control_ports[0], kNumberOfTestPacket, dst_mac,
                             /*dst_ip=*/"10.0.0.1", kGoodPayload));
   }
 
@@ -437,6 +465,13 @@ TEST_P(L3AdmitTestFixture, L3AdmitCanUseInPortToRestrictMacAddresses) {
   GetMirrorTestbed().Environment().SetTestCaseID(
       "45a1e8ac-af8d-4c89-bd5c-b76fc9113907");
 
+  // Get SUT and control ports to test on.
+  ASSERT_OK_AND_ASSIGN(auto sut_ports,
+                       GetNUpInterfaceIDs(GetMirrorTestbed().Sut(), 1));
+  ASSERT_OK_AND_ASSIGN(
+      auto control_ports,
+      GetNUpInterfaceIDs(GetMirrorTestbed().ControlSwitch(), 2));
+
   // Punt all traffic arriving at the control switch, and collect them to verify
   // forwarding.
   std::unique_ptr<PacketInHelper> packetio_control =
@@ -450,7 +485,7 @@ TEST_P(L3AdmitTestFixture, L3AdmitCanUseInPortToRestrictMacAddresses) {
       .vrf_id = "vrf-1",
       .switch_mac = "00:00:00:00:00:01",
       .switch_ip = std::make_pair("10.0.0.1", 32),
-      .peer_port = "1",
+      .peer_port = sut_ports[0],
       .peer_mac = "00:00:00:00:00:02",
       .peer_ip = "fe80::2",
       .router_interface_id = "rif-1",
@@ -466,7 +501,7 @@ TEST_P(L3AdmitTestFixture, L3AdmitCanUseInPortToRestrictMacAddresses) {
       L3AdmitOptions{
           .priority = 2070,
           .dst_mac = std ::make_pair("00:01:02:03:00:05", "FF:FF:FF:FF:F0:FF"),
-          .in_port = "2",
+          .in_port = control_ports[0],
       }));
 
   // Send 2 sets of packets to the switch. The first set of packets should not
@@ -478,7 +513,7 @@ TEST_P(L3AdmitTestFixture, L3AdmitCanUseInPortToRestrictMacAddresses) {
   const std::string kBadPayload =
       "Testing L3 forwarding. This packet should be dropped.";
   ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), ir_p4_info(),
-                          /*port_id=*/"1", kNumberOfTestPacket,
+                          control_ports[1], kNumberOfTestPacket,
                           /*dst_mac=*/"00:01:02:03:04:05",
                           /*dst_ip=*/"10.0.0.1", kBadPayload));
 
@@ -486,7 +521,7 @@ TEST_P(L3AdmitTestFixture, L3AdmitCanUseInPortToRestrictMacAddresses) {
   const std::string kGoodPayload =
       "Testing L3 forwarding. This packet should arrive to packet in.";
   ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), ir_p4_info(),
-                          /*port_id=*/"2", kNumberOfTestPacket,
+                          control_ports[0], kNumberOfTestPacket,
                           /*dst_mac=*/"00:01:02:03:04:05",
                           /*dst_ip=*/"10.0.0.1", kGoodPayload));
 
@@ -536,6 +571,11 @@ TEST_P(L3AdmitTestFixture, L3PacketsCanBeRoutedWithOnlyARouterInterface) {
   GetMirrorTestbed().Environment().SetTestCaseID(
       "2eca2ffe-6102-4a8b-87ed-425cfea41e2a");
 
+  // Only use 1 port because for the router interface L3 admit behavior to work
+  // the incomming packet needs to match the outgoing port.
+  ASSERT_OK_AND_ASSIGN(auto sut_ports,
+                       GetNUpInterfaceIDs(GetMirrorTestbed().Sut(), 1));
+
   // Punt all traffic arriving at the control switch, and collect them to verify
   // forwarding.
   std::unique_ptr<PacketInHelper> packetio_control =
@@ -550,7 +590,7 @@ TEST_P(L3AdmitTestFixture, L3PacketsCanBeRoutedWithOnlyARouterInterface) {
       .vrf_id = "vrf-1",
       .switch_mac = "00:00:00:00:00:01",
       .switch_ip = std::make_pair("10.0.0.1", 32),
-      .peer_port = "1",
+      .peer_port = sut_ports[0],
       .peer_mac = "00:00:00:00:00:02",
       .peer_ip = "fe80::2",
       .router_interface_id = "rif-1",
@@ -566,7 +606,7 @@ TEST_P(L3AdmitTestFixture, L3PacketsCanBeRoutedWithOnlyARouterInterface) {
   const std::string kGoodPayload =
       "Testing L3 forwarding. This packet should arrive to packet in.";
   ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), ir_p4_info(),
-                          /*port_id=*/"1", kNumberOfTestPacket,
+                          sut_ports[0], kNumberOfTestPacket,
                           /*dst_mac=*/"00:00:00:00:00:01",
                           /*dst_ip=*/"10.0.0.1", kGoodPayload));
 
@@ -609,6 +649,13 @@ TEST_P(L3AdmitTestFixture, L3PacketsCanBeClassifiedByDestinationMac) {
         << "Skipping because ACL_PRE_INGRESS table can not match on DST_MAC.";
   }
 
+  // Get SUT and control ports to test on.
+  ASSERT_OK_AND_ASSIGN(auto sut_ports,
+                       GetNUpInterfaceIDs(GetMirrorTestbed().Sut(), 1));
+  ASSERT_OK_AND_ASSIGN(
+      auto control_ports,
+      GetNUpInterfaceIDs(GetMirrorTestbed().ControlSwitch(), 1));
+
   // Punt all traffic arriving at the control switch, and collect them to verify
   // forwarding.
   std::unique_ptr<PacketInHelper> packetio_control =
@@ -644,7 +691,7 @@ TEST_P(L3AdmitTestFixture, L3PacketsCanBeClassifiedByDestinationMac) {
       .vrf_id = vrf_id,
       .switch_mac = "00:00:00:00:00:01",
       .switch_ip = std::make_pair("10.0.0.1", 32),
-      .peer_port = "1",
+      .peer_port = sut_ports[0],
       .peer_mac = "00:00:00:00:00:02",
       .peer_ip = "fe80::2",
       .router_interface_id = "rif-1",
@@ -663,10 +710,10 @@ TEST_P(L3AdmitTestFixture, L3PacketsCanBeClassifiedByDestinationMac) {
 
   // Send the "bad" packets first to give them the most time.
   ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), ir_p4_info(),
-                          /*port_id=*/"1", kNumberOfTestPacket, drop_dst_mac,
+                          control_ports[0], kNumberOfTestPacket, drop_dst_mac,
                           /*dst_ip=*/"10.0.0.1", kBadPayload));
   ASSERT_OK(SendUdpPacket(GetControlP4RuntimeSession(), ir_p4_info(),
-                          /*port_id=*/"1", kNumberOfTestPacket, good_dst_mac,
+                          control_ports[0], kNumberOfTestPacket, good_dst_mac,
                           /*dst_ip=*/"10.0.0.1", kGoodPayload));
 
   // Wait for all the good packets to get punted back on the control switch.
