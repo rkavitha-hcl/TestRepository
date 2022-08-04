@@ -748,6 +748,7 @@ actions {
   params {
     id: 3
     name: "router_interface_id"
+    annotations: "@refers_to(neighbor_table , router_interface_id)"
     annotations: "@refers_to(router_interface_table , router_interface_id)"
     type_name {
       name: "router_interface_id_t"

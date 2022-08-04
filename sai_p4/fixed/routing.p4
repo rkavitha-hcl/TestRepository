@@ -116,14 +116,11 @@ control routing(in headers_t headers,
   // entry.
   @id(ROUTING_MARK_FOR_P2P_TUNNEL_ENCAP_ACTION_ID)
   action mark_for_p2p_tunnel_encap(@id(1) @format(IPV6_ADDRESS)
-                              ipv6_addr_t encap_src_ip,
-                              @id(2) @format(IPV6_ADDRESS)
-                              @refers_to(neighbor_table, neighbor_id)
-                              ipv6_addr_t encap_dst_ip,
-                              @id(3)
-                              @refers_to(router_interface_table,
-                              router_interface_id)
-                              router_interface_id_t router_interface_id) {
+      ipv6_addr_t encap_src_ip, @id(2) @format(IPV6_ADDRESS) 
+      @refers_to(neighbor_table, neighbor_id) ipv6_addr_t encap_dst_ip,
+      @id(3) @refers_to(neighbor_table, router_interface_id)
+      @refers_to(router_interface_table, router_interface_id)
+      router_interface_id_t router_interface_id) {
     local_metadata.tunnel_encap_src_ipv6 = encap_src_ip;
     local_metadata.tunnel_encap_dst_ipv6 = encap_dst_ip;
     local_metadata.apply_tunnel_encap_at_egress = true;
