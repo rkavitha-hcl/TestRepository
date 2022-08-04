@@ -376,9 +376,7 @@ absl::Status AddAuxiliaryTableEntries(absl::BitGen& gen,
       "vrf_table",
       "router_interface_table",
       "neighbor_table",
-      // TODO: The tunnel_table is not currently supported by the
-      // switch.
-      // "tunnel_table",
+      "tunnel_table",
       "nexthop_table",
       "wcmp_group_table",
       "ipv4_table",
