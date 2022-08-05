@@ -47,7 +47,7 @@
 
 // -- ACL Table sizes ----------------------------------------------------------
 
-#define ACL_INGRESS_TABLE_MINIMUM_GUARANTEED_SIZE 128
+#define ACL_INGRESS_TABLE_MINIMUM_GUARANTEED_SIZE 256
 
 // Some switches allocate table sizes in powers of 2. Since GPINs (Orchagent)
 // allocates 1 extra table entry for the loopback IP, we pick the size as
