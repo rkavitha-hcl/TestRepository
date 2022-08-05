@@ -1215,8 +1215,8 @@ action_profiles {
   }
   table_ids: 33554499
   with_selector: true
-  size: 65536
-  max_group_size: 256
+  size: 12032
+  max_group_size: 512
 }
 direct_counters {
   preamble {

@@ -39,11 +39,18 @@
 // The maximum number of wcmp groups.
 #define WCMP_GROUP_TABLE_MINIMUM_GUARANTEED_SIZE 3968
 
-// The maximum sum of weights across all wcmp groups.
-#define WCMP_GROUP_SELECTOR_MAX_SUM_OF_WEIGHTS_ACROSS_ALL_GROUPS 65536
+// The size semantics for WCMP group selectors.
+#define WCMP_GROUP_SELECTOR_SIZE_SEMANTICS "SUM_OF_MEMBERS"
 
-// The maximum sum of weights for each wcmp group.
-#define WCMP_GROUP_SELECTOR_MAX_SUM_OF_WEIGHTS_PER_GROUP 256
+// The maximum sum of members across all wcmp groups.
+#define WCMP_GROUP_SELECTOR_SIZE 12032
+
+// The maximum sum of members for each wcmp group.
+#define WCMP_GROUP_SELECTOR_MAX_GROUP_SIZE 512
+
+// The max weight of an individual member when using the SUM_OF_MEMBERS size 
+// semantics.
+#define WCMP_GROUP_SELECTOR_MAX_MEMBER_WEIGHT 4096
 
 // -- ACL Table sizes ----------------------------------------------------------
 
