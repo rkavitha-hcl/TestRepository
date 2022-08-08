@@ -157,11 +157,6 @@ void TestGnmiGetAllOperation(thinkit::Switch& sut) {
   LOG(INFO) << "Received GET response: " << resp.ShortDebugString();
 }
 
-void TestGnmiCheckInterfaceStateOperation(
-    thinkit::MirrorTestbed& testbed, absl::Span<const std::string> interfaces) {
-  EXPECT_OK(PortsUp(testbed.Sut(), interfaces));
-}
-
 void TestGnmiCheckAlarms(thinkit::MirrorTestbed& testbed) {
   EXPECT_OK(NoAlarms(testbed.Sut()));
 }
