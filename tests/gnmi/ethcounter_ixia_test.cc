@@ -24,6 +24,7 @@
 
 #include <string>
 
+#include "absl/cleanup/cleanup.h"
 #include "absl/container/flat_hash_map.h"
 #include "absl/status/status.h"
 #include "absl/strings/escaping.h"
@@ -811,6 +812,13 @@ TEST_P(CountersTestFixture, TestIPv4Pkts) {
   // Set the egress port to loopback mode
   EXPECT_OK(SetLoopback(true, sut_out_interface, gnmi_stub.get()));
 
+  // Restore loopback configuration after test.
+  const auto kRestoreLoopbackConfig = absl::Cleanup([&] {
+    EXPECT_OK(
+        SetLoopback(out_initial_loopback, sut_out_interface, gnmi_stub.get()))
+        << "failed to restore initial loopback config.";
+  });
+
   ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
       generic_testbed->Sut(), GetParam().gnmi_config,
       /*timeout=*/absl::Minutes(3)));
@@ -1356,6 +1364,13 @@ TEST_P(CountersTestFixture, TestIPv6Pkts) {
 
   // Set the egress port to loopback mode
   EXPECT_OK(SetLoopback(true, sut_out_interface, gnmi_stub.get()));
+
+  // Restore loopback configuration after test.
+  const auto kRestoreLoopbackConfig = absl::Cleanup([&] {
+    EXPECT_OK(
+        SetLoopback(out_initial_loopback, sut_out_interface, gnmi_stub.get()))
+        << "failed to restore initial loopback config.";
+  });
 
   ASSERT_OK(pins_test::WaitForGnmiPortIdConvergence(
       generic_testbed->Sut(), GetParam().gnmi_config,
