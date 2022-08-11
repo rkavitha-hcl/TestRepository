@@ -16,6 +16,7 @@
 
 #include <functional>
 #include <memory>
+#include <optional>
 #include <string>
 #include <utility>
 #include <vector>
@@ -629,9 +630,10 @@ TEST(BasicTraffic, SendTraffic) {
         fake_finalizer = finalizer.get();
         return finalizer;
       });
-  EXPECT_CALL(mock_control_device, SendPacket(_, _))
-      .WillRepeatedly([&fake_finalizer](absl::string_view interface,
-                                        absl::string_view packet) {
+  EXPECT_CALL(mock_control_device, SendPacket(_, _, _))
+      .WillRepeatedly([&fake_finalizer](
+                          absl::string_view interface, absl::string_view packet,
+                          std::optional<absl::Duration> packet_delay) {
         if (fake_finalizer == nullptr) {
           return absl::FailedPreconditionError(
               "`failed_finalizer` is nullptr.");
@@ -773,9 +775,10 @@ TEST(BasicTraffic, SendTrafficTracksIncorrectlyRoutedPackets) {
         fake_finalizer = finalizer.get();
         return finalizer;
       });
-  EXPECT_CALL(mock_control_device, SendPacket(_, _))
-      .WillRepeatedly([&fake_finalizer](absl::string_view interface,
-                                        absl::string_view packet) {
+  EXPECT_CALL(mock_control_device, SendPacket(_, _, _))
+      .WillRepeatedly([&fake_finalizer](
+                          absl::string_view interface, absl::string_view packet,
+                          std::optional<absl::Duration> packet_delay) {
         if (fake_finalizer == nullptr) {
           return absl::FailedPreconditionError(
               "`failed_finalizer` is nullptr.");
@@ -898,9 +901,10 @@ TEST(BasicTraffic, SendTrafficBigPackets) {
         fake_finalizer = finalizer.get();
         return finalizer;
       });
-  EXPECT_CALL(mock_control_device, SendPacket(_, _))
-      .WillRepeatedly([&fake_finalizer](absl::string_view interface,
-                                        absl::string_view packet) {
+  EXPECT_CALL(mock_control_device, SendPacket(_, _, _))
+      .WillRepeatedly([&fake_finalizer](
+                          absl::string_view interface, absl::string_view packet,
+                          std::optional<absl::Duration> packet_delay) {
         if (fake_finalizer == nullptr) {
           return absl::FailedPreconditionError(
               "`failed_finalizer` is nullptr.");
