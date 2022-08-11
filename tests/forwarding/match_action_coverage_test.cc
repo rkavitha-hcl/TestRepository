@@ -213,10 +213,6 @@ absl::Status GenerateAndInstallEntryThatMeetsPredicate(
   // Update state.
   Update update;
   update.set_type(Update::INSERT);
-  // TODO: The switch does not currently recognize the `priority`
-  // as being part of a table entry's unique identifier. Stop clearing the
-  // priority once that is fixed.
-  entry.clear_priority();
   *update.mutable_entity()->mutable_table_entry() = entry;
   return state.ApplyUpdate(update);
 }
