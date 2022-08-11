@@ -65,6 +65,8 @@ bool IsReferring(
     const google::protobuf::RepeatedPtrField<pdpi::IrMatchFieldReference>&
         references);
 
+bool IsDisabledForFuzzing(const FuzzerConfig& config, absl::string_view name);
+
 template <typename T>
 const T& UniformFromSpan(absl::BitGen* gen, absl::Span<const T> span) {
   CHECK(!span.empty());

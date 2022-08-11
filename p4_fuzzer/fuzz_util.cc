@@ -92,12 +92,11 @@ bool IsReferring(
   return !references.empty();
 }
 
-namespace {
-
-inline bool IsDisabledForFuzzing(const FuzzerConfig& config,
-                                 absl::string_view name) {
+bool IsDisabledForFuzzing(const FuzzerConfig& config, absl::string_view name) {
   return config.disabled_fully_qualified_names.contains(name);
 }
+
+namespace {
 
 std::string FuzzPort(absl::BitGen* gen, const FuzzerConfig& config) {
   return UniformFromSpan(gen, config.ports);

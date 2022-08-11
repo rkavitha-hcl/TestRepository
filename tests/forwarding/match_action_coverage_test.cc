@@ -332,8 +332,8 @@ absl::Status AddTableEntryForEachMatchAndEachAction(
     // Print disabled actions.
     for (const pdpi::IrActionReference& action_reference :
          table.entry_actions()) {
-      if (config.disabled_fully_qualified_names.contains(
-              action_reference.action().preamble().name())) {
+      if (IsDisabledForFuzzing(config,
+                               action_reference.action().preamble().name())) {
         LOG(INFO) << absl::Substitute(
             "   -  $0: Absent due to being disabled",
             action_reference.action().preamble().alias());
@@ -343,8 +343,7 @@ absl::Status AddTableEntryForEachMatchAndEachAction(
 
   // Print disabled tables.
   for (const auto& [name, table] : config.info.tables_by_name()) {
-    if (config.disabled_fully_qualified_names.contains(
-            table.preamble().name())) {
+    if (IsDisabledForFuzzing(config, table.preamble().name())) {
       LOG(INFO) << absl::Substitute(
           "No entries installed into table '$0' because it was disabled.",
           table.preamble().alias());
@@ -380,10 +379,17 @@ absl::Status AddAuxiliaryTableEntries(absl::BitGen& gen,
   };
 
   for (const auto& table_name : kOrderedTablesToInsertEntriesInto) {
-    LOG(INFO) << absl::StrCat("Adding auxiliary entry to ", table_name);
     ASSIGN_OR_RETURN(
         const pdpi::IrTableDefinition& table,
         gutil::FindOrStatus(config.info.tables_by_name(), table_name));
+
+    if (IsDisabledForFuzzing(config, table.preamble().name())) {
+      LOG(INFO) << absl::StrCat(table_name,
+                                " was skipped due to being disabled.");
+      continue;
+    }
+
+    LOG(INFO) << absl::StrCat("Adding auxiliary entry to ", table_name);
     RETURN_IF_ERROR(GenerateAndInstallEntryThatMeetsPredicate(
                         gen, session, config, state, environment, table,
                         /*predicate=*/[](auto&) { return true; }))
