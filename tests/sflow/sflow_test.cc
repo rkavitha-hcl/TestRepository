@@ -21,6 +21,7 @@
 #include <utility>
 #include <vector>
 
+#include "absl/container/flat_hash_set.h"
 #include "absl/status/status.h"
 #include "absl/status/statusor.h"
 #include "absl/strings/numbers.h"
@@ -52,6 +53,7 @@
 #include "tests/forwarding/util.h"
 #include "tests/lib/p4rt_fixed_table_programming_helper.h"
 #include "tests/lib/switch_test_setup_helpers.h"
+#include "tests/qos/gnmi_parsers.h"
 #include "thinkit/generic_testbed.h"
 #include "thinkit/ssh_client.h"
 
@@ -604,6 +606,32 @@ struct SflowResult {
   }
 };
 
+absl::StatusOr<std::string> GenerateSflowConfig(
+    thinkit::GenericTestbed* testbed, const std::string& gnmi_config) {
+  ASSIGN_OR_RETURN(auto loopback_ipv6,
+                   pins_test::ParseLoopbackIpv6s(gnmi_config));
+
+  if (loopback_ipv6.empty()) {
+    return absl::FailedPreconditionError(absl::Substitute(
+        "No loopback IP found for $0 testbed.", testbed->Sut().ChassisName()));
+  }
+
+  absl::flat_hash_map<std::string, thinkit::InterfaceInfo> interface_info =
+      testbed->GetSutInterfaceInfo();
+  absl::flat_hash_set<std::string> sflow_interface_names;
+  for (const auto& [interface, info] : interface_info) {
+    if (info.interface_mode == thinkit::CONTROL_INTERFACE ||
+        info.interface_mode == thinkit::TRAFFIC_GENERATOR) {
+      sflow_interface_names.insert(interface);
+    }
+  }
+
+  return pins_test::AppendSflowConfigIfNotPresent(
+      gnmi_config, loopback_ipv6[0].ToString(),
+      /*collector_addresses=*/{{"127.0.0.1", 6343}}, sflow_interface_names,
+      kSamplingRateInterval, kSampleSize);
+}
+
 }  // namespace
 
 void SflowTestFixture::SetUp() {
@@ -619,14 +647,19 @@ void SflowTestFixture::SetUp() {
       testbed_,
       GetParam().testbed_interface->GetTestbedWithRequirements(requirements));
 
-  const std::string gnmi_config = GetParam().gnmi_config;
-  ASSERT_OK(testbed_->Environment().StoreTestArtifact("gnmi_config.txt",
-                                                      gnmi_config));
+  const std::string& gnmi_config = GetParam().gnmi_config;
+  ASSERT_OK_AND_ASSIGN(auto gnmi_config_with_sflow,
+                       GenerateSflowConfig(testbed_.get(), gnmi_config));
+  ASSERT_OK(testbed_->Environment().StoreTestArtifact(
+      "gnmi_config_without_sflow.txt", gnmi_config));
+  ASSERT_OK(testbed_->Environment().StoreTestArtifact(
+      "gnmi_config_with_sflow.txt", gnmi_config_with_sflow));
   ASSERT_OK(testbed_->Environment().StoreTestArtifact(
       "p4info.pb.txt", GetP4Info().DebugString()));
-  ASSERT_OK_AND_ASSIGN(sut_p4_session_,
-                       pins_test::ConfigureSwitchAndReturnP4RuntimeSession(
-                           testbed_->Sut(), gnmi_config, GetP4Info()));
+  ASSERT_OK_AND_ASSIGN(
+      sut_p4_session_,
+      pins_test::ConfigureSwitchAndReturnP4RuntimeSession(
+          testbed_->Sut(), gnmi_config_with_sflow, GetP4Info()));
   ASSERT_OK_AND_ASSIGN(ir_p4_info_, pdpi::CreateIrP4Info(GetP4Info()));
 
   ASSERT_OK_AND_ASSIGN(gnmi_stub_, testbed_->Sut().CreateGnmiStub());
