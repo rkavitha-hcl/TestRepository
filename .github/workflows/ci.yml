@@ -1,9 +1,14 @@
+Bazel Build and Test Your workflow is using a version of actions/cache that is scheduled for deprecation, actions/cache@v2. Please update your workflow to use either v3 or v4 of actions/cache to avoid interruptions. Learn more: https://github.blog/changelog/2024-12-05-notice-of-upcoming-releases-and-breaking-changes-for-github-actions/#actions-cache-v1-v2-and-actions-toolkit-cache-package-closing-down
+
+
 name: "build"
+
 on:
   push:
     branches: [ main ]
   pull_request:
     branches: [ main ]
+
 jobs:
   build:
     name: Bazel Build and Test
@@ -15,10 +20,10 @@ jobs:
       BAZEL_CACHE_URL: pins-bazel-cache.onf.dev:9090
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
     - name: Mount bazel cache
-      uses: actions/cache@v2
+      uses: actions/cache@v3
       with:
         # See https://docs.bazel.build/versions/master/output_directories.html
         path: "/tmp/repo-cache"
@@ -40,4 +45,12 @@ jobs:
     # Authentication is enabled for R/W access for builds on main and branch PRs
     # Unauthenticated reads are allowed for PRs from forks
     - name: Build and Test
-      run: bazel build ...
+      run: |
+        mkdir -p /tmp/repo-cache
+        BAZEL_OPTS="--repository_cache=/tmp/repo-cache"
+        [ ! -z "$BAZEL_CACHE_USER" ] && [ ! -z "$BAZEL_CACHE_PWD" ] && \
+          AUTH="${BAZEL_CACHE_USER}:${BAZEL_CACHE_PWD}@"
+        BAZEL_OPTS+=" --remote_cache=https://${AUTH}${BAZEL_CACHE_URL}"
+        BAZEL_OPTS+=" --remote_download_minimal"
+        bazel build ${BAZEL_OPTS} //...
+        bazel test ${BAZEL_OPTS} //...
