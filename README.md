@@ -1,39 +1,29 @@
-# TestRepository
+# Dependencies:
+- Linux (tested on ubuntu)
+- Go (https://go.dev/doc/install)
+- Bazel-5.4.0+ (https://bazel.build/install)
+- Rest of the dependencies should be auto-installed on bazel run.
 
-# branch1 change1
-# Kavitha Branch1 change1
+# Compilation:
+```
+bazel build ...
+```
 
-#Divya branch11 change1
-#Divya branch11 change2
-
-# Kavitha Branch2 change1
-# Kavitha Branch3 change1
-# Kavitha Branch3 change2
-# Kavitha Branch3 change3
-# Kavitha Branch3 change4
-# Kavitha Branch3 change5
-# Kavitha Branch3 change6
-# Kavitha Branch3 change7
-# Kavitha Branch4 change1
-# Kavitha Branch4 change2
-# Kavitha Branch5 change1
-# Kavitha Branch5 change2
-# Kavitha Branch5 change3
-# Kavitha Branch5 change4
-
-# Kavitha Branch6 change1
-
-# Kavitha Branch7 change1
-
-# Divya_branch1_change1
+# Compile and Run Test:
+```
+bazel run //tests:test_name --test_strategy=exclusive --test_timeout=3600
+```
 
 
-# Divya branch51 change1
-
-# Divya branch52 change1
-
-# Divya branch53 change1
-
-# Divya branch61
-
-# bibhu_branch1
+# Debug code:
+- Install Delve (https://github.com/go-delve/delve/tree/master/Documentation/installation)
+- Compile repo in debug mode:
+```
+bazel build ... --strip=never --compilation_mode=dbg
+```
+- Run the test with dlv debugger:
+```
+dlv --wd=$PWD/tests/ exec bazel-bin/tests/test_name_/test_name -- --testbed=$PWD/testbeds/testbed.textproto
+// inside dlv; map path for debugging:
+config substitute-path external bazel-pins_ondatra/external
+```
