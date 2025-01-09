@@ -1,411 +1,168 @@
-load("@io_bazel_rules_go//go:def.bzl", "go_library")
-load("//tests:ondatra_test.bzl", "ondatra_test", "ondatra_test_suite")
+# Copyright 2024 Google LLC
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     https://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+# PINS test functions that can be run on any infrastructure that supports ThinKit.
 
 package(
     default_visibility = ["//visibility:public"],
     licenses = ["notice"],
 )
-
-
-# Ethernet Counter Tests (two switches)
-ondatra_test(
-    name = "ethcounter_sw_dual_switch_test",
-    srcs = ["ethcounter_sw_dual_switch_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_google_gopacket//:gopacket",
-        "@com_github_google_gopacket//layers",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-        "@com_github_pkg_errors//:errors",
-    ],
-)
-
-# gNMI Features: Long Stress Test
-ondatra_test(
-    name = "gnmi_long_stress_test",
-    srcs = ["gnmi_long_stress_test.go"],
-    run_timeout = "500m",
-    deps = [
-        ":gnmi_stress_helper",
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_openconfig_ondatra//:go_default_library",
-    ],
-)
-
-go_library(
-    name = "gnmi_stress_helper",
+cc_library(
+    name = "thinkit_sanity_tests",
     testonly = 1,
-    srcs = ["gnmi_helper.go"],
-    importpath = "github.com/sonic-net/sonic-mgmt/sdn_tests/pins_ondatra/tests/gnmi_stress_helper",
+    srcs = [
+        "thinkit_sanity_tests.cc",
+    ],
+    hdrs = [
+        "thinkit_sanity_tests.h",
+        "thinkit_util.h",
+    ],
     deps = [
-        "//infrastructure/testhelper",
-        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
-        "@com_github_openconfig_gnmi//value",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ygot//ygot",
-        "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_protobuf//encoding/prototext",
+        "//gutil:status",
+        "//gutil:status_matchers",
+        "//lib/gnmi:gnmi_helper",
+        "//p4_pdpi:p4_runtime_session",
+        "//lib/validator:validator_lib",
+        "//thinkit:mirror_testbed",
+        "//thinkit:ssh_client",
+        "//thinkit:switch",
+        "@com_github_gnmi//proto/gnmi:gnmi_cc_proto",
+        "@com_github_gnmi//proto/gnmi:gnmi_cc_grpc_proto",
+        "@com_github_gnoi//system:system_cc_grpc_proto",
+        "@com_github_gnoi//system:system_cc_proto",
+        "@com_github_google_glog//:glog",
+        "@com_github_grpc_grpc//:grpc++",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest",
     ],
 )
 
-# Gnoi File tests
-ondatra_test(
-    name = "gnoi_file_test",
-    srcs = ["gnoi_file_test.go"],
+cc_library(
+    name = "thinkit_gnmi_interface_util",
+    testonly = 1,
+    srcs = ["thinkit_gnmi_interface_util.cc"],
+    hdrs = ["thinkit_gnmi_interface_util.h"],
     deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_openconfig_gnoi//file:file_go_proto",
-        "@com_github_openconfig_ondatra//:go_default_library",
+        ":thinkit_gnmi_subscribe_tests",
+        "//gutil:status",
+        "//gutil:testing",
+        "//lib/gnmi:gnmi_helper",
+        "//p4_pdpi:pd",
+        "//sai_p4/instantiations/google:sai_pd_cc_proto",
+        "//thinkit:ssh_client",
+        "//thinkit:switch",
+        "@com_github_gnmi//proto/gnmi:gnmi_cc_grpc_proto",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/strings:str_format",
+        "@com_google_googletest//:gtest",
     ],
 )
 
-#lacp time-out test
-ondatra_test(
-    name = "lacp_timeout_test",
-    srcs = ["lacp_timeout_test.go"],
+cc_library(
+    name = "thinkit_gnmi_tests",
+    testonly = 1,
+    srcs = [
+        "thinkit_gnmi_interface_tests.cc",
+    ],
+    hdrs = [
+        "thinkit_gnmi_interface_tests.h",
+        "thinkit_util.h",
+    ],
     deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-        "@com_github_pkg_errors//:errors",
+        ":thinkit_gnmi_interface_util",
+        "//gutil:collections",
+        "//gutil:status_matchers",
+        "//gutil:testing",
+        "//lib/gnmi:gnmi_helper",
+        "//p4_pdpi:pd",
+        "//sai_p4/instantiations/google:instantiations",
+        "//sai_p4/instantiations/google:sai_p4info_cc",
+        "//sai_p4/instantiations/google:sai_pd_cc_proto",
+        "//thinkit:ssh_client",
+        "//thinkit:switch",
+        "@com_github_gnmi//proto/gnmi:gnmi_cc_grpc_proto",
+        "@com_github_google_glog//:glog",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_p4lang_p4runtime//:p4info_cc_proto",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest",
     ],
 )
 
-# Link event damping tests
-ondatra_test(
-    name = "link_event_damping_test",
-    srcs = ["link_event_damping_test.go"],
+cc_library(
+    name = "thinkit_gnmi_subscribe_tests",
+    testonly = 1,
+    srcs = [
+        "thinkit_gnmi_subscribe_tests.cc",
+    ],
+    hdrs = [
+        "thinkit_gnmi_subscribe_tests.h",
+        "thinkit_util.h",
+    ],
     deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-        "@com_github_openconfig_ygnmi//ygnmi",
-        "@com_github_pkg_errors//:errors",
-        "@org_golang_google_grpc//:go_default_library",
+        "//gutil:status_matchers",
+        "//lib/gnmi:gnmi_helper",
+        "//p4_pdpi:p4_runtime_session",
+        "//thinkit:ssh_client",
+        "//thinkit:switch",
+        "@com_github_gnmi//proto/gnmi:gnmi_cc_proto",
+        "@com_github_gnmi//proto/gnmi:gnmi_cc_grpc_proto",
+        "@com_github_google_glog//:glog",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_github_p4lang_p4runtime//:p4runtime_cc_grpc",
+        "@com_google_absl//absl/container:flat_hash_set",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_absl//absl/time",
+        "@com_google_googletest//:gtest",
     ],
 )
 
-#port debug test
-ondatra_test(
-    name = "port_debug_data_test",
-    srcs = ["port_debug_data_test.go"],
+cc_test(
+    name = "thinkit_gnmi_interface_util_tests",
+    srcs = ["thinkit_gnmi_interface_util_tests.cc"],
     deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-    ],
-)
-
-# Hardware Platform Component Tests
-ondatra_test(
-    name = "platforms_hardware_component_test",
-    srcs = ["platforms_hardware_component_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_openconfig_gnoi//system:system_go_proto",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-        "@com_github_openconfig_testt//:testt",
-        "@com_github_pkg_errors//:errors",
-    ],
-)
-
-#module reset test
-ondatra_test_suite(
-    name = "module_reset_test",
-    srcs = ["module_reset_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_openconfig_gnoi//system:system_go_proto",
-        "@com_github_openconfig_gnoi//types:types_go_proto",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-    ],
-)
-
-# Installation Test
-ondatra_test(
-    name = "installation_test",
-    srcs = ["installation_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
-        "@com_github_openconfig_gnoi//system:system_go_proto",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_grpc//codes",
-        "@org_golang_google_grpc//status",
-    ],
-)
-
-# Inband SW Interface Counter Tests (two switches)
-ondatra_test(
-    name = "inband_sw_interface_dual_switch_test",
-    srcs = ["inband_sw_interface_dual_switch_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_google_gopacket//:gopacket",
-        "@com_github_google_gopacket//layers",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-    ],
-)
-
-# gNMI Features: GET Modes
-ondatra_test(
-    name = "gnmi_get_modes_test",
-    srcs = ["gnmi_get_modes_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_google_go_cmp//cmp",
-        "@com_github_google_go_cmp//cmp/cmpopts",
-        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
-        "@com_github_openconfig_gnmi//value",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ygot//ygot",
-        "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_protobuf//encoding/prototext",
-        "@org_golang_google_protobuf//testing/protocmp",
-    ],
-)
-
-#Transceiver test
-ondatra_test(
-    name = "transceiver_test",
-    srcs = ["transceiver_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-        "@com_github_openconfig_ygot//ygot",
-        "@org_golang_google_grpc//:go_default_library",
-    ],
-)
-
-# Inband SW Interface Tests
-ondatra_test(
-    name = "inband_sw_interface_test",
-    srcs = ["inband_sw_interface_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-        "@com_github_openconfig_testt//:testt",
-    ],
-)
-
-# Software Platform Component Tests
-ondatra_test(
-    name = "platforms_software_component_test",
-    srcs = ["platforms_software_component_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_openconfig_gnoi//system:system_go_proto",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-        "@com_github_openconfig_testt//:testt",
-        "@com_github_pkg_errors//:errors",
-    ],
-)
-
-# Gnoi Reboot tests
-ondatra_test(
-    name = "gnoi_reboot_test",
-    srcs = ["gnoi_reboot_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
-        "@com_github_openconfig_gnoi//system:system_go_proto",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ygnmi//ygnmi",
-        "@com_github_pkg_errors//:errors",
-        "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_grpc//codes",
-        "@org_golang_google_grpc//status",
-    ],
-)
-
-# CPU Tests
-ondatra_test(
-    name = "cpu_sw_single_switch_test",
-    srcs = ["cpu_sw_single_switch_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_google_gopacket//:gopacket",
-        "@com_github_google_gopacket//layers",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-    ],
-)
-
-# Ethernet Counter Tests (single switch)
-ondatra_test(
-    name = "ethcounter_sw_single_switch_test",
-    srcs = ["ethcounter_sw_single_switch_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_google_gopacket//:gopacket",
-        "@com_github_google_gopacket//layers",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-    ],
-)
-
-# gNMI Features: GET/SET Operations
-ondatra_test(
-    name = "gnmi_set_get_test",
-    srcs = ["gnmi_set_get_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_google_go_cmp//cmp",
-        "@com_github_google_go_cmp//cmp/cmpopts",
-        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-        "@com_github_openconfig_testt//:testt",
-        "@com_github_openconfig_ygnmi//ygnmi",
-        "@com_github_openconfig_ygot//ygot",
-        "@org_golang_google_protobuf//encoding/prototext",
-        "@org_golang_x_sync//errgroup",
-        "@org_golang_google_grpc//:go_default_library",
-    ],
-)
-
-# LACP tests
-ondatra_test(
-    name = "lacp_test",
-    srcs = ["lacp_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_golang_glog//:glog",
-        "@com_github_google_go_cmp//cmp",
-        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-        "@com_github_openconfig_ygnmi//ygnmi",
-        "@com_github_pkg_errors//:errors",
-    ],
-)
-
-# gNMI Features: Stress Test
-ondatra_test(
-    name = "z_gnmi_stress_test",
-    srcs = ["gnmi_stress_test.go"],
-    run_timeout = "120m",
-    deps = [
-        ":gnmi_stress_helper",
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ygot//ygot",
-        "@org_golang_google_grpc//:go_default_library",
-    ],
-)
-
-# System paths tests
-ondatra_test(
-    name = "system_paths_test",
-    srcs = ["system_paths_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_golang_glog//:glog",
-        "@com_github_google_go_cmp//cmp",
-        "@com_github_openconfig_gnoi//system:system_go_proto",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-        "@com_github_pkg_errors//:errors",
-    ],
-)
-
-# gNMI Features: Wildcard Subscription
-ondatra_test(
-    name = "gnmi_wildcard_subscription_test",
-    srcs = ["gnmi_wildcard_subscription_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_google_go_cmp//cmp",
-        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
-        "@com_github_openconfig_gnoi//system:system_go_proto",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-        "@com_github_openconfig_ygnmi//ygnmi",
-        "@com_github_openconfig_ygot//ygot",
-        "@com_github_pkg_errors//:errors",
-    ],
-)
-
-# Management interface tests
-ondatra_test(
-    name = "mgmt_interface_test",
-    srcs = ["mgmt_interface_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ondatra//gnmi/oc",
-        "@com_github_openconfig_testt//:testt",
-    ],
-)
-
-# gNMI Features: SUBSCRIBE Modes
-ondatra_test(
-    name = "gnmi_subscribe_modes_test",
-    srcs = ["gnmi_subscribe_modes_test.go"],
-    deps = [
-        "//infrastructure/binding:pinsbind",
-        "//infrastructure/testhelper",
-        "@com_github_google_go_cmp//cmp",
-        "@com_github_google_go_cmp//cmp/cmpopts",
-        "@com_github_openconfig_gnmi//proto/gnmi:gnmi_go_proto",
-        "@com_github_openconfig_ondatra//:go_default_library",
-        "@com_github_openconfig_ondatra//gnmi",
-        "@com_github_openconfig_ygot//ygot",
-        "@org_golang_google_grpc//:go_default_library",
-        "@org_golang_google_protobuf//encoding/prototext",
+        ":thinkit_gnmi_interface_util",
+        ":thinkit_gnmi_tests",
+        "//gutil:proto_matchers",
+        "//gutil:status",
+        "//gutil:status_matchers",
+        "//thinkit:mock_ssh_client",
+        "//thinkit:mock_switch",
+        "@com_github_gnmi//proto/gnmi:gnmi_cc_proto",
+        "@com_github_gnmi//proto/gnmi:gnmi_cc_grpc_proto",
+        "@com_github_nlohmann_json//:nlohmann_json",
+        "@com_google_absl//absl/container:flat_hash_map",
+        "@com_google_absl//absl/status",
+        "@com_google_absl//absl/status:statusor",
+        "@com_google_absl//absl/strings",
+        "@com_google_googletest//:gtest_main",
+        "@com_google_protobuf//:protobuf",
     ],
 )
