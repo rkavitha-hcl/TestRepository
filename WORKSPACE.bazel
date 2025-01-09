@@ -1,4 +1,4 @@
-# Copyright 2024 Google LLC
+# Copyright 2020 Google LLC
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -12,7 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-workspace(name = "com_github_sonic_net_sonic_mgmt_sdn_tests_pins_ondatra")
+workspace(name = "com_github_google_pins_infra")
 
 # -- Load buildifier -----------------------------------------------------------
 load("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
@@ -37,9 +37,9 @@ http_archive(
     ],
 )
 
-load("pins_deps.bzl", "pins_deps")
+load("pins_infra_deps.bzl", "pins_infra_deps")
 
-pins_deps()
+pins_infra_deps()
 
 # -- Load Rules Foreign CC -----------------------------------------------------
 
@@ -51,9 +51,9 @@ rules_foreign_cc_dependencies()
 
 load("@bazel_gazelle//:deps.bzl", "gazelle_dependencies")
 load("@io_bazel_rules_go//go:deps.bzl", "go_register_toolchains", "go_rules_dependencies")
-load("//:infra_deps.bzl", "binding_deps")
+# load("//:ondatra/binding_deps.bzl", "binding_deps")
 
-binding_deps()
+# binding_deps()
 
 go_rules_dependencies()
 
@@ -68,7 +68,7 @@ load("@com_google_googleapis//:repository_rules.bzl", "switched_rules_by_languag
 switched_rules_by_language(
     name = "com_google_googleapis_imports",
     cc = True,
-    go = True,
+    go  = True,
     grpc = True,
 )
 
@@ -92,16 +92,13 @@ rules_proto_dependencies()
 
 rules_proto_toolchains()
 
+
 ### Bazel rules for many languages to compile PROTO into gRPC libraries
 http_archive(
     name = "rules_proto_grpc",
-    sha256 = "f87d885ebfd6a1bdf02b4c4ba5bf6fb333f90d54561e4d520a8413c8d1fb7beb",
-    strip_prefix = "rules_proto_grpc-4.5.0",
-    urls = ["https://github.com/rules-proto-grpc/rules_proto_grpc/archive/4.5.0.tar.gz"],
-    patch_args = ["-p1"],
-    patches = [
-        "//:bazel/patches/rules_proto_grpc.patch",
-    ],
+    sha256 = "bbe4db93499f5c9414926e46f9e35016999a4e9f6e3522482d3760dc61011070",
+    strip_prefix = "rules_proto_grpc-4.2.0",
+    urls = ["https://github.com/rules-proto-grpc/rules_proto_grpc/archive/4.2.0.tar.gz"],
 )
 
 load("@rules_proto_grpc//:repositories.bzl", "rules_proto_grpc_repos", "rules_proto_grpc_toolchains")
@@ -133,3 +130,5 @@ p4c_deps()
 load("@com_github_nelhage_rules_boost//:boost/boost.bzl", "boost_deps")
 
 boost_deps()
+
+
