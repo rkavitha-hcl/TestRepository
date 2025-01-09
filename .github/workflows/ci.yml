@@ -1,6 +1,3 @@
-Bazel Build and Test Your workflow is using a version of actions/cache that is scheduled for deprecation, actions/cache@v2. Please update your workflow to use either v3 or v4 of actions/cache to avoid interruptions. Learn more: https://github.blog/changelog/2024-12-05-notice-of-upcoming-releases-and-breaking-changes-for-github-actions/#actions-cache-v1-v2-and-actions-toolkit-cache-package-closing-down
-
-
 name: "build"
 
 on:
