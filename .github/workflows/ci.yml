@@ -2,12 +2,14 @@ name: "build"
 
 on:
   push:
-    branches: [ master ]
-  pull_request:
-    branches: [ master ]
-    path:
-      - 'sonic-mgmt/sdn_tests/**'
+    branches: [ main ]
 
+  pull_request:
+    branches: [ main ]
+    paths:
+      - 'sdn_tests/**'
+    paths-ignore:
+      - '**'  # Ignore all other paths
 jobs:
   build:
     name: Bazel Build and Test
