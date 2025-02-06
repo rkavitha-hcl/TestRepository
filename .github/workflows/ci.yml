@@ -5,8 +5,8 @@ on:
     branches: [ master ]
   pull_request:
     branches: [ master ]
-    path:
-      - 'sonic-mgmt/sdn_tests/**'
+   # path:
+    #  - 'sonic-mgmt/sdn_tests/**'
 
 jobs:
   build:
