@@ -3,9 +3,13 @@ name: "build"
 on:
   push:
     branches: [ main ]
+
   pull_request:
     branches: [ main ]
-
+    paths:
+      - 'sdn_tests/**'
+    paths-ignore:
+      - '**'  # Ignore all other paths
 jobs:
   build:
     name: Bazel Build and Test
