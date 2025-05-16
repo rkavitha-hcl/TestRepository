@@ -1,1 +1,1 @@
-print("Azure pipeline build check")
+print("Azure pipeline build check for sdn_tests folder changes")
