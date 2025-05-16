@@ -13,7 +13,7 @@ pr:
        - master
    paths:
      exclude:
-       - sdn_tests/**
+       - sonic-mgmt/sdn_tests/**
 trigger: none
 
 name: $(TeamProject)_$(Build.DefinitionName)_$(SourceBranchName)_$(Date:yyyyMMdd)$(Rev:.r)
